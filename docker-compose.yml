@@ -1,0 +1,26 @@
+# DustNote 一键部署
+# 启动：docker compose up -d --build
+# 停止：docker compose down
+# 数据：./data/dustnote.db（自动持久化）
+
+services:
+  dustnote:
+    build: .
+    container_name: dustnote
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"
+    volumes:
+      # 持久化 SQLite 数据库
+      - ./data:/app/server/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3210
+      - DB_PATH=/app/server/data/dustnote.db
+      - WEB_ORIGIN=${WEB_ORIGIN:-http://localhost}
+      - SERVER_VERSION=${SERVER_VERSION:-0.1.0}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3210/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

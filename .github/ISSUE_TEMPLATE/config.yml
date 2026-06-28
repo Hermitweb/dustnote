@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 邮件支持
+    url: mailto:hello@dustnote.app
+    about: 一般性问题与反馈
+  - name: 安全披露
+    url: mailto:security@dustnote.app
+    about: 私下报告安全漏洞（请勿在公开 Issue 提及）
+  - name: 文档
+    url: https://github.com/your-org/dustnote/blob/main/.trae/documents/
+    about: 阅读产品文档、用户手册、技术规范

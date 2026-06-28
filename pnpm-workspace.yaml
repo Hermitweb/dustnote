@@ -1,0 +1,7 @@
+packages:
+  - 'shared'
+  - 'server'
+  - 'web'
+  - 'desktop'
+  - 'mobile'
+  - 'miniprogram'

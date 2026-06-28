@@ -1,0 +1,83 @@
+/**
+ * WebSocket 客户端：监听服务端 note_changed / share_changed 广播
+ * 详见 update-strategy.md §6.3
+ */
+
+import { getDeviceId } from './device';
+import { useStore } from './store';
+
+const APP_VERSION = __APP_VERSION__;
+let ws: WebSocket | null = null;
+let reconnectTimer: number | null = null;
+
+function wsUrl(): string {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${location.host}/api/v1/sync/ws`;
+}
+
+function getAccessToken(): string | null {
+  return useStore.getState().accessToken;
+}
+
+export function startSyncWs(): void {
+  stopSyncWs();
+
+  const token = getAccessToken();
+  if (!token) return;
+
+  const url = `${wsUrl()}?token=${encodeURIComponent(token)}&v=${APP_VERSION}&platform=web&deviceId=${getDeviceId()}`;
+
+  try {
+    ws = new WebSocket(url);
+  } catch (err) {
+    console.error('WS 创建失败', err);
+    scheduleReconnect();
+    return;
+  }
+
+  ws.addEventListener('open', () => {
+    ws?.send(JSON.stringify({ type: 'subscribe', channels: ['notes', 'shares'] }));
+  });
+
+  ws.addEventListener('message', (ev) => {
+    try {
+      const msg = JSON.parse(typeof ev.data === 'string' ? ev.data : '') as { type: string; noteId?: string; shareId?: string; op?: string };
+      if (msg.type === 'note_changed' && msg.noteId) {
+        // 触发重新拉取该笔记
+        useStore.getState().loadAll().catch(() => {});
+      } else if (msg.type === 'share_changed' && msg.shareId) {
+        useStore.getState().loadAll().catch(() => {});
+      }
+    } catch {
+      /* ignore */
+    }
+  });
+
+  ws.addEventListener('close', () => {
+    scheduleReconnect();
+  });
+
+  ws.addEventListener('error', () => {
+    ws?.close();
+  });
+}
+
+function scheduleReconnect(): void {
+  if (reconnectTimer) return;
+  reconnectTimer = window.setTimeout(() => {
+    reconnectTimer = null;
+    if (getAccessToken()) startSyncWs();
+  }, 5_000);
+}
+
+export function stopSyncWs(): void {
+  if (ws) {
+    ws.onclose = null;
+    ws.close();
+    ws = null;
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}

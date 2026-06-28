@@ -1,0 +1,12 @@
+# 桌面端构建产物
+src-tauri/target/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.log
+
+# 系统
+.DS_Store
+Thumbs.db

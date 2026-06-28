@@ -1,0 +1,41 @@
+{
+  "name": "dustnote",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DustNote · 尘心笔记 - 极简跨端个人笔记系统",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel --stream dev",
+    "dev:server": "pnpm --filter @dustnote/server dev",
+    "dev:web": "pnpm --filter @dustnote/web dev",
+    "build": "pnpm -r build",
+    "build:web": "pnpm --filter @dustnote/web build",
+    "build:server": "pnpm --filter @dustnote/server build",
+    "build:desktop": "pnpm --filter @dustnote/desktop build",
+    "build:miniprogram": "pnpm --filter @dustnote/miniprogram build:weapp",
+    "build:h5": "pnpm --filter @dustnote/miniprogram build:h5",
+    "build:android": "pnpm --filter @dustnote/mobile build:android",
+    "build:ios": "pnpm --filter @dustnote/mobile build:ios",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "clean": "pnpm -r exec rm -rf dist build .turbo node_modules/.cache",
+    "audit": "pnpm audit --prod",
+    "prepare": "husky || true"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "prettier": "^3.2.0",
+    "typescript": "^5.4.0"
+  }
+}

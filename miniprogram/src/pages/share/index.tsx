@@ -1,0 +1,124 @@
+/**
+ * 访客分享查看页（公开）
+ *
+ * 该页面无需登录态，故不走 ApiClient（其会注入 Bearer token）。
+ * 直接使用 Taro.request 跨端调用：
+ *   - H5：相对路径 /api/v1/share/public/<token>，走 devServer proxy
+ *   - weapp：宿主机局域网 IP（需在开发者工具勾选「不校验合法域名」）
+ */
+import React, { useState, useEffect } from 'react';
+import { View, Text, Input } from '@tarojs/components';
+import Taro from '@tarojs/taro';
+
+const API_BASE = process.env.TARO_ENV === 'h5'
+  ? '/api/v1'
+  : 'http://192.168.15.200:3210/api/v1';
+
+export default function Share() {
+  const instance = Taro.getCurrentInstance();
+  const token = instance && instance.router && instance.router.params && instance.router.params.token;
+  const [password, setPassword] = useState('');
+  const [title, setTitle] = useState<string | null>(null);
+  const [content, setContent] = useState<string | null>(null);
+  const [needsPassword, setNeedsPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    void load('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  const load = async (pwd: string) => {
+    try {
+      const url = `${API_BASE}/share/public/${token}${pwd ? `?password=${encodeURIComponent(pwd)}` : ''}`;
+      const res = await Taro.request({ url, header: { 'X-Client-Platform': 'miniprogram' } });
+      if (res.statusCode === 401) {
+        const e = (res.data as { error?: string }).error;
+        if (e === 'password_required') {
+          setNeedsPassword(true);
+          return;
+        }
+        if (e === 'invalid_password') {
+          setError('密码错误');
+          return;
+        }
+      }
+      if (res.statusCode === 410) {
+        const errData = res.data as { message?: string };
+        setError(errData.message ? errData.message : '分享已失效');
+        return;
+      }
+      if (res.statusCode === 200) {
+        const data = res.data as { title: string; content: string };
+        setTitle(data.title);
+        setContent(data.content);
+        setNeedsPassword(false);
+        setError(null);
+      } else {
+        setError('加载失败');
+      }
+    } catch {
+      setError('网络错误');
+    }
+  };
+
+  if (!token) {
+    return (
+      <View className="empty-state">
+        <Text className="empty-state-icon">⚠️</Text>
+        <Text className="empty-state-text">无效的分享链接</Text>
+      </View>
+    );
+  }
+
+  if (needsPassword) {
+    return (
+      <View className="hero">
+        <Text className="hero-title">🔐 需要密码</Text>
+        <Input
+          className="mint-input"
+          password
+          placeholder="分享密码"
+          value={password}
+          onInput={(e) => setPassword((e.detail as { value: string }).value)}
+        />
+        <View
+          className="mint-btn mint-btn-block mt-m"
+          onClick={() => load(password)}
+        >
+          解锁
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View className="empty-state">
+        <Text className="empty-state-icon">⚠️</Text>
+        <Text className="empty-state-text">{error}</Text>
+      </View>
+    );
+  }
+
+  if (!title || !content) {
+    return (
+      <View className="loading">加载中…</View>
+    );
+  }
+
+  return (
+    <View className="page px-page">
+      <View className="share-banner" />
+      <Text className="text-xs text-muted">🌿 DustNote 分享</Text>
+      <Text className="text-lg fw-bold mt-m mb-l">{title}</Text>
+      <View className="share-content">
+        <Text style={{ whiteSpace: 'pre-wrap' }}>{content}</Text>
+      </View>
+      <View className="text-center text-xs text-muted mt-l">
+        <Text>由 DustNote 分享</Text>
+      </View>
+    </View>
+  );
+}

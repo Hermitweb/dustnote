@@ -1,0 +1,15 @@
+# MiniProgram 构建产物
+dist/
+node_modules/
+.taro/
+
+# IDE
+.idea/
+.vscode/
+
+# 微信开发者工具
+project.private.config.json
+
+# OS
+.DS_Store
+Thumbs.db

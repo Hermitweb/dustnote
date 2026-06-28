@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========== 主题变量（运行时由 theme.ts 注入）========== */
+:root {
+  --mn-bg: 247 250 247;
+  --mn-fg: 30 41 59;
+  --mn-fg-muted: 100 116 139;
+  --mn-border: 226 232 240;
+  --mn-card: 255 255 255;
+  --mn-accent: 22 163 74;
+  --mn-accent-soft: 220 252 231;
+}
+
+[data-mode='dark'] {
+  --mn-bg: 15 23 42;
+  --mn-fg: 226 232 240;
+  --mn-fg-muted: 148 163 184;
+  --mn-border: 51 65 85;
+  --mn-card: 30 41 59;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Manrope', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  background-color: rgb(var(--mn-bg));
+  color: rgb(var(--mn-fg));
+  transition: background-color 250ms ease, color 250ms ease;
+}
+
+/* Tailwind 颜色变量桥接（与 web 端 index.css 对齐，保证组件复用样式一致） */
+.bg-surface-bg { background-color: rgb(var(--mn-bg)); }
+.bg-surface-card { background-color: rgb(var(--mn-card)); }
+.bg-mint-50 { background-color: rgb(var(--mn-accent-soft) / 0.4); }
+.text-surface-fg { color: rgb(var(--mn-fg)); }
+.text-surface-muted { color: rgb(var(--mn-fg-muted)); }
+.border-surface-border { border-color: rgb(var(--mn-border)); }
+.bg-mint-600 { background-color: rgb(var(--mn-accent)); }
+.bg-mint-700 { background-color: rgb(var(--mn-accent) / 0.85); }
+.text-mint-700 { color: rgb(var(--mn-accent)); }
+.text-mint-600 { color: rgb(var(--mn-accent)); }
+.border-mint-500 { border-color: rgb(var(--mn-accent)); }
+.hover\:bg-mint-700:hover { background-color: rgb(var(--mn-accent) / 0.85); }
+.hover\:text-mint-700:hover { color: rgb(var(--mn-accent)); }
+.text-mint-300 { color: rgb(var(--mn-accent)); }
+.bg-mint-100 { background-color: rgb(var(--mn-accent-soft) / 0.6); }
+.bg-mint-900\/30 { background-color: rgb(var(--mn-accent) / 0.15); }
+
+/* Markdown 渲染样式 */
+.prose {
+  line-height: 1.7;
+}
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  font-weight: 700;
+  margin: 1em 0 0.5em;
+}
+.prose h1 { font-size: 1.875rem; }
+.prose h2 { font-size: 1.5rem; }
+.prose h3 { font-size: 1.25rem; }
+.prose p { margin: 0.5em 0; }
+.prose code {
+  background: rgb(var(--mn-border) / 0.5);
+  padding: 0.125em 0.375em;
+  border-radius: 0.25em;
+  font-size: 0.9em;
+}
+.prose pre {
+  background: rgb(var(--mn-border) / 0.4);
+  padding: 0.75em 1em;
+  border-radius: 0.5em;
+  overflow-x: auto;
+}
+.prose pre code {
+  background: transparent;
+  padding: 0;
+}
+.prose ul, .prose ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.prose li { margin: 0.25em 0; }
+.prose a { color: rgb(var(--mn-accent)); text-decoration: underline; }
+.prose blockquote {
+  border-left: 3px solid rgb(var(--mn-accent));
+  padding-left: 1em;
+  color: rgb(var(--mn-fg-muted));
+  margin: 0.75em 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

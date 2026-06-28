@@ -1,0 +1,12 @@
+node_modules
+dist
+data/*.db*
+.env
+*.log
+.git
+.github
+.trae
+.vscode
+.idea
+*.md
+!README.md

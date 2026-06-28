@@ -1,0 +1,20 @@
+# Build outputs
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/.cxx/
+*.keystore
+!debug.keystore
+
+# Metro
+.metro-health-check*
+.expo/
+
+# Node
+node_modules/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
