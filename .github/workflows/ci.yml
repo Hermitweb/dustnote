@@ -81,12 +81,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test -- --coverage
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-report
-          path: '**/coverage/'
+      - run: pnpm test
 
   audit:
     name: Security Audit
