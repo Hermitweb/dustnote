@@ -4,7 +4,7 @@
 
 ## 基础
 
-### MintNote 是免费的吗？
+### DustNote 是免费的吗？
 
 是。当前所有功能免费，无内购，无广告。
 
@@ -19,6 +19,7 @@
 ### 端到端加密是什么意思？
 
 你的笔记在**离开设备前**已经加密，服务端只保存密文，看不见明文。这意味着：
+
 - 我们**无法**读取你的笔记
 - 主密码遗忘 + 丢失恢复码 = 永久无法找回（这是设计）
 - 即便服务端被攻破，攻击者也只能得到密文
@@ -32,6 +33,7 @@
 ### 恢复码也丢了？
 
 很遗憾，无法找回。请立即：
+
 1. 重新创建一个新账户
 2. 在导入导出页导入旧账户的导出 ZIP（如果之前导出过）
 
@@ -62,6 +64,7 @@
 ### 多设备同时编辑会冲突吗？
 
 **会**，但有保护：
+
 - 系统检测到冲突会提示"远程版本更新"
 - 你可以选择"采用本地"或"采用远程"
 - **不是** Google Docs 级别实时协同（那是 v2.0 评估）
@@ -84,7 +87,7 @@ v1.x 暂不支持。v2.0 评估开放主题 API。
 
 ### 能从其他笔记应用迁过来吗？
 
-- v1.0：手动从其他应用导出为 `.md` 或 `.txt`，再导入 MintNote
+- v1.0：手动从其他应用导出为 `.md` 或 `.txt`，再导入 DustNote
 - v1.1+：计划支持 Evernote、Notion、Apple Notes 一键导入
 
 ### 导出的文件可以重新导入吗？
@@ -110,7 +113,7 @@ JSON 备份可恢复；其他格式（Markdown/HTML/PDF）为只读归档。
 
 ### 会被社工吗？
 
-不会。MintNote **永远**不会通过邮件、短信、电话联系你索要密码或恢复码。遇此类情况均为诈骗。
+不会。DustNote **永远**不会通过邮件、短信、电话联系你索要密码或恢复码。遇此类情况均为诈骗。
 
 ## 性能
 
@@ -128,7 +131,7 @@ JSON 备份可恢复；其他格式（Markdown/HTML/PDF）为只读归档。
 
 ### 怎么提建议？
 
-[hello@mintnote.app](mailto:hello@mintnote.app) 或 [GitHub Issues](https://github.com/your-org/mintnote/issues)
+[hello@dustnote.app](mailto:hello@dustnote.app) 或 [GitHub Issues](https://github.com/your-org/dustnote/issues)
 
 ### 多久回复？
 

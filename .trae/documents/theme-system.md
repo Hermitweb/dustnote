@@ -18,14 +18,14 @@
 
 ## 2. 主题总览
 
-| ID | 中文名 | 主色 | 风格定位 | 推荐场景 |
-|----|--------|------|----------|----------|
-| `mint-dawn` | 薄荷晨光 | `#A8E6CF` | 清爽自然 | 白天写作、灵感速记 |
-| `mist-blue` | 雾霭蓝调 | `#B5D8E8` | 安静理性 | 长时间阅读、深度思考 |
-| `forest-dusk` | 暮色森林 | `#7FB69E` | 沉稳内敛 | 夜间专注 |
-| `caramel` | 焦糖暖光 | `#FFD9A6` | 温暖治愈 | 秋冬、回忆类内容 |
-| `sakura` | 樱粉物语 | `#FFD3DC` | 柔和浪漫 | 个人日记、情感类 |
-| `paper` | 极简白 | `#F5F5F0` | 纯粹极简 | 文档型笔记 |
+| ID            | 中文名   | 主色      | 风格定位 | 推荐场景             |
+| ------------- | -------- | --------- | -------- | -------------------- |
+| `mint-dawn`   | 薄荷晨光 | `#A8E6CF` | 清爽自然 | 白天写作、灵感速记   |
+| `mist-blue`   | 雾霭蓝调 | `#B5D8E8` | 安静理性 | 长时间阅读、深度思考 |
+| `forest-dusk` | 暮色森林 | `#7FB69E` | 沉稳内敛 | 夜间专注             |
+| `caramel`     | 焦糖暖光 | `#FFD9A6` | 温暖治愈 | 秋冬、回忆类内容     |
+| `sakura`      | 樱粉物语 | `#FFD3DC` | 柔和浪漫 | 个人日记、情感类     |
+| `paper`       | 极简白   | `#F5F5F0` | 纯粹极简 | 文档型笔记           |
 
 > 每套主题提供 `light`（亮）和 `dark`（暗）两种变体。
 
@@ -37,65 +37,65 @@
 
 ### 3.1 颜色 Token
 
-| Token | 用途 | 浅色示例（薄荷晨光） | 深色示例（薄荷晨光） |
-|-------|------|---------------------|---------------------|
-| `--color-bg` | 页面主背景 | `#FAFCF9` | `#0F1714` |
-| `--color-bg-elevated` | 卡片 / 弹层背景 | `#FFFFFF` | `#172420` |
-| `--color-bg-sunken` | 输入框 / 凹陷区 | `#F1F6F2` | `#0A1311` |
-| `--color-text` | 主文字 | `#1F2D26` | `#E8F0EA` |
-| `--color-text-secondary` | 次要文字 | `#5C6B63` | `#9CA8A2` |
-| `--color-text-muted` | 辅助文字 | `#8B9690` | `#6A7670` |
-| `--color-border` | 描边 | `#E3EBE6` | `#26302C` |
-| `--color-primary` | 主题主色 | `#4FB783` | `#7CD4A8` |
-| `--color-primary-hover` | 主色悬浮 | `#3E9C6A` | `#92DEB7` |
-| `--color-primary-soft` | 主色淡化 | `#E8F5EE` | `#1F3329` |
-| `--color-accent` | 强调色 | `#F5A65B` | `#F5B97D` |
-| `--color-success` | 成功 | `#4FB783` | `#7CD4A8` |
-| `--color-warning` | 警告 | `#E8B86B` | `#E8C788` |
-| `--color-danger` | 危险 | `#E07B6C` | `#E89A8E` |
-| `--color-info` | 信息 | `#6FA8C7` | `#8FBDD8` |
-| `--color-overlay` | 模态遮罩 | `rgba(15,23,20,0.4)` | `rgba(0,0,0,0.6)` |
+| Token                    | 用途            | 浅色示例（薄荷晨光） | 深色示例（薄荷晨光） |
+| ------------------------ | --------------- | -------------------- | -------------------- |
+| `--color-bg`             | 页面主背景      | `#FAFCF9`            | `#0F1714`            |
+| `--color-bg-elevated`    | 卡片 / 弹层背景 | `#FFFFFF`            | `#172420`            |
+| `--color-bg-sunken`      | 输入框 / 凹陷区 | `#F1F6F2`            | `#0A1311`            |
+| `--color-text`           | 主文字          | `#1F2D26`            | `#E8F0EA`            |
+| `--color-text-secondary` | 次要文字        | `#5C6B63`            | `#9CA8A2`            |
+| `--color-text-muted`     | 辅助文字        | `#8B9690`            | `#6A7670`            |
+| `--color-border`         | 描边            | `#E3EBE6`            | `#26302C`            |
+| `--color-primary`        | 主题主色        | `#4FB783`            | `#7CD4A8`            |
+| `--color-primary-hover`  | 主色悬浮        | `#3E9C6A`            | `#92DEB7`            |
+| `--color-primary-soft`   | 主色淡化        | `#E8F5EE`            | `#1F3329`            |
+| `--color-accent`         | 强调色          | `#F5A65B`            | `#F5B97D`            |
+| `--color-success`        | 成功            | `#4FB783`            | `#7CD4A8`            |
+| `--color-warning`        | 警告            | `#E8B86B`            | `#E8C788`            |
+| `--color-danger`         | 危险            | `#E07B6C`            | `#E89A8E`            |
+| `--color-info`           | 信息            | `#6FA8C7`            | `#8FBDD8`            |
+| `--color-overlay`        | 模态遮罩        | `rgba(15,23,20,0.4)` | `rgba(0,0,0,0.6)`    |
 
 ### 3.2 排版 Token
 
-| Token | 用途 | 默认值 |
-|-------|------|--------|
-| `--font-family-display` | 标题字体 | `"Manrope", "Noto Sans SC", system-ui` |
-| `--font-family-body` | 正文字体 | `"Noto Sans SC", system-ui, sans-serif` |
-| `--font-family-mono` | 等宽字体 | `"JetBrains Mono", "Cascadia Code", monospace` |
-| `--font-size-xs` | 辅助文字 | 12px |
-| `--font-size-sm` | 次要正文 | 13px |
-| `--font-size-base` | 正文 | 15px |
-| `--font-size-lg` | 强调正文 | 17px |
-| `--font-size-xl` | 小标题 | 20px |
-| `--font-size-2xl` | 标题 | 24px |
-| `--font-size-3xl` | 大标题 | 32px |
-| `--line-height-comfortable` | 舒适密度 | 1.75 |
-| `--line-height-standard` | 标准密度 | 1.6 |
-| `--line-height-compact` | 紧凑密度 | 1.45 |
+| Token                       | 用途     | 默认值                                         |
+| --------------------------- | -------- | ---------------------------------------------- |
+| `--font-family-display`     | 标题字体 | `"Manrope", "Noto Sans SC", system-ui`         |
+| `--font-family-body`        | 正文字体 | `"Noto Sans SC", system-ui, sans-serif`        |
+| `--font-family-mono`        | 等宽字体 | `"JetBrains Mono", "Cascadia Code", monospace` |
+| `--font-size-xs`            | 辅助文字 | 12px                                           |
+| `--font-size-sm`            | 次要正文 | 13px                                           |
+| `--font-size-base`          | 正文     | 15px                                           |
+| `--font-size-lg`            | 强调正文 | 17px                                           |
+| `--font-size-xl`            | 小标题   | 20px                                           |
+| `--font-size-2xl`           | 标题     | 24px                                           |
+| `--font-size-3xl`           | 大标题   | 32px                                           |
+| `--line-height-comfortable` | 舒适密度 | 1.75                                           |
+| `--line-height-standard`    | 标准密度 | 1.6                                            |
+| `--line-height-compact`     | 紧凑密度 | 1.45                                           |
 
 ### 3.3 空间 Token
 
-| Token | 用途 | 默认值 |
-|-------|------|--------|
-| `--space-1` | 微距 | 4px |
-| `--space-2` | 小 | 8px |
-| `--space-3` | 中 | 12px |
-| `--space-4` | 标准 | 16px |
-| `--space-5` | 宽松 | 24px |
-| `--space-6` | 大 | 32px |
-| `--space-8` | 巨 | 48px |
-| `--radius-sm` | 小圆角 | 6px |
-| `--radius-md` | 卡片圆角 | 12px |
-| `--radius-lg` | 弹层圆角 | 16px |
-| `--radius-pill` | 胶囊 | 999px |
+| Token           | 用途     | 默认值 |
+| --------------- | -------- | ------ |
+| `--space-1`     | 微距     | 4px    |
+| `--space-2`     | 小       | 8px    |
+| `--space-3`     | 中       | 12px   |
+| `--space-4`     | 标准     | 16px   |
+| `--space-5`     | 宽松     | 24px   |
+| `--space-6`     | 大       | 32px   |
+| `--space-8`     | 巨       | 48px   |
+| `--radius-sm`   | 小圆角   | 6px    |
+| `--radius-md`   | 卡片圆角 | 12px   |
+| `--radius-lg`   | 弹层圆角 | 16px   |
+| `--radius-pill` | 胶囊     | 999px  |
 
 ### 3.4 阴影 Token
 
 ```css
---shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
---shadow-md: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04);
---shadow-lg: 0 1px 2px rgba(0,0,0,0.04), 0 16px 40px rgba(0,0,0,0.08);
+--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+--shadow-md: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.04);
+--shadow-lg: 0 1px 2px rgba(0, 0, 0, 0.04), 0 16px 40px rgba(0, 0, 0, 0.08);
 --shadow-focus: 0 0 0 4px var(--color-primary-soft);
 ```
 
@@ -170,7 +170,7 @@ export const mintDawn: ThemeDefinition = {
       warning: '#E8B86B',
       danger: '#E07B6C',
       info: '#6FA8C7',
-      overlay: 'rgba(15,23,20,0.4)'
+      overlay: 'rgba(15,23,20,0.4)',
     },
     dark: {
       bg: '#0F1714',
@@ -188,9 +188,9 @@ export const mintDawn: ThemeDefinition = {
       warning: '#E8C788',
       danger: '#E89A8E',
       info: '#8FBDD8',
-      overlay: 'rgba(0,0,0,0.6)'
-    }
-  }
+      overlay: 'rgba(0,0,0,0.6)',
+    },
+  },
 };
 ```
 
@@ -212,7 +212,7 @@ import { paper } from './paper';
 export const themes = [mintDawn, mistBlue, forestDusk, caramel, sakura, paper];
 
 export function applyTheme(themeId: string, mode: 'light' | 'dark' | 'auto') {
-  const theme = themes.find(t => t.id === themeId) ?? mintDawn;
+  const theme = themes.find((t) => t.id === themeId) ?? mintDawn;
   const resolvedMode = mode === 'auto' ? detectSystemMode() : mode;
   const tokens = theme.modes[resolvedMode];
   injectTokens(tokens);

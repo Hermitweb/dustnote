@@ -23,14 +23,14 @@
 
 ## 平台覆盖
 
-| 平台 | 状态 | 构建方式 | 分发 |
-|------|------|----------|------|
-| **Web** | ✅ | Vite | 静态文件 / Docker |
-| **桌面** (Tauri 2) | ✅ | `pnpm build:desktop` | .msi/.dmg/.deb 安装包 |
-| **微信小程序** | ✅ | `pnpm build:miniprogram` | 微信审核上传 |
-| **H5 移动版** | ✅ | `pnpm build:h5` | 静态文件部署 |
-| **Android** | ✅ | `pnpm build:android` | APK 分发 |
-| **iOS** | ✅ | `pnpm build:ios` | App Store |
+| 平台               | 状态 | 构建方式                 | 分发                  |
+| ------------------ | ---- | ------------------------ | --------------------- |
+| **Web**            | ✅   | Vite                     | 静态文件 / Docker     |
+| **桌面** (Tauri 2) | ✅   | `pnpm build:desktop`     | .msi/.dmg/.deb 安装包 |
+| **微信小程序**     | ✅   | `pnpm build:miniprogram` | 微信审核上传          |
+| **H5 移动版**      | ✅   | `pnpm build:h5`          | 静态文件部署          |
+| **Android**        | ✅   | `pnpm build:android`     | APK 分发              |
+| **iOS**            | ✅   | `pnpm build:ios`         | App Store             |
 
 ## 快速开始
 
@@ -105,6 +105,7 @@ dustnote/
 ## 功能
 
 ### 笔记管理
+
 - 新建、编辑、删除、回复笔记
 - 设为收藏 ⭐ / 置顶 📌 / 移动到文件夹 📁
 - Markdown 实时预览
@@ -112,23 +113,27 @@ dustnote/
 - 版本冲突检测
 
 ### 多选批量操作
+
 - 长按进入多选模式（小程序）/ 点击「选择」按钮（Web）
 - 批量移动、置顶、收藏、删除
 - 回收站批量恢复 / 彻底删除
 - 分享管理批量吊销
 
 ### 端到端加密 (E2EE)
+
 - Argon2id 派生主密钥 (m=64MB, t=3, p=4)
 - AES-256-GCM 加密每条笔记
 - 服务端零明文，数据泄露不影响安全
 - 6 位恢复码可找回主密码
 
 ### 多端同步
+
 - WebSocket 实时推送（<1s 延迟）
 - 跨设备即时同步
 - 同账号任意平台无缝衔接
 
 ### 部署管理
+
 - Web 端内置部署管理页面（顶栏 🛠️ 按钮）
 - 配置 API 地址后下载各平台免配置文件
 - 应用内设置可随时修改服务器地址
@@ -147,15 +152,15 @@ pnpm docker:up          # Docker 部署
 
 ## 技术栈
 
-| 层 | 技术 |
-|----|------|
-| 加密 | Argon2id + AES-256-GCM (@noble/hashes, Web Crypto) |
-| 前端 | React 18 + Vite 5 + Tailwind CSS 3 + Zustand |
-| 桌面 | Tauri 2 (Rust) |
-| 移动 | React Native 0.74 |
-| 小程序 | Taro 3.6 + React |
-| 后端 | Express 4 + better-sqlite3 + WebSocket (ws) |
-| 部署 | Docker + Nginx |
+| 层     | 技术                                               |
+| ------ | -------------------------------------------------- |
+| 加密   | Argon2id + AES-256-GCM (@noble/hashes, Web Crypto) |
+| 前端   | React 18 + Vite 5 + Tailwind CSS 3 + Zustand       |
+| 桌面   | Tauri 2 (Rust)                                     |
+| 移动   | React Native 0.74                                  |
+| 小程序 | Taro 3.6 + React                                   |
+| 后端   | Express 4 + better-sqlite3 + WebSocket (ws)        |
+| 部署   | Docker + Nginx                                     |
 
 ## 文档
 

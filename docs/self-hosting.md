@@ -2,15 +2,15 @@
 
 > 适用版本：v1.0.0 及以上
 
-本指南帮助你在自己的服务器上部署 MintNote。
+本指南帮助你在自己的服务器上部署 DustNote。
 
 ## 1. 部署方式
 
-| 方式 | 难度 | 适合 |
-|------|------|------|
-| Docker Compose | ⭐ | 个人服务器 / VPS |
-| 手动部署 | ⭐⭐⭐ | 自定义环境 |
-| Kubernetes | ⭐⭐⭐⭐ | 团队 / 集群 |
+| 方式           | 难度     | 适合             |
+| -------------- | -------- | ---------------- |
+| Docker Compose | ⭐       | 个人服务器 / VPS |
+| 手动部署       | ⭐⭐⭐   | 自定义环境       |
+| Kubernetes     | ⭐⭐⭐⭐ | 团队 / 集群      |
 
 ## 2. 系统要求
 
@@ -44,7 +44,7 @@ sudo apt install docker-compose-plugin
 ### 3.2 创建部署目录
 
 ```bash
-mkdir -p ~/mintnote && cd ~/mintnote
+mkdir -p ~/dustnote && cd ~/dustnote
 mkdir -p data/attachments backups
 ```
 
@@ -54,17 +54,17 @@ mkdir -p data/attachments backups
 version: '3.9'
 
 services:
-  mintnote:
-    image: ghcr.io/your-org/mintnote:latest
-    container_name: mintnote
+  dustnote:
+    image: ghcr.io/your-org/dustnote:latest
+    container_name: dustnote
     restart: unless-stopped
     ports:
-      - "3210:3210"
+      - '3210:3210'
     environment:
       - NODE_ENV=production
       - PORT=3210
       - JWT_SECRET=${JWT_SECRET}
-      - DB_PATH=/data/mintnote.db
+      - DB_PATH=/data/dustnote.db
       - WEB_ORIGIN=https://note.example.com
     volumes:
       - ./data:/data
@@ -79,23 +79,23 @@ services:
       - CHOWN
       - DAC_OVERRIDE
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3210/api/v1/health"]
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:3210/api/v1/health']
       interval: 30s
       timeout: 5s
       retries: 3
 
   nginx:
     image: nginx:alpine
-    container_name: mintnote-nginx
+    container_name: dustnote-nginx
     restart: unless-stopped
     ports:
-      - "443:443"
-      - "80:80"
+      - '443:443'
+      - '80:80'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro
     depends_on:
-      - mintnote
+      - dustnote
 ```
 
 ### 3.4 .env
@@ -146,7 +146,7 @@ http {
 
         # API 代理
         location /api/ {
-            proxy_pass http://mintnote:3210;
+            proxy_pass http://dustnote:3210;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -161,7 +161,7 @@ http {
 
         # 静态资源
         location / {
-            proxy_pass http://mintnote:3210;
+            proxy_pass http://dustnote:3210;
             proxy_set_header Host $host;
         }
     }
@@ -182,7 +182,7 @@ cp /etc/letsencrypt/live/note.example.com/privkey.pem ./certs/
 
 ```bash
 docker compose up -d
-docker compose logs -f mintnote
+docker compose logs -f dustnote
 ```
 
 访问 `https://note.example.com`，开始使用。
@@ -199,8 +199,8 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 mkdir -p $BACKUP_DIR
 
 # 备份 SQLite（安全方式）
-docker exec mintnote sqlite3 /data/mintnote.db ".backup '/data/backup.db'"
-docker cp mintnote:/data/backup.db $BACKUP_DIR/db_$TIMESTAMP.db
+docker exec dustnote sqlite3 /data/dustnote.db ".backup '/data/backup.db'"
+docker cp dustnote:/data/backup.db $BACKUP_DIR/db_$TIMESTAMP.db
 
 # 备份附件
 tar czf $BACKUP_DIR/attachments_$TIMESTAMP.tar.gz ./data/attachments/
@@ -233,7 +233,7 @@ docker compose down
 gpg --decrypt backups/full_YYYYMMDD_HHMMSS.tar.gz.gpg | tar xz
 
 # 还原
-cp db_*.db data/mintnote.db
+cp db_*.db data/dustnote.db
 cp -r attachments/* data/attachments/
 
 # 启动
@@ -243,9 +243,9 @@ docker compose up -d
 ## 5. 升级
 
 ```bash
-docker compose pull mintnote
+docker compose pull dustnote
 docker compose up -d
-docker compose logs -f mintnote
+docker compose logs -f dustnote
 ```
 
 升级前**务必**先备份。
@@ -262,6 +262,7 @@ curl https://note.example.com/api/v1/health
 ### 6.2 UptimeRobot / Uptime Kuma
 
 添加监控：
+
 - HTTPS：`https://note.example.com/api/v1/health`
 - 频率：1 分钟
 - 告警：邮件 / Webhook
@@ -278,13 +279,13 @@ curl https://note.example.com/api/v1/health
 
 ## 8. 故障排除
 
-| 现象 | 排查 |
-|------|------|
-| 502 Bad Gateway | 容器未启动：`docker compose ps` |
-| 502 持续 | 后端崩溃：`docker compose logs mintnote` |
-| 同步失败 | 检查 `WEB_ORIGIN` 是否正确 |
-| 上传 413 | `client_max_body_size` 调大 |
-| WS 断开 | Nginx 代理需配置 Upgrade 头（见 3.5） |
+| 现象            | 排查                                     |
+| --------------- | ---------------------------------------- |
+| 502 Bad Gateway | 容器未启动：`docker compose ps`          |
+| 502 持续        | 后端崩溃：`docker compose logs dustnote` |
+| 同步失败        | 检查 `WEB_ORIGIN` 是否正确               |
+| 上传 413        | `client_max_body_size` 调大              |
+| WS 断开         | Nginx 代理需配置 Upgrade 头（见 3.5）    |
 
 ## 9. 数据迁移
 

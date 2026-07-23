@@ -1,7 +1,7 @@
-# MintNote 服务状态
+# DustNote 服务状态
 
 > 自动监控：每 1 分钟检查
-> 状态页 URL：https://status.mintnote.app
+> 状态页 URL：https://status.dustnote.app
 
 ## 当前状态
 
@@ -11,13 +11,13 @@
 
 ## 系统组件
 
-| 组件 | 状态 | 描述 |
-|------|------|------|
-| Web 端 | 🟢 正常 | https://app.mintnote.app |
-| API | 🟢 正常 | https://api.mintnote.app |
-| 同步（WebSocket） | 🟢 正常 | wss://api.mintnote.app/sync/ws |
-| 分享服务 | 🟢 正常 | https://mintnote.app/s/... |
-| 静态资源 CDN | 🟢 正常 | https://cdn.mintnote.app |
+| 组件              | 状态    | 描述                           |
+| ----------------- | ------- | ------------------------------ |
+| Web 端            | 🟢 正常 | https://app.dustnote.app       |
+| API               | 🟢 正常 | https://api.dustnote.app       |
+| 同步（WebSocket） | 🟢 正常 | wss://api.dustnote.app/sync/ws |
+| 分享服务          | 🟢 正常 | https://dustnote.app/s/...     |
+| 静态资源 CDN      | 🟢 正常 | https://cdn.dustnote.app       |
 
 ## 历史事件
 
@@ -27,8 +27,8 @@ _尚无事件记录_
 
 订阅本页面可在故障时收到邮件 / Webhook / RSS 通知：
 
-- **邮件订阅**：https://status.mintnote.app/subscribe
-- **RSS**：https://status.mintnote.app/feed.rss
+- **邮件订阅**：https://status.dustnote.app/subscribe
+- **RSS**：https://status.dustnote.app/feed.rss
 - **Webhook**：支持 Slack / Discord / 飞书 / 钉钉
 
 ## SLA 承诺

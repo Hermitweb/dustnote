@@ -1,4 +1,4 @@
-# MintNote 生产上线检查单
+# DustNote 生产上线检查单
 
 > 适用版本：v1.0.0 GA
 > 使用：每次发版前必跑，逐项打勾
@@ -108,7 +108,7 @@
 - [ ] docker-compose 已在 staging 跑通
 - [ ] Nginx 反代配置（TLS 1.3 / CSP / Upgrade）已部署
 - [ ] 健康检查 `/api/v1/health` 返回 200
-- [ ] 状态页 status.mintnote.app 已配置
+- [ ] 状态页 status.dustnote.app 已配置
 - [ ] 告警通道（PagerDuty / 飞书）已测试
 - [ ] 监控（Prometheus + Grafana）已接入
 - [ ] 备份 cron 已配置
@@ -130,8 +130,8 @@
 
 ## 9. 用户支持
 
-- [ ] 反馈邮箱已配置（hello@mintnote.app）
-- [ ] 安全邮箱已配置（security@mintnote.app）
+- [ ] 反馈邮箱已配置（hello@dustnote.app）
+- [ ] 安全邮箱已配置（security@dustnote.app）
 - [ ] 邮件自动回复已设置
 - [ ] GitHub Issues 模板已配置
 - [ ] Issue 标签体系已建立
@@ -161,8 +161,8 @@
 **签字栏**
 
 | 角色 | 姓名 | 签字 | 日期 |
-|------|------|------|------|
-| 产品 | | | |
-| 技术 | | | |
-| 安全 | | | |
-| 运维 | | | |
+| ---- | ---- | ---- | ---- |
+| 产品 |      |      |      |
+| 技术 |      |      |      |
+| 安全 |      |      |      |
+| 运维 |      |      |      |
