@@ -8,32 +8,25 @@ export type TagId = string;
 export type DeviceId = string;
 export type UserId = string;
 
-/** 笔记密文包装 */
+/** 笔记密文包装（与 crypto.Ciphertext 对齐） */
 export interface EncryptedBlob {
   /** 算法版本 */
   v: number;
   /** 密钥版本（用于双版本解密迁移） */
   k: number;
-  /** AES-GCM nonce / IV */
+  /** AES-GCM nonce / IV（base64） */
   n: string;
-  /** 密文（base64） */
+  /** 密文（base64，已包含认证标签） */
   c: string;
-  /** 认证标签（base64，可内嵌 c） */
-  t?: string;
 }
 
+/** 服务端 ↔ 客户端传输的笔记密文行 */
 export interface Note {
   id: NoteId;
-  /** 服务端时间戳 */
-  serverUpdatedAt: string;
-  /** 客户端时间戳 */
-  clientUpdatedAt: string;
-  /** 标题（密文） */
-  title: EncryptedBlob;
-  /** 内容（密文） */
-  content: EncryptedBlob;
-  /** 标签名（密文列表） */
-  tags: EncryptedBlob;
+  /** 整份笔记密文（服务端存 ciphertext 列，客户端解密后得到 NotePlaintext） */
+  ciphertext: EncryptedBlob | string;
+  /** 密钥版本 */
+  keyVersion: number;
   /** 是否置顶 */
   isPinned: boolean;
   /** 是否收藏 */
@@ -42,6 +35,19 @@ export interface Note {
   deletedAt: string | null;
   /** 版本号（乐观锁） */
   version: number;
+  /** 客户端时间戳 */
+  clientUpdatedAt: string;
+  /** 服务端时间戳 */
+  serverUpdatedAt: string;
+  /** 所属文件夹 ID */
+  folderId: string | null;
+}
+
+/** 客户端内存中的笔记明文 */
+export interface NotePlaintext {
+  title: string;
+  content: string;
+  tags: string[];
 }
 
 export interface NoteMeta {
@@ -72,7 +78,13 @@ export interface Share {
 }
 
 export interface UserPreferences {
-  theme: 'mint-dawn' | 'mist-blue' | 'dusk-forest' | 'caramel-warm' | 'sakura-pink' | 'minimal-white';
+  theme:
+    | 'mint-dawn'
+    | 'mist-blue'
+    | 'dusk-forest'
+    | 'caramel-warm'
+    | 'sakura-pink'
+    | 'minimal-white';
   mode: 'light' | 'dark' | 'auto';
   font: 'system' | 'manrope' | 'lxgw';
   density: 'comfortable' | 'standard' | 'compact';

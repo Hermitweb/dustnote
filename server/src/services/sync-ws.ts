@@ -37,7 +37,7 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
       return;
     }
 
-    // 解析 token：从 query ?token=xxx 或从 Cookie mn_refresh
+    // 解析 token：从 query ?token=xxx 或从 Cookie dustnote_refresh
     const url = new URL(req.url, 'http://localhost');
     const tokenParam = url.searchParams.get('token');
     const cookieHeader = req.headers.cookie ?? '';
@@ -49,7 +49,7 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
       })
     );
 
-    const token = tokenParam ?? cookies.mn_refresh;
+    const token = tokenParam ?? cookies.dustnote_refresh;
     if (!token) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();

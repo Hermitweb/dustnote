@@ -69,13 +69,24 @@ export const KDF_PARAMS: KdfParams = {
 };
 
 export function deriveKey(password: string, salt: Uint8Array, params = KDF_PARAMS): Uint8Array {
-  return nobleArgon2id(password, salt, { m: params.m, t: params.t, p: params.p, dkLen: params.dkLen }) as Uint8Array;
+  return nobleArgon2id(password, salt, {
+    m: params.m,
+    t: params.t,
+    p: params.p,
+    dkLen: params.dkLen,
+  }) as Uint8Array;
 }
 
 // ========== HKDF-SHA256 ==========
 
 async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
-  const ck = await crypto.subtle.importKey('raw', key as BufferSource, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const ck = await crypto.subtle.importKey(
+    'raw',
+    key as BufferSource,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
   const sig = await crypto.subtle.sign('HMAC', ck, data as BufferSource);
   return new Uint8Array(sig);
 }
@@ -106,7 +117,12 @@ async function hkdfExpand(prk: Uint8Array, info: Uint8Array, length: number): Pr
 }
 
 /** HKDF-SHA256 */
-export async function hkdf(ikm: Uint8Array, salt: Uint8Array, info: string, length = 32): Promise<Uint8Array> {
+export async function hkdf(
+  ikm: Uint8Array,
+  salt: Uint8Array,
+  info: string,
+  length = 32
+): Promise<Uint8Array> {
   const prk = await hkdfExtract(salt, ikm);
   return hkdfExpand(prk, encodeUtf8(info), length);
 }
@@ -136,13 +152,24 @@ export interface Ciphertext {
 }
 
 async function importAesKey(key: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey('raw', key as BufferSource, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+  return crypto.subtle.importKey('raw', key as BufferSource, { name: 'AES-GCM' }, false, [
+    'encrypt',
+    'decrypt',
+  ]);
 }
 
-export async function encrypt(key: Uint8Array, plaintext: Uint8Array, keyVersion = 1): Promise<Ciphertext> {
+export async function encrypt(
+  key: Uint8Array,
+  plaintext: Uint8Array,
+  keyVersion = 1
+): Promise<Ciphertext> {
   const ck = await importAesKey(key);
   const nonce = randomBytes(12);
-  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce as BufferSource }, ck, plaintext as BufferSource);
+  const ct = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce as BufferSource },
+    ck,
+    plaintext as BufferSource
+  );
   return {
     v: 1,
     k: keyVersion,
@@ -155,13 +182,21 @@ export async function decrypt(key: Uint8Array, blob: Ciphertext): Promise<Uint8A
   const ck = await importAesKey(key);
   const nonce = fromBase64(blob.n);
   const ct = fromBase64(blob.c);
-  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce as BufferSource }, ck, ct as BufferSource);
+  const pt = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: nonce as BufferSource },
+    ck,
+    ct as BufferSource
+  );
   return new Uint8Array(pt);
 }
 
 // ========== 高层便捷方法（字符串）==========
 
-export async function encryptString(key: Uint8Array, plaintext: string, keyVersion = 1): Promise<Ciphertext> {
+export async function encryptString(
+  key: Uint8Array,
+  plaintext: string,
+  keyVersion = 1
+): Promise<Ciphertext> {
   return encrypt(key, encodeUtf8(plaintext), keyVersion);
 }
 
@@ -178,7 +213,8 @@ export async function decryptString(key: Uint8Array, blob: Ciphertext): Promise<
 export function generateRecoveryCode(): string {
   // 使用无符号 32 位整数（避免负数），然后取模
   const n = nobleRandomBytes(4);
-  const num = ((n[0]! & 0xff) * 0x1000000) + ((n[1]! & 0xff) * 0x10000) + ((n[2]! & 0xff) * 0x100) + (n[3]! & 0xff);
+  const num =
+    (n[0]! & 0xff) * 0x1000000 + (n[1]! & 0xff) * 0x10000 + (n[2]! & 0xff) * 0x100 + (n[3]! & 0xff);
   const code = (num % 1000000).toString().padStart(6, '0');
   return code;
 }
@@ -188,12 +224,18 @@ export function deriveRecoveryKey(code: string, salt: Uint8Array): Uint8Array {
 }
 
 /** 用 recoveryKey 包装 masterKey；服务端存 wrappedMasterKey */
-export async function wrapMasterKey(recoveryKey: Uint8Array, masterKey: Uint8Array): Promise<Ciphertext> {
+export async function wrapMasterKey(
+  recoveryKey: Uint8Array,
+  masterKey: Uint8Array
+): Promise<Ciphertext> {
   return encrypt(recoveryKey, masterKey, 1);
 }
 
 /** 用 recoveryKey 解封 masterKey */
-export async function unwrapMasterKey(recoveryKey: Uint8Array, wrapped: Ciphertext): Promise<Uint8Array> {
+export async function unwrapMasterKey(
+  recoveryKey: Uint8Array,
+  wrapped: Ciphertext
+): Promise<Uint8Array> {
   return decrypt(recoveryKey, wrapped);
 }
 

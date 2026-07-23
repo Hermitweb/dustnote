@@ -39,7 +39,8 @@ updateManifestRouter.get('/update-manifest', (req, res) => {
     return;
   }
 
-  const requestedChannel = query.data.channel ?? (headers.channel as 'stable' | 'beta' | 'canary' | 'nightly') ?? 'stable';
+  const requestedChannel =
+    query.data.channel ?? (headers.channel as 'stable' | 'beta' | 'canary' | 'nightly') ?? 'stable';
 
   const manifest = getManifestForChannel(requestedChannel, {
     clientVersion: headers.version,
@@ -56,7 +57,11 @@ updateManifestRouter.get('/update-manifest', (req, res) => {
   res.setHeader('X-Server-Version', config.serverVersion);
 
   logger.debug(
-    { deviceId: headers.deviceId.slice(0, 8), platform: headers.platform, channel: requestedChannel },
+    {
+      deviceId: headers.deviceId.slice(0, 8),
+      platform: headers.platform,
+      channel: requestedChannel,
+    },
     'update-manifest 返回'
   );
 

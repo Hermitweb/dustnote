@@ -22,11 +22,7 @@ const ClientHeadersSchema = z.object({
   deviceId: z.string().min(8).max(128),
 });
 
-export function versionCheckMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export function versionCheckMiddleware(req: Request, res: Response, next: NextFunction): void {
   // 健康检查、update-manifest、auth 公开端点跳过
   // 注意：req.path 在 app.use('/api/v1', ...) 中是相对路径
   const p = req.path;
@@ -54,7 +50,8 @@ export function versionCheckMiddleware(
   if (!parsed.success) {
     res.status(400).json({
       error: 'missing_client_headers',
-      message: '请求必须带 X-Client-Version / X-Client-Platform / X-Client-Channel / X-Client-Device-Id',
+      message:
+        '请求必须带 X-Client-Version / X-Client-Platform / X-Client-Channel / X-Client-Device-Id',
     });
     return;
   }
@@ -74,7 +71,10 @@ export function versionCheckMiddleware(
     return;
   }
 
-  if (config.forceUpdateVersion && compareSemver(parsed.data.version, config.forceUpdateVersion) < 0) {
+  if (
+    config.forceUpdateVersion &&
+    compareSemver(parsed.data.version, config.forceUpdateVersion) < 0
+  ) {
     logger.warn(
       { clientVersion: parsed.data.version, platform: parsed.data.platform },
       '强制升级（L0）：客户端版本过低'

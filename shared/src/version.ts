@@ -60,7 +60,12 @@ export function lte(a: string, b: string): boolean {
 }
 
 /** 强制更新判断 */
-export type ForceUpdateLevel = 'L0_block' | 'L1_2nd_startup' | 'L2_strong_prompt' | 'L3_soft_prompt' | null;
+export type ForceUpdateLevel =
+  | 'L0_block'
+  | 'L1_2nd_startup'
+  | 'L2_strong_prompt'
+  | 'L3_soft_prompt'
+  | null;
 
 export interface ForceUpdateParams {
   current: string;
