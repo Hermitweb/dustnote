@@ -130,6 +130,9 @@ jobs:
         run: |
           cd mobile/android
           ./gradlew assembleRelease
+
+      - name: 上传 Android APK
+        if: steps.version.outputs.CHANNEL == 'stable' || steps.version.outputs.CHANNEL == 'beta'
         uses: actions/upload-artifact@v4
         with:
           name: android-${{ steps.version.outputs.VERSION }}
