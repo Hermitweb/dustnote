@@ -22,9 +22,7 @@ describe('version', () => {
       force: null as string | null,
     };
 
-    expect(
-      shouldForceUpdate({ ...base, current: '0.9.0', force: '1.0.0' })
-    ).toBe('L0_block');
+    expect(shouldForceUpdate({ ...base, current: '0.9.0', force: '1.0.0' })).toBe('L0_block');
 
     expect(shouldForceUpdate({ ...base, current: '0.5.0', force: null })).toBe('L1_2nd_startup');
 
