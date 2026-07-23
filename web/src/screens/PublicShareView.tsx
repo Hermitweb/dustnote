@@ -25,7 +25,14 @@ type State =
   | { kind: 'loading' }
   | { kind: 'password_required' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; title: string; content: string; hasPassword: boolean; createdAt: string; expiresAt: string | null };
+  | {
+      kind: 'ready';
+      title: string;
+      content: string;
+      hasPassword: boolean;
+      createdAt: string;
+      expiresAt: string | null;
+    };
 
 export function PublicShareView({ token }: { token: string }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
@@ -40,7 +47,10 @@ export function PublicShareView({ token }: { token: string }) {
         const res = await fetch(url, {
           headers: { 'X-Client-Platform': 'web', 'X-Client-Version': '0.1.0' },
         });
-        const data = (await res.json()) as Record<string, unknown> & { error?: string; message?: string };
+        const data = (await res.json()) as Record<string, unknown> & {
+          error?: string;
+          message?: string;
+        };
 
         if (res.status === 401 && data.error === 'password_required') {
           setState({ kind: 'password_required' });
@@ -116,7 +126,9 @@ export function PublicShareView({ token }: { token: string }) {
           <h1 className="mb-4 text-center text-lg font-bold text-slate-900 dark:text-slate-100">
             此分享需要密码
           </h1>
-          <p className="mb-4 text-center text-sm text-slate-600 dark:text-slate-400">请输入分享密码以查看内容</p>
+          <p className="mb-4 text-center text-sm text-slate-600 dark:text-slate-400">
+            请输入分享密码以查看内容
+          </p>
           <input
             type="password"
             value={password}
@@ -171,10 +183,14 @@ export function PublicShareView({ token }: { token: string }) {
         </div>
 
         <article className="rounded-2xl bg-white p-8 shadow-sm dark:bg-slate-800">
-          <h1 className="mb-6 text-2xl font-bold text-slate-900 dark:text-slate-100">{state.title}</h1>
+          <h1 className="mb-6 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {state.title}
+          </h1>
           <div
             className="prose prose-sm max-w-none text-slate-700 dark:prose-invert dark:text-slate-200"
-            dangerouslySetInnerHTML={{ __html: marked.parse(state.content || '*暂无内容*') as string }}
+            dangerouslySetInnerHTML={{
+              __html: marked.parse(state.content || '*暂无内容*') as string,
+            }}
           />
         </article>
 

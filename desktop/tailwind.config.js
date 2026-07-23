@@ -32,7 +32,7 @@ export default {
         mono: ['JetBrains Mono', 'monospace'],
       },
       transitionDuration: {
-        '250': '250ms',
+        250: '250ms',
       },
     },
   },

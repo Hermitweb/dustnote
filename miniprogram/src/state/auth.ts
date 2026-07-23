@@ -33,17 +33,15 @@ const APP_VERSION = '0.1.0';
 // 根据运行环境选择 API_BASE：
 // - H5：相对路径，走 devServer proxy（见 config/index.ts）
 // - 小程序：宿主机局域网 IP + 端口（需在微信开发者工具勾选「不校验合法域名」）
-const API_BASE = process.env.TARO_ENV === 'h5'
-  ? '/api/v1'
-  : 'http://192.168.15.200:3210/api/v1';
+const API_BASE = process.env.TARO_ENV === 'h5' ? '/api/v1' : 'http://192.168.15.200:3210/api/v1';
 
 // 设备 ID：首次生成后持久化到本地存储
 let deviceId = '';
 try {
-  deviceId = Taro.getStorageSync('mn_device_id') || '';
+  deviceId = Taro.getStorageSync('dustnote_device_id') || '';
   if (!deviceId) {
     deviceId = `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-    Taro.setStorageSync('mn_device_id', deviceId);
+    Taro.setStorageSync('dustnote_device_id', deviceId);
   }
 } catch {
   deviceId = 'unknown';
@@ -81,7 +79,10 @@ export async function encryptNote(
 }
 
 /** 用 masterKey 解密信封，得到笔记明文 */
-export async function decryptNote(key: Uint8Array, envelope: NoteCipherEnvelope): Promise<NotePlaintext> {
+export async function decryptNote(
+  key: Uint8Array,
+  envelope: NoteCipherEnvelope
+): Promise<NotePlaintext> {
   if (envelope.v !== ENVELOPE_VERSION) throw new Error(`envelope version mismatch: ${envelope.v}`);
   const json = await decryptString(key, envelope.payload);
   return JSON.parse(json) as NotePlaintext;
@@ -90,12 +91,7 @@ export async function decryptNote(key: Uint8Array, envelope: NoteCipherEnvelope)
 /** 解析服务端存的密文字符串为信封对象（兼容新旧格式） */
 export function parseEnvelope(raw: string): NoteCipherEnvelope {
   const parsed = JSON.parse(raw) as unknown;
-  if (
-    typeof parsed === 'object' &&
-    parsed !== null &&
-    'v' in parsed &&
-    'payload' in parsed
-  ) {
+  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
     return parsed as NoteCipherEnvelope;
   }
   // 旧格式：直接是 Ciphertext
@@ -145,16 +141,18 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt);
     const wrapped = await wrapMasterKey(recoveryKey, masterKey);
 
-    const r = await getApi().post<{ accessToken: string; userId: string; deviceId: string; clientMasterSalt: string }>(
-      '/auth/setup',
-      {
-        password,
-        recoveryCode,
-        wrappedMasterKey: wrapped,
-        clientMasterSalt: toBase64(clientMasterSalt),
-        deviceName: '小程序',
-      }
-    );
+    const r = await getApi().post<{
+      accessToken: string;
+      userId: string;
+      deviceId: string;
+      clientMasterSalt: string;
+    }>('/auth/setup', {
+      password,
+      recoveryCode,
+      wrappedMasterKey: wrapped,
+      clientMasterSalt: toBase64(clientMasterSalt),
+      deviceName: '小程序',
+    });
 
     persistToken(r.accessToken);
     set({
@@ -168,10 +166,12 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
   async unlock(password: string): Promise<void> {
     // 用 password 登录，服务端返回 clientMasterSalt
-    const r = await getApi().post<{ accessToken: string; userId: string; deviceId: string; clientMasterSalt: string }>(
-      '/auth/unlock',
-      { password, deviceName: '小程序' }
-    );
+    const r = await getApi().post<{
+      accessToken: string;
+      userId: string;
+      deviceId: string;
+      clientMasterSalt: string;
+    }>('/auth/unlock', { password, deviceName: '小程序' });
     // 用 password + clientMasterSalt 重新派生 masterKey
     const clientMasterSalt = fromBase64(r.clientMasterSalt);
     const masterKey = await deriveMasterKey(password, clientMasterSalt);
@@ -194,7 +194,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const k = get().masterKey;
     if (k) k.fill(0);
     set({ authState: 'needs_unlock', masterKey: null, accessToken: null });
-    try { Taro.removeStorageSync('mn_access_token'); } catch { /* ignore */ }
+    try {
+      Taro.removeStorageSync('dustnote_access_token');
+    } catch {
+      /* ignore */
+    }
   },
 }));
 
@@ -216,12 +220,18 @@ export function getApi(): ApiClient {
 }
 
 function persistToken(token: string): void {
-  try { Taro.setStorageSync('mn_access_token', token); } catch { /* ignore */ }
+  try {
+    Taro.setStorageSync('dustnote_access_token', token);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const init = useAuthStore((s) => s.init);
-  React.useEffect(() => { void init(); }, [init]);
+  React.useEffect(() => {
+    void init();
+  }, [init]);
   return React.createElement(React.Fragment, null, children);
 }
 

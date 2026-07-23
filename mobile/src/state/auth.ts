@@ -26,7 +26,7 @@ import { api, setAccessToken } from '../api';
 export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked';
 
 const MASTER_KEYCHAIN_SERVICE = 'dustnote.master';
-const ACCESS_TOKEN_KEY = 'mn_access_token';
+const ACCESS_TOKEN_KEY = 'dustnote_access_token';
 
 /** 将 masterKey 以生物识别访问控制写入 keychain */
 async function cacheMasterKeyForBiometric(masterKey: Uint8Array): Promise<void> {
@@ -101,16 +101,18 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt);
     const wrapped = await wrapMasterKey(recoveryKey, masterKey);
 
-    const r = await api.post<{ accessToken: string; userId: string; deviceId: string; clientMasterSalt: string }>(
-      '/auth/setup',
-      {
-        password,
-        recoveryCode,
-        wrappedMasterKey: wrapped,
-        clientMasterSalt: toBase64(clientMasterSalt),
-        deviceName: 'Android 客户端',
-      }
-    );
+    const r = await api.post<{
+      accessToken: string;
+      userId: string;
+      deviceId: string;
+      clientMasterSalt: string;
+    }>('/auth/setup', {
+      password,
+      recoveryCode,
+      wrappedMasterKey: wrapped,
+      clientMasterSalt: toBase64(clientMasterSalt),
+      deviceName: 'Android 客户端',
+    });
 
     // 缓存 masterKey 到 keychain（生物识别保护），便于后续指纹 / 面容解锁
     await cacheMasterKeyForBiometric(masterKey);
@@ -127,10 +129,12 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   async unlock(password: string): Promise<void> {
-    const r = await api.post<{ accessToken: string; userId: string; deviceId: string; clientMasterSalt: string }>(
-      '/auth/unlock',
-      { password, deviceName: 'Android 客户端' }
-    );
+    const r = await api.post<{
+      accessToken: string;
+      userId: string;
+      deviceId: string;
+      clientMasterSalt: string;
+    }>('/auth/unlock', { password, deviceName: 'Android 客户端' });
     const clientMasterSalt = fromBase64(r.clientMasterSalt);
     const masterKey = await deriveMasterKey(password, clientMasterSalt);
 

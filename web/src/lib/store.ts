@@ -86,7 +86,13 @@ export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked
 /** 侧栏视图：全部 / 收藏 / 回收站 */
 export type ViewMode = 'all' | 'favorites' | 'trash';
 
-export type ThemeId = 'mint-dawn' | 'mist-blue' | 'dusk-forest' | 'caramel-warm' | 'sakura-pink' | 'minimal-white';
+export type ThemeId =
+  | 'mint-dawn'
+  | 'mist-blue'
+  | 'dusk-forest'
+  | 'caramel-warm'
+  | 'sakura-pink'
+  | 'minimal-white';
 export type Mode = 'light' | 'dark' | 'auto';
 
 export interface Preferences {
@@ -132,7 +138,10 @@ interface StoreState {
   // actions: data
   loadAll: () => Promise<void>;
   createNote: (folderId?: string | null) => Promise<string>;
-  updateNote: (id: string, patch: Partial<NotePlaintext> & { isPinned?: boolean; isFavorite?: boolean }) => Promise<void>;
+  updateNote: (
+    id: string,
+    patch: Partial<NotePlaintext> & { isPinned?: boolean; isFavorite?: boolean }
+  ) => Promise<void>;
   /** 移动笔记到指定文件夹（null = 移出文件夹） */
   moveNote: (id: string, folderId: string | null) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
@@ -164,7 +173,7 @@ const DEFAULT_PREFS: Preferences = {
   language: 'zh-CN',
 };
 
-const PREFS_KEY = 'mn_preferences';
+const PREFS_KEY = 'dustnote_preferences';
 
 function loadPrefs(): Preferences {
   try {
@@ -204,12 +213,7 @@ function parseEnvelope(raw: string): NoteCipherEnvelope {
   // 服务端可能把 ciphertext 存为 JSON 字符串（包含 envelope），也可能存为对象字符串
   // 兼容两种格式
   const parsed = JSON.parse(raw) as unknown;
-  if (
-    typeof parsed === 'object' &&
-    parsed !== null &&
-    'v' in parsed &&
-    'payload' in parsed
-  ) {
+  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
     return parsed as NoteCipherEnvelope;
   }
   // 旧格式：直接是 Ciphertext
@@ -256,16 +260,18 @@ export const useStore = create<StoreState>((set, get) => ({
     const recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt);
     const wrapped = await wrapMasterKey(recoveryKey, masterKey);
 
-    const r = await api().post<{ accessToken: string; userId: string; deviceId: string; clientMasterSalt: string }>(
-      '/auth/setup',
-      {
-        password,
-        recoveryCode,
-        wrappedMasterKey: wrapped,
-        clientMasterSalt: toBase64(clientMasterSalt),
-        deviceName: 'Web 浏览器',
-      }
-    );
+    const r = await api().post<{
+      accessToken: string;
+      userId: string;
+      deviceId: string;
+      clientMasterSalt: string;
+    }>('/auth/setup', {
+      password,
+      recoveryCode,
+      wrappedMasterKey: wrapped,
+      clientMasterSalt: toBase64(clientMasterSalt),
+      deviceName: 'Web 浏览器',
+    });
 
     set({
       accessToken: r.accessToken,
@@ -279,10 +285,12 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async unlock(password: string): Promise<void> {
-    const r = await api().post<{ accessToken: string; userId: string; deviceId: string; clientMasterSalt: string }>(
-      '/auth/unlock',
-      { password, deviceName: 'Web 浏览器' }
-    );
+    const r = await api().post<{
+      accessToken: string;
+      userId: string;
+      deviceId: string;
+      clientMasterSalt: string;
+    }>('/auth/unlock', { password, deviceName: 'Web 浏览器' });
     const clientMasterSalt = fromBase64(r.clientMasterSalt);
     const masterKey = await deriveMasterKey(password, clientMasterSalt);
 
@@ -302,16 +310,18 @@ export const useStore = create<StoreState>((set, get) => ({
     const newRecoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt);
     const newWrapped = await wrapMasterKey(newRecoveryKey, newMasterKey);
 
-    const r = await api().post<{ accessToken: string; userId: string; deviceId: string; clientMasterSalt: string }>(
-      '/auth/recover',
-      {
-        recoveryCode,
-        newPassword,
-        newWrappedMasterKey: newWrapped,
-        newClientMasterSalt: toBase64(newClientMasterSalt),
-        deviceName: 'Web 浏览器（恢复）',
-      }
-    );
+    const r = await api().post<{
+      accessToken: string;
+      userId: string;
+      deviceId: string;
+      clientMasterSalt: string;
+    }>('/auth/recover', {
+      recoveryCode,
+      newPassword,
+      newWrappedMasterKey: newWrapped,
+      newClientMasterSalt: toBase64(newClientMasterSalt),
+      deviceName: 'Web 浏览器（恢复）',
+    });
 
     set({
       accessToken: r.accessToken,
@@ -412,7 +422,10 @@ export const useStore = create<StoreState>((set, get) => ({
     // 解密失败的笔记禁止自动保存；只接受显式的 pin/favorite 元数据更新
     const current = get().notesPlain.get(id);
     const isCorrupt = !current;
-    if ((patch.title !== undefined || patch.content !== undefined || patch.tags !== undefined) && isCorrupt) {
+    if (
+      (patch.title !== undefined || patch.content !== undefined || patch.tags !== undefined) &&
+      isCorrupt
+    ) {
       console.warn('skip updateNote for corrupt note', id);
       return;
     }
@@ -433,7 +446,12 @@ export const useStore = create<StoreState>((set, get) => ({
     });
 
     const newNotes = new Map(get().notes);
-    newNotes.set(id, { ...note, version: r.version, serverUpdatedAt: r.serverUpdatedAt, ciphertext: cipherJson });
+    newNotes.set(id, {
+      ...note,
+      version: r.version,
+      serverUpdatedAt: r.serverUpdatedAt,
+      ciphertext: cipherJson,
+    });
     const newPlain = new Map(get().notesPlain);
     newPlain.set(id, merged);
     set({ notes: newNotes, notesPlain: newPlain });
@@ -518,7 +536,14 @@ export const useStore = create<StoreState>((set, get) => ({
     set({
       folders: [
         ...get().folders,
-        { id: r.id, name, parentId: null, icon: null, sortOrder: 0, createdAt: new Date().toISOString() },
+        {
+          id: r.id,
+          name,
+          parentId: null,
+          icon: null,
+          sortOrder: 0,
+          createdAt: new Date().toISOString(),
+        },
       ],
     });
     return r.id;
@@ -538,7 +563,9 @@ export const useStore = create<StoreState>((set, get) => ({
     if (p.theme) applyTheme(p.theme, next.mode);
     if (p.mode) applyTheme(next.theme, p.mode);
     if (p.language) void i18n.changeLanguage(p.language);
-    void api().patch('/preferences', p).catch(() => undefined);
+    void api()
+      .patch('/preferences', p)
+      .catch(() => undefined);
   },
 
   setTheme(theme: ThemeId): void {

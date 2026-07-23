@@ -68,7 +68,9 @@ export function UnlockScreen() {
             className="space-y-4"
           >
             <div>
-              <label className="mb-1 block text-xs font-medium text-surface-fg">{t('auth.unlock_password')}</label>
+              <label className="mb-1 block text-xs font-medium text-surface-fg">
+                {t('auth.unlock_password')}
+              </label>
               <input
                 type="password"
                 value={password}
@@ -78,7 +80,11 @@ export function UnlockScreen() {
                 autoComplete="current-password"
               />
             </div>
-            {error && <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">{error}</div>}
+            {error && (
+              <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                {error}
+              </div>
+            )}
             <button
               type="submit"
               disabled={!password || submitting}
@@ -106,7 +112,9 @@ export function UnlockScreen() {
             className="space-y-4"
           >
             <div>
-              <label className="mb-1 block text-xs font-medium text-surface-fg">{t('auth.recover_code')}</label>
+              <label className="mb-1 block text-xs font-medium text-surface-fg">
+                {t('auth.recover_code')}
+              </label>
               <input
                 type="text"
                 value={recoveryCode}
@@ -117,7 +125,9 @@ export function UnlockScreen() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-surface-fg">{t('auth.recover_new_password')}</label>
+              <label className="mb-1 block text-xs font-medium text-surface-fg">
+                {t('auth.recover_new_password')}
+              </label>
               <input
                 type="password"
                 value={newPassword}
@@ -125,7 +135,11 @@ export function UnlockScreen() {
                 className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm"
               />
             </div>
-            {error && <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">{error}</div>}
+            {error && (
+              <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                {error}
+              </div>
+            )}
             <button
               type="submit"
               disabled={recoveryCode.length !== 6 || newPassword.length < 8 || submitting}

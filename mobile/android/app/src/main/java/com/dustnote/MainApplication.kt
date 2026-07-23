@@ -1,4 +1,4 @@
-package com.mintnote
+package com.dustnote
 
 import android.app.Application
 import com.facebook.react.PackageList

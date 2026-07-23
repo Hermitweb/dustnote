@@ -10,13 +10,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Input, Textarea } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import {
-  getApi,
-  useAuthStore,
-  decryptNote,
-  encryptNote,
-  parseEnvelope,
-} from '../../state/auth';
+import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '../../state/auth';
 
 interface Folder {
   id: string;
@@ -89,16 +83,19 @@ export default function NoteEdit() {
     try {
       // 加密明文后提交
       const { json: cipherJson } = await encryptNote(masterKey, { title, content, tags });
-      const r = await getApi().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${cur.id}`, {
-        ciphertext: cipherJson,
-        keyVersion: 1,
-        isPinned: cur.isPinned,
-        isFavorite: cur.isFavorite,
-        clientUpdatedAt: new Date().toISOString(),
-        version: cur.version,
-      });
+      const r = await getApi().patch<{ version: number; serverUpdatedAt: string }>(
+        `/notes/${cur.id}`,
+        {
+          ciphertext: cipherJson,
+          keyVersion: 1,
+          isPinned: cur.isPinned,
+          isFavorite: cur.isFavorite,
+          clientUpdatedAt: new Date().toISOString(),
+          version: cur.version,
+        }
+      );
       // 更新本地 version，防止下次保存用旧版本号导致 409 冲突
-      setNote((prev) => prev ? { ...prev, version: r.version } : prev);
+      setNote((prev) => (prev ? { ...prev, version: r.version } : prev));
       setSaveStatus('saved');
     } catch (err: any) {
       const status = err?.err?.status;
@@ -148,7 +145,7 @@ export default function NoteEdit() {
         clientUpdatedAt: new Date().toISOString(),
         version: prevVer,
       });
-      setNote((p) => p ? { ...p, version: r.version } : p);
+      setNote((p) => (p ? { ...p, version: r.version } : p));
       Taro.showToast({ title: next ? '已置顶' : '已取消置顶', icon: 'none' });
     } catch {
       setNote({ ...cur, isPinned: !next, version: prevVer });
@@ -168,7 +165,7 @@ export default function NoteEdit() {
         clientUpdatedAt: new Date().toISOString(),
         version: prevVer,
       });
-      setNote((p) => p ? { ...p, version: r.version } : p);
+      setNote((p) => (p ? { ...p, version: r.version } : p));
       Taro.showToast({ title: next ? '已收藏' : '已取消收藏', icon: 'none' });
     } catch {
       setNote({ ...cur, isFavorite: !next, version: prevVer });
@@ -179,7 +176,12 @@ export default function NoteEdit() {
   const onDelete = async () => {
     const cur = noteRef.current;
     if (!cur) return;
-    const confirm = await Taro.showModal({ title: '删除笔记', content: '确定删除该笔记？', confirmText: '删除', confirmColor: '#E07B6C' });
+    const confirm = await Taro.showModal({
+      title: '删除笔记',
+      content: '确定删除该笔记？',
+      confirmText: '删除',
+      confirmColor: '#E07B6C',
+    });
     if (!confirm.confirm) return;
     try {
       await getApi().delete(`/notes/${cur.id}`);
@@ -201,9 +203,10 @@ export default function NoteEdit() {
         content: content || '',
       });
       // H5: 完整可访问的页面链接；weapp: 分享页路径
-      const shareUrl = process.env.TARO_ENV === 'h5'
-        ? `http://localhost:10086/#/pages/share/index?token=${r.token}`
-        : `/pages/share/index?token=${r.token}`;
+      const shareUrl =
+        process.env.TARO_ENV === 'h5'
+          ? `http://localhost:10086/#/pages/share/index?token=${r.token}`
+          : `/pages/share/index?token=${r.token}`;
       await Taro.setClipboardData({ data: shareUrl });
       Taro.showToast({ title: '分享链接已复制', icon: 'success' });
     } catch {
@@ -257,32 +260,51 @@ export default function NoteEdit() {
 
   const statusText = (() => {
     switch (saveStatus) {
-      case 'saving': return '🔄 保存中…';
-      case 'saved': return '✅ 已保存';
-      case 'error': return '⚠️ 保存失败';
-      case 'unsaved': return '✏️ 未保存';
-      default: return '';
+      case 'saving':
+        return '🔄 保存中…';
+      case 'saved':
+        return '✅ 已保存';
+      case 'error':
+        return '⚠️ 保存失败';
+      case 'unsaved':
+        return '✏️ 未保存';
+      default:
+        return '';
     }
   })();
 
   return (
     <View className="page">
       <View className="topbar">
-        <Text className="topbar-back" onClick={() => Taro.navigateBack()}>←</Text>
+        <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
+          ←
+        </Text>
         <Text className="save-indicator">{statusText}</Text>
         <View className="topbar-actions">
           <Text
             className={`icon-btn${note?.isPinned ? ' icon-btn-active' : ''}`}
             onClick={togglePinned}
-          >📌</Text>
+          >
+            📌
+          </Text>
           <Text
             className={`icon-btn${note?.isFavorite ? ' icon-btn-active' : ''}`}
             onClick={toggleFavorite}
-          >⭐</Text>
-          <Text className="icon-btn" onClick={onMoveFolder}>📁</Text>
-          <Text className="icon-btn" onClick={onShare}>🔗</Text>
-          <Text className="icon-btn" onClick={onDelete}>🗑️</Text>
-          <Text className="mint-btn mint-btn-sm" onClick={onManualSave}>保存</Text>
+          >
+            ⭐
+          </Text>
+          <Text className="icon-btn" onClick={onMoveFolder}>
+            📁
+          </Text>
+          <Text className="icon-btn" onClick={onShare}>
+            🔗
+          </Text>
+          <Text className="icon-btn" onClick={onDelete}>
+            🗑️
+          </Text>
+          <Text className="mint-btn mint-btn-sm" onClick={onManualSave}>
+            保存
+          </Text>
         </View>
       </View>
 

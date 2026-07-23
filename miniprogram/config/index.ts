@@ -45,7 +45,11 @@ export default {
     output: { filename: 'js/[name].[hash:8].js', chunkFilename: 'js/[name].[chunkhash:8].js' },
     miniCssExtractPluginOption: { ignoreOrder: true, filename: 'css/[name].[hash].css' },
     postcss: { autoprefixer: { enable: true } },
-    devServer: { port: 10086, host: '0.0.0.0', proxy: { '/api': { target: 'http://localhost:3210', changeOrigin: true } } },
+    devServer: {
+      port: 10086,
+      host: '0.0.0.0',
+      proxy: { '/api': { target: 'http://localhost:3210', changeOrigin: true } },
+    },
     // webpack 4 不识别 zod 等依赖里的 ?? 与 class field，需 babel 转译
     webpackChain(chain: any) {
       // 禁用 react-refresh，避免其 loader 在 babel 之前破坏新语法
@@ -63,7 +67,10 @@ export default {
         .options({
           cacheDirectory: true,
           presets: [
-            ['@babel/preset-env', { targets: { browsers: ['> 1%', 'last 2 versions', 'not dead'] } }],
+            [
+              '@babel/preset-env',
+              { targets: { browsers: ['> 1%', 'last 2 versions', 'not dead'] } },
+            ],
             '@babel/preset-typescript',
             ['@babel/preset-react', { runtime: 'automatic' }],
           ],

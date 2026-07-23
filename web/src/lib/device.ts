@@ -5,7 +5,7 @@
  * - 用于 update-manifest 灰度流量切分
  */
 
-const KEY = 'mn_device_id';
+const KEY = 'dustnote_device_id';
 
 function uuidv4(): string {
   // 简单实现（生产建议用 crypto.randomUUID）

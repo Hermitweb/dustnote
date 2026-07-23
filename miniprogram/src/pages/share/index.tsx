@@ -10,13 +10,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 
-const API_BASE = process.env.TARO_ENV === 'h5'
-  ? '/api/v1'
-  : 'http://192.168.15.200:3210/api/v1';
+const API_BASE = process.env.TARO_ENV === 'h5' ? '/api/v1' : 'http://192.168.15.200:3210/api/v1';
 
 export default function Share() {
   const instance = Taro.getCurrentInstance();
-  const token = instance && instance.router && instance.router.params && instance.router.params.token;
+  const token =
+    instance && instance.router && instance.router.params && instance.router.params.token;
   const [password, setPassword] = useState('');
   const [title, setTitle] = useState<string | null>(null);
   const [content, setContent] = useState<string | null>(null);
@@ -83,10 +82,7 @@ export default function Share() {
           value={password}
           onInput={(e) => setPassword((e.detail as { value: string }).value)}
         />
-        <View
-          className="mint-btn mint-btn-block mt-m"
-          onClick={() => load(password)}
-        >
+        <View className="mint-btn mint-btn-block mt-m" onClick={() => load(password)}>
           解锁
         </View>
       </View>
@@ -103,9 +99,7 @@ export default function Share() {
   }
 
   if (!title || !content) {
-    return (
-      <View className="loading">加载中…</View>
-    );
+    return <View className="loading">加载中…</View>;
   }
 
   return (

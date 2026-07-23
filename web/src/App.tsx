@@ -30,17 +30,11 @@ function App() {
   const [showShares, setShowShares] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
 
-  // 公开分享路由：/share/:token
-  const shareMatch = location.pathname.match(/^\/share\/([A-Za-z0-9_-]+)$/);
-  if (shareMatch) {
-    return <PublicShareView token={shareMatch[1]!} />;
-  }
-
   // 启动：检查状态 + 加载配置
   useEffect(() => {
     void checkStatus();
     void loadConfig();
-  }, []);
+  }, [checkStatus, loadAll]);
 
   // 应用主题
   useEffect(() => {
@@ -57,10 +51,20 @@ function App() {
       return () => stopSyncWs();
     }
     return undefined;
-  }, [authState]);
+  }, [authState, loadAll]);
+
+  // 公开分享路由：/share/:token
+  const shareMatch = location.pathname.match(/^\/share\/([A-Za-z0-9_-]+)$/);
+  if (shareMatch) {
+    return <PublicShareView token={shareMatch[1]!} />;
+  }
 
   // 强制升级
-  if (updateCheck.result && (updateCheck.result.forceLevel === 'L0_block' || updateCheck.result.forceLevel === 'L1_2nd_startup')) {
+  if (
+    updateCheck.result &&
+    (updateCheck.result.forceLevel === 'L0_block' ||
+      updateCheck.result.forceLevel === 'L1_2nd_startup')
+  ) {
     return <ForceUpdateOverlay result={updateCheck.result} />;
   }
 

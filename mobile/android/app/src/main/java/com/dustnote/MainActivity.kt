@@ -1,4 +1,4 @@
-package com.mintnote
+package com.dustnote
 
 import android.os.Bundle
 import com.facebook.react.ReactActivity
@@ -7,7 +7,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnable
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 
 class MainActivity : ReactActivity() {
-  override fun getMainComponentName(): String = "MintNote"
+  override fun getMainComponentName(): String = "DustNote"
 
   override fun createReactActivityDelegate(): ReactActivityDelegate =
     DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)

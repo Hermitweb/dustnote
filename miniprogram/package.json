@@ -18,7 +18,8 @@
     "build:jd": "taro build --type jd",
     "build:qq": "taro build --type qq",
     "build:h5": "taro build --type h5",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@dustnote/shared": "workspace:*",
@@ -60,6 +61,7 @@
     "babel-preset-taro": "^3.6.0",
     "react-refresh": "^0.14.0",
     "sass": "^1.101.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
   }
 }

@@ -50,10 +50,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={bgColor}
-      />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={bgColor} />
       <NavigationContainer
         theme={{
           dark: isDark,
@@ -82,9 +79,21 @@ export default function App() {
           )}
           {authState === 'unlocked' && (
             <>
-              <Stack.Screen name="NotesList" component={NotesListScreen} options={{ title: '🌿 DustNote' }} />
-              <Stack.Screen name="NoteEdit" component={NoteEditScreen} options={{ title: '编辑' }} />
-              <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: '设置' }} />
+              <Stack.Screen
+                name="NotesList"
+                component={NotesListScreen}
+                options={{ title: '🌿 DustNote' }}
+              />
+              <Stack.Screen
+                name="NoteEdit"
+                component={NoteEditScreen}
+                options={{ title: '编辑' }}
+              />
+              <Stack.Screen
+                name="Settings"
+                component={SettingsScreen}
+                options={{ title: '设置' }}
+              />
             </>
           )}
         </Stack.Navigator>

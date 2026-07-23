@@ -70,7 +70,7 @@ export const theme = {
 
 // ========== 主题模式 store ==========
 
-const MODE_KEY = 'mn_theme_mode';
+const MODE_KEY = 'dustnote_theme_mode';
 
 interface ThemeStoreState {
   mode: ThemeMode;

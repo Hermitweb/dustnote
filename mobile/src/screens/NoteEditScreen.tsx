@@ -5,7 +5,17 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
@@ -31,12 +41,7 @@ interface NoteEnvelope {
 /** 解析密文信封：兼容新格式 { v, payload } 与旧格式（直接是 Ciphertext） */
 function parseEnvelope(raw: string): NoteEnvelope {
   const parsed = JSON.parse(raw) as unknown;
-  if (
-    typeof parsed === 'object' &&
-    parsed !== null &&
-    'v' in parsed &&
-    'payload' in parsed
-  ) {
+  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
     return parsed as NoteEnvelope;
   }
   if (typeof parsed === 'object' && parsed !== null && 'c' in parsed && 'n' in parsed) {

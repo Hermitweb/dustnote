@@ -54,9 +54,7 @@ async function parseDocx(name: string, buf: ArrayBuffer): Promise<NotePlaintext>
     // Vite 会把动态 import 拆成独立 chunk
     mammoth = await import('mammoth');
   } catch (e) {
-    throw new Error(
-      '加载 .docx 解析器失败：请确认已安装 mammoth（pnpm add mammoth）'
-    );
+    throw new Error('加载 .docx 解析器失败：请确认已安装 mammoth（pnpm add mammoth）');
   }
   const { value: text } = await mammoth.extractRawText({ arrayBuffer: buf });
   const trimmed = text.trim();
@@ -127,7 +125,13 @@ ${markdownToHtml(content)}
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => {
-    const map: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    const map: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    };
     return map[c] ?? c;
   });
 }
@@ -157,10 +161,13 @@ function markdownToHtml(md: string): string {
   // 分隔线
   html = html.replace(/^---+$/gm, '<hr>');
   // 段落
-  html = html.split(/\n{2,}/).map((p) => {
-    if (p.match(/^<(h\d|ul|ol|li|blockquote|hr|pre)/)) return p;
-    return `<p>${p.replace(/\n/g, '<br>')}</p>`;
-  }).join('\n');
+  html = html
+    .split(/\n{2,}/)
+    .map((p) => {
+      if (p.match(/^<(h\d|ul|ol|li|blockquote|hr|pre)/)) return p;
+      return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+    })
+    .join('\n');
   return html;
 }
 

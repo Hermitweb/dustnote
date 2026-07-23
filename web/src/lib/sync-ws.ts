@@ -41,12 +41,23 @@ export function startSyncWs(): void {
 
   ws.addEventListener('message', (ev) => {
     try {
-      const msg = JSON.parse(typeof ev.data === 'string' ? ev.data : '') as { type: string; noteId?: string; shareId?: string; op?: string };
+      const msg = JSON.parse(typeof ev.data === 'string' ? ev.data : '') as {
+        type: string;
+        noteId?: string;
+        shareId?: string;
+        op?: string;
+      };
       if (msg.type === 'note_changed' && msg.noteId) {
         // 触发重新拉取该笔记
-        useStore.getState().loadAll().catch(() => {});
+        useStore
+          .getState()
+          .loadAll()
+          .catch(() => {});
       } else if (msg.type === 'share_changed' && msg.shareId) {
-        useStore.getState().loadAll().catch(() => {});
+        useStore
+          .getState()
+          .loadAll()
+          .catch(() => {});
       }
     } catch {
       /* ignore */

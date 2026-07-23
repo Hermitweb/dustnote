@@ -6,7 +6,14 @@
 
 import { useState, useRef } from 'react';
 import { useStore } from '../lib/store';
-import { parseNoteFile, exportAsMarkdown, exportAsHtml, exportAsJson, downloadBlob, detectFormat } from '../lib/io-client';
+import {
+  parseNoteFile,
+  exportAsMarkdown,
+  exportAsHtml,
+  exportAsJson,
+  downloadBlob,
+  detectFormat,
+} from '../lib/io-client';
 
 type Mode = 'main' | 'importing' | 'exporting';
 
@@ -42,7 +49,9 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         await useStore.getState().createNote(null);
         const selectedId = useStore.getState().selectedNoteId;
         if (selectedId) {
-          await useStore.getState().updateNote(selectedId, { title: pt.title, content: pt.content, tags: pt.tags });
+          await useStore
+            .getState()
+            .updateNote(selectedId, { title: pt.title, content: pt.content, tags: pt.tags });
         }
         ok++;
       } catch (err) {
@@ -73,7 +82,11 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       downloadBlob(exportAsHtml(plain.title, plain.content), `${safeTitle}-${date}.html`);
     } else {
       downloadBlob(
-        exportAsJson({ format: 'dustnote.v1', exportedAt: new Date().toISOString(), note: { title: plain.title, content: plain.content, tags: plain.tags } }),
+        exportAsJson({
+          format: 'dustnote.v1',
+          exportedAt: new Date().toISOString(),
+          note: { title: plain.title, content: plain.content, tags: plain.tags },
+        }),
         `${safeTitle}-${date}.json`
       );
     }
@@ -114,21 +127,28 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+      onClick={onClose}
+    >
       <div
         className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-surface-fg">📥📤 导入 / 导出</h2>
-          <button onClick={onClose} className="text-surface-muted hover:text-surface-fg">✕</button>
+          <button onClick={onClose} className="text-surface-muted hover:text-surface-fg">
+            ✕
+          </button>
         </div>
 
         <div className="space-y-4">
           {/* 导入 */}
           <div className="rounded-lg border border-surface-border p-3">
             <h3 className="mb-2 text-sm font-semibold text-surface-fg">导入</h3>
-            <p className="mb-2 text-xs text-surface-muted">支持 .txt / .md（.docx 暂需安装 mammoth）</p>
+            <p className="mb-2 text-xs text-surface-muted">
+              支持 .txt / .md（.docx 暂需安装 mammoth）
+            </p>
             <input
               ref={fileInput}
               type="file"
@@ -153,9 +173,27 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
             <h3 className="mb-2 text-sm font-semibold text-surface-fg">导出当前笔记</h3>
             <p className="mb-2 text-xs text-surface-muted">需先在编辑区选中一篇笔记</p>
             <div className="flex gap-2">
-              <button onClick={() => handleExport('md')} disabled={mode !== 'main'} className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50">.md</button>
-              <button onClick={() => handleExport('html')} disabled={mode !== 'main'} className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50">.html</button>
-              <button onClick={() => handleExport('json')} disabled={mode !== 'main'} className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50">.json</button>
+              <button
+                onClick={() => handleExport('md')}
+                disabled={mode !== 'main'}
+                className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
+              >
+                .md
+              </button>
+              <button
+                onClick={() => handleExport('html')}
+                disabled={mode !== 'main'}
+                className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
+              >
+                .html
+              </button>
+              <button
+                onClick={() => handleExport('json')}
+                disabled={mode !== 'main'}
+                className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
+              >
+                .json
+              </button>
             </div>
           </div>
 
@@ -173,7 +211,9 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           {(status || error) && (
-            <div className={`rounded p-2 text-xs ${error ? 'bg-red-50 text-red-600 dark:bg-red-900/30' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30'}`}>
+            <div
+              className={`rounded p-2 text-xs ${error ? 'bg-red-50 text-red-600 dark:bg-red-900/30' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30'}`}
+            >
               {error ?? status}
             </div>
           )}
