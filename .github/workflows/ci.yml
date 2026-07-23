@@ -3,8 +3,21 @@ name: CI
 on:
   push:
     branches: [main, dev]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.trae/**'
   pull_request:
     branches: [main, dev]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.trae/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   NODE_VERSION: '20'
@@ -23,6 +36,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: pnpm lint
@@ -39,6 +56,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
 
@@ -55,6 +76,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
       - run: pnpm test -- --coverage
       - uses: actions/upload-artifact@v4
@@ -92,6 +117,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/web build
       - uses: actions/upload-artifact@v4
@@ -112,6 +141,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/server build
       - uses: actions/upload-artifact@v4
