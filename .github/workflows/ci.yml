@@ -119,6 +119,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dustnote/shared build
       - run: pnpm --filter @dustnote/web build
       - uses: actions/upload-artifact@v4
         with:
@@ -144,6 +145,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dustnote/shared build
       - run: pnpm --filter @dustnote/server build
       - uses: actions/upload-artifact@v4
         with:
