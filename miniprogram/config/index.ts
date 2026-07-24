@@ -18,12 +18,15 @@ export default {
   defineConstants: {},
   copy: { patterns: [], options: {} },
   framework: 'react',
+  compiler: 'webpack5',
   compilerOptions: {
     typescript: { enable: true, tsconfigPath: 'tsconfig.json' },
     babel: { enable: true },
   },
   mini: {
     webpackChain(chain: any) {
+      // 禁用 webpackbar，避免旧版 webpackbar 5 与 webpack 5.78+ 的 ProgressPlugin 不兼容
+      chain.plugins.delete('webpackbar');
       // 让 babel-loader 处理 @dustnote/shared 中的新语法（数字分隔符等）
       const scriptRule = chain.module.rules.get('script');
       if (scriptRule) {
@@ -50,10 +53,12 @@ export default {
       host: '0.0.0.0',
       proxy: { '/api': { target: 'http://localhost:3210', changeOrigin: true } },
     },
-    // webpack 4 不识别 zod 等依赖里的 ?? 与 class field，需 babel 转译
+    // 目标浏览器不识别 zod 等依赖里的 ?? 与 class field，需 babel 转译
     webpackChain(chain: any) {
       // 禁用 react-refresh，避免其 loader 在 babel 之前破坏新语法
       chain.plugins.delete('reactRefresh');
+      // 禁用 webpackbar，避免旧版 webpackbar 5 与 webpack 5.78+ 的 ProgressPlugin 不兼容
+      chain.plugins.delete('webpackbar');
       chain.module
         .rule('h5script')
         .test(/\.(js|jsx|ts|tsx)$/)
