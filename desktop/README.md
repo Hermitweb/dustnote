@@ -40,12 +40,12 @@ pnpm build
 
 ## 打包产物
 
-| 平台 | 输出 |
-|------|------|
-| Windows | `src-tauri/target/release/bundle/msi/DustNote_0.1.0_x64_en-US.msi` |
-| macOS | `src-tauri/target/release/bundle/macos/DustNote.app` |
-| macOS（ARM）| `src-tauri/target/release/bundle/dmg/DustNote_0.1.0_aarch64.dmg` |
-| Linux | `src-tauri/target/release/bundle/deb/DustNote_0.1.0_amd64.deb` |
+| 平台         | 输出                                                               |
+| ------------ | ------------------------------------------------------------------ |
+| Windows      | `src-tauri/target/release/bundle/msi/DustNote_0.1.0_x64_en-US.msi` |
+| macOS        | `src-tauri/target/release/bundle/macos/DustNote.app`               |
+| macOS（ARM） | `src-tauri/target/release/bundle/dmg/DustNote_0.1.0_aarch64.dmg`   |
+| Linux        | `src-tauri/target/release/bundle/deb/DustNote_0.1.0_amd64.deb`     |
 
 ## 桌面端特性
 
@@ -59,6 +59,7 @@ pnpm build
 ## 架构说明
 
 桌面端通过 `frontendDist: "../dist"` 加载 Web 端构建产物。生产环境：
+
 - Windows / macOS / Linux 各自打包对应安装包
 - API 请求通过 `X-Client-Platform: desktop` 头识别
 - masterKey 仍由用户输入，存内存

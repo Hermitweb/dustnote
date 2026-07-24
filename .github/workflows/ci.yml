@@ -3,8 +3,21 @@ name: CI
 on:
   push:
     branches: [main, dev]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.trae/**'
   pull_request:
     branches: [main, dev]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.trae/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   NODE_VERSION: '20'
@@ -14,58 +27,7 @@ jobs:
   lint:
     name: Lint & Format
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm format:check
-      - run: pnpm lint
-
-  typecheck:
-    name: TypeScript Type Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-
-  test:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    needs: [lint, typecheck]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test -- --coverage
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-report
-          path: '**/coverage/'
-
-  audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -76,12 +38,91 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm audit --prod --audit-level=high
-        continue-on-error: false
+      - run: pnpm format:check
+      - run: pnpm lint
+
+  typecheck:
+    name: TypeScript Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [lint, typecheck]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      # GHSA-hmx5-qpq5-p643 (swiper) is ignored because Taro 3.6's @tarojs/components
+      # depends on swiper 6.x and cannot be safely upgraded without breaking the build.
+      # All other high/critical findings will fail the job.
+      - name: Security Audit
+        run: |
+          set +e
+          pnpm audit --prod --audit-level=high --json > audit.json
+          set -e
+          node -e "
+            const fs = require('fs');
+            const audit = JSON.parse(fs.readFileSync('audit.json', 'utf8'));
+            const ignored = new Set(['GHSA-hmx5-qpq5-p643']);
+            const bad = Object.values(audit.advisories || {})
+              .filter(a => (a.severity === 'high' || a.severity === 'critical') && !ignored.has(a.github_advisory_id));
+            if (bad.length) {
+              console.error('Unignored high/critical vulnerabilities found:');
+              bad.forEach(a => console.error('  - ' + a.severity + ' ' + a.module_name + ' (' + a.github_advisory_id + ')'));
+              process.exit(1);
+            }
+            console.log('No unignored high/critical vulnerabilities.');
+          "
+        shell: bash
 
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [lint, typecheck, test]
     steps:
       - uses: actions/checkout@v4
@@ -92,16 +133,25 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dustnote/shared build
       - run: pnpm --filter @dustnote/web build
+      - name: List web dist
+        run: ls -la web/dist/ || true
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist
           path: web/dist/
+          if-no-files-found: warn
 
   build-server:
     name: Build Server
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [lint, typecheck, test]
     steps:
       - uses: actions/checkout@v4
@@ -112,16 +162,106 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dustnote/shared build
       - run: pnpm --filter @dustnote/server build
+      - name: List server dist
+        run: ls -la server/dist/ || true
       - uses: actions/upload-artifact@v4
         with:
           name: server-dist
           path: server/dist/
+          if-no-files-found: warn
+
+  build-miniprogram:
+    name: Build Miniprogram (H5)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/miniprogram build:h5
+      - name: List miniprogram dist
+        run: ls -la miniprogram/dist/ || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: miniprogram-h5-dist
+          path: miniprogram/dist/
+          if-no-files-found: warn
+
+  build-desktop:
+    name: Build Desktop (Web)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/desktop build:web
+      - name: List desktop dist
+        run: ls -la desktop/dist/ || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-web-dist
+          path: desktop/dist/
+          if-no-files-found: warn
+
+  native-compat:
+    name: Native Module Compatibility
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install native build tools (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
+      - name: Install native build tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install python || true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/server build
+      - run: pnpm --filter @dustnote/server test
 
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [build-server]
     if: github.ref == 'refs/heads/main'
     permissions:

@@ -18,8 +18,8 @@ COPY server server
 COPY web web
 
 # 构建
-RUN pnpm --filter @mintnote/shared build
-RUN pnpm --filter @mintnote/server build
+RUN pnpm --filter @dustnote/shared build
+RUN pnpm --filter @dustnote/server build
 
 # ========== 运行阶段 ==========
 FROM node:20-alpine AS runtime

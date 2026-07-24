@@ -4,21 +4,22 @@
   "private": true,
   "description": "DustNote 小程序 (Taro 3 + React)",
   "scripts": {
-    "dev:weapp": "taro build --type weapp --watch",
-    "dev:swan": "taro build --type swan --watch",
-    "dev:alipay": "taro build --type alipay --watch",
-    "dev:tt": "taro build --type tt --watch",
-    "dev:jd": "taro build --type jd --watch",
-    "dev:qq": "taro build --type qq --watch",
-    "dev:h5": "taro build --type h5 --watch",
-    "build:weapp": "taro build --type weapp",
-    "build:swan": "taro build --type swan",
-    "build:alipay": "taro build --type alipay",
-    "build:tt": "taro build --type tt",
-    "build:jd": "taro build --type jd",
-    "build:qq": "taro build --type qq",
-    "build:h5": "taro build --type h5",
-    "typecheck": "tsc --noEmit"
+    "dev:weapp": "node scripts/build.js weapp --watch",
+    "dev:swan": "node scripts/build.js swan --watch",
+    "dev:alipay": "node scripts/build.js alipay --watch",
+    "dev:tt": "node scripts/build.js tt --watch",
+    "dev:jd": "node scripts/build.js jd --watch",
+    "dev:qq": "node scripts/build.js qq --watch",
+    "dev:h5": "node scripts/build.js h5 --watch",
+    "build:weapp": "node scripts/build.js weapp",
+    "build:swan": "node scripts/build.js swan",
+    "build:alipay": "node scripts/build.js alipay",
+    "build:tt": "node scripts/build.js tt",
+    "build:jd": "node scripts/build.js jd",
+    "build:qq": "node scripts/build.js qq",
+    "build:h5": "node scripts/build.js h5",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@dustnote/shared": "workspace:*",
@@ -51,8 +52,6 @@
     "@babel/preset-typescript": "^7.29.7",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.10",
     "@tarojs/cli": "^3.6.0",
-    "@tarojs/mini-runner": "3.6.40",
-    "@tarojs/webpack-runner": "^3.6.37",
     "@tarojs/webpack5-runner": "^3.6.0",
     "@types/react": "^18.0.0",
     "@types/webpack-env": "^1.13.6",
@@ -60,6 +59,8 @@
     "babel-preset-taro": "^3.6.0",
     "react-refresh": "^0.14.0",
     "sass": "^1.101.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0",
+    "webpack": "^5.94.0"
   }
 }

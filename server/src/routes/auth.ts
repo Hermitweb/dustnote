@@ -30,7 +30,12 @@ export const authRouter = Router();
 
 // ========== helpers ==========
 
-function getRequestClient(req: Request): { version: string; platform: string; channel: string; deviceId: string } {
+function getRequestClient(req: Request): {
+  version: string;
+  platform: string;
+  channel: string;
+  deviceId: string;
+} {
   return {
     version: req.header('X-Client-Version') ?? '',
     platform: req.header('X-Client-Platform') ?? '',
@@ -40,7 +45,7 @@ function getRequestClient(req: Request): { version: string; platform: string; ch
 }
 
 function writeRefreshCookie(res: Response, token: string): void {
-  res.cookie('mn_refresh', token, {
+  res.cookie('dustnote_refresh', token, {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
     sameSite: 'strict',
@@ -99,7 +104,9 @@ authRouter.post('/auth/setup', (req, res) => {
   const db = getDb();
   const userCount = (db.prepare('SELECT COUNT(*) AS c FROM users').get() as { c: number }).c;
   if (userCount > 0) {
-    res.status(409).json({ error: 'already_initialized', message: '系统已初始化，请用 unlock 登录' });
+    res
+      .status(409)
+      .json({ error: 'already_initialized', message: '系统已初始化，请用 unlock 登录' });
     return;
   }
 
@@ -114,10 +121,12 @@ authRouter.post('/auth/setup', (req, res) => {
   const deviceId = client.deviceId;
 
   const txn = db.transaction(() => {
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO users (id, password_hash, recovery_hash, master_salt, recovery_salt, wrapped_master_key, kdf_version, kdf_params, recovery_code_set, client_master_salt)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-    `).run(
+    `
+    ).run(
       userId,
       Buffer.from(passwordHash),
       Buffer.from(recoveryHash),
@@ -125,18 +134,27 @@ authRouter.post('/auth/setup', (req, res) => {
       Buffer.from(recoverySalt),
       JSON.stringify(wrappedMasterKey),
       1,
-      JSON.stringify({ m: KDF_PARAMS.m, t: KDF_PARAMS.t, p: KDF_PARAMS.p, dkLen: KDF_PARAMS.dkLen }),
+      JSON.stringify({
+        m: KDF_PARAMS.m,
+        t: KDF_PARAMS.t,
+        p: KDF_PARAMS.p,
+        dkLen: KDF_PARAMS.dkLen,
+      }),
       clientMasterSalt
     );
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO devices (id, user_id, name, platform, fingerprint)
       VALUES (?, ?, ?, ?, ?)
-    `).run(deviceId, userId, deviceName, client.platform || 'web', client.deviceId);
+    `
+    ).run(deviceId, userId, deviceName, client.platform || 'web', client.deviceId);
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO preferences (user_id) VALUES (?)
-    `).run(userId);
+    `
+    ).run(userId);
   });
   txn();
 
@@ -176,8 +194,19 @@ authRouter.post('/auth/unlock', (req, res) => {
   }
 
   const db = getDb();
-  const user = db.prepare('SELECT id, password_hash, master_salt, kdf_params, kdf_version, client_master_salt FROM users LIMIT 1').get() as
-    | { id: string; password_hash: Buffer; master_salt: Buffer; kdf_params: string; kdf_version: number; client_master_salt: string | null }
+  const user = db
+    .prepare(
+      'SELECT id, password_hash, master_salt, kdf_params, kdf_version, client_master_salt FROM users LIMIT 1'
+    )
+    .get() as
+    | {
+        id: string;
+        password_hash: Buffer;
+        master_salt: Buffer;
+        kdf_params: string;
+        kdf_version: number;
+        client_master_salt: string | null;
+      }
     | undefined;
 
   if (!user) {
@@ -206,12 +235,16 @@ authRouter.post('/auth/unlock', (req, res) => {
   }
 
   // 注册/更新设备
-  const existing = db.prepare('SELECT 1 FROM devices WHERE id = ? AND user_id = ?').get(client.deviceId, user.id);
+  const existing = db
+    .prepare('SELECT 1 FROM devices WHERE id = ? AND user_id = ?')
+    .get(client.deviceId, user.id);
   if (!existing) {
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO devices (id, user_id, name, platform, fingerprint, last_active_at)
       VALUES (?, ?, ?, ?, ?, datetime('now'))
-    `).run(
+    `
+    ).run(
       client.deviceId,
       user.id,
       deviceName ?? '新设备',
@@ -219,7 +252,9 @@ authRouter.post('/auth/unlock', (req, res) => {
       client.deviceId
     );
   } else {
-    db.prepare(`UPDATE devices SET last_active_at = datetime('now') WHERE id = ?`).run(client.deviceId);
+    db.prepare(`UPDATE devices SET last_active_at = datetime('now') WHERE id = ?`).run(
+      client.deviceId
+    );
   }
 
   const access = issueAccessToken(user.id, client.deviceId);
@@ -257,7 +292,8 @@ authRouter.post('/auth/recover', (req, res) => {
     res.status(400).json({ error: 'invalid_body' });
     return;
   }
-  const { recoveryCode, newPassword, newWrappedMasterKey, newClientMasterSalt, deviceName } = parsed.data;
+  const { recoveryCode, newPassword, newWrappedMasterKey, newClientMasterSalt, deviceName } =
+    parsed.data;
   const client = getRequestClient(req);
 
   if (!client.deviceId) {
@@ -266,10 +302,14 @@ authRouter.post('/auth/recover', (req, res) => {
   }
 
   const db = getDb();
-  const user = db.prepare(`
+  const user = db
+    .prepare(
+      `
     SELECT id, recovery_hash, recovery_salt, kdf_params
     FROM users LIMIT 1
-  `).get() as
+  `
+    )
+    .get() as
     | { id: string; recovery_hash: Buffer; recovery_salt: Buffer; kdf_params: string }
     | undefined;
 
@@ -291,11 +331,13 @@ authRouter.post('/auth/recover', (req, res) => {
   const newMasterSalt = randomBytes(16);
   const newPasswordHash = deriveKey(newPassword, newMasterSalt, KDF_PARAMS);
 
-  db.prepare(`
+  db.prepare(
+    `
     UPDATE users
     SET password_hash = ?, master_salt = ?, wrapped_master_key = ?, kdf_params = ?, kdf_version = 1, client_master_salt = ?
     WHERE id = ?
-  `).run(
+  `
+  ).run(
     Buffer.from(newPasswordHash),
     Buffer.from(newMasterSalt),
     JSON.stringify(newWrappedMasterKey),
@@ -305,11 +347,21 @@ authRouter.post('/auth/recover', (req, res) => {
   );
 
   // 注册设备
-  if (!db.prepare('SELECT 1 FROM devices WHERE id = ? AND user_id = ?').get(client.deviceId, user.id)) {
-    db.prepare(`
+  if (
+    !db.prepare('SELECT 1 FROM devices WHERE id = ? AND user_id = ?').get(client.deviceId, user.id)
+  ) {
+    db.prepare(
+      `
       INSERT INTO devices (id, user_id, name, platform, fingerprint, last_active_at)
       VALUES (?, ?, ?, ?, ?, datetime('now'))
-    `).run(client.deviceId, user.id, deviceName ?? '新设备', client.platform || 'web', client.deviceId);
+    `
+    ).run(
+      client.deviceId,
+      user.id,
+      deviceName ?? '新设备',
+      client.platform || 'web',
+      client.deviceId
+    );
   }
 
   const access = issueAccessToken(user.id, client.deviceId);
@@ -328,7 +380,7 @@ authRouter.post('/auth/recover', (req, res) => {
 // ========== POST /auth/refresh ==========
 
 authRouter.post('/auth/refresh', (req, res) => {
-  const refresh = req.cookies?.mn_refresh as string | undefined;
+  const refresh = req.cookies?.dustnote_refresh as string | undefined;
   if (!refresh) {
     res.status(401).json({ error: 'no_refresh_token' });
     return;
@@ -366,10 +418,14 @@ authRouter.get('/auth/me', (req, res) => {
     return;
   }
   const db = getDb();
-  const u = db.prepare(`
+  const u = db
+    .prepare(
+      `
     SELECT id, created_at, wrapped_master_key
     FROM users WHERE id = ?
-  `).get(user.userId) as { id: string; created_at: string; wrapped_master_key: string } | undefined;
+  `
+    )
+    .get(user.userId) as { id: string; created_at: string; wrapped_master_key: string } | undefined;
   if (!u) {
     res.status(404).json({ error: 'user_not_found' });
     return;

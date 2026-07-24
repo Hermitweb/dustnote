@@ -4,15 +4,15 @@
 
 ## 支持平台
 
-| 平台 | 命令 |
-|------|------|
-| 微信小程序 | `pnpm dev:weapp` / `pnpm build:weapp` |
-| 支付宝 | `pnpm dev:alipay` / `pnpm build:alipay` |
-| 抖音 | `pnpm dev:tt` / `pnpm build:tt` |
-| 百度 | `pnpm dev:swan` / `pnpm build:swan` |
-| QQ | `pnpm dev:qq` / `pnpm build:qq` |
-| 京东 | `pnpm dev:jd` / `pnpm build:jd` |
-| H5 | `pnpm dev:h5` / `pnpm build:h5` |
+| 平台       | 命令                                    |
+| ---------- | --------------------------------------- |
+| 微信小程序 | `pnpm dev:weapp` / `pnpm build:weapp`   |
+| 支付宝     | `pnpm dev:alipay` / `pnpm build:alipay` |
+| 抖音       | `pnpm dev:tt` / `pnpm build:tt`         |
+| 百度       | `pnpm dev:swan` / `pnpm build:swan`     |
+| QQ         | `pnpm dev:qq` / `pnpm build:qq`         |
+| 京东       | `pnpm dev:jd` / `pnpm build:jd`         |
+| H5         | `pnpm dev:h5` / `pnpm build:h5`         |
 
 ## 开发
 
@@ -26,12 +26,12 @@ pnpm dev:weapp
 
 ## 平台特性
 
-| 特性 | 实现 |
-|------|------|
+| 特性      | 实现                                                  |
+| --------- | ----------------------------------------------------- |
 | E2EE 加密 | 复用 `@dustnote/shared`（受限：crypto.subtle 不完整） |
-| 状态管理 | zustand |
-| 网络请求 | Taro.request |
-| 本地存储 | Taro.storage |
+| 状态管理  | zustand                                               |
+| 网络请求  | Taro.request                                          |
+| 本地存储  | Taro.storage                                          |
 
 ## 已知限制
 

@@ -62,15 +62,15 @@ pnpm build:aab
 
 ## 平台特性
 
-| 特性 | 实现 |
-|------|------|
-| 本地数据库 | react-native-sqlite-storage |
-| 安全存储 | react-native-keychain（保存 wrappedMasterKey） |
-| 生物识别 | react-native-biometrics |
-| 文件系统 | react-native-fs（导入 .txt/.md） |
-| 导航 | @react-navigation/native |
-| 状态 | zustand |
-| E2EE 加密 | 复用 @dustnote/shared（Argon2id + AES-256-GCM） |
+| 特性       | 实现                                            |
+| ---------- | ----------------------------------------------- |
+| 本地数据库 | react-native-sqlite-storage                     |
+| 安全存储   | react-native-keychain（保存 wrappedMasterKey）  |
+| 生物识别   | react-native-biometrics                         |
+| 文件系统   | react-native-fs（导入 .txt/.md）                |
+| 导航       | @react-navigation/native                        |
+| 状态       | zustand                                         |
+| E2EE 加密  | 复用 @dustnote/shared（Argon2id + AES-256-GCM） |
 
 ## 后端 API
 

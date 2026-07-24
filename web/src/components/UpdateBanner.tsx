@@ -22,13 +22,9 @@ export function UpdateBanner({ result }: { result: CheckUpdateResult }) {
           ✨
         </div>
         <div className="flex-1">
-          <div className="text-sm font-semibold text-surface-fg">
-            新版本 {version} 可用
-          </div>
+          <div className="text-sm font-semibold text-surface-fg">新版本 {version} 可用</div>
           {level === 'L2_strong_prompt' && (
-            <div className="text-xs text-slate-500">
-              建议尽快升级以获得最佳体验
-            </div>
+            <div className="text-xs text-slate-500">建议尽快升级以获得最佳体验</div>
           )}
         </div>
         <a

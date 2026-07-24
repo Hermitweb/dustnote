@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
 import { useStore } from '../lib/store';
+import { getDeviceId } from '../lib/device';
 
 export function Editor() {
   const { t } = useTranslation();
@@ -28,7 +29,7 @@ export function Editor() {
       setTitle(plain.title);
       setContent(plain.content);
     }
-  }, [plain?.title, plain?.content]);
+  }, [plain]);
 
   // 回收站视图强制只读预览
   useEffect(() => {
@@ -36,18 +37,19 @@ export function Editor() {
   }, [viewMode, mode]);
 
   // 防抖自动保存（回收站笔记不自动保存）
+  const autoSave = useCallback(() => {
+    if (title !== plain?.title || content !== plain?.content) {
+      setSaving(true);
+      void updateNote(note!.id, { title, content }).finally(() => setSaving(false));
+    }
+  }, [title, content, plain, note, updateNote]);
+
   useEffect(() => {
     if (!note) return;
     if (viewMode === 'trash') return;
-    const t = setTimeout(() => {
-      if (title !== plain?.title || content !== plain?.content) {
-        setSaving(true);
-        void updateNote(note.id, { title, content })
-          .finally(() => setSaving(false));
-      }
-    }, 800);
+    const t = setTimeout(autoSave, 800);
     return () => clearTimeout(t);
-  }, [title, content, note?.id, viewMode]);
+  }, [autoSave, note, viewMode]);
 
   if (!note || !plain) {
     return (
@@ -113,7 +115,9 @@ export function Editor() {
           ) : (
             <>
               {saving && <span className="text-xs text-surface-muted">🔄 加密保存中…</span>}
-              {!saving && title && <span className="text-xs text-surface-muted">✅ {t('editor.save_indicator')}</span>}
+              {!saving && title && (
+                <span className="text-xs text-surface-muted">✅ {t('editor.save_indicator')}</span>
+              )}
               <button
                 onClick={() => updateNote(note.id, { isPinned: !note.isPinned })}
                 className={`rounded p-1.5 text-xs ${note.isPinned ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40' : 'text-surface-muted hover:bg-surface-bg'}`}
@@ -140,10 +144,7 @@ export function Editor() {
                 {showMoveMenu && (
                   <>
                     {/* 点击外部关闭 */}
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setShowMoveMenu(false)}
-                    />
+                    <div className="fixed inset-0 z-10" onClick={() => setShowMoveMenu(false)} />
                     <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-surface-border bg-surface-card py-1 shadow-lg">
                       <button
                         onClick={() => {
@@ -154,7 +155,9 @@ export function Editor() {
                       >
                         📝 未分类
                       </button>
-                      {folders.length > 0 && <div className="my-1 border-t border-surface-border" />}
+                      {folders.length > 0 && (
+                        <div className="my-1 border-t border-surface-border" />
+                      )}
                       {folders.map((f) => (
                         <button
                           key={f.id}
@@ -238,12 +241,29 @@ console.log('Hello, DustNote!');
         )}
       </div>
 
-      {showShare && <ShareDialog noteId={note.id} title={title} content={content} onClose={() => setShowShare(false)} />}
+      {showShare && (
+        <ShareDialog
+          noteId={note.id}
+          title={title}
+          content={content}
+          onClose={() => setShowShare(false)}
+        />
+      )}
     </main>
   );
 }
 
-function ShareDialog({ noteId, title, content, onClose }: { noteId: string; title: string; content: string; onClose: () => void }) {
+function ShareDialog({
+  noteId,
+  title,
+  content,
+  onClose,
+}: {
+  noteId: string;
+  title: string;
+  content: string;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [expiresHours, setExpiresHours] = useState('');
@@ -262,7 +282,7 @@ function ShareDialog({ noteId, title, content, onClose }: { noteId: string; titl
           'X-Client-Version': __APP_VERSION__,
           'X-Client-Platform': 'web',
           'X-Client-Channel': 'stable',
-          'X-Client-Device-Id': localStorage.getItem('mn_device_id') ?? '',
+          'X-Client-Device-Id': getDeviceId(),
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -285,14 +305,22 @@ function ShareDialog({ noteId, title, content, onClose }: { noteId: string; titl
   }, [noteId, password, expiresHours, title, content]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="mb-4 text-lg font-bold text-surface-fg">{t('editor.share_title')}</h2>
 
         {!shareUrl ? (
           <div className="space-y-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-surface-fg">{t('editor.share_password')}</label>
+              <label className="mb-1 block text-xs font-medium text-surface-fg">
+                {t('editor.share_password')}
+              </label>
               <input
                 type="text"
                 value={password}
@@ -302,7 +330,9 @@ function ShareDialog({ noteId, title, content, onClose }: { noteId: string; titl
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-surface-fg">{t('editor.share_expires')}</label>
+              <label className="mb-1 block text-xs font-medium text-surface-fg">
+                {t('editor.share_expires')}
+              </label>
               <input
                 type="number"
                 value={expiresHours}
@@ -312,10 +342,17 @@ function ShareDialog({ noteId, title, content, onClose }: { noteId: string; titl
               />
             </div>
             <div className="flex gap-2 pt-2">
-              <button onClick={onClose} className="flex-1 rounded-lg border border-surface-border px-4 py-2 text-sm text-surface-fg">
+              <button
+                onClick={onClose}
+                className="flex-1 rounded-lg border border-surface-border px-4 py-2 text-sm text-surface-fg"
+              >
                 {t('common.cancel')}
               </button>
-              <button onClick={() => void create()} disabled={submitting} className="flex-1 rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50">
+              <button
+                onClick={() => void create()}
+                disabled={submitting}
+                className="flex-1 rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
+              >
                 {t('editor.share_btn')}
               </button>
             </div>
@@ -324,7 +361,11 @@ function ShareDialog({ noteId, title, content, onClose }: { noteId: string; titl
           <div className="space-y-3">
             <label className="text-xs font-medium text-surface-fg">{t('editor.share_link')}</label>
             <div className="flex gap-2">
-              <input readOnly value={shareUrl} className="flex-1 rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-xs font-mono" />
+              <input
+                readOnly
+                value={shareUrl}
+                className="flex-1 rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-xs font-mono"
+              />
               <button
                 onClick={() => {
                   void navigator.clipboard.writeText(shareUrl);
@@ -336,7 +377,10 @@ function ShareDialog({ noteId, title, content, onClose }: { noteId: string; titl
                 {copied ? `✅ ${t('editor.copied')}` : '复制'}
               </button>
             </div>
-            <button onClick={onClose} className="w-full rounded-lg border border-surface-border px-4 py-2 text-sm text-surface-fg">
+            <button
+              onClick={onClose}
+              className="w-full rounded-lg border border-surface-border px-4 py-2 text-sm text-surface-fg"
+            >
               {t('common.close')}
             </button>
           </div>

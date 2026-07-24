@@ -33,20 +33,20 @@ DustNote 客户端覆盖 5 个平台（Web / Desktop / Android / iOS / 小程序
 
 格式：`MAJOR.MINOR.PATCH`（如 `1.2.3`）
 
-| 段 | 含义 | 触发 |
-|----|------|------|
-| MAJOR | 不兼容变更 | API v1→v2、密钥格式破坏、密文格式破坏 |
-| MINOR | 新功能、向后兼容 | 主题、模板、分享、桌面端首版 |
-| PATCH | 修复、向后兼容 | bug、安全修复 |
+| 段    | 含义             | 触发                                  |
+| ----- | ---------------- | ------------------------------------- |
+| MAJOR | 不兼容变更       | API v1→v2、密钥格式破坏、密文格式破坏 |
+| MINOR | 新功能、向后兼容 | 主题、模板、分享、桌面端首版          |
+| PATCH | 修复、向后兼容   | bug、安全修复                         |
 
 ### 1.2 通道（Channel）
 
-| 通道 | 默认 | 升级方式 | 适用 |
-|------|------|----------|------|
-| `nightly` | ❌ | 每晚构建 | 内部开发 |
-| `canary` | ❌ | 手动邀请 1% | 早期发现 bug |
-| `beta` | ❌ | 用户主动加入 | 公共测试者 |
-| `stable` | ✅ | 自动 | 全部用户 |
+| 通道      | 默认 | 升级方式     | 适用         |
+| --------- | ---- | ------------ | ------------ |
+| `nightly` | ❌   | 每晚构建     | 内部开发     |
+| `canary`  | ❌   | 手动邀请 1%  | 早期发现 bug |
+| `beta`    | ❌   | 用户主动加入 | 公共测试者   |
+| `stable`  | ✅   | 自动         | 全部用户     |
 
 ### 1.3 生命周期
 
@@ -65,13 +65,14 @@ nightly → canary ──24h──▶ beta ──72h──▶ stable
 ### 2.1 服务端视角
 
 | 客户端版本 | 服务端 1.0.x | 服务端 1.1.x | 服务端 2.0.x |
-|-----------|-------------|-------------|-------------|
-| 0.x | ⚠️ 90 天 EOL | ❌ 410 Gone | ❌ 410 Gone |
-| 1.0.x | ✅ 正常 | ✅ 正常 | ❌ 410 Gone |
-| 1.1.x | ✅ 正常 | ✅ 正常 | ❌ 410 Gone |
-| 2.0.x | ❌ 410 Gone | ❌ 410 Gone | ✅ 正常 |
+| ---------- | ------------ | ------------ | ------------ |
+| 0.x        | ⚠️ 90 天 EOL | ❌ 410 Gone  | ❌ 410 Gone  |
+| 1.0.x      | ✅ 正常      | ✅ 正常      | ❌ 410 Gone  |
+| 1.1.x      | ✅ 正常      | ✅ 正常      | ❌ 410 Gone  |
+| 2.0.x      | ❌ 410 Gone  | ❌ 410 Gone  | ✅ 正常      |
 
 **EOL 政策**：
+
 - 旧 MAJOR 版本服务端保留 90 天
 - 旧 MAJOR 客户端不强制升级，但服务端可发"软提示"
 
@@ -222,13 +223,13 @@ X-Update-Url: https://dustnote.app/download
 
 ### 4.1 强制级别
 
-| 级别 | 触发条件 | 用户体验 | 时限 |
-|------|----------|----------|------|
-| **L0 阻塞** | 安全 P0 漏洞 | 全屏黑屏，仅"立即升级"按钮 | 24h 内必须 |
-| **L1 二次启动** | 服务端 EOL 客户端版 | 启动时提醒，二次启动后阻塞 | 7d 内必须 |
-| **L2 强提示** | 破坏性更新 | 启动时弹窗，每日提醒 | 14d 内必须 |
-| **L3 软提示** | 推荐升级 | 设置页红点，列表页角标 | 持续提示 |
-| **L4 静默** | Patch | 桌面端静默下载 / 移动端下次启动 | — |
+| 级别            | 触发条件            | 用户体验                        | 时限       |
+| --------------- | ------------------- | ------------------------------- | ---------- |
+| **L0 阻塞**     | 安全 P0 漏洞        | 全屏黑屏，仅"立即升级"按钮      | 24h 内必须 |
+| **L1 二次启动** | 服务端 EOL 客户端版 | 启动时提醒，二次启动后阻塞      | 7d 内必须  |
+| **L2 强提示**   | 破坏性更新          | 启动时弹窗，每日提醒            | 14d 内必须 |
+| **L3 软提示**   | 推荐升级            | 设置页红点，列表页角标          | 持续提示   |
+| **L4 静默**     | Patch               | 桌面端静默下载 / 移动端下次启动 | —          |
 
 ### 4.2 强制更新判定逻辑
 
@@ -236,8 +237,8 @@ X-Update-Url: https://dustnote.app/download
 function shouldForceUpdate(currentVersion, manifest): ForceLevel {
   if (semver.lt(currentVersion, manifest.forceUpdateVersion)) return 'L0';
   if (semver.lt(currentVersion, manifest.minClientVersion)) return 'L1';
-  if (semver.lt(currentVersion, manifest.recommendedClientVersion) &&
-      daysSinceRelease > 14) return 'L2';
+  if (semver.lt(currentVersion, manifest.recommendedClientVersion) && daysSinceRelease > 14)
+    return 'L2';
   return null; // 无强制
 }
 ```
@@ -296,13 +297,13 @@ function channelForDevice(deviceId, requestedChannel): string {
 
 ### 5.3 自动回滚条件
 
-| 指标 | 阈值 | 检测周期 |
-|------|------|----------|
-| 5xx 错误率 | > 0.5% | 5 min |
-| API P95 延迟 | > 2× 基线 | 5 min |
-| 崩溃率 | > 0.1% | 10 min |
-| 健康检查失败 | 3 连续失败 | 1 min |
-| 启动异常 | 启动后 30s 内崩溃 > 0.5% | 实时 |
+| 指标         | 阈值                     | 检测周期 |
+| ------------ | ------------------------ | -------- |
+| 5xx 错误率   | > 0.5%                   | 5 min    |
+| API P95 延迟 | > 2× 基线                | 5 min    |
+| 崩溃率       | > 0.1%                   | 10 min   |
+| 健康检查失败 | 3 连续失败               | 1 min    |
+| 启动异常     | 启动后 30s 内崩溃 > 0.5% | 实时     |
 
 **回滚动作**：GitHub Action 调用 `kubectl rollout undo` 或 `docker compose pull <prev-tag>` + 钉钉/飞书告警。
 
@@ -322,19 +323,19 @@ environment: production-stable
 
 ### 6.1 Web 端
 
-| 机制 | 描述 |
-|------|------|
-| 检测 | 启动时 + 每 1h `GET /update-manifest` |
-| 提示 | 软提示：右下角 toast 7 天后转全屏 |
+| 机制 | 描述                                                             |
+| ---- | ---------------------------------------------------------------- |
+| 检测 | 启动时 + 每 1h `GET /update-manifest`                            |
+| 提示 | 软提示：右下角 toast 7 天后转全屏                                |
 | 强更 | 服务端 `Set-Cookie: mn_force_update=1; Max-Age=86400` → 强制刷新 |
-| 回退 | Service Worker 缓存兜底 |
+| 回退 | Service Worker 缓存兜底                                          |
 
 **强更实现**：
 
 ```typescript
 async function checkForUpdate() {
   const m = await fetch('/api/v1/update-manifest', {
-    headers: { 'X-Client-Version': pkg.version, /* ... */ }
+    headers: { 'X-Client-Version': pkg.version /* ... */ },
   });
 
   if (m.status === 410) {
@@ -356,13 +357,13 @@ async function checkForUpdate() {
 
 ### 6.2 桌面端（Tauri 2）
 
-| 机制 | 描述 |
-|------|------|
-| 库 | `tauri-plugin-updater` |
+| 机制 | 描述                                       |
+| ---- | ------------------------------------------ |
+| 库   | `tauri-plugin-updater`                     |
 | 签名 | `minisign` 公私钥对，私钥放 GitHub Secrets |
-| 清单 | 上述 update-manifest |
-| 强制 | 设置 `installMode: "force"` |
-| 静默 | 桌面端托盘静默下载，下次启动安装 |
+| 清单 | 上述 update-manifest                       |
+| 强制 | 设置 `installMode: "force"`                |
+| 静默 | 桌面端托盘静默下载，下次启动安装           |
 
 **tauri.conf.json**：
 
@@ -382,12 +383,12 @@ async function checkForUpdate() {
 
 ### 6.3 Android 端（React Native）
 
-| 机制 | 描述 |
-|------|------|
+| 机制      | 描述                                                     |
+| --------- | -------------------------------------------------------- |
 | Play 优先 | `react-native-play-install-referrer` + In-App Update API |
-| 自托管 | APK 直链 + manifest 中提供 |
-| 强制 | Play 强制 update 优先级 `IMMEDIATE` |
-| 静默 | `FLEXIBLE` + 后台下载 |
+| 自托管    | APK 直链 + manifest 中提供                               |
+| 强制      | Play 强制 update 优先级 `IMMEDIATE`                      |
+| 静默      | `FLEXIBLE` + 后台下载                                    |
 
 ```typescript
 import { AppUpdate } from 'react-native-play-install-referrer';
@@ -406,11 +407,11 @@ async function checkForUpdate() {
 
 ### 6.4 iOS 端（React Native）
 
-| 机制 | 描述 |
-|------|------|
+| 机制      | 描述                                     |
+| --------- | ---------------------------------------- |
 | App Store | `itunes-check` 远程检测 + App Store 跳转 |
-| 强制 | Apple 不允许强制；只能发文案提示用户升级 |
-| 紧急 | 通过 iOS 推送 + 应用内全屏遮罩引导 |
+| 强制      | Apple 不允许强制；只能发文案提示用户升级 |
+| 紧急      | 通过 iOS 推送 + 应用内全屏遮罩引导       |
 
 ### 6.5 微信小程序
 
@@ -473,7 +474,12 @@ export const MIGRATIONS = [
 
 export function migrate(db) {
   db.exec(`CREATE TABLE IF NOT EXISTS _migrations (id INTEGER PRIMARY KEY, applied_at TEXT)`);
-  const applied = new Set(db.prepare('SELECT id FROM _migrations').all().map(r => r.id));
+  const applied = new Set(
+    db
+      .prepare('SELECT id FROM _migrations')
+      .all()
+      .map((r) => r.id)
+  );
   for (const m of MIGRATIONS) {
     if (!applied.has(m.id)) {
       m.up(db);
@@ -493,7 +499,10 @@ if (localVersion < CURRENT_SCHEMA_VERSION) {
   for (let v = localVersion + 1; v <= CURRENT_SCHEMA_VERSION; v++) {
     await runMigration(v);
   }
-  db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run('schemaVersion', CURRENT_SCHEMA_VERSION);
+  db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run(
+    'schemaVersion',
+    CURRENT_SCHEMA_VERSION
+  );
 }
 ```
 
@@ -535,6 +544,7 @@ async function readNote(id) {
 ```
 
 **关键原则**：
+
 - 升级 KDF 不需要用户重置密码
 - 升级过程是**惰性的**（首次访问触发）
 - 升级是**原子的**（一次解密 + 重加密，失败回滚）
@@ -564,23 +574,23 @@ async function readNote(id) {
 
 ### 8.1 服务端回滚
 
-| 通道 | 回滚方式 | 时延 |
-|------|----------|------|
-| Docker Compose | `docker compose pull <prev> && up -d` | < 1 min |
-| K8s | `kubectl rollout undo` | < 30 s |
-| 数据库 | 从备份恢复 + 迁移回滚 | 5-15 min |
+| 通道           | 回滚方式                              | 时延     |
+| -------------- | ------------------------------------- | -------- |
+| Docker Compose | `docker compose pull <prev> && up -d` | < 1 min  |
+| K8s            | `kubectl rollout undo`                | < 30 s   |
+| 数据库         | 从备份恢复 + 迁移回滚                 | 5-15 min |
 
 **金丝雀必须可独立回滚**（不污染 stable）。
 
 ### 8.2 客户端回滚
 
-| 端 | 回滚方式 |
-|----|----------|
-| Web | 用户 Ctrl+Shift+R + Service Worker 清理 |
-| Desktop | 上一版本 .dmg 留 6 个月，下载安装 |
-| Android | Play Store 退回（24h 内可回退） |
-| iOS | App Store 不可回退，提交新版替换 |
-| 小程序 | 二维码兜底 |
+| 端      | 回滚方式                                |
+| ------- | --------------------------------------- |
+| Web     | 用户 Ctrl+Shift+R + Service Worker 清理 |
+| Desktop | 上一版本 .dmg 留 6 个月，下载安装       |
+| Android | Play Store 退回（24h 内可回退）         |
+| iOS     | App Store 不可回退，提交新版替换        |
+| 小程序  | 二维码兜底                              |
 
 **Android/iOS 不能回滚是平台限制**——所以客户端的灰度必须保守。
 
@@ -593,8 +603,12 @@ export const MIGRATIONS = [
   {
     id: 10,
     name: 'e2ee_ciphertext',
-    up: (db) => { /* 添加 ciphertext 列 */ },
-    down: (db) => { /* 删除 ciphertext 列 */ },
+    up: (db) => {
+      /* 添加 ciphertext 列 */
+    },
+    down: (db) => {
+      /* 删除 ciphertext 列 */
+    },
   },
 ];
 ```
@@ -605,12 +619,12 @@ export const MIGRATIONS = [
 
 ### 9.1 客户端展示
 
-| 通道 | 时机 | 内容 |
-|------|------|------|
-| 启动弹窗 | 强制更新 | 版本号 + changelog 摘要 + 升级按钮 |
-| 设置页 | 有可选更新 | "新版本 1.2.3 可用" + 跳转 |
-| 升级完成 | 升级后首启 | "已升级到 1.2.3" + what's new |
-| 关于页 | 任意 | 当前版本 + 服务端版本 + 检查更新 |
+| 通道     | 时机       | 内容                               |
+| -------- | ---------- | ---------------------------------- |
+| 启动弹窗 | 强制更新   | 版本号 + changelog 摘要 + 升级按钮 |
+| 设置页   | 有可选更新 | "新版本 1.2.3 可用" + 跳转         |
+| 升级完成 | 升级后首启 | "已升级到 1.2.3" + what's new      |
+| 关于页   | 任意       | 当前版本 + 服务端版本 + 检查更新   |
 
 ### 9.2 邮件
 
@@ -624,8 +638,8 @@ export const MIGRATIONS = [
 
 ```yaml
 maintenance:
-  window: "2026-08-15 03:00-04:00 UTC+8"
-  impact: "客户端可能有 1-2 次重连，服务端 API 不中断"
+  window: '2026-08-15 03:00-04:00 UTC+8'
+  impact: '客户端可能有 1-2 次重连，服务端 API 不中断'
 ```
 
 ---
@@ -634,15 +648,15 @@ maintenance:
 
 ### 10.1 关键指标
 
-| 指标 | 来源 | 阈值 |
-|------|------|------|
-| `mn_update_manifest_requests_total{channel}` | 服务端 | - |
-| `mn_update_forced_clients_total` | 服务端 | - |
-| `mn_update_download_started_total{platform,version}` | CDN | - |
-| `mn_update_download_completed_total{platform,version}` | 客户端上报 | - |
-| `mn_update_adoption_rate{version}` | 服务端聚合 | 7 天 ≥ 80% |
-| `mn_update_check_failures_total{platform}` | 客户端上报 | - |
-| `mn_app_crashes_total{platform,version}` | 客户端 | < 0.1% |
+| 指标                                                   | 来源       | 阈值       |
+| ------------------------------------------------------ | ---------- | ---------- |
+| `mn_update_manifest_requests_total{channel}`           | 服务端     | -          |
+| `mn_update_forced_clients_total`                       | 服务端     | -          |
+| `mn_update_download_started_total{platform,version}`   | CDN        | -          |
+| `mn_update_download_completed_total{platform,version}` | 客户端上报 | -          |
+| `mn_update_adoption_rate{version}`                     | 服务端聚合 | 7 天 ≥ 80% |
+| `mn_update_check_failures_total{platform}`             | 客户端上报 | -          |
+| `mn_app_crashes_total{platform,version}`               | 客户端     | < 0.1%     |
 
 ### 10.2 升级采用率仪表盘
 
@@ -654,12 +668,12 @@ sum(rate(mn_app_started{version!="unknown"}[7d]))
 
 ### 10.3 告警
 
-| 告警 | 条件 |
-|------|------|
-| 升级采用率低 | 7 天 < 50% |
+| 告警             | 条件             |
+| ---------------- | ---------------- |
+| 升级采用率低     | 7 天 < 50%       |
 | 强制更新覆盖率低 | 强制版 24h < 80% |
-| 检查更新失败率高 | > 5% |
-| 新版本崩溃率高 | > 0.5% |
+| 检查更新失败率高 | > 5%             |
+| 新版本崩溃率高   | > 0.5%           |
 
 ---
 
@@ -675,6 +689,7 @@ sum(rate(mn_app_started{version!="unknown"}[7d]))
 ### 11.2 清单完整性
 
 `update-manifest` 启用 **SRI（Subresource Integrity）**：
+
 - 每个 `downloadUrl` 配 `hash` 字段
 - 客户端下载后必须校验 SHA-256
 
@@ -695,34 +710,34 @@ sum(rate(mn_app_started{version!="unknown"}[7d]))
 
 ## 12. 风险登记
 
-| 风险 | 等级 | 缓解 |
-|------|------|------|
-| 强制升级用户反弹 | 中 | 仅安全 EOL 场景使用；提供 CLI 跳过 |
-| iOS App Store 审核拖延 | 中 | 提前 14 天提交，hotfix 走 expedited review |
-| 小程序审核被驳回 | 中 | 提前学习《小程序运营规范》 |
-| KDF 升级失败导致笔记无法读 | 高 | 双版本解密 + 原写替换 + 详细日志 |
-| Play Store 不可用 | 低 | APK 自托管 fallback（自签） |
-| 升级采用率过低 | 中 | 多渠道通知 + EOL 强制 |
-| 数据库迁移失败 | 高 | 事务 + 备份 + 回滚脚本 + 演练 |
+| 风险                       | 等级 | 缓解                                       |
+| -------------------------- | ---- | ------------------------------------------ |
+| 强制升级用户反弹           | 中   | 仅安全 EOL 场景使用；提供 CLI 跳过         |
+| iOS App Store 审核拖延     | 中   | 提前 14 天提交，hotfix 走 expedited review |
+| 小程序审核被驳回           | 中   | 提前学习《小程序运营规范》                 |
+| KDF 升级失败导致笔记无法读 | 高   | 双版本解密 + 原写替换 + 详细日志           |
+| Play Store 不可用          | 低   | APK 自托管 fallback（自签）                |
+| 升级采用率过低             | 中   | 多渠道通知 + EOL 强制                      |
+| 数据库迁移失败             | 高   | 事务 + 备份 + 回滚脚本 + 演练              |
 
 ---
 
 ## 13. 实施任务
 
-| 任务 | 版本 | 负责 |
-|------|------|------|
-| 服务端 `update-manifest` API + 中间件 | M0.5 | 后端 |
-| 客户端启动检测 + 软/硬提示 UI | M0.5 | 前端 + 移动 |
-| 桌面端 `tauri-plugin-updater` 集成 | M1.2 | 桌面 |
-| Android In-App Update 集成 | M1.2 | 移动 |
-| iOS 远程检测 | M1.2 | 移动 |
-| 小程序 `getUpdateManager` | M1.2 | 小程序 |
-| SQLite 迁移工具 | M0.5 | 后端 |
-| E2EE 双版本解密 | M2.0 | 共享层 |
-| 灰度发布脚本 | M1.5 | 运维 |
-| 自动回滚 | M1.5 | 运维 |
-| 升级采用率仪表盘 | M1.5 | 运维 |
-| 各端升级 E2E 测试 | M1.5 | 测试 |
+| 任务                                  | 版本 | 负责        |
+| ------------------------------------- | ---- | ----------- |
+| 服务端 `update-manifest` API + 中间件 | M0.5 | 后端        |
+| 客户端启动检测 + 软/硬提示 UI         | M0.5 | 前端 + 移动 |
+| 桌面端 `tauri-plugin-updater` 集成    | M1.2 | 桌面        |
+| Android In-App Update 集成            | M1.2 | 移动        |
+| iOS 远程检测                          | M1.2 | 移动        |
+| 小程序 `getUpdateManager`             | M1.2 | 小程序      |
+| SQLite 迁移工具                       | M0.5 | 后端        |
+| E2EE 双版本解密                       | M2.0 | 共享层      |
+| 灰度发布脚本                          | M1.5 | 运维        |
+| 自动回滚                              | M1.5 | 运维        |
+| 升级采用率仪表盘                      | M1.5 | 运维        |
+| 各端升级 E2E 测试                     | M1.5 | 测试        |
 
 ---
 
@@ -757,14 +772,14 @@ dustnote/
 
 ## 15. 关键决策（与 [tech-architecture.md §0](./tech-architecture.md) 一致）
 
-| 项 | 决策 |
-|----|------|
-| 版本规范 | SemVer 严格 |
-| 通道 | nightly / canary / beta / stable 四级 |
-| 强制升级 | 仅安全 P0 / EOL 强制 |
-| 桌面签名 | Ed25519 (minisign) |
-| Android 签名 | Play App Signing + APK v2/v3 |
-| 数据迁移 | `MIGRATIONS` 表 + 可逆脚本 |
-| E2EE 迁移 | 双版本解密 + 惰性重加密 |
-| 回滚 | 服务端 1 min / 客户端平台限制 |
-| 兼容期 | 旧 MAJOR 服务端 90 天 |
+| 项           | 决策                                  |
+| ------------ | ------------------------------------- |
+| 版本规范     | SemVer 严格                           |
+| 通道         | nightly / canary / beta / stable 四级 |
+| 强制升级     | 仅安全 P0 / EOL 强制                  |
+| 桌面签名     | Ed25519 (minisign)                    |
+| Android 签名 | Play App Signing + APK v2/v3          |
+| 数据迁移     | `MIGRATIONS` 表 + 可逆脚本            |
+| E2EE 迁移    | 双版本解密 + 惰性重加密               |
+| 回滚         | 服务端 1 min / 客户端平台限制         |
+| 兼容期       | 旧 MAJOR 服务端 90 天                 |

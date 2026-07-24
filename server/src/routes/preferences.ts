@@ -10,7 +10,9 @@ import type { AuthUser } from '../middleware/auth.js';
 export const preferencesRouter = Router();
 
 const PrefsSchema = z.object({
-  theme: z.enum(['mint-dawn', 'mist-blue', 'dusk-forest', 'caramel-warm', 'sakura-pink', 'minimal-white']).optional(),
+  theme: z
+    .enum(['mint-dawn', 'mist-blue', 'dusk-forest', 'caramel-warm', 'sakura-pink', 'minimal-white'])
+    .optional(),
   mode: z.enum(['light', 'dark', 'auto']).optional(),
   font: z.enum(['system', 'manrope', 'lxgw']).optional(),
   density: z.enum(['comfortable', 'standard', 'compact']).optional(),
@@ -21,12 +23,26 @@ const PrefsSchema = z.object({
 preferencesRouter.get('/preferences', (req, res) => {
   const user = req.user as AuthUser;
   const db = getDb();
-  let row = db.prepare(`SELECT * FROM preferences WHERE user_id = ?`).get(user.userId) as {
-    theme: string; mode: string; font: string; density: string; auto_lock: number; language: string;
-  } | undefined;
+  let row = db.prepare(`SELECT * FROM preferences WHERE user_id = ?`).get(user.userId) as
+    | {
+        theme: string;
+        mode: string;
+        font: string;
+        density: string;
+        auto_lock: number;
+        language: string;
+      }
+    | undefined;
   if (!row) {
     db.prepare(`INSERT INTO preferences (user_id) VALUES (?)`).run(user.userId);
-    row = { theme: 'mint-dawn', mode: 'auto', font: 'system', density: 'standard', auto_lock: 15, language: 'zh-CN' };
+    row = {
+      theme: 'mint-dawn',
+      mode: 'auto',
+      font: 'system',
+      density: 'standard',
+      auto_lock: 15,
+      language: 'zh-CN',
+    };
   }
   res.json({
     theme: row.theme,
@@ -50,8 +66,12 @@ preferencesRouter.patch('/preferences', (req, res) => {
   db.prepare(`INSERT OR IGNORE INTO preferences (user_id) VALUES (?)`).run(user.userId);
 
   const map: Record<string, string> = {
-    theme: 'theme', mode: 'mode', font: 'font', density: 'density',
-    autoLock: 'auto_lock', language: 'language',
+    theme: 'theme',
+    mode: 'mode',
+    font: 'font',
+    density: 'density',
+    autoLock: 'auto_lock',
+    language: 'language',
   };
   const updates: string[] = [];
   const params: unknown[] = [];

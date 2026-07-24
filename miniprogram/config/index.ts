@@ -18,12 +18,15 @@ export default {
   defineConstants: {},
   copy: { patterns: [], options: {} },
   framework: 'react',
+  compiler: 'webpack5',
   compilerOptions: {
     typescript: { enable: true, tsconfigPath: 'tsconfig.json' },
     babel: { enable: true },
   },
   mini: {
     webpackChain(chain: any) {
+      // 禁用 webpackbar，避免旧版 webpackbar 5 与 webpack 5.78+ 的 ProgressPlugin 不兼容
+      chain.plugins.delete('webpackbar');
       // 让 babel-loader 处理 @dustnote/shared 中的新语法（数字分隔符等）
       const scriptRule = chain.module.rules.get('script');
       if (scriptRule) {
@@ -45,11 +48,21 @@ export default {
     output: { filename: 'js/[name].[hash:8].js', chunkFilename: 'js/[name].[chunkhash:8].js' },
     miniCssExtractPluginOption: { ignoreOrder: true, filename: 'css/[name].[hash].css' },
     postcss: { autoprefixer: { enable: true } },
-    devServer: { port: 10086, host: '0.0.0.0', proxy: { '/api': { target: 'http://localhost:3210', changeOrigin: true } } },
-    // webpack 4 不识别 zod 等依赖里的 ?? 与 class field，需 babel 转译
+    devServer: {
+      port: 10086,
+      host: '0.0.0.0',
+      proxy: { '/api': { target: 'http://localhost:3210', changeOrigin: true } },
+    },
+    // 目标浏览器不识别 zod 等依赖里的 ?? 与 class field，需 babel 转译
     webpackChain(chain: any) {
       // 禁用 react-refresh，避免其 loader 在 babel 之前破坏新语法
       chain.plugins.delete('reactRefresh');
+      // 禁用 webpackbar，避免旧版 webpackbar 5 与 webpack 5.78+ 的 ProgressPlugin 不兼容
+      chain.plugins.delete('webpackbar');
+      // 关闭 webpack 5 默认的体积警告；Taro 应用包含 React/Taro 运行时，初始包较大属正常
+      chain.performance.hints(false);
+      // 忽略 @tarojs/components 中无法移除的 webpackExports 魔法注释警告
+      chain.merge({ ignoreWarnings: [/webpackExports/] });
       chain.module
         .rule('h5script')
         .test(/\.(js|jsx|ts|tsx)$/)
@@ -63,7 +76,10 @@ export default {
         .options({
           cacheDirectory: true,
           presets: [
-            ['@babel/preset-env', { targets: { browsers: ['> 1%', 'last 2 versions', 'not dead'] } }],
+            [
+              '@babel/preset-env',
+              { targets: { browsers: ['> 1%', 'last 2 versions', 'not dead'] } },
+            ],
             '@babel/preset-typescript',
             ['@babel/preset-react', { runtime: 'automatic' }],
           ],

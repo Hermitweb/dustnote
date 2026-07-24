@@ -4,16 +4,16 @@
 
 ## 什么是 Cookie
 
-Cookie 是浏览器存储的小型文本文件，用于识别你的会话。MintNote 严格限制 Cookie 使用。
+Cookie 是浏览器存储的小型文本文件，用于识别你的会话。DustNote 严格限制 Cookie 使用。
 
 ## 我们使用的 Cookie
 
-| 名称 | 类型 | 用途 | 有效期 |
-|------|------|------|--------|
-| `mn_access` | httpOnly + Secure | Access Token | 15 分钟 |
-| `mn_refresh` | httpOnly + Secure + SameSite=Strict | Refresh Token | 7 天 |
-| `mn_csrf` | SameSite=Strict | CSRF 防护 | 会话 |
-| `mn_theme` | 第一方 | 主题偏好 | 365 天 |
+| 名称         | 类型                                | 用途          | 有效期  |
+| ------------ | ----------------------------------- | ------------- | ------- |
+| `mn_access`  | httpOnly + Secure                   | Access Token  | 15 分钟 |
+| `mn_refresh` | httpOnly + Secure + SameSite=Strict | Refresh Token | 7 天    |
+| `mn_csrf`    | SameSite=Strict                     | CSRF 防护     | 会话    |
+| `mn_theme`   | 第一方                              | 主题偏好      | 365 天  |
 
 ## 不使用的 Cookie
 
@@ -33,4 +33,4 @@ Cookie 是浏览器存储的小型文本文件，用于识别你的会话。Mint
 
 ## 联系方式
 
-如有疑问：[privacy@mintnote.app](mailto:privacy@mintnote.app)
+如有疑问：[privacy@dustnote.app](mailto:privacy@dustnote.app)

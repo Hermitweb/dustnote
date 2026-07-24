@@ -1,0 +1,35 @@
+# Lockfiles
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.turbo/
+
+# Generated files
+coverage/
+*.tsbuildinfo
+src-tauri/target/
+src-tauri/gen/
+**/src-tauri/target/
+**/src-tauri/gen/
+android/build/
+ios/build/
+ios/Pods/
+.miniprogram/
+miniprogram_npm/
+.taro/
+
+# SQLite data
+*.db
+*.db-shm
+*.db-wal
+data/

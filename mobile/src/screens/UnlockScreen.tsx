@@ -95,7 +95,13 @@ function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: c.bg },
     emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
-    title: { fontSize: 28, fontWeight: '700', textAlign: 'center', color: c.mint700, marginBottom: 8 },
+    title: {
+      fontSize: 28,
+      fontWeight: '700',
+      textAlign: 'center',
+      color: c.mint700,
+      marginBottom: 8,
+    },
     subtitle: { fontSize: 14, color: c.muted, textAlign: 'center', marginBottom: 24 },
     input: {
       backgroundColor: c.card,
@@ -107,7 +113,13 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       marginBottom: 12,
       color: c.fg,
     },
-    button: { backgroundColor: c.mint600, borderRadius: 8, padding: 16, alignItems: 'center', marginTop: 8 },
+    button: {
+      backgroundColor: c.mint600,
+      borderRadius: 8,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 8,
+    },
     buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
     bioButton: { marginTop: 16, padding: 12, alignItems: 'center' },
     bioButtonText: { color: c.mint600, fontSize: 14 },

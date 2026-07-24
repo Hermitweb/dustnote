@@ -142,7 +142,10 @@ export async function checkForUpdate(opts: CheckUpdateOptions): Promise<CheckUpd
     });
 
     if (res.status === 410) {
-      const body = (await res.json().catch(() => ({}))) as { forceUpdateVersion?: string; updateUrl?: string };
+      const body = (await res.json().catch(() => ({}))) as {
+        forceUpdateVersion?: string;
+        updateUrl?: string;
+      };
       return {
         status: 'force_update',
         forceLevel: 'L0_block',
@@ -199,7 +202,10 @@ export async function checkForUpdate(opts: CheckUpdateOptions): Promise<CheckUpd
 }
 
 /** 取平台对应的下载 URL */
-export function getPlatformDownloadUrl(manifest: UpdateManifest, platform: ClientPlatform): string | undefined {
+export function getPlatformDownloadUrl(
+  manifest: UpdateManifest,
+  platform: ClientPlatform
+): string | undefined {
   const a = manifest.latest.artifacts;
   switch (platform) {
     case 'web':

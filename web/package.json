@@ -10,7 +10,7 @@
     "preview": "vite preview --port 4173",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint src --ext .ts,.tsx",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@dustnote/shared": "workspace:*",

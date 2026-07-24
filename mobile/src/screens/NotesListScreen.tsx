@@ -5,7 +5,15 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  RefreshControl,
+  TextInput,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
@@ -33,12 +41,7 @@ interface NoteRow {
 /** 解析密文信封：兼容新格式 { v, payload } 与旧格式（直接是 Ciphertext） */
 function parseEnvelope(raw: string): { v: number; payload: Ciphertext } {
   const parsed = JSON.parse(raw) as unknown;
-  if (
-    typeof parsed === 'object' &&
-    parsed !== null &&
-    'v' in parsed &&
-    'payload' in parsed
-  ) {
+  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
     return parsed as { v: number; payload: Ciphertext };
   }
   // 旧格式：直接是 Ciphertext
@@ -119,10 +122,7 @@ export function NotesListScreen() {
           onChangeText={setSearch}
           placeholderTextColor={colors.muted}
         />
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Settings')}
-          style={styles.iconButton}
-        >
+        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.iconButton}>
           <Text style={styles.iconText}>⚙️</Text>
         </TouchableOpacity>
       </View>

@@ -39,10 +39,10 @@ export function createApiClient(accessToken?: string): ApiClient {
 }
 
 export function getDeviceId(): string {
-  let id = localStorage.getItem('mn_device_id');
+  let id = localStorage.getItem('dustnote_device_id');
   if (!id) {
     id = crypto.randomUUID();
-    localStorage.setItem('mn_device_id', id);
+    localStorage.setItem('dustnote_device_id', id);
   }
   return id;
 }

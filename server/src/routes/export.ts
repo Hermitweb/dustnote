@@ -35,11 +35,26 @@ exportRouter.get('/export/notes/:id', (req, res) => {
   }
 
   const db = getDb();
-  const note = db.prepare(`
+  const note = db
+    .prepare(
+      `
     SELECT id, ciphertext, key_version, is_pinned, is_favorite, version,
            client_updated_at, server_updated_at
     FROM notes WHERE id = ? AND user_id = ?
-  `).get(id, user.userId) as { id: string; ciphertext: string; key_version: number; is_pinned: number; is_favorite: number; version: number; client_updated_at: string; server_updated_at: string } | undefined;
+  `
+    )
+    .get(id, user.userId) as
+    | {
+        id: string;
+        ciphertext: string;
+        key_version: number;
+        is_pinned: number;
+        is_favorite: number;
+        version: number;
+        client_updated_at: string;
+        server_updated_at: string;
+      }
+    | undefined;
   if (!note) {
     res.status(404).json({ error: 'not_found' });
     return;
@@ -48,19 +63,25 @@ exportRouter.get('/export/notes/:id', (req, res) => {
   if (parsed.data.format === 'json') {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="dustnote-${id}.json"`);
-    res.send(JSON.stringify({
-      format: 'dustnote.v1',
-      note: {
-        id: note.id,
-        ciphertext: JSON.parse(note.ciphertext) as unknown,
-        keyVersion: note.key_version,
-        isPinned: !!note.is_pinned,
-        isFavorite: !!note.is_favorite,
-        version: note.version,
-        clientUpdatedAt: note.client_updated_at,
-        serverUpdatedAt: note.server_updated_at,
-      },
-    }, null, 2));
+    res.send(
+      JSON.stringify(
+        {
+          format: 'dustnote.v1',
+          note: {
+            id: note.id,
+            ciphertext: JSON.parse(note.ciphertext) as unknown,
+            keyVersion: note.key_version,
+            isPinned: !!note.is_pinned,
+            isFavorite: !!note.is_favorite,
+            version: note.version,
+            clientUpdatedAt: note.client_updated_at,
+            serverUpdatedAt: note.server_updated_at,
+          },
+        },
+        null,
+        2
+      )
+    );
     return;
   }
 
@@ -76,16 +97,40 @@ exportRouter.get('/export/notes/:id', (req, res) => {
 exportRouter.get('/export/backup', (req, res) => {
   const user = req.user as AuthUser;
   const db = getDb();
-  const notes = db.prepare(`
+  const notes = db
+    .prepare(
+      `
     SELECT id, ciphertext, key_version, is_pinned, is_favorite, deleted_at, version,
            client_updated_at, server_updated_at, folder_id
     FROM notes WHERE user_id = ?
     ORDER BY server_updated_at
-  `).all(user.userId) as { id: string; ciphertext: string; key_version: number; is_pinned: number; is_favorite: number; deleted_at: string | null; version: number; client_updated_at: string; server_updated_at: string; folder_id: string | null }[];
+  `
+    )
+    .all(user.userId) as {
+    id: string;
+    ciphertext: string;
+    key_version: number;
+    is_pinned: number;
+    is_favorite: number;
+    deleted_at: string | null;
+    version: number;
+    client_updated_at: string;
+    server_updated_at: string;
+    folder_id: string | null;
+  }[];
 
-  const folders = db.prepare(`SELECT id, name, parent_id, icon FROM folders WHERE user_id = ?`).all(user.userId) as { id: string; name: string; parent_id: string | null; icon: string | null }[];
+  const folders = db
+    .prepare(`SELECT id, name, parent_id, icon FROM folders WHERE user_id = ?`)
+    .all(user.userId) as {
+    id: string;
+    name: string;
+    parent_id: string | null;
+    icon: string | null;
+  }[];
 
-  const tags = db.prepare(`SELECT id, name, color FROM tags WHERE user_id = ?`).all(user.userId) as { id: string; name: string; color: string | null }[];
+  const tags = db
+    .prepare(`SELECT id, name, color FROM tags WHERE user_id = ?`)
+    .all(user.userId) as { id: string; name: string; color: string | null }[];
 
   const payload = {
     format: 'dustnote-backup.v1',
@@ -108,7 +153,10 @@ exportRouter.get('/export/backup', (req, res) => {
   };
 
   res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Content-Disposition', `attachment; filename="dustnote-backup-${new Date().toISOString().slice(0, 10)}.json"`);
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="dustnote-backup-${new Date().toISOString().slice(0, 10)}.json"`
+  );
   res.send(JSON.stringify(payload, null, 2));
 
   logger.info({ userId: user.userId, noteCount: notes.length }, '全量备份已导出');

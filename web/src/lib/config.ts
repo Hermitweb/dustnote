@@ -15,7 +15,7 @@ export interface AppConfig {
   customized: boolean;
 }
 
-const STORAGE_KEY = 'mn_app_config';
+const STORAGE_KEY = 'dustnote_app_config';
 
 const DEFAULTS: AppConfig = {
   apiBase: '/api/v1',
@@ -35,14 +35,18 @@ export async function loadConfig(): Promise<AppConfig> {
   try {
     const r = await fetch('/config.json');
     if (r.ok) remote = (await r.json()) as Partial<AppConfig>;
-  } catch { /* 无 config.json，用默认 */ }
+  } catch {
+    /* 无 config.json，用默认 */
+  }
 
   // 2. localStorage 覆盖
   let local: Partial<AppConfig> = {};
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) local = JSON.parse(raw) as Partial<AppConfig>;
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   cached = { ...DEFAULTS, ...remote, ...local };
   return cached;
@@ -58,12 +62,16 @@ export function saveConfig(patch: Partial<AppConfig>): AppConfig {
   cached = { ...(cached ?? DEFAULTS), ...patch, customized: true };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return cached;
 }
 
 /** 生成各平台配置文件内容 */
-export function generatePlatformConfig(platform: 'desktop' | 'miniprogram' | 'web' | 'android' | 'ios'): string {
+export function generatePlatformConfig(
+  platform: 'desktop' | 'miniprogram' | 'web' | 'android' | 'ios'
+): string {
   const cfg = getConfig();
   const base = {
     apiBase: cfg.apiBase,
@@ -93,11 +101,15 @@ export function generatePlatformConfig(platform: 'desktop' | 'miniprogram' | 'we
       ].join('\n');
     case 'android':
     case 'ios':
-      return JSON.stringify({
-        ...base,
-        platform,
-        miniprogramAppId: cfg.miniprogramAppId,
-      }, null, 2);
+      return JSON.stringify(
+        {
+          ...base,
+          platform,
+          miniprogramAppId: cfg.miniprogramAppId,
+        },
+        null,
+        2
+      );
   }
 }
 

@@ -6,7 +6,9 @@ import { readFileSync } from 'node:fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version: string };
+const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as {
+  version: string;
+};
 
 // Tauri 推荐的固定端口，避免与系统服务冲突
 const host = process.env.TAURI_DEV_HOST;

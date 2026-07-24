@@ -45,19 +45,38 @@ notesRouter.get('/notes', (req, res) => {
   const includeDeleted = req.query.includeDeleted === '1';
 
   const db = getDb();
-  let rows: { id: string; ciphertext: Buffer | string; key_version: number; is_pinned: number; is_favorite: number; deleted_at: string | null; version: number; client_updated_at: string; server_updated_at: string; folder_id: string | null }[];
+  let rows: {
+    id: string;
+    ciphertext: Buffer | string;
+    key_version: number;
+    is_pinned: number;
+    is_favorite: number;
+    deleted_at: string | null;
+    version: number;
+    client_updated_at: string;
+    server_updated_at: string;
+    folder_id: string | null;
+  }[];
 
   if (since) {
-    rows = db.prepare(`
+    rows = db
+      .prepare(
+        `
       SELECT * FROM notes
       WHERE user_id = ? AND server_updated_at > ?
       ORDER BY server_updated_at DESC
-    `).all(user.userId, since) as typeof rows;
+    `
+      )
+      .all(user.userId, since) as typeof rows;
   } else {
     const where = includeDeleted ? 'user_id = ?' : 'user_id = ? AND deleted_at IS NULL';
-    rows = db.prepare(`
+    rows = db
+      .prepare(
+        `
       SELECT * FROM notes WHERE ${where} ORDER BY is_pinned DESC, server_updated_at DESC LIMIT 500
-    `).all(user.userId) as typeof rows;
+    `
+      )
+      .all(user.userId) as typeof rows;
   }
 
   res.json({
@@ -90,10 +109,12 @@ notesRouter.post('/notes', (req, res) => {
   const id = randomUUID();
 
   const db = getDb();
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO notes (id, user_id, ciphertext, key_version, is_pinned, is_favorite, client_updated_at, folder_id, version)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-  `).run(
+  `
+  ).run(
     id,
     user.userId,
     ciphertext,
@@ -104,7 +125,9 @@ notesRouter.post('/notes', (req, res) => {
     folderId ?? null
   );
 
-  const note = db.prepare('SELECT server_updated_at FROM notes WHERE id = ?').get(id) as { server_updated_at: string };
+  const note = db.prepare('SELECT server_updated_at FROM notes WHERE id = ?').get(id) as {
+    server_updated_at: string;
+  };
 
   broadcastNoteChanged(user.userId, { id, op: 'create' });
 
@@ -134,10 +157,26 @@ notesRouter.patch('/notes/:id', (req, res) => {
   const data = parsed.data;
   const db = getDb();
 
-  const existing = db.prepare(`
+  const existing = db
+    .prepare(
+      `
     SELECT id, version, is_pinned, is_favorite, deleted_at, ciphertext, key_version, client_updated_at, folder_id
     FROM notes WHERE id = ? AND user_id = ?
-  `).get(id, user.userId) as { id: string; version: number; is_pinned: number; is_favorite: number; deleted_at: string | null; ciphertext: Buffer | string; key_version: number; client_updated_at: string; folder_id: string | null } | undefined;
+  `
+    )
+    .get(id, user.userId) as
+    | {
+        id: string;
+        version: number;
+        is_pinned: number;
+        is_favorite: number;
+        deleted_at: string | null;
+        ciphertext: Buffer | string;
+        key_version: number;
+        client_updated_at: string;
+        folder_id: string | null;
+      }
+    | undefined;
 
   if (!existing) {
     res.status(404).json({ error: 'not_found' });
@@ -196,9 +235,13 @@ notesRouter.patch('/notes/:id', (req, res) => {
 
   db.prepare(`UPDATE notes SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
 
-  const updated = db.prepare(`
+  const updated = db
+    .prepare(
+      `
     SELECT server_updated_at, version FROM notes WHERE id = ?
-  `).get(id) as { server_updated_at: string; version: number };
+  `
+    )
+    .get(id) as { server_updated_at: string; version: number };
 
   broadcastNoteChanged(user.userId, { id, op: 'update' });
 
@@ -220,10 +263,14 @@ notesRouter.delete('/notes/:id', (req, res) => {
   }
 
   const db = getDb();
-  const result = db.prepare(`
+  const result = db
+    .prepare(
+      `
     UPDATE notes SET deleted_at = datetime('now'), version = version + 1
     WHERE id = ? AND user_id = ? AND deleted_at IS NULL
-  `).run(id, user.userId);
+  `
+    )
+    .run(id, user.userId);
 
   if (result.changes === 0) {
     res.status(404).json({ error: 'not_found' });
@@ -245,9 +292,13 @@ notesRouter.delete('/notes/:id/permanent', (req, res) => {
   }
 
   const db = getDb();
-  const result = db.prepare(`
+  const result = db
+    .prepare(
+      `
     DELETE FROM notes WHERE id = ? AND user_id = ?
-  `).run(id, user.userId);
+  `
+    )
+    .run(id, user.userId);
 
   if (result.changes === 0) {
     res.status(404).json({ error: 'not_found' });

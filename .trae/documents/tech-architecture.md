@@ -10,51 +10,51 @@
 
 > 本节为**已锁定决策**，后续变更必须经架构评审，避免反复摇摆。
 
-| 维度 | 决策 | 理由 |
-|------|------|------|
-| **架构模式** | 单仓多包 monorepo（pnpm workspace） | 跨端代码共享、类型统一、CI 一致 |
-| **后端运行时** | Node.js 20 LTS | 跨端统一 TypeScript、生态成熟 |
-| **后端语言** | TypeScript 5.4+ | 与前端共享类型 |
-| **后端框架** | Express 4.19 | 轻量、单用户低流量足够，避免 Nest 等重框架 |
-| **数据库** | **SQLite（better-sqlite3 服务端 + SQLCipher 客户端）** | 单用户场景零运维；FTS5 内置；跨端一致 |
-| **缓存** | 内存 LRU（不引入 Redis） | 单用户无并发场景；v2.0 评估 |
-| **鉴权算法** | Argon2id（m=64MB, t=3, p=4） | 业界推荐，OWASP 首选 |
-| **加密算法** | AES-256-GCM（笔记/附件/分享） | 标准化、抗篡改 |
-| **实时同步** | **WebSocket（`ws` 库）** | 1s 内多端同步；服务端仅推元数据，E2EE 不破功 |
-| **实时降级** | 5s 轮询（`sync/pull`） | WS 不可用时无缝降级 |
-| **Web 框架** | React 18.3 + Vite 5 + Tailwind 3.4 | 主流 + 主题系统友好 |
-| **状态管理** | Zustand 4.5 | 轻量、TS 友好、跨端可复用 |
-| **编辑器** | CodeMirror 6 | 高性能、可扩展 |
-| **桌面端** | Tauri 2 + React | 体积小（<10MB）、Rust 内核安全 |
-| **移动端** | React Native 0.74+ | 与 Web / 小程序共技术栈 |
-| **小程序** | Taro 3.6+ + NutUI | 一码多端，与 Web 端复用率最高 |
-| **共享层** | TypeScript + @noble/hashes + zod | 纯 JS 跨端可用 |
-| **样式** | Tailwind CSS（CSS 变量驱动主题） | 与主题系统天然契合 |
-| **图标** | lucide-react / lucide | 1.5px 描边线性图标，统一 |
-| **字体** | 自托管 Manrope / Noto Sans SC / JetBrains Mono | 不连 Google Fonts（隐私） |
-| **CI** | GitHub Actions | 与代码仓库同源 |
-| **容器化** | Docker + Docker Compose | 标准化部署 |
-| **反向代理** | Nginx（Caddy 备选） | 性能、SOC 成熟 |
-| **依赖管理** | pnpm 9.x + lock 提交 | 快、严格 |
-| **日志** | pino（JSON 输出 stdout） | 高性能、易采集 |
-| **测试** | vitest + Playwright | 与 Vite 生态一致 |
-| **包版本** | SemVer 严格 | 自动化发布 |
-| **提交规范** | Conventional Commits | 自动化 changelog |
+| 维度           | 决策                                                   | 理由                                         |
+| -------------- | ------------------------------------------------------ | -------------------------------------------- |
+| **架构模式**   | 单仓多包 monorepo（pnpm workspace）                    | 跨端代码共享、类型统一、CI 一致              |
+| **后端运行时** | Node.js 20 LTS                                         | 跨端统一 TypeScript、生态成熟                |
+| **后端语言**   | TypeScript 5.4+                                        | 与前端共享类型                               |
+| **后端框架**   | Express 4.19                                           | 轻量、单用户低流量足够，避免 Nest 等重框架   |
+| **数据库**     | **SQLite（better-sqlite3 服务端 + SQLCipher 客户端）** | 单用户场景零运维；FTS5 内置；跨端一致        |
+| **缓存**       | 内存 LRU（不引入 Redis）                               | 单用户无并发场景；v2.0 评估                  |
+| **鉴权算法**   | Argon2id（m=64MB, t=3, p=4）                           | 业界推荐，OWASP 首选                         |
+| **加密算法**   | AES-256-GCM（笔记/附件/分享）                          | 标准化、抗篡改                               |
+| **实时同步**   | **WebSocket（`ws` 库）**                               | 1s 内多端同步；服务端仅推元数据，E2EE 不破功 |
+| **实时降级**   | 5s 轮询（`sync/pull`）                                 | WS 不可用时无缝降级                          |
+| **Web 框架**   | React 18.3 + Vite 5 + Tailwind 3.4                     | 主流 + 主题系统友好                          |
+| **状态管理**   | Zustand 4.5                                            | 轻量、TS 友好、跨端可复用                    |
+| **编辑器**     | CodeMirror 6                                           | 高性能、可扩展                               |
+| **桌面端**     | Tauri 2 + React                                        | 体积小（<10MB）、Rust 内核安全               |
+| **移动端**     | React Native 0.74+                                     | 与 Web / 小程序共技术栈                      |
+| **小程序**     | Taro 3.6+ + NutUI                                      | 一码多端，与 Web 端复用率最高                |
+| **共享层**     | TypeScript + @noble/hashes + zod                       | 纯 JS 跨端可用                               |
+| **样式**       | Tailwind CSS（CSS 变量驱动主题）                       | 与主题系统天然契合                           |
+| **图标**       | lucide-react / lucide                                  | 1.5px 描边线性图标，统一                     |
+| **字体**       | 自托管 Manrope / Noto Sans SC / JetBrains Mono         | 不连 Google Fonts（隐私）                    |
+| **CI**         | GitHub Actions                                         | 与代码仓库同源                               |
+| **容器化**     | Docker + Docker Compose                                | 标准化部署                                   |
+| **反向代理**   | Nginx（Caddy 备选）                                    | 性能、SOC 成熟                               |
+| **依赖管理**   | pnpm 9.x + lock 提交                                   | 快、严格                                     |
+| **日志**       | pino（JSON 输出 stdout）                               | 高性能、易采集                               |
+| **测试**       | vitest + Playwright                                    | 与 Vite 生态一致                             |
+| **包版本**     | SemVer 严格                                            | 自动化发布                                   |
+| **提交规范**   | Conventional Commits                                   | 自动化 changelog                             |
 
 ### 0.1 显式不选
 
-| 备选 | 不选原因 |
-|------|----------|
-| PostgreSQL / MySQL | 单用户过度设计，需独立服务进程 |
-| NestJS / Fastify | 重框架，Express 足够 |
-| Redux / MobX | Zustand 更轻量 |
-| Quill / TipTap | CodeMirror 性能与扩展性更强 |
-| Electron | 包体积大、内存占用高 |
-| Flutter | 与 Web/小程序无法复用代码 |
-| uni-app | Taro 生态更活跃，组件库更全 |
-| MongoDB | 无关系约束，不适合笔记 |
-| Google Analytics / Sentry SaaS | 隐私要求自托管或不引入 |
-| Redis | 单用户无并发需求 |
+| 备选                           | 不选原因                       |
+| ------------------------------ | ------------------------------ |
+| PostgreSQL / MySQL             | 单用户过度设计，需独立服务进程 |
+| NestJS / Fastify               | 重框架，Express 足够           |
+| Redux / MobX                   | Zustand 更轻量                 |
+| Quill / TipTap                 | CodeMirror 性能与扩展性更强    |
+| Electron                       | 包体积大、内存占用高           |
+| Flutter                        | 与 Web/小程序无法复用代码      |
+| uni-app                        | Taro 生态更活跃，组件库更全    |
+| MongoDB                        | 无关系约束，不适合笔记         |
+| Google Analytics / Sentry SaaS | 隐私要求自托管或不引入         |
+| Redis                          | 单用户无并发需求               |
 
 ### 0.2 变更流程
 
@@ -153,80 +153,80 @@ flowchart TD
 
 ### 2.1 后端
 
-| 类别 | 选型 | 版本 | 理由 |
-|------|------|------|------|
-| 运行时 | Node.js | 20 LTS | 跨端统一语言，生态成熟 |
-| 语言 | TypeScript | 5.4+ | 类型安全 |
-| Web 框架 | Express | 4.19 | 轻量、灵活、单用户低流量场景足够 |
-| ORM / DB 客户端 | better-sqlite3 | 11.x | 同步 API、零依赖、零配置、单文件 DB |
-| 数据库 | SQLite | 3 | 单用户场景下最佳选择，支持全文检索 (FTS5) |
-| 鉴权 | argon2 | 0.31 | 业界推荐的密码哈希算法 |
-| 文件上传 | multer | 1.4 | 经典成熟方案 |
-| Markdown 解析 | marked | 12.x | 速度快、可扩展 |
-| docx 解析 | mammoth | 1.8 | .docx → HTML/Markdown 最佳实践 |
-| 日志 | pino | 9.x | 高性能 JSON 日志 |
-| 校验 | zod | 3.x | TypeScript 友好 |
-| 测试 | vitest | 1.x | 与 Vite 生态一致 |
-| 部署 | Docker / PM2 | - | 单进程即可应对单用户 |
+| 类别            | 选型           | 版本   | 理由                                      |
+| --------------- | -------------- | ------ | ----------------------------------------- |
+| 运行时          | Node.js        | 20 LTS | 跨端统一语言，生态成熟                    |
+| 语言            | TypeScript     | 5.4+   | 类型安全                                  |
+| Web 框架        | Express        | 4.19   | 轻量、灵活、单用户低流量场景足够          |
+| ORM / DB 客户端 | better-sqlite3 | 11.x   | 同步 API、零依赖、零配置、单文件 DB       |
+| 数据库          | SQLite         | 3      | 单用户场景下最佳选择，支持全文检索 (FTS5) |
+| 鉴权            | argon2         | 0.31   | 业界推荐的密码哈希算法                    |
+| 文件上传        | multer         | 1.4    | 经典成熟方案                              |
+| Markdown 解析   | marked         | 12.x   | 速度快、可扩展                            |
+| docx 解析       | mammoth        | 1.8    | .docx → HTML/Markdown 最佳实践            |
+| 日志            | pino           | 9.x    | 高性能 JSON 日志                          |
+| 校验            | zod            | 3.x    | TypeScript 友好                           |
+| 测试            | vitest         | 1.x    | 与 Vite 生态一致                          |
+| 部署            | Docker / PM2   | -      | 单进程即可应对单用户                      |
 
 ### 2.2 Web 端
 
-| 类别 | 选型 | 版本 | 理由 |
-|------|------|------|------|
-| 框架 | React | 18.3 | 主流 |
-| 构建 | Vite | 5.x | 启动快，HMR 强 |
-| 语言 | TypeScript | 5.4+ | 与后端共享类型 |
-| 样式 | Tailwind CSS | 3.4 | 主题系统友好（CSS 变量） |
-| 状态 | Zustand | 4.5 | 轻量、TS 友好 |
-| 路由 | React Router | 6.x | 标准 |
-| 编辑器 | CodeMirror 6 | - | 高性能、可扩展 |
-| Markdown 渲染 | react-markdown + remark-gfm | - | 生态丰富 |
-| 本地存储 | Dexie (IndexedDB) | 4.x | 离线优先 |
-| HTTP | ky / 原生 fetch | - | 简单场景 |
-| 图标 | lucide-react | - | 1.5px 描边线性图标 |
-| 测试 | vitest + testing-library | - | 一致性 |
+| 类别          | 选型                        | 版本 | 理由                     |
+| ------------- | --------------------------- | ---- | ------------------------ |
+| 框架          | React                       | 18.3 | 主流                     |
+| 构建          | Vite                        | 5.x  | 启动快，HMR 强           |
+| 语言          | TypeScript                  | 5.4+ | 与后端共享类型           |
+| 样式          | Tailwind CSS                | 3.4  | 主题系统友好（CSS 变量） |
+| 状态          | Zustand                     | 4.5  | 轻量、TS 友好            |
+| 路由          | React Router                | 6.x  | 标准                     |
+| 编辑器        | CodeMirror 6                | -    | 高性能、可扩展           |
+| Markdown 渲染 | react-markdown + remark-gfm | -    | 生态丰富                 |
+| 本地存储      | Dexie (IndexedDB)           | 4.x  | 离线优先                 |
+| HTTP          | ky / 原生 fetch             | -    | 简单场景                 |
+| 图标          | lucide-react                | -    | 1.5px 描边线性图标       |
+| 测试          | vitest + testing-library    | -    | 一致性                   |
 
 ### 2.3 桌面端 (PC)
 
-| 类别 | 选型 | 理由 |
-|------|------|------|
-| 框架 | Tauri 2 | 体积小（<10MB），Rust 内核安全，原生系统托盘 |
-| 前端 | React（同 Web） | 复用 web 端组件 |
-| 状态 | Zustand | 复用 |
-| 数据存储 | 本地 SQLite（Tauri 插件） | 离线 |
-| 自动启动 | tauri-plugin-autostart | 跨平台 |
-| 系统通知 | tauri-plugin-notification | 分享通知 |
+| 类别     | 选型                      | 理由                                         |
+| -------- | ------------------------- | -------------------------------------------- |
+| 框架     | Tauri 2                   | 体积小（<10MB），Rust 内核安全，原生系统托盘 |
+| 前端     | React（同 Web）           | 复用 web 端组件                              |
+| 状态     | Zustand                   | 复用                                         |
+| 数据存储 | 本地 SQLite（Tauri 插件） | 离线                                         |
+| 自动启动 | tauri-plugin-autostart    | 跨平台                                       |
+| 系统通知 | tauri-plugin-notification | 分享通知                                     |
 
 ### 2.4 Android 端
 
-| 类别 | 选型 | 理由 |
-|------|------|------|
-| 框架 | React Native 0.74+ | 与 Web / 小程序共技术栈 |
-| 导航 | React Navigation 6 | 标准 |
-| 本地存储 | react-native-sqlite-storage | 离线 |
-| 安全存储 | react-native-keychain | 密钥本地保护 |
-| 生物识别 | react-native-biometrics | 快捷解锁 |
-| 推送 | （v1 暂不接入） | - |
+| 类别     | 选型                        | 理由                    |
+| -------- | --------------------------- | ----------------------- |
+| 框架     | React Native 0.74+          | 与 Web / 小程序共技术栈 |
+| 导航     | React Navigation 6          | 标准                    |
+| 本地存储 | react-native-sqlite-storage | 离线                    |
+| 安全存储 | react-native-keychain       | 密钥本地保护            |
+| 生物识别 | react-native-biometrics     | 快捷解锁                |
+| 推送     | （v1 暂不接入）             | -                       |
 
 ### 2.5 小程序端
 
-| 类别 | 选型 | 理由 |
-|------|------|------|
-| 框架 | Taro 3.6+ | 一码多端，与 Web 端代码复用率最高 |
-| 语言 | TypeScript | 统一 |
-| UI | NutUI React | 京东开源，与 Taro 配套好 |
-| 状态 | Zustand | 复用 |
-| 本地存储 | Taro.storage | 简单数据；复杂数据用 SQLite 插件 |
-| 富文本 | @tarojs/components + md 解析 | 与移动端一致 |
+| 类别     | 选型                         | 理由                              |
+| -------- | ---------------------------- | --------------------------------- |
+| 框架     | Taro 3.6+                    | 一码多端，与 Web 端代码复用率最高 |
+| 语言     | TypeScript                   | 统一                              |
+| UI       | NutUI React                  | 京东开源，与 Taro 配套好          |
+| 状态     | Zustand                      | 复用                              |
+| 本地存储 | Taro.storage                 | 简单数据；复杂数据用 SQLite 插件  |
+| 富文本   | @tarojs/components + md 解析 | 与移动端一致                      |
 
 ### 2.6 共享层
 
-| 类别 | 选型 | 理由 |
-|------|------|------|
-| 类型 | TypeScript `*.d.ts` | API 契约、笔记模型、主题类型 |
-| 工具 | tsdown / tsc build | 输出 ESM / CJS 双格式 |
-| 加密 | @noble/hashes（Argon2、HKDF、SHA-256） | 纯 JS 跨端可用 |
-| 校验 | zod | 跨端复用 |
+| 类别 | 选型                                   | 理由                         |
+| ---- | -------------------------------------- | ---------------------------- |
+| 类型 | TypeScript `*.d.ts`                    | API 契约、笔记模型、主题类型 |
+| 工具 | tsdown / tsc build                     | 输出 ESM / CJS 双格式        |
+| 加密 | @noble/hashes（Argon2、HKDF、SHA-256） | 纯 JS 跨端可用               |
+| 校验 | zod                                    | 跨端复用                     |
 
 ---
 
@@ -234,33 +234,33 @@ flowchart TD
 
 ### 3.1 Web / 桌面端
 
-| 路由 | 用途 | 鉴权 |
-|------|------|------|
-| `/` | 主页（笔记列表） | 需登录 |
-| `/note/:id` | 笔记编辑页 | 需登录 |
-| `/note/new` | 新建笔记 | 需登录 |
-| `/tags` | 标签管理 | 需登录 |
-| `/trash` | 回收站 | 需登录 |
-| `/settings` | 全局设置 | 需登录 |
-| `/settings/theme` | 主题设置 | 需登录 |
-| `/settings/import-export` | 导入导出 | 需登录 |
-| `/settings/shares` | 分享管理 | 需登录 |
-| `/unlock` | 解锁页 | 已登录则跳转 / |
-| `/setup` | 首次创建主密码 | 首次 |
-| `/share/:token` | 访客分享页（公共） | 视情况需分享密码 |
+| 路由                      | 用途               | 鉴权             |
+| ------------------------- | ------------------ | ---------------- |
+| `/`                       | 主页（笔记列表）   | 需登录           |
+| `/note/:id`               | 笔记编辑页         | 需登录           |
+| `/note/new`               | 新建笔记           | 需登录           |
+| `/tags`                   | 标签管理           | 需登录           |
+| `/trash`                  | 回收站             | 需登录           |
+| `/settings`               | 全局设置           | 需登录           |
+| `/settings/theme`         | 主题设置           | 需登录           |
+| `/settings/import-export` | 导入导出           | 需登录           |
+| `/settings/shares`        | 分享管理           | 需登录           |
+| `/unlock`                 | 解锁页             | 已登录则跳转 /   |
+| `/setup`                  | 首次创建主密码     | 首次             |
+| `/share/:token`           | 访客分享页（公共） | 视情况需分享密码 |
 
 ### 3.2 小程序端
 
-| 路由 | 用途 |
-|------|------|
-| `pages/index` | 笔记列表 |
-| `pages/note/edit` | 笔记编辑 |
-| `pages/note/view` | 笔记查看 |
+| 路由                   | 用途     |
+| ---------------------- | -------- |
+| `pages/index`          | 笔记列表 |
+| `pages/note/edit`      | 笔记编辑 |
+| `pages/note/view`      | 笔记查看 |
 | `pages/settings/index` | 设置主页 |
 | `pages/settings/theme` | 主题设置 |
-| `pages/shares/index` | 分享管理 |
-| `pages/unlock/index` | 解锁 |
-| `pages/setup/index` | 首次设置 |
+| `pages/shares/index`   | 分享管理 |
+| `pages/unlock/index`   | 解锁     |
+| `pages/setup/index`    | 首次设置 |
 
 ---
 
@@ -427,12 +427,12 @@ Response: { downloadUrl: string; expiresAt: string }
 ### 4.6 主题与偏好
 
 ```typescript
-GET /api/v1/preferences
-Response: Preferences
+GET / api / v1 / preferences;
+Response: Preferences;
 
-PUT /api/v1/preferences
-Request: Preferences
-Response: Preferences
+PUT / api / v1 / preferences;
+Request: Preferences;
+Response: Preferences;
 ```
 
 ---
@@ -668,13 +668,13 @@ stateDiagram-v2
 
 #### 6.3.4 各端实现要点
 
-| 端 | 实现库 | 关键配置 |
-|----|--------|----------|
-| Web | 原生 `WebSocket` + 包装类 | 心跳 30s；`navigator.onLine` 监听；`visibilitychange` 唤醒重连 |
-| 桌面 (Tauri) | `tokio-tungstenite` 桥接 + Rust 命令 | 系统休眠时关 WS；恢复时立即重连 |
-| Android (RN) | `react-native-mqtt` 或原生 WS | `WorkManager` 后台保活；前台 30s 心跳，后台 5min |
-| iOS (RN) | `react-native-mqtt` 或原生 WS | `BGAppRefreshTask` 受限 30s；进入前台立即重连 |
-| 小程序 (Taro) | `Taro.connectSocket` | 微信限制 5 连接/账号、需 7 天主动心跳续期；后台任务受限 |
+| 端            | 实现库                               | 关键配置                                                       |
+| ------------- | ------------------------------------ | -------------------------------------------------------------- |
+| Web           | 原生 `WebSocket` + 包装类            | 心跳 30s；`navigator.onLine` 监听；`visibilitychange` 唤醒重连 |
+| 桌面 (Tauri)  | `tokio-tungstenite` 桥接 + Rust 命令 | 系统休眠时关 WS；恢复时立即重连                                |
+| Android (RN)  | `react-native-mqtt` 或原生 WS        | `WorkManager` 后台保活；前台 30s 心跳，后台 5min               |
+| iOS (RN)      | `react-native-mqtt` 或原生 WS        | `BGAppRefreshTask` 受限 30s；进入前台立即重连                  |
+| 小程序 (Taro) | `Taro.connectSocket`                 | 微信限制 5 连接/账号、需 7 天主动心跳续期；后台任务受限        |
 
 #### 6.3.5 服务端实现要点
 
@@ -689,13 +689,13 @@ stateDiagram-v2
 
 #### 6.3.6 容量与性能
 
-| 指标 | 目标 | 实测参考 |
-|------|------|----------|
-| 单连接消息延迟 | P95 < 300ms | localhost < 5ms |
-| 并发连接数 | ≥ 10 设备 | Node.js 单进程 10K 连接 |
-| 消息吞吐 | 100 msg/s | 单实例 10K msg/s |
-| 断线恢复时间 | < 5s | 退避 1/2/4/8/16s |
-| 移动后台切换前台 | < 1s 看到最新 | 取决于系统休眠策略 |
+| 指标             | 目标          | 实测参考                |
+| ---------------- | ------------- | ----------------------- |
+| 单连接消息延迟   | P95 < 300ms   | localhost < 5ms         |
+| 并发连接数       | ≥ 10 设备     | Node.js 单进程 10K 连接 |
+| 消息吞吐         | 100 msg/s     | 单实例 10K msg/s        |
+| 断线恢复时间     | < 5s          | 退避 1/2/4/8/16s        |
+| 移动后台切换前台 | < 1s 看到最新 | 取决于系统休眠策略      |
 
 #### 6.3.7 安全性
 
@@ -707,13 +707,13 @@ stateDiagram-v2
 
 #### 6.3.8 与现有机制的关系
 
-| 现有 | 实时方案补充 | 触发条件 |
-|------|-------------|----------|
-| `sync/pull` | 保留，作为 WS hello 增量补齐与轮询模式 | 首次连接 / 断线补偿 |
-| `sync/push` | 保留，作为变更的主写入路径 | 任何写操作 |
-| WS 通知 | **新增** | 写操作后服务端主动推送 |
-| 轮询 | **新增** 作为降级 | WS 不可用时 |
-| CRDT 协同 | 不在 v1.x；v2.0 评估 | — |
+| 现有        | 实时方案补充                           | 触发条件               |
+| ----------- | -------------------------------------- | ---------------------- |
+| `sync/pull` | 保留，作为 WS hello 增量补齐与轮询模式 | 首次连接 / 断线补偿    |
+| `sync/push` | 保留，作为变更的主写入路径             | 任何写操作             |
+| WS 通知     | **新增**                               | 写操作后服务端主动推送 |
+| 轮询        | **新增** 作为降级                      | WS 不可用时            |
+| CRDT 协同   | 不在 v1.x；v2.0 评估                   | —                      |
 
 #### 6.3.9 局限（坦诚说明）
 
@@ -765,7 +765,7 @@ services:
       - ./server:/app
       - dustnote-data:/app/data
     ports:
-      - "3210:3210"
+      - '3210:3210'
     environment:
       - NODE_ENV=production
       - PORT=3210

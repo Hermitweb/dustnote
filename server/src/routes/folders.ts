@@ -21,10 +21,21 @@ const FolderSchema = z.object({
 foldersRouter.get('/folders', (req, res) => {
   const user = req.user as AuthUser;
   const db = getDb();
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT id, name, parent_id, icon, sort_order, created_at
     FROM folders WHERE user_id = ? ORDER BY sort_order, created_at
-  `).all(user.userId) as { id: string; name: string; parent_id: string | null; icon: string | null; sort_order: number; created_at: string }[];
+  `
+    )
+    .all(user.userId) as {
+    id: string;
+    name: string;
+    parent_id: string | null;
+    icon: string | null;
+    sort_order: number;
+    created_at: string;
+  }[];
   res.json({
     folders: rows.map((r) => ({
       id: r.id,
@@ -46,10 +57,12 @@ foldersRouter.post('/folders', (req, res) => {
   }
   const id = randomUUID();
   const db = getDb();
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO folders (id, user_id, name, parent_id, icon)
     VALUES (?, ?, ?, ?, ?)
-  `).run(id, user.userId, parsed.data.name, parsed.data.parentId ?? null, parsed.data.icon ?? null);
+  `
+  ).run(id, user.userId, parsed.data.name, parsed.data.parentId ?? null, parsed.data.icon ?? null);
   res.status(201).json({ id });
 });
 
@@ -80,7 +93,9 @@ foldersRouter.patch('/folders/:id', (req, res) => {
     return;
   }
   params.push(id, user.userId);
-  const r = db.prepare(`UPDATE folders SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
+  const r = db
+    .prepare(`UPDATE folders SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`)
+    .run(...params);
   if (r.changes === 0) {
     res.status(404).json({ error: 'not_found' });
     return;
@@ -102,6 +117,9 @@ foldersRouter.delete('/folders/:id', (req, res) => {
     return;
   }
   // 该文件夹下的笔记 folder_id 置空
-  db.prepare(`UPDATE notes SET folder_id = NULL WHERE folder_id = ? AND user_id = ?`).run(id, user.userId);
+  db.prepare(`UPDATE notes SET folder_id = NULL WHERE folder_id = ? AND user_id = ?`).run(
+    id,
+    user.userId
+  );
   res.json({ ok: true });
 });

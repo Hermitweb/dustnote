@@ -15,13 +15,13 @@ let deviceId: string | null = null;
 
 async function getDeviceId(): Promise<string> {
   if (deviceId) return deviceId;
-  const stored = await AsyncStorage.getItem('mn_device_id');
+  const stored = await AsyncStorage.getItem('dustnote_device_id');
   if (stored) {
     deviceId = stored;
     return stored;
   }
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-  await AsyncStorage.setItem('mn_device_id', id);
+  await AsyncStorage.setItem('dustnote_device_id', id);
   deviceId = id;
   return id;
 }
@@ -30,8 +30,8 @@ let currentToken: string | null = null;
 
 export function setAccessToken(token: string | null): void {
   currentToken = token;
-  if (token) AsyncStorage.setItem('mn_access_token', token).catch(() => undefined);
-  else AsyncStorage.removeItem('mn_access_token').catch(() => undefined);
+  if (token) AsyncStorage.setItem('dustnote_access_token', token).catch(() => undefined);
+  else AsyncStorage.removeItem('dustnote_access_token').catch(() => undefined);
 }
 
 export const api = new ApiClient({
@@ -44,10 +44,14 @@ export const api = new ApiClient({
 });
 
 // 拦截器：注入动态 deviceId 与 token
-const originalRequest = (api as any).request.bind(api);
-(api as any).request = async function (method: string, path: string, body?: unknown, init?: RequestInit) {
+(api as any).request = async function (
+  method: string,
+  path: string,
+  body?: unknown,
+  init?: RequestInit
+) {
   const dId = await getDeviceId();
-  const token = currentToken ?? (await AsyncStorage.getItem('mn_access_token')) ?? undefined;
+  const token = currentToken ?? (await AsyncStorage.getItem('dustnote_access_token')) ?? undefined;
   // 重新构造 client（带正确 deviceId + token）
   const fresh = new ApiClient({
     baseUrl: 'http://localhost:3210/api/v1',

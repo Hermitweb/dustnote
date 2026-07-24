@@ -32,7 +32,9 @@ export default function Settings() {
       const next = map[res.tapIndex];
       setTheme(next);
       Taro.showToast({ title: `已切换：${THEME_LABEL[next]}`, icon: 'none' });
-    } catch { /* 用户取消 */ }
+    } catch {
+      /* 用户取消 */
+    }
   };
 
   const onClearCache = async () => {
@@ -99,7 +101,10 @@ export default function Settings() {
             Taro.showToast({ title: '无效的备份文件', icon: 'none' });
             return;
           }
-          Taro.showToast({ title: `检测到 ${data.notes.length} 条笔记，暂不支持导入`, icon: 'none' });
+          Taro.showToast({
+            title: `检测到 ${data.notes.length} 条笔记，暂不支持导入`,
+            icon: 'none',
+          });
         } catch {
           Taro.showToast({ title: '文件解析失败', icon: 'none' });
         }
@@ -113,7 +118,9 @@ export default function Settings() {
   return (
     <View className="page">
       <View className="topbar">
-        <Text className="topbar-back" onClick={() => Taro.navigateBack()}>←</Text>
+        <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
+          ←
+        </Text>
         <Text className="topbar-title">设置</Text>
         <Text className="topbar-actions"></Text>
       </View>
@@ -137,9 +144,12 @@ export default function Settings() {
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
-        <View className="settings-row" onClick={() => {
-          Taro.redirectTo({ url: '/pages/share-mgr/index' }).catch(() => {});
-        }}>
+        <View
+          className="settings-row"
+          onClick={() => {
+            Taro.redirectTo({ url: '/pages/share-mgr/index' }).catch(() => {});
+          }}
+        >
           <View className="settings-row-label">
             <Text>🔗 分享管理</Text>
           </View>

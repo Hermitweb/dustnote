@@ -59,7 +59,10 @@ export function runMigrations(db: DatabaseType, migrations: Migration[]): void {
   `);
 
   const applied = new Set(
-    db.prepare('SELECT id FROM _migrations ORDER BY id').all().map((r) => (r as { id: number }).id)
+    db
+      .prepare('SELECT id FROM _migrations ORDER BY id')
+      .all()
+      .map((r) => (r as { id: number }).id)
   );
 
   for (const m of migrations) {
@@ -75,10 +78,7 @@ export function runMigrations(db: DatabaseType, migrations: Migration[]): void {
     });
     try {
       txn();
-      logger.info(
-        { id: m.id, name: m.name, ms: Date.now() - start },
-        '迁移完成'
-      );
+      logger.info({ id: m.id, name: m.name, ms: Date.now() - start }, '迁移完成');
     } catch (err) {
       logger.error({ id: m.id, name: m.name, err }, '迁移失败');
       throw err;

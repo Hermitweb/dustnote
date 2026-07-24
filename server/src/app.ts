@@ -34,17 +34,19 @@ export function createApp(): Application {
   );
 
   // CORS
-  // 开发模式下放宽 origin 限制以支持小程序/H5 等多端联调
-  // 生产模式只允许配置的 webOrigin
-  const allowedOrigins =
-    config.nodeEnv === 'production'
-      ? [config.webOrigin]
-      : [config.webOrigin, 'http://localhost:5173', 'http://localhost:1420', 'http://127.0.0.1:5173'];
+  // 只允许配置的 webOrigin 与已知本地开发端点
+  const allowedOrigins = [
+    config.webOrigin,
+    'http://localhost:5173',
+    'http://localhost:1420',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:1420',
+  ];
   app.use(
     cors({
       origin(origin, cb) {
-        // 允许同源、无 Origin（如 curl、小程序原生请求）和已知开发端
-        if (!origin || allowedOrigins.includes(origin) || config.nodeEnv !== 'production') {
+        // 允许同源、无 Origin（如 curl、小程序原生请求）和已知白名单
+        if (!origin || allowedOrigins.includes(origin)) {
           cb(null, true);
         } else {
           cb(new Error(`CORS blocked: ${origin}`));
@@ -138,13 +140,15 @@ export function createApp(): Application {
   });
 
   // 错误处理
-  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    logger.error({ err }, '未捕获错误');
-    res.status(500).json({
-      error: 'internal_error',
-      message: config.nodeEnv === 'production' ? '服务异常' : err.message,
-    });
-  });
+  app.use(
+    (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      logger.error({ err }, '未捕获错误');
+      res.status(500).json({
+        error: 'internal_error',
+        message: config.nodeEnv === 'production' ? '服务异常' : err.message,
+      });
+    }
+  );
 
   return app;
 }

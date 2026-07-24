@@ -170,7 +170,7 @@ const resources = {
 
 void i18n.use(initReactI18next).init({
   resources,
-  lng: localStorage.getItem('mn_language') ?? 'zh-CN',
+  lng: localStorage.getItem('dustnote_language') ?? 'zh-CN',
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
 });

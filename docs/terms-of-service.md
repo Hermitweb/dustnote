@@ -1,15 +1,15 @@
-# MintNote 服务条款
+# DustNote 服务条款
 
 > 最后更新：2026-06-27
-> 适用版本：MintNote v1.0.0 及以上
+> 适用版本：DustNote v1.0.0 及以上
 
 ## 1. 接受条款
 
-下载、安装或使用 MintNote 即表示你同意本条款。如不同意，请勿使用。
+下载、安装或使用 DustNote 即表示你同意本条款。如不同意，请勿使用。
 
 ## 2. 服务说明
 
-MintNote 是**单用户个人笔记系统**。服务按"现状"提供，不保证零中断或零缺陷。
+DustNote 是**单用户个人笔记系统**。服务按"现状"提供，不保证零中断或零缺陷。
 
 ## 3. 账户与密码
 
@@ -66,4 +66,4 @@ MintNote 是**单用户个人笔记系统**。服务按"现状"提供，不保�
 
 ## 12. 联系方式
 
-- 邮箱：[legal@mintnote.app](mailto:legal@mintnote.app)
+- 邮箱：[legal@dustnote.app](mailto:legal@dustnote.app)

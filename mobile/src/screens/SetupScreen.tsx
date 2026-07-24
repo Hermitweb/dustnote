@@ -3,7 +3,15 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ScrollView,
+} from 'react-native';
 import { useAuthStore } from '../state/auth';
 import { theme } from '../theme';
 
@@ -17,7 +25,8 @@ export function SetupScreen() {
   const strength = (() => {
     if (password.length < 8) return { level: 0, text: '至少 8 位' };
     if (password.length < 12) return { level: 1, text: '弱' };
-    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) return { level: 2, text: '中等' };
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password))
+      return { level: 2, text: '中等' };
     if (password.length >= 16) return { level: 4, text: '强' };
     return { level: 3, text: '良好' };
   })();
@@ -64,9 +73,7 @@ export function SetupScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.emoji}>🌿</Text>
       <Text style={styles.title}>创建主密码</Text>
-      <Text style={styles.subtitle}>
-        主密码是您访问笔记的唯一凭据。我们无法找回，请妥善保管。
-      </Text>
+      <Text style={styles.subtitle}>主密码是您访问笔记的唯一凭据。我们无法找回，请妥善保管。</Text>
 
       <TextInput
         style={styles.input}
@@ -110,8 +117,20 @@ export function SetupScreen() {
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 24, justifyContent: 'center', backgroundColor: theme.bgLight },
   emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
-  title: { fontSize: 24, fontWeight: '700', textAlign: 'center', color: theme.fgLight, marginBottom: 8 },
-  subtitle: { fontSize: 14, color: theme.mutedLight, textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    color: theme.fgLight,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: theme.mutedLight,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
   input: {
     backgroundColor: theme.cardLight,
     borderColor: theme.borderLight,

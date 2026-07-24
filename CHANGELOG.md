@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### 计划中
+
 - 实时同步通知（WebSocket）
 - 笔记历史版本
 - 移动端生物识别解锁
@@ -12,6 +13,7 @@
 ## [0.1.0] - 2026-06-27
 
 ### 新增
+
 - 项目骨架与产品开发文档
 - PRD、技术架构、主题系统、导入导出、安全、研发路线图文档
 - Web 端 Vite + React + Tailwind 启动模板
@@ -24,6 +26,7 @@
 - 实时同步（WebSocket）协议定义
 
 ### 文档
+
 - [PRD](./.trae/documents/PRD.md)
 - [技术架构](./.trae/documents/tech-architecture.md)
 - [主题系统](./.trae/documents/theme-system.md)

@@ -14,7 +14,10 @@ const ConfigSchema = z.object({
   serverVersion: z.string().regex(/^\d+\.\d+\.\d+/),
   minClientVersion: z.string().regex(/^\d+\.\d+\.\d+/),
   recommendedClientVersion: z.string().regex(/^\d+\.\d+\.\d+/),
-  forceUpdateVersion: z.string().regex(/^\d+\.\d+\.\d+/).nullable(),
+  forceUpdateVersion: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+/)
+    .nullable(),
   eolDateForV0: z.string().optional(),
   jwtSecret: z.string().min(16),
 });

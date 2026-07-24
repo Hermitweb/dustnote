@@ -46,9 +46,7 @@ export function SetupScreen() {
           <div className="my-6 rounded-xl bg-mint-50 p-6 font-mono text-3xl font-bold tracking-widest text-mint-700 dark:bg-mint-900/30 dark:text-mint-300">
             {recoveryCode}
           </div>
-          <p className="mb-6 text-xs text-surface-muted">
-            ⚠️ 忘记主密码且无恢复码 = 笔记永久丢失
-          </p>
+          <p className="mb-6 text-xs text-surface-muted">⚠️ 忘记主密码且无恢复码 = 笔记永久丢失</p>
           <button
             onClick={() => {
               /* 自动跳转主界面 */
@@ -97,7 +95,11 @@ export function SetupScreen() {
             error={mismatch ? t('auth.mismatch') : undefined}
           />
 
-          {error && <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">{error}</div>}
+          {error && (
+            <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+              {error}
+            </div>
+          )}
 
           <p className="text-xs text-surface-muted">{t('auth.setup_recovery_hint')}</p>
 

@@ -43,9 +43,7 @@ export function SettingsScreen() {
                 ]}
                 onPress={() => setMode(opt.mode)}
               >
-                <Text style={[styles.modeChipText, active && { color: 'white' }]}>
-                  {opt.label}
-                </Text>
+                <Text style={[styles.modeChipText, active && { color: 'white' }]}>{opt.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -53,8 +51,16 @@ export function SettingsScreen() {
       </Section>
 
       <Section title="数据" colors={colors}>
-        <Row label="📥📤 导入 / 导出" onPress={() => Alert.alert('提示', 'v1 简化：暂未在移动端实现')} colors={colors} />
-        <Row label="🔗 分享管理" onPress={() => Alert.alert('提示', 'v1 简化：暂未在移动端实现')} colors={colors} />
+        <Row
+          label="📥📤 导入 / 导出"
+          onPress={() => Alert.alert('提示', 'v1 简化：暂未在移动端实现')}
+          colors={colors}
+        />
+        <Row
+          label="🔗 分享管理"
+          onPress={() => Alert.alert('提示', 'v1 简化：暂未在移动端实现')}
+          colors={colors}
+        />
       </Section>
 
       <Section title="账户" colors={colors}>
@@ -121,7 +127,13 @@ function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.bg },
     section: { padding: 16 },
-    sectionTitle: { fontSize: 12, fontWeight: '600', color: c.muted, marginBottom: 8, textTransform: 'uppercase' },
+    sectionTitle: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: c.muted,
+      marginBottom: 8,
+      textTransform: 'uppercase',
+    },
     card: {
       backgroundColor: c.card,
       borderRadius: 8,
