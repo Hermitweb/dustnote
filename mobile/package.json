@@ -9,9 +9,9 @@
     "start": "react-native start",
     "test": "jest --passWithNoTests",
     "lint": "eslint .",
-    "build:android": "cd android && ./gradlew assembleRelease",
-    "build:android-bundle": "cd android && ./gradlew bundleRelease",
-    "build:aab": "cd android && ./gradlew bundleRelease",
+    "build:android": "node scripts/build-android.js assembleRelease",
+    "build:android-bundle": "node scripts/build-android.js bundleRelease",
+    "build:aab": "node scripts/build-android.js bundleRelease",
     "build:ios": "cd ios && xcodebuild -workspace DustNote.xcworkspace -scheme DustNote -configuration Release -archivePath ./build/DustNote.xcarchive archive",
     "build:ios-sim": "xcodebuild -workspace ios/DustNote.xcworkspace -scheme DustNote -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build",
     "typecheck": "tsc --noEmit"

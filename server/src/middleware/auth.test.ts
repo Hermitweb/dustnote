@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import type { Request, Response, NextFunction } from 'express';
+import type { Request, Response } from 'express';
 
 beforeAll(() => {
   process.env.JWT_SECRET = 'test-secret-at-least-32-bytes-long-12345';
@@ -18,7 +18,11 @@ function createReq(overrides: Partial<Request> = {}): Request {
     path: '/notes',
     header: () => undefined,
     ...overrides,
-  } as unknown as Request;
+  } as Request;
+}
+
+function withAuth(value: string): Request['header'] {
+  return ((name: string) => (name === 'Authorization' ? value : undefined)) as Request['header'];
 }
 
 function createRes(): Response {
@@ -63,9 +67,7 @@ describe('authMiddleware', () => {
 
   it('returns 401 for non-Bearer authorization', async () => {
     const { authMiddleware } = await loadMiddleware();
-    const req = createReq({
-      header: (name: string) => (name === 'Authorization' ? 'Basic dXNlcjpwYXNz' : undefined),
-    });
+    const req = createReq({ header: withAuth('Basic dXNlcjpwYXNz') });
     const res = createRes();
     authMiddleware(req, res, () => {});
     expect(res.statusCode).toBe(401);
@@ -76,9 +78,7 @@ describe('authMiddleware', () => {
 
   it('returns 401 for an invalid token', async () => {
     const { authMiddleware } = await loadMiddleware();
-    const req = createReq({
-      header: (name: string) => (name === 'Authorization' ? 'Bearer invalid-token' : undefined),
-    });
+    const req = createReq({ header: withAuth('Bearer invalid-token') });
     const res = createRes();
     authMiddleware(req, res, () => {});
     expect(res.statusCode).toBe(401);
@@ -90,9 +90,7 @@ describe('authMiddleware', () => {
   it('rejects refresh tokens on protected routes', async () => {
     const { authMiddleware, issueRefreshToken } = await loadMiddleware();
     const token = issueRefreshToken('user-1', 'device-1');
-    const req = createReq({
-      header: (name: string) => (name === 'Authorization' ? `Bearer ${token}` : undefined),
-    });
+    const req = createReq({ header: withAuth(`Bearer ${token}`) });
     const res = createRes();
     authMiddleware(req, res, () => {});
     expect(res.statusCode).toBe(401);
@@ -101,9 +99,7 @@ describe('authMiddleware', () => {
   it('injects req.user for a valid access token', async () => {
     const { authMiddleware, issueAccessToken } = await loadMiddleware();
     const token = issueAccessToken('user-1', 'device-1');
-    const req = createReq({
-      header: (name: string) => (name === 'Authorization' ? `Bearer ${token}` : undefined),
-    });
+    const req = createReq({ header: withAuth(`Bearer ${token}`) });
     const res = createRes();
     let called = false;
     authMiddleware(req, res, () => {
