@@ -225,48 +225,6 @@ jobs:
           path: desktop/dist/
           if-no-files-found: warn
 
-  build-miniprogram:
-    name: Build Miniprogram (H5)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [lint, typecheck, test]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm --filter @dustnote/miniprogram build:h5
-      - uses: actions/upload-artifact@v4
-        with:
-          name: miniprogram-h5-dist
-          path: miniprogram/dist/
-
-  build-desktop:
-    name: Build Desktop (Web)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [lint, typecheck, test]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm --filter @dustnote/desktop build:web
-      - uses: actions/upload-artifact@v4
-        with:
-          name: desktop-web-dist
-          path: desktop/dist/
-
   native-compat:
     name: Native Module Compatibility
     runs-on: ${{ matrix.os }}
