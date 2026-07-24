@@ -58,6 +58,9 @@ ios/build/
 ios/Pods/
 ios/.xcode.env.local
 
+# SWC
+.swc/
+
 # Taro
 .taro/
 
