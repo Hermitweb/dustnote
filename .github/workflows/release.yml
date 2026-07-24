@@ -135,7 +135,6 @@ jobs:
             - [miniprogram-dist.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ github.ref_name }}/miniprogram-dist.zip)
 
             **Desktop:**
-            - [DustNote_*.msi](https://github.com/Hermitweb/dustnote/releases/download/${{ github.ref_name }}/DustNote_*.msi)
             - [DustNote_*-setup.exe](https://github.com/Hermitweb/dustnote/releases/download/${{ github.ref_name }}/DustNote_*-setup.exe)
 
             **Mobile:**
@@ -152,6 +151,5 @@ jobs:
           files: |
             artifacts/web-dist/web-dist.zip
             artifacts/miniprogram-dist/miniprogram-dist.zip
-            artifacts/desktop-installers/**/*.msi
             artifacts/desktop-installers/**/*.exe
             artifacts/android-apk/app-release.apk
