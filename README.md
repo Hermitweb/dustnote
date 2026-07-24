@@ -36,8 +36,9 @@
 
 ### 前置条件
 
-- [Node.js](https://nodejs.org) 20 LTS+
+- [Node.js](https://nodejs.org) 20 LTS+（已在 Node.js 20/24 上验证）
 - [pnpm](https://pnpm.io) 9.x+
+- Windows 开发需安装 Python 3 与 Visual Studio Build Tools（用于编译 `better-sqlite3`）
 
 ### 本地开发
 
@@ -49,7 +50,7 @@ pnpm install
 pnpm dev
 
 # 3. 单独启动小程序 H5 版（可选）
-cd miniprogram && NODE_OPTIONS=--openssl-legacy-provider pnpm dev:h5
+pnpm dev:h5
 
 # 打开浏览器访问
 # Web: http://localhost:5173

@@ -59,6 +59,10 @@ export default {
       chain.plugins.delete('reactRefresh');
       // 禁用 webpackbar，避免旧版 webpackbar 5 与 webpack 5.78+ 的 ProgressPlugin 不兼容
       chain.plugins.delete('webpackbar');
+      // 关闭 webpack 5 默认的体积警告；Taro 应用包含 React/Taro 运行时，初始包较大属正常
+      chain.performance.hints(false);
+      // 忽略 @tarojs/components 中无法移除的 webpackExports 魔法注释警告
+      chain.merge({ ignoreWarnings: [/webpackExports/] });
       chain.module
         .rule('h5script')
         .test(/\.(js|jsx|ts|tsx)$/)
