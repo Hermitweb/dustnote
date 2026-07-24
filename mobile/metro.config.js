@@ -4,10 +4,7 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const sharedPkg = path.resolve(__dirname, '..', 'shared');
 
 const config = {
-  watchFolders: [
-    path.resolve(__dirname, '..', 'node_modules', '.pnpm'),
-    sharedPkg,
-  ],
+  watchFolders: [path.resolve(__dirname, '..', 'node_modules', '.pnpm'), sharedPkg],
   resolver: {
     nodeModulesPaths: [
       path.resolve(__dirname, 'node_modules'),
