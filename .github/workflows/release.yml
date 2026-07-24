@@ -1,206 +1,151 @@
 name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      channel:
-        description: '发布通道'
-        required: true
-        type: choice
-        default: 'stable'
-        options:
-          - nightly
-          - canary
-          - beta
-          - stable
-      version:
-        description: '版本号（如 1.2.3 或 1.3.0-rc.1）'
-        required: true
-        type: string
   push:
-    tags: ['v*']
-    branches-ignore: ['**']
-
-env:
-  NODE_VERSION: '20'
+    tags:
+      - 'v*'
 
 jobs:
-  build:
-    name: Build (${{ inputs.channel || 'tag' }})
+  build-web:
+    name: Build Web
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - uses: pnpm/action-setup@v4
         with:
-          version: '9.12.0'
+          version: 9.14.2
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: 20
           cache: 'pnpm'
-
-      - name: 解析版本
-        id: version
-        run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/v}"
-          fi
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          CHANNEL="${{ inputs.channel || 'stable' }}"
-          echo "CHANNEL=$CHANNEL" >> $GITHUB_OUTPUT
-          echo "RELEASE_TAG=$VERSION" >> $GITHUB_OUTPUT
-          echo "版本=$VERSION  通道=$CHANNEL"
-
-      - name: 安装依赖
-        run: pnpm install --frozen-lockfile
-
-      - name: 全量构建
-        run: pnpm build
-
-      # ========== Web 端 ==========
-      - name: 构建 Web
-        run: pnpm --filter @dustnote/web build
-
-      - name: 上传 Web 产物
-        uses: actions/upload-artifact@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/web build
+      - run: zip -r web-dist.zip web/dist/
+      - uses: actions/upload-artifact@v4
         with:
-          name: web-${{ steps.version.outputs.VERSION }}
-          path: web/dist/
+          name: web-dist
+          path: web-dist.zip
 
-      # ========== 服务端 Docker 镜像 ==========
-      - name: 登录 GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 登录阿里云（可选）
-        uses: docker/login-action@v3
-        if: env.ALIYUN_REGISTRY_PASSWORD != ''
-        with:
-          registry: registry.cn-hangzhou.aliyuncs.com
-          username: ${{ env.ALIYUN_REGISTRY_USER }}
-          password: ${{ env.ALIYUN_REGISTRY_PASSWORD }}
-
-      - name: 构建并推送 Docker
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: server/Dockerfile
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/dustnote:${{ steps.version.outputs.VERSION }}
-            ghcr.io/${{ github.repository_owner }}/dustnote:${{ steps.version.outputs.CHANNEL }}
-            ghcr.io/${{ github.repository_owner }}/dustnote:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          labels: |
-            org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
-            org.opencontainers.image.channel=${{ steps.version.outputs.CHANNEL }}
-
-      # ========== 桌面端（仅 stable / beta）==========
-      - name: 构建桌面端
-        if: steps.version.outputs.CHANNEL == 'stable' || steps.version.outputs.CHANNEL == 'beta'
-        run: pnpm --filter @dustnote/desktop build
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
-      - name: 上传桌面端产物
-        if: steps.version.outputs.CHANNEL == 'stable' || steps.version.outputs.CHANNEL == 'beta'
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-${{ steps.version.outputs.VERSION }}
-          path: |
-            desktop/src-tauri/target/release/bundle/macos/*.dmg
-            desktop/src-tauri/target/release/bundle/windows/*.exe
-            desktop/src-tauri/target/release/bundle/linux/*.AppImage
-
-      # ========== Android（仅 stable / beta）==========
-      - name: 构建 Android APK
-        if: steps.version.outputs.CHANNEL == 'stable' || steps.version.outputs.CHANNEL == 'beta'
-        run: |
-          cd mobile/android
-          ./gradlew assembleRelease
-
-      - name: 上传 Android APK
-        if: steps.version.outputs.CHANNEL == 'stable' || steps.version.outputs.CHANNEL == 'beta'
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-${{ steps.version.outputs.VERSION }}
-          path: mobile/android/app/build/outputs/apk/release/*.apk
-
-      # ========== SBOM ==========
-      - name: 生成 SBOM
-        uses: cyclonedx/cyclonedx-action@v1
-        with:
-          path: server/
-          format: json
-          output-file: sbom.json
-
-  # ========== 推进到稳定（仅手动）==========
-  promote:
-    name: Promote to Stable
+  build-miniprogram:
+    name: Build Miniprogram H5
     runs-on: ubuntu-latest
-    needs: build
-    if: inputs.channel == 'beta' || inputs.channel == 'canary'
-    environment: production-stable
-    steps:
-      - name: 提示人工确认
-        run: |
-          echo "::warning::Beta 版本已通过自动检查。推进到 stable 通道需要人工确认。"
-
-  # ========== 创建 release（仅 stable / tag 触发）==========
-  release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push' || inputs.channel == 'stable'
-    permissions:
-      contents: write
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
-          fetch-depth: 0
-
-      - name: 下载所有产物
-        uses: actions/download-artifact@v4
+          version: 9.14.2
+      - uses: actions/setup-node@v4
         with:
-          path: artifacts/
+          node-version: 20
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/miniprogram build:h5
+      - run: zip -r miniprogram-dist.zip miniprogram/dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: miniprogram-dist
+          path: miniprogram-dist.zip
 
-      - name: 创建 SBOM 归档
-        run: cp artifacts/sbom.json sbom.json || true
+  build-desktop:
+    name: Build Desktop
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/desktop build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-installers
+          path: desktop/src-tauri/target/release/bundle/**/*
 
-      - name: 创建 Release
+  build-mobile:
+    name: Build Mobile Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          build-tools: 34.0.0
+          ndk: 26.1.10909125
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dustnote/shared build
+      - run: cd mobile && pnpm install
+      - run: cd mobile/android && ./gradlew assembleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-web, build-miniprogram, build-desktop, build-mobile]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ github.event.inputs.version || github.ref_name }}
-          draft: false
-          prerelease: ${{ contains(github.event.inputs.version, '-') || contains(github.ref_name, '-') }}
-          generate_release_notes: true
+          name: ${{ github.ref_name }}
           body: |
-            ## 版本
+            ## 🎉 DustNote Release ${{ github.ref_name }}
 
-            见 [CHANGELOG.md](./CHANGELOG.md)
+            ### 📦 Build Artifacts
 
-            ## 安装
+            **Web:**
+            - [web-dist.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ github.ref_name }}/web-dist.zip)
 
-            - **Web**：访问 https://app.dustnote.app
-            - **桌面**：下载下方的 dmg/exe/AppImage
-            - **Android**：下载 APK 或前往 Google Play
+            **Miniprogram H5:**
+            - [miniprogram-dist.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ github.ref_name }}/miniprogram-dist.zip)
 
-            ## 反馈
+            **Desktop:**
+            - [DustNote_*.msi](https://github.com/Hermitweb/dustnote/releases/download/${{ github.ref_name }}/DustNote_*.msi)
+            - [DustNote_*-setup.exe](https://github.com/Hermitweb/dustnote/releases/download/${{ github.ref_name }}/DustNote_*-setup.exe)
 
-            任何问题请到 [Issues](https://github.com/${{ github.repository }}/issues) 反馈。
+            **Mobile:**
+            - [app-release.apk](https://github.com/Hermitweb/dustnote/releases/download/${{ github.ref_name }}/app-release.apk)
+
+            ### ✅ Platforms Built
+            - ✅ Web
+            - ✅ Miniprogram H5
+            - ✅ Desktop (Windows)
+            - ✅ Mobile Android
+
+            ### 📝 Changelog
+            See [commits](https://github.com/Hermitweb/dustnote/commits/${{ github.ref_name }}) for details.
           files: |
-            artifacts/**/*.zip
-            artifacts/**/*.tar.gz
-            sbom.json
+            artifacts/web-dist/web-dist.zip
+            artifacts/miniprogram-dist/miniprogram-dist.zip
+            artifacts/desktop-installers/**/*.msi
+            artifacts/desktop-installers/**/*.exe
+            artifacts/android-apk/app-release.apk
