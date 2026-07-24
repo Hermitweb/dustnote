@@ -50,15 +50,4 @@ dependencies {
   } else {
     implementation jscFlavor
   }
-
-  implementation project(':react-native-async-storage_async-storage')
-  implementation project(':react-native-biometrics')
-  implementation project(':react-native-fs')
-  implementation project(':react-native-keychain')
-  implementation project(':react-native-safe-area-context')
-  implementation project(':react-native-screens')
-  implementation project(':react-native-sqlite-storage')
-  implementation project(':react-native-svg')
-  implementation project(':react-native-vector-icons')
-  implementation project(':react-native-webview')
 }
