@@ -1,22 +1,12 @@
 package com.facebook.react
 
 import com.facebook.react.ReactPackage
-import android.app.Application
-import java.util.Arrays
+import com.facebook.react.ReactNativeHost
+import com.facebook.react.shell.MainReactPackage
 
 class PackageList(private val reactNativeHost: ReactNativeHost) {
-    val packages: List<ReactPackage>
-        get() = Arrays.asList<ReactPackage>(
-            MainReactPackage(),
-            com.horcrux.svg.SvgPackage(),
-            com.reactnativecommunity.webview.RNCWebViewPackage(),
-            com.oblador.keychain.KeychainPackage(),
-            com.rnfs.RNFSPackage(),
-            com.th3rdwave.safeareacontext.SafeAreaContextPackage(),
-            com.swmansion.rnscreens.RNScreensPackage(),
-            com.reactnativecommunity.asyncstorage.AsyncStoragePackage(),
-            com.oblador.vectoricons.VectorIconsPackage(),
-            com.reactnativecommunity.biometrics.ReactNativeBiometricsPackage(),
-            org.pgsqlite.SQLitePluginPackage()
-        )
+  val packages: List<ReactPackage>
+    get() = listOf(
+      MainReactPackage()
+    )
 }
