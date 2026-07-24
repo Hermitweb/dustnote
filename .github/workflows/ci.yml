@@ -140,10 +140,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
       - run: pnpm --filter @dustnote/web build
+      - name: List web dist
+        run: ls -la web/dist/ || true
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist
           path: web/dist/
+          if-no-files-found: warn
 
   build-server:
     name: Build Server
@@ -166,10 +169,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
       - run: pnpm --filter @dustnote/server build
+      - name: List server dist
+        run: ls -la server/dist/ || true
       - uses: actions/upload-artifact@v4
         with:
           name: server-dist
           path: server/dist/
+          if-no-files-found: warn
 
   build-miniprogram:
     name: Build Miniprogram (H5)
