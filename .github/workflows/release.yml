@@ -102,6 +102,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
       - run: cd mobile && pnpm install
+      - run: chmod +x mobile/android/gradlew
       - run: cd mobile/android && ./gradlew assembleRelease
       - uses: actions/upload-artifact@v4
         with:
