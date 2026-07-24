@@ -39,6 +39,8 @@
 - [Node.js](https://nodejs.org) 20 LTS+（已在 Node.js 20/24 上验证）
 - [pnpm](https://pnpm.io) 9.x+
 - Windows 开发需安装 Python 3 与 Visual Studio Build Tools（用于编译 `better-sqlite3`）
+- 构建 Android 需安装 [Android Studio](https://developer.android.com/studio) 与 Android SDK 34（详见 [mobile/README.md](./mobile/README.md)）
+- 构建桌面安装包需安装 [Rust](https://www.rust-lang.org/tools/install) 与 Tauri 依赖（详见 [desktop/README.md](./desktop/README.md)）
 
 ### 本地开发
 
