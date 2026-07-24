@@ -101,9 +101,10 @@ jobs:
           ndk: 26.1.10909125
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
-      - run: cd mobile && pnpm install
       - run: chmod +x mobile/android/gradlew
-      - run: cd mobile/android && ./gradlew assembleRelease
+      - name: Build Android APK
+        working-directory: mobile/android
+        run: ./gradlew assembleRelease
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
