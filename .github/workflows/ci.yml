@@ -192,6 +192,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm --filter @dustnote/shared build
       - run: pnpm --filter @dustnote/miniprogram build:h5
       - name: List miniprogram dist
         run: ls -la miniprogram/dist/ || true
@@ -216,6 +217,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm --filter @dustnote/shared build
       - run: pnpm --filter @dustnote/desktop build:web
       - name: List desktop dist
         run: ls -la desktop/dist/ || true
