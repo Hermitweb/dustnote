@@ -187,10 +187,13 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm --filter @dustnote/miniprogram build:h5
+      - name: List miniprogram dist
+        run: ls -la miniprogram/dist/ || true
       - uses: actions/upload-artifact@v4
         with:
           name: miniprogram-h5-dist
           path: miniprogram/dist/
+          if-no-files-found: warn
 
   build-desktop:
     name: Build Desktop (Web)
@@ -208,10 +211,13 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm --filter @dustnote/desktop build:web
+      - name: List desktop dist
+        run: ls -la desktop/dist/ || true
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-web-dist
           path: desktop/dist/
+          if-no-files-found: warn
 
   native-compat:
     name: Native Module Compatibility
