@@ -130,6 +130,7 @@ jobs:
         working-directory: mobile/android
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
           echo "=== APK output directory ==="
           find app/build/outputs -type f 2>/dev/null || echo "No outputs directory found"
@@ -137,15 +138,15 @@ jobs:
           find app/build -type f -name "*.apk" 2>/dev/null || echo "No APK files found"
           if ! test -f app/build/outputs/apk/release/app-release.apk; then
             echo "::error::app-release.apk not found at app/build/outputs/apk/release/"
-            # Push build log to repo for diagnosis (no admin log access)
-            cd ../..
-            mkdir -p debug
-            cp mobile/android/build-output.log debug/build-output.log
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add debug/build-output.log
-            git commit -m "debug: add Android build output log for diagnosis"
-            git push
+            # Create a GitHub issue with the build log so we can diagnose
+            # without admin log access.
+            BUILD_LOG=$(tail -150 build-output.log)
+            BODY=$(jq -n --arg log "$BUILD_LOG" '{title: "Android build: APK not generated", body: ("Build log (last 150 lines):\n\n```\n" + $log + "\n```\n\n@Hermitweb please investigate why `./gradlew assembleRelease` succeeds but no APK is produced at `app/build/outputs/apk/release/app-release.apk`.")}')
+            curl -s -X POST \
+              -H "Authorization: token ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${REPO}/issues" \
+              -d "$BODY"
             exit 1
           fi
       - uses: actions/upload-artifact@v4
