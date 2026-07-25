@@ -1,5 +1,5 @@
 //! DustNote Desktop 入口库
-//!
+//! 
 //! - 注册系统托盘（显示同步状态）
 //! - 注册全局快捷键（Ctrl+Shift+M 唤起主窗口）
 //! - 注册 autostart 启动项
@@ -47,7 +47,7 @@ pub fn run() {
             let _tray = TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
-                .menu_on_left_click(false)
+                .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => {
                         app.exit(0);
