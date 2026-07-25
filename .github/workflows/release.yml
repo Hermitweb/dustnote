@@ -123,7 +123,19 @@ jobs:
       - run: chmod +x mobile/android/gradlew
       - name: Build Android APK
         working-directory: mobile/android
-        run: ./gradlew assembleRelease --stacktrace
+        run: |
+          set +e
+          ./gradlew assembleRelease --stacktrace 2>&1 | tee build-output.log
+          exit_code=${PIPESTATUS[0]}
+          # Publish the tail of the log to the step summary so we can inspect
+          # failures via the API without admin rights to download full logs.
+          {
+            echo "## Gradle Build Output (last 200 lines)"
+            echo '```'
+            tail -200 build-output.log
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
+          exit $exit_code
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
