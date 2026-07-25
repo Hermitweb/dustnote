@@ -9,11 +9,17 @@ buildscript {
     kotlinVersion = "1.9.22"
   }
   repositories {
+    // Canonical repositories first: Google hosts Android/AGP artifacts
+    // (e.g. com.android:zipflinger) that aliyun's `public` mirror does not.
+    // aliyun's mirrors are kept as a fallback for regions with slow direct
+    // access. IMPORTANT: Gradle does NOT fall back to the next repository on
+    // HTTP 5xx errors (only on 404), so a flaky mirror listed first aborts the
+    // whole resolution — hence the order matters.
+    google()
+    mavenCentral()
     maven { url 'https://maven.aliyun.com/repository/public' }
     maven { url 'https://maven.aliyun.com/repository/google' }
     maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
-    google()
-    mavenCentral()
   }
   dependencies {
     classpath("com.android.tools.build:gradle")
@@ -24,22 +30,12 @@ buildscript {
 
 apply plugin: "com.facebook.react.rootproject"
 
-// pnpm (node-linker=hoisted) hoists react-native to the workspace root
-// node_modules/. The ReactPluginExtension default resolves to
-// mobile/node_modules/react-native which does not exist in this layout, so
-// override it on the root project to point at the workspace root instead.
-// ReactExtension on :app inherits this convention.
-react {
-  reactNativeDir = file("../../node_modules/react-native")
-  codegenDir = file("../../node_modules/@react-native/codegen")
-}
-
 allprojects {
   repositories {
+    google()
+    mavenCentral()
     maven { url 'https://maven.aliyun.com/repository/public' }
     maven { url 'https://maven.aliyun.com/repository/google' }
     maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
-    google()
-    mavenCentral()
   }
 }

@@ -142,7 +142,9 @@ jobs:
       - run: chmod +x mobile/android/gradlew
       - name: Build Android APK
         working-directory: mobile/android
-        run: ./gradlew assembleRelease --stacktrace 2>&1 | tee build-output.log
+        # `set -o pipefail` makes the step fail when gradlew fails; otherwise
+        # `| tee` masks the gradlew exit code with tee's own (always 0).
+        run: set -o pipefail && ./gradlew assembleRelease --stacktrace 2>&1 | tee build-output.log
       - name: Verify APK exists
         working-directory: mobile/android
         env:
