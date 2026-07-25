@@ -139,6 +139,19 @@ jobs:
           done
           # Verify the file the RN gradle plugin reads actually resolves now.
           ls -la mobile/node_modules/react-native/ReactAndroid/gradle.properties
+      - name: Verify @babel/runtime install location
+        # Metro must resolve @babel/runtime/helpers/interopRequireDefault
+        # during bundling. With node-linker=hoisted it should be at the
+        # workspace root node_modules/. This step makes path issues visible
+        # in the CI log instead of buried inside a Gradle stack trace.
+        run: |
+          echo "=== Checking @babel/runtime at workspace root ==="
+          ls -la node_modules/@babel/runtime/helpers/interopRequireDefault.js || echo "NOT FOUND at workspace root"
+          echo "=== Checking @babel/runtime at mobile/node_modules ==="
+          ls -la mobile/node_modules/@babel/runtime 2>/dev/null || echo "Not at mobile/node_modules (expected with hoisted layout)"
+          echo "=== Checking @dustnote/shared ==="
+          ls -la node_modules/@dustnote/shared 2>/dev/null || echo "Not at workspace root"
+          ls -la mobile/node_modules/@dustnote/shared 2>/dev/null || echo "Not at mobile/node_modules"
       - run: chmod +x mobile/android/gradlew
       - name: Build Android APK
         working-directory: mobile/android
