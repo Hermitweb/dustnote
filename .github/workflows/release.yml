@@ -122,47 +122,28 @@ jobs:
           ls -la mobile/node_modules/react-native 2>/dev/null || echo "Not at mobile/node_modules (expected with hoisted layout)"
       - run: chmod +x mobile/android/gradlew
       - name: Build Android APK
-        id: gradle_build
         working-directory: mobile/android
-        continue-on-error: true
         run: ./gradlew assembleRelease --stacktrace 2>&1 | tee build-output.log
-      - name: Publish build log to step summary
-        if: always()
+      - name: Verify APK exists
         working-directory: mobile/android
         run: |
-          {
-            echo "## Gradle Build Output (last 250 lines)"
-            echo '```'
-            tail -250 build-output.log 2>/dev/null || echo "No build log found"
-            echo '```'
-          } >> $GITHUB_STEP_SUMMARY
-      - name: Fail job if Gradle build failed
-        if: steps.gradle_build.outcome == 'failure'
-        run: exit 1
-      - name: List APK output directory
-        if: always()
-        working-directory: mobile/android
-        run: |
-          find app/build/outputs -type f 2>/dev/null > apk-output-list.txt || echo "No outputs directory found" > apk-output-list.txt
-          cat apk-output-list.txt
-          {
-            echo "## APK Output Directory"
-            echo '```'
-            cat apk-output-list.txt
-            echo '```'
-          } >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+          echo "=== APK output directory ==="
+          find app/build/outputs -type f 2>/dev/null || echo "No outputs directory found"
+          test -f app/build/outputs/apk/release/app-release.apk || {
+            echo "::error::app-release.apk not found at app/build/outputs/apk/release/"
+            exit 1
+          }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: apk-output-list
-          path: mobile/android/apk-output-list.txt
+          name: build-output-log
+          path: mobile/android/build-output.log
           if-no-files-found: warn
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: android-apk
-          path: mobile/android/app/build/outputs/apk/
-          if-no-files-found: warn
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
 
   create-release:
     name: Create Release
