@@ -2,6 +2,16 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+react {
+  // pnpm (node-linker=hoisted) hoists react-native to the workspace root
+  // node_modules/. The plugin default resolves to mobile/node_modules/react-native
+  // which does not exist in this layout, so point at the workspace root instead.
+  // The `react` extension lives on the :app project (registered by ReactPlugin),
+  // not on the root project, so this override must live here.
+  reactNativeDir = file("../../../node_modules/react-native")
+  codegenDir = file("../../../node_modules/@react-native/codegen")
+}
+
 def enableProguardInReleaseBuilds = false
 def jscFlavor = 'org.webkit:android-jsc:+'
 

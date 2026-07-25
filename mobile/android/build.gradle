@@ -24,10 +24,6 @@ buildscript {
 
 apply plugin: "com.facebook.react.rootproject"
 
-react {
-  reactNativeDir = file("../../node_modules/react-native")
-}
-
 allprojects {
   repositories {
     maven { url 'https://maven.aliyun.com/repository/public' }
