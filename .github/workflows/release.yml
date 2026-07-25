@@ -114,6 +114,12 @@ jobs:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.1.10909125'
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
+      - name: Verify react-native install location
+        run: |
+          echo "Checking react-native at workspace root..."
+          ls -la node_modules/react-native/ReactAndroid/gradle.properties || echo "NOT FOUND at root"
+          echo "Checking react-native at mobile/node_modules..."
+          ls -la mobile/node_modules/react-native 2>/dev/null || echo "Not at mobile/node_modules (expected with hoisted layout)"
       - run: chmod +x mobile/android/gradlew
       - name: Build Android APK
         working-directory: mobile/android
