@@ -57,7 +57,7 @@ jobs:
   build-desktop:
     name: Build Desktop
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -70,11 +70,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
-      - run: pnpm --filter @dustnote/desktop build
+      - name: Build Desktop
+        working-directory: desktop
+        run: pnpm tauri build --verbose
+      - name: List bundle files
+        run: Get-ChildItem -Recurse -Filter "*.exe" desktop/src-tauri/target/release/bundle 2>$null | Select-Object FullName
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-installers
-          path: desktop/src-tauri/target/release/bundle/**/*
+          path: desktop/src-tauri/target/release/bundle/**/*.exe
 
   build-mobile:
     name: Build Mobile Android
