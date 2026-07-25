@@ -122,20 +122,23 @@ jobs:
           ls -la mobile/node_modules/react-native 2>/dev/null || echo "Not at mobile/node_modules (expected with hoisted layout)"
       - run: chmod +x mobile/android/gradlew
       - name: Build Android APK
+        id: gradle_build
+        working-directory: mobile/android
+        continue-on-error: true
+        run: ./gradlew assembleRelease --stacktrace 2>&1 | tee build-output.log
+      - name: Publish build log to step summary
+        if: always()
         working-directory: mobile/android
         run: |
-          set +e
-          ./gradlew assembleRelease --stacktrace 2>&1 | tee build-output.log
-          exit_code=${PIPESTATUS[0]}
-          # Publish the tail of the log to the step summary so we can inspect
-          # failures via the API without admin rights to download full logs.
           {
-            echo "## Gradle Build Output (last 200 lines)"
+            echo "## Gradle Build Output (last 250 lines)"
             echo '```'
-            tail -200 build-output.log
+            tail -250 build-output.log 2>/dev/null || echo "No build log found"
             echo '```'
           } >> $GITHUB_STEP_SUMMARY
-          exit $exit_code
+      - name: Fail job if Gradle build failed
+        if: steps.gradle_build.outcome == 'failure'
+        run: exit 1
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
