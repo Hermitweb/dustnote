@@ -6,10 +6,14 @@ react {
   // pnpm (node-linker=hoisted) hoists react-native to the workspace root
   // node_modules/. The plugin default resolves to mobile/node_modules/react-native
   // which does not exist in this layout, so point at the workspace root instead.
-  // The `react` extension lives on the :app project (registered by ReactPlugin),
-  // not on the root project, so this override must live here.
-  reactNativeDir = file("../../../node_modules/react-native")
-  codegenDir = file("../../../node_modules/@react-native/codegen")
+  //
+  // ReactExtension properties are Kotlin `val`s backed by Gradle Properties.
+  // We use .set() explicitly (rather than `=`) because that is the reliable
+  // way to override a Property convention at configuration time. Setting `root`
+  // also fixes the derived defaults for cliFile/entryFile/jsRoot.
+  root.set(file("../../../"))
+  reactNativeDir.set(file("../../../node_modules/react-native"))
+  codegenDir.set(file("../../../node_modules/@react-native/codegen"))
 }
 
 def enableProguardInReleaseBuilds = false

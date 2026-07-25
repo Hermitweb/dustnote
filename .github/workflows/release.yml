@@ -123,6 +123,22 @@ jobs:
           ls -la node_modules/react-native/ReactAndroid/gradle.properties || echo "NOT FOUND at root"
           echo "Checking react-native at mobile/node_modules..."
           ls -la mobile/node_modules/react-native 2>/dev/null || echo "Not at mobile/node_modules (expected with hoisted layout)"
+      - name: Symlink react-native into mobile/node_modules (pnpm hoisted layout)
+        # pnpm node-linker=hoisted places react-native at the workspace root
+        # node_modules/ but does NOT create mobile/node_modules/react-native on
+        # Linux. The React Native Gradle Plugin's ReactRootProjectPlugin and the
+        # cli-platform-android autolinking script both resolve paths relative to
+        # mobile/node_modules, so we mirror the workspace-root packages there.
+        run: |
+          mkdir -p mobile/node_modules
+          for pkg in react-native @react-native @react-native-community; do
+            if [ ! -e "mobile/node_modules/$pkg" ] && [ -e "node_modules/$pkg" ]; then
+              ln -s "$(pwd)/node_modules/$pkg" "mobile/node_modules/$pkg"
+              echo "Symlinked mobile/node_modules/$pkg -> node_modules/$pkg"
+            fi
+          done
+          # Verify the file the RN gradle plugin reads actually resolves now.
+          ls -la mobile/node_modules/react-native/ReactAndroid/gradle.properties
       - run: chmod +x mobile/android/gradlew
       - name: Build Android APK
         working-directory: mobile/android
