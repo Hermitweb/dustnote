@@ -155,13 +155,18 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: List artifacts
+      - name: List and prepare release assets
         run: |
-          ls -laR artifacts
+          ls -laR artifacts || true
+          mkdir -p release-assets
+          # Copy all build outputs into a flat directory so the release action
+          # can attach them with a simple glob, regardless of the nested
+          # structure produced by download-artifact.
+          find artifacts -type f \( -name "*.zip" -o -name "*.exe" -o -name "*.apk" \) -exec cp {} release-assets/ \;
           {
-            echo "## Downloaded Artifacts"
+            echo "## Release Assets"
             echo '```'
-            find artifacts -type f | sort
+            ls -la release-assets
             echo '```'
           } >> $GITHUB_STEP_SUMMARY
       - name: Create Release
@@ -196,7 +201,4 @@ jobs:
             ### 📝 Changelog
             See [commits](https://github.com/Hermitweb/dustnote/commits/${{ env.RELEASE_TAG }}) for details.
           files: |
-            artifacts/web-dist/web-dist.zip
-            artifacts/miniprogram-dist/miniprogram-dist.zip
-            artifacts/desktop-installers/**/*.exe
-            artifacts/android-apk/**/*.apk
+            release-assets/*
