@@ -69,3 +69,20 @@ dependencies {
     implementation jscFlavor
   }
 }
+
+// React Native autolinking (RN 0.74 API).
+// applyNativeModulesAppBuildGradle(project) does three things the app build
+// depends on:
+//   1. Adds `implementation project(':react-native-<module>')` for every
+//      autolinked native module discovered from package.json (without this the
+//      subprojects are included by settings.gradle but never wired into :app).
+//   2. Registers the `generatePackageList` task (run before preBuild) that
+//      writes PackageList.java to build/generated/rncli/. MainApplication.kt
+//      imports com.facebook.react.PackageList — without this task the Kotlin
+//      compile fails with "Unresolved reference: PackageList".
+//   3. Adds build/generated/rncli/src/main/java to the main source set so the
+//      generated PackageList.java is visible to the compiler.
+// This is the standard RN 0.74 template line; the older
+// `react { autolinkLibrariesWithApp() }` DSL was removed in 0.74 and is NOT
+// used here.
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
