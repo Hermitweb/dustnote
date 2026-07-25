@@ -139,10 +139,22 @@ jobs:
       - name: Fail job if Gradle build failed
         if: steps.gradle_build.outcome == 'failure'
         run: exit 1
+      - name: List APK output directory
+        if: always()
+        working-directory: mobile/android
+        run: |
+          {
+            echo "## APK Output Directory"
+            echo '```'
+            find app/build/outputs -type f 2>/dev/null || echo "No outputs directory found"
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: android-apk
-          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          path: mobile/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
 
   create-release:
     name: Create Release
