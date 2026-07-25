@@ -123,7 +123,7 @@ jobs:
       - run: chmod +x mobile/android/gradlew
       - name: Build Android APK
         working-directory: mobile/android
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease --stacktrace
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
