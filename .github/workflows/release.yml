@@ -156,7 +156,14 @@ jobs:
         with:
           path: artifacts
       - name: List artifacts
-        run: ls -laR artifacts
+        run: |
+          ls -laR artifacts
+          {
+            echo "## Downloaded Artifacts"
+            echo '```'
+            find artifacts -type f | sort
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -192,4 +199,4 @@ jobs:
             artifacts/web-dist/web-dist.zip
             artifacts/miniprogram-dist/miniprogram-dist.zip
             artifacts/desktop-installers/**/*.exe
-            artifacts/android-apk/app-release.apk
+            artifacts/android-apk/**/*.apk
