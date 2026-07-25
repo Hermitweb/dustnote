@@ -147,6 +147,7 @@ jobs:
         run: set -o pipefail && ./gradlew assembleRelease --stacktrace 2>&1 | tee build-output.log
       - name: Verify APK exists
         working-directory: mobile/android
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
