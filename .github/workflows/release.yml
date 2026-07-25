@@ -125,6 +125,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
+          append_files: true
           body: |
             ## 🎉 DustNote Release ${{ github.ref_name }}
 
