@@ -8,12 +8,20 @@ react {
   // which does not exist in this layout, so point at the workspace root instead.
   //
   // ReactExtension properties are Kotlin `val`s backed by Gradle Properties.
-  // We use .set() explicitly (rather than `=`) because that is the reliable
-  // way to override a Property convention at configuration time. Setting `root`
-  // also fixes the derived defaults for cliFile/entryFile/jsRoot.
-  root.set(file("../../../"))
+  // We use .set() explicitly (rather than `=`) because Groovy `=` assignment
+  // does not reliably override a Property convention at configuration time.
+  //
+  // IMPORTANT: We do NOT override `root` (default = ${rootProject.dir}/../ = mobile/).
+  // The `root` property is used by detectedEntryFile() to locate index.js and by
+  // detectOSAwareHermesCommand() to locate hermesc. Overriding `root` to the
+  // workspace root would break entryFile resolution (workspace root has no index.js;
+  // the entry file lives at mobile/index.js). The hermesc path
+  // (mobile/node_modules/react-native/sdks/hermesc/...) is handled by the CI
+  // symlink step that mirrors workspace-root packages into mobile/node_modules/.
   reactNativeDir.set(file("../../../node_modules/react-native"))
   codegenDir.set(file("../../../node_modules/@react-native/codegen"))
+  // Explicit entry file: mobile/index.js (relative to mobile/android/app/).
+  entryFile.set(file("../../index.js"))
 }
 
 def enableProguardInReleaseBuilds = false
