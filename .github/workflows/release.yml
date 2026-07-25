@@ -158,12 +158,20 @@ jobs:
           if ! test -f app/build/outputs/apk/release/app-release.apk; then
             echo "::error::app-release.apk not found at app/build/outputs/apk/release/"
             # Create a GitHub issue with the build log so we can diagnose
-            # without admin log access.
+            # without admin log access. Show error-relevant lines first
+            # (filtered), then the raw tail for full context.
             {
-              echo "Build log (last 200 lines):"
+              echo "## Error-relevant lines (filtered)"
               echo ""
               echo '```'
-              tail -200 build-output.log
+              grep -iE 'error|fail|cannot find|module|exception|what went wrong' build-output.log \
+                | grep -vE '^\s+at ' | tail -80 || echo "(no matches)"
+              echo '```'
+              echo ""
+              echo "## Full log (last 400 lines)"
+              echo ""
+              echo '```'
+              tail -400 build-output.log
               echo '```'
               echo ""
               echo "Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
