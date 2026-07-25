@@ -16,6 +16,10 @@ env:
   # branch-triggered initial release.
   RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.1.0' }}
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-web:
     name: Build Web
@@ -77,15 +81,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
-      - name: Build Desktop frontend
-        working-directory: desktop
-        run: pnpm build:web
-      - name: Build Desktop Rust
-        working-directory: desktop/src-tauri
-        run: cargo build --release
       - name: Build Desktop installer
         working-directory: desktop
-        run: pnpm tauri build --bundle-only
+        run: pnpm tauri build
       - name: List bundle files
         run: Get-ChildItem -Recurse -Filter "*.exe" desktop/src-tauri/target/release/bundle 2>$null | Select-Object FullName
       - uses: actions/upload-artifact@v4
@@ -110,12 +108,10 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: 17
-      - name: Install Android SDK
+      - name: Install Android SDK & NDK
         uses: android-actions/setup-android@v3
         with:
-          api-level: 34
-          build-tools: 34.0.0
-          ndk: 26.1.10909125
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.1.10909125'
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
       - run: chmod +x mobile/android/gradlew
