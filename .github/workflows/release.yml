@@ -143,17 +143,25 @@ jobs:
         if: always()
         working-directory: mobile/android
         run: |
+          find app/build/outputs -type f 2>/dev/null > apk-output-list.txt || echo "No outputs directory found" > apk-output-list.txt
+          cat apk-output-list.txt
           {
             echo "## APK Output Directory"
             echo '```'
-            find app/build/outputs -type f 2>/dev/null || echo "No outputs directory found"
+            cat apk-output-list.txt
             echo '```'
-          } >> $GITHUB_STEP_SUMMARY
+          } >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apk-output-list
+          path: mobile/android/apk-output-list.txt
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: android-apk
-          path: mobile/android/app/build/outputs/apk/release/*.apk
+          path: mobile/android/app/build/outputs/apk/
           if-no-files-found: warn
 
   create-release:
