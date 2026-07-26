@@ -382,10 +382,10 @@ jobs:
           fi
 
           # ---- Velopack 产物（保留 RELEASES / releases.*.json / *.nupkg 用于自动更新） ----
-          # vpk pack 输出到 desktop/src-tauri/Releases/，上传后结构为
-          # artifacts/desktop-velopack-<channel>/Releases/<files>
+          # actions/upload-artifact@v4 上传 path: desktop/src-tauri/Releases/ 时
+          # 保留 Releases/ 目录内容的根级，下载后结构为 artifacts/desktop-velopack-<channel>/<files>
           for channel in win macos linux; do
-            src_dir="artifacts/desktop-velopack-${channel}/Releases"
+            src_dir="artifacts/desktop-velopack-${channel}"
             if [ -d "$src_dir" ]; then
               cp "$src_dir"/* release-assets/ 2>/dev/null || true
             fi
@@ -393,8 +393,8 @@ jobs:
 
           # 重命名 Windows Setup.exe → DustNote_<version>_x64-setup.exe
           win_setup_src=""
-          for f in artifacts/desktop-velopack-win/Releases/DustNote-win-Setup.exe \
-                   artifacts/desktop-velopack-win/Releases/Setup.exe; do
+          for f in artifacts/desktop-velopack-win/DustNote-win-Setup.exe \
+                   artifacts/desktop-velopack-win/Setup.exe; do
             if [ -f "$f" ]; then win_setup_src="$f"; break; fi
           done
           if [ -n "$win_setup_src" ]; then
