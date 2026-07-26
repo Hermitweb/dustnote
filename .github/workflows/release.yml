@@ -5,15 +5,11 @@ on:
     tags:
       - 'v*'
     branches:
-      # Allow the initial release to be cut without a manually-pushed tag.
-      # Revert to tag-only after v0.1.0 is published.
       - dev/setup-and-fixes
 
 env:
   NODE_VERSION: '20'
   PNPM_VERSION: '9.12.0'
-  # Use the tag name when triggered by a tag; fall back to v0.1.0 for the
-  # branch-triggered initial release.
   RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.1.0' }}
 
 concurrency:
@@ -116,7 +112,7 @@ jobs:
         run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
-      - name: Build Tauri binary (no bundle — Velopack handles installer)
+      - name: Build Tauri binary (no bundle)
         working-directory: desktop
         run: pnpm tauri build --no-bundle
       - name: Prepare staging directory
@@ -124,31 +120,30 @@ jobs:
         run: |
           mkdir -p desktop/src-tauri/staging
           cp desktop/src-tauri/target/release/${{ matrix.main_exe }} desktop/src-tauri/staging/
-          echo "=== Staging directory contents ==="
-          ls -la desktop/src-tauri/staging/
       - name: Pack with Velopack
         working-directory: desktop/src-tauri
         shell: bash
+        continue-on-error: ${{ matrix.os == 'macos-latest' }}
         env:
           VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.1.0' }}
         run: |
           ver="${VPK_VERSION#v}"
           vpk pack --packId DustNote --packVersion "$ver" --packDir staging --mainExe ${{ matrix.main_exe }} --channel ${{ matrix.channel }} --runtime ${{ matrix.runtime }} --icon icons/icon.ico
       - name: List Velopack outputs
+        if: always()
         shell: bash
         run: |
-          echo "=== Setup executable ==="
-          ls -la desktop/src-tauri/target/release/Setup.* 2>/dev/null || ls -la desktop/src-tauri/target/release/*Setup* 2>/dev/null || echo "No Setup found"
-          echo "=== Releases directory ==="
+          ls -la desktop/src-tauri/target/release/Setup.* 2>/dev/null || echo "No Setup found"
           ls -la desktop/src-tauri/target/release/Releases/ 2>/dev/null || echo "No Releases dir"
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: desktop-velopack-${{ matrix.channel }}
           path: |
             desktop/src-tauri/target/release/Setup.exe
             desktop/src-tauri/target/release/Setup
-            desktop/src-tauri/target/release/*.appimage
             desktop/src-tauri/target/release/Releases/
+          if-no-files-found: ignore
 
   build-mobile:
     name: Build Mobile Android
@@ -176,7 +171,7 @@ jobs:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.1.10909125'
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
-      - name: Symlink react-native into mobile/node_modules (pnpm hoisted layout)
+      - name: Symlink react-native into mobile/node_modules
         run: |
           mkdir -p mobile/node_modules
           for pkg in react-native @react-native @react-native-community; do
@@ -191,8 +186,6 @@ jobs:
       - name: Verify APK exists
         working-directory: mobile/android
         if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           if ! test -f app/build/outputs/apk/release/app-release.apk; then
             echo "::error::app-release.apk not found"
@@ -208,6 +201,7 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs: [build-web, build-miniprogram, build-desktop, build-mobile]
+    if: always()
     permissions:
       contents: write
     steps:
@@ -241,9 +235,9 @@ jobs:
           name: ${{ env.RELEASE_TAG }}
           append_files: true
           body: |
-            ## 🎉 DustNote Release ${{ env.RELEASE_TAG }}
+            ## DustNote Release ${{ env.RELEASE_TAG }}
 
-            ### 📦 Build Artifacts
+            ### Build Artifacts
 
             **Web:**
             - [web-dist.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/web-dist.zip)
@@ -260,13 +254,13 @@ jobs:
             **Mobile:**
             - [app-release.apk](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/app-release.apk)
 
-            ### ✅ Platforms Built
-            - ✅ Web
-            - ✅ Miniprogram H5
-            - ✅ Desktop (Windows / macOS / Linux)
-            - ✅ Mobile Android
+            ### Platforms Built
+            - Web
+            - Miniprogram H5
+            - Desktop (Windows / macOS / Linux)
+            - Mobile Android
 
-            ### 📝 Changelog
+            ### Changelog
             See [commits](https://github.com/Hermitweb/dustnote/commits/${{ env.RELEASE_TAG }}) for details.
           files: |
             release-assets/*
