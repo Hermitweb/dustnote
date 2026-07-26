@@ -9,8 +9,11 @@
 import React from 'react';
 import { View, Text } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import { useAuthStore, getApi } from '../../state/auth';
+import { useAuthStore } from '../../state/auth';
 import { useThemeStore, type Theme } from '../../state/theme';
+import { useModeStore } from '../../lib/mode-store';
+import { getRepo, resetRepoCache } from '../../lib/get-repo';
+import { clearStandaloneMasterKey } from '../../lib/standalone-session';
 
 const THEME_LABEL: Record<Theme, string> = {
   light: '浅色',
@@ -22,6 +25,8 @@ export default function Settings() {
   const lock = useAuthStore((s) => s.lock);
   const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
+  const mode = useModeStore((s) => s.mode);
+  const resetMode = useModeStore((s) => s.resetMode);
 
   const onThemeChange = async () => {
     try {
@@ -40,15 +45,21 @@ export default function Settings() {
   const onClearCache = async () => {
     const confirm = await Taro.showModal({
       title: '清空缓存',
-      content: '将清除本地所有数据（含登录态），确定继续？',
+      content: '将清除本地所有数据（含登录态和单机笔记），确定继续？',
       confirmText: '清空',
       confirmColor: '#E07B6C',
     });
     if (!confirm.confirm) return;
     try {
+      // 清空业务数据 + 鉴权数据 + 模式状态
+      await getRepo().clearBusinessData();
+      clearStandaloneMasterKey();
+      resetRepoCache();
+      resetMode();
       Taro.clearStorageSync();
       Taro.showToast({ title: '已清空', icon: 'success' });
-      setTimeout(() => Taro.reLaunch({ url: '/pages/unlock/index' }), 600);
+      // 重置后回到模式选择页
+      setTimeout(() => Taro.reLaunch({ url: '/pages/mode-select/index' }), 600);
     } catch {
       Taro.showToast({ title: '清空失败', icon: 'none' });
     }
@@ -61,9 +72,9 @@ export default function Settings() {
   const onExport = async () => {
     try {
       Taro.showLoading({ title: '导出中…' });
-      const data = await getApi().get<{ notes: any[]; folders: any[] }>('/export/backup');
+      const payload = await getRepo().exportBackup();
       Taro.hideLoading();
-      const json = JSON.stringify(data, null, 2);
+      const json = JSON.stringify(payload, null, 2);
       if (process.env.TARO_ENV === 'h5') {
         // H5：触发浏览器文件下载
         const blob = new Blob([json], { type: 'application/json' });
@@ -101,18 +112,34 @@ export default function Settings() {
             Taro.showToast({ title: '无效的备份文件', icon: 'none' });
             return;
           }
-          Taro.showToast({
-            title: `检测到 ${data.notes.length} 条笔记，暂不支持导入`,
-            icon: 'none',
-          });
+          Taro.showLoading({ title: '导入中…' });
+          await getRepo().importBackup(data);
+          Taro.hideLoading();
+          Taro.showToast({ title: `已导入 ${data.notes.length} 条笔记`, icon: 'success' });
         } catch {
+          Taro.hideLoading();
           Taro.showToast({ title: '文件解析失败', icon: 'none' });
         }
       };
       input.click();
     } else {
-      Taro.showToast({ title: '该功能即将上线', icon: 'none' });
+      Taro.showToast({ title: 'weapp 暂不支持导入，请使用 H5 版本', icon: 'none' });
     }
+  };
+
+  /** 切换模式：重置模式状态，回到模式选择页 */
+  const onSwitchMode = async () => {
+    const confirm = await Taro.showModal({
+      title: '切换模式',
+      content: '切换模式前请确保数据已导出备份。确定要切换到另一种模式吗？',
+      confirmText: '确定',
+      confirmColor: '#E07B6C',
+    });
+    if (!confirm.confirm) return;
+    clearStandaloneMasterKey();
+    resetRepoCache();
+    resetMode();
+    Taro.reLaunch({ url: '/pages/mode-select/index' });
   };
 
   return (
@@ -132,6 +159,20 @@ export default function Settings() {
           </View>
           <Text className="settings-row-value">{THEME_LABEL[theme]} ›</Text>
         </View>
+        <View className="settings-row">
+          <View className="settings-row-label">
+            <Text>📱 当前模式</Text>
+          </View>
+          <Text className="settings-row-value">
+            {mode === 'standalone' ? '单机' : '联机'} ›
+          </Text>
+        </View>
+        <View className="settings-row" onClick={onSwitchMode}>
+          <View className="settings-row-label">
+            <Text>🔄 切换模式</Text>
+          </View>
+          <Text className="settings-row-value">›</Text>
+        </View>
         <View className="settings-row" onClick={onExport}>
           <View className="settings-row-label">
             <Text>📤 导出备份</Text>
@@ -144,17 +185,19 @@ export default function Settings() {
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
-        <View
-          className="settings-row"
-          onClick={() => {
-            Taro.redirectTo({ url: '/pages/share-mgr/index' }).catch(() => {});
-          }}
-        >
-          <View className="settings-row-label">
-            <Text>🔗 分享管理</Text>
+        {mode === 'online' && (
+          <View
+            className="settings-row"
+            onClick={() => {
+              Taro.redirectTo({ url: '/pages/share-mgr/index' }).catch(() => {});
+            }}
+          >
+            <View className="settings-row-label">
+              <Text>🔗 分享管理</Text>
+            </View>
+            <Text className="settings-row-value">›</Text>
           </View>
-          <Text className="settings-row-value">›</Text>
-        </View>
+        )}
         <View
           className="settings-row"
           onClick={() => {
@@ -215,8 +258,8 @@ export default function Settings() {
       </View>
 
       <View className="footer">
-        <Text className="footer-text">DustNote · 尘心笔记 v0.1.0</Text>
-        <Text className="footer-text">E2EE · 端到端加密</Text>
+        <Text className="footer-text">DustNote · 尘心笔记 v2.0.0</Text>
+        <Text className="footer-text">E2EE · 端到端加密 · 单机/联机双模式</Text>
       </View>
     </View>
   );

@@ -2,14 +2,20 @@
  * 移动端 API 客户端
  *
  * 直接基于 fetch + @dustnote/shared 的 ApiClient
- * 默认 baseUrl 在真机调试时通过 adb reverse 转发到开发机 localhost:3210
- * 生产环境可改为 https://api.dustnote.app/v1
+ *
+ * baseUrl 动态解析：
+ * - 联机模式：从 mode-store 读取 serverUrl（用户在设置页配置）
+ * - 单机模式 / 未配置：回退到 DEFAULT_BASE_URL（默认 localhost:3210，真机调试用 adb reverse 转发）
+ *
+ * 注意：单机模式下不应调用此客户端（应使用 local-repo），但保留回退能力以兼容现有页面，
+ * 批次6 路由改造后会按模式分流到对应 repository。
  */
 
 import { ApiClient, type ClientChannel, type ClientPlatform } from '@dustnote/shared';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { resolveBaseUrl } from './lib/mode-store';
 
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '2.0.0';
 
 let deviceId: string | null = null;
 
@@ -43,7 +49,8 @@ export const api = new ApiClient({
   accessToken: currentToken ?? undefined,
 });
 
-// 拦截器：注入动态 deviceId 与 token
+// 拦截器：每次请求重新构造 client，注入动态 deviceId + token + baseUrl
+// baseUrl 从 mode-store 读取（联机模式下用户配置的 serverUrl）
 (api as any).request = async function (
   method: string,
   path: string,
@@ -52,9 +59,9 @@ export const api = new ApiClient({
 ) {
   const dId = await getDeviceId();
   const token = currentToken ?? (await AsyncStorage.getItem('dustnote_access_token')) ?? undefined;
-  // 重新构造 client（带正确 deviceId + token）
+  // 重新构造 client（带最新 baseUrl + deviceId + token）
   const fresh = new ApiClient({
-    baseUrl: 'http://localhost:3210/api/v1',
+    baseUrl: resolveBaseUrl(),
     clientVersion: APP_VERSION,
     platform: 'android' as ClientPlatform,
     channel: 'stable' as ClientChannel,

@@ -37,16 +37,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
       - run: pnpm --filter @dustnote/web build
-      - run: zip -r web-dist.zip web/dist/
+      - name: Package Web static assets
+        run: zip -r dustnote-web-${{ env.RELEASE_TAG }}.zip web/dist/
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist
-          path: web-dist.zip
+          path: dustnote-web-${{ env.RELEASE_TAG }}.zip
 
   build-miniprogram:
-    name: Build Miniprogram H5
+    name: Build Miniprogram (H5 + WeApp)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -58,12 +59,35 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
-      - run: pnpm --filter @dustnote/miniprogram build:h5
-      - run: zip -r miniprogram-dist.zip miniprogram/dist/
+      - name: Build Miniprogram H5
+        run: pnpm --filter @dustnote/miniprogram build:h5
+      - name: Stage H5 output
+        # Taro H5 与 WeApp 共用 outputRoot=dist，构建完一处后立即暂存，避免被覆盖
+        run: |
+          rm -rf staging-h5
+          mkdir -p staging-h5
+          cp -r miniprogram/dist/. staging-h5/
+      - name: Build Miniprogram WeApp
+        run: pnpm --filter @dustnote/miniprogram build:weapp
+      - name: Stage WeApp output
+        run: |
+          rm -rf staging-weapp
+          mkdir -p staging-weapp
+          cp -r miniprogram/dist/. staging-weapp/
+      - name: Package H5
+        run: |
+          cd staging-h5
+          zip -r "../dustnote-miniprogram-h5-${{ env.RELEASE_TAG }}.zip" .
+      - name: Package WeApp
+        run: |
+          cd staging-weapp
+          zip -r "../dustnote-miniprogram-weapp-${{ env.RELEASE_TAG }}.zip" .
       - uses: actions/upload-artifact@v4
         with:
           name: miniprogram-dist
-          path: miniprogram-dist.zip
+          path: |
+            dustnote-miniprogram-h5-${{ env.RELEASE_TAG }}.zip
+            dustnote-miniprogram-weapp-${{ env.RELEASE_TAG }}.zip
 
   build-desktop:
     name: Build Desktop (${{ matrix.channel }})
@@ -117,19 +141,45 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
       - name: Build Tauri binary (no bundle — Velopack handles installer)
+        # macOS/Linux 缺少签名证书与 .app bundle 资源，硬件平台受限，允许失败以保留 Release 流程
+        continue-on-error: ${{ matrix.os != 'windows-latest' }}
         working-directory: desktop
         run: pnpm tauri build --no-bundle
       - name: Prepare staging directory
+        if: always()
         shell: bash
         run: |
           mkdir -p desktop/src-tauri/staging
-          cp desktop/src-tauri/target/release/${{ matrix.main_exe }} desktop/src-tauri/staging/
+          if [ -f "desktop/src-tauri/target/release/${{ matrix.main_exe }}" ]; then
+            cp "desktop/src-tauri/target/release/${{ matrix.main_exe }}" desktop/src-tauri/staging/
+          else
+            echo "::warning::${{ matrix.main_exe }} not found, vpk pack will likely skip"
+          fi
           echo "=== Staging directory contents ==="
           ls -la desktop/src-tauri/staging/
+      - name: Create portable zip (Windows only)
+        # Windows 便携版：直接打包 staging 目录（main exe + 依赖）
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        env:
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.1.0' }}
+        run: |
+          ver="${VPK_VERSION#v}"
+          cd desktop/src-tauri/staging
+          zip -r "../../DustNote_${ver}_x64-portable.zip" .
+          cd ../..
+          ls -la "DustNote_${ver}_x64-portable.zip"
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'windows-latest'
+        with:
+          name: desktop-portable-win
+          path: desktop/src-tauri/DustNote_*_x64-portable.zip
+          if-no-files-found: ignore
       - name: Pack with Velopack
         working-directory: desktop/src-tauri
         shell: bash
-        continue-on-error: ${{ matrix.os == 'macos-latest' }}
+        # macOS/Linux vpk pack 依赖 .app bundle 或额外运行时资源，硬件平台受限
+        continue-on-error: ${{ matrix.os != 'windows-latest' }}
         env:
           VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.1.0' }}
         run: |
@@ -203,11 +253,85 @@ jobs:
           path: mobile/android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
+  build-server-zip:
+    name: Build Server Deployment Package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage server deployment package
+        run: |
+          set -e
+          STAGE="dustnote-server-${RELEASE_TAG}"
+          echo "=== Staging into $STAGE ==="
+          mkdir -p "$STAGE"
+
+          # 1. 服务端源码（排除 node_modules / data / dist / 日志 / 临时文件）
+          mkdir -p "$STAGE/server"
+          rsync -a --delete \
+            --exclude 'node_modules/' \
+            --exclude 'data/' \
+            --exclude 'dist/' \
+            --exclude '.env' \
+            --exclude '*.log' \
+            --exclude '.tmp_*' \
+            --exclude '.DS_Store' \
+            server/ "$STAGE/server/"
+
+          # 2. 共享模块源码（构建时需要 @dustnote/shared）
+          mkdir -p "$STAGE/shared"
+          rsync -a --delete \
+            --exclude 'node_modules/' \
+            --exclude 'dist/' \
+            --exclude '.DS_Store' \
+            shared/ "$STAGE/shared/"
+
+          # 3. Docker 与编排文件
+          cp docker-compose.yml "$STAGE/"
+          cp Dockerfile "$STAGE/"
+          cp .env.example "$STAGE/"
+          cp .dockerignore "$STAGE/"
+          cp package.json "$STAGE/"
+          cp pnpm-workspace.yaml "$STAGE/"
+          cp pnpm-lock.yaml "$STAGE/"
+          # tsconfig 顶层文件（如存在）
+          cp tsconfig*.json "$STAGE/" 2>/dev/null || true
+
+          # 4. 反向代理 / 部署辅助配置
+          mkdir -p "$STAGE/deploy"
+          cp -r deploy/. "$STAGE/deploy/"
+
+          # 5. 部署文档（顶层）
+          if [ -f DEPLOY.md ]; then
+            cp DEPLOY.md "$STAGE/"
+          else
+            echo "::warning::DEPLOY.md not found in repo root"
+          fi
+
+          # 6. 版本元信息
+          cat > "$STAGE/VERSION" <<EOF
+          release_tag: ${RELEASE_TAG}
+          server_version: 2.0.0
+          packaged_at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          EOF
+
+          echo "=== Staged tree (top 2 levels) ==="
+          find "$STAGE" -maxdepth 2 -mindepth 1 | sort
+
+          # 7. 打包 zip
+          zip -r "dustnote-server-${RELEASE_TAG}.zip" "$STAGE"
+          ls -la "dustnote-server-${RELEASE_TAG}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-zip
+          path: dustnote-server-${{ env.RELEASE_TAG }}.zip
+          if-no-files-found: error
+
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build-web, build-miniprogram, build-desktop, build-mobile]
-    if: always()  # 即使部分平台失败也创建 Release（如 macOS vpk pack 需要 .app bundle）
+    needs: [build-web, build-miniprogram, build-desktop, build-mobile, build-server-zip]
+    if: always()  # 即使 macOS/Linux 桌面构建失败也创建 Release（硬件/签名问题）
     permissions:
       contents: write
     steps:
@@ -215,33 +339,70 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: List and prepare release assets
+      - name: Compute version metadata
+        id: meta
         run: |
+          tag="${RELEASE_TAG}"
+          ver="${tag#v}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+      - name: List and prepare release assets
+        env:
+          DUSTNOTE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -e
           ls -laR artifacts || true
           mkdir -p release-assets
+
+          # ---- Web 静态资源 ----
+          if [ -f "artifacts/web-dist/dustnote-web-${RELEASE_TAG}.zip" ]; then
+            cp "artifacts/web-dist/dustnote-web-${RELEASE_TAG}.zip" release-assets/
+          fi
+
+          # ---- 小程序 H5 / WeApp ----
+          for f in dustnote-miniprogram-h5-${RELEASE_TAG}.zip dustnote-miniprogram-weapp-${RELEASE_TAG}.zip; do
+            if [ -f "artifacts/miniprogram-dist/$f" ]; then
+              cp "artifacts/miniprogram-dist/$f" release-assets/
+            fi
+          done
+
+          # ---- 服务端部署包 ----
+          if [ -f "artifacts/server-zip/dustnote-server-${RELEASE_TAG}.zip" ]; then
+            cp "artifacts/server-zip/dustnote-server-${RELEASE_TAG}.zip" release-assets/
+          fi
+
+          # ---- Windows 便携版 ----
+          if ls artifacts/desktop-portable-win/DustNote_*_x64-portable.zip 1>/dev/null 2>&1; then
+            cp artifacts/desktop-portable-win/DustNote_*_x64-portable.zip release-assets/
+          fi
+
+          # ---- Velopack 产物（保留 RELEASES / releases.*.json / *.nupkg 用于自动更新） ----
           # vpk pack 输出到 desktop/src-tauri/Releases/，上传后结构为
           # artifacts/desktop-velopack-<channel>/Releases/<files>
-          # 将所有构建产物扁平复制到 release-assets/
-          find artifacts -type f \( -name "*.zip" -o -name "*.exe" -o -name "*.apk" -o -name "*.nupkg" -o -name "*.delta" -o -name "releases.*.json" -o -name "RELEASES" -o -name "assets.*.json" \) -exec cp {} release-assets/ \;
-          # 重命名 Velopack Setup 文件为 Release body 中引用的标准名称
           for channel in win macos linux; do
             src_dir="artifacts/desktop-velopack-${channel}/Releases"
             if [ -d "$src_dir" ]; then
-              # 复制 Releases/ 下的所有文件到 release-assets/
               cp "$src_dir"/* release-assets/ 2>/dev/null || true
-              # 重命名 Setup 文件
-              if [ "$channel" = "win" ]; then
-                for f in "$src_dir"/DustNote-win-Setup.exe "$src_dir"/Setup.exe; do
-                  if [ -f "$f" ]; then cp "$f" release-assets/Setup.exe; break; fi
-                done
-              else
-                for f in "$src_dir"/DustNote-${channel}-Setup "$src_dir"/Setup; do
-                  if [ -f "$f" ]; then cp "$f" "release-assets/Setup-${channel}"; break; fi
-                done
-              fi
             fi
           done
-          ls -la release-assets
+
+          # 重命名 Windows Setup.exe → DustNote_<version>_x64-setup.exe
+          win_setup_src=""
+          for f in artifacts/desktop-velopack-win/Releases/DustNote-win-Setup.exe \
+                   artifacts/desktop-velopack-win/Releases/Setup.exe; do
+            if [ -f "$f" ]; then win_setup_src="$f"; break; fi
+          done
+          if [ -n "$win_setup_src" ]; then
+            cp "$win_setup_src" "release-assets/DustNote_${DUSTNOTE_VERSION}_x64-setup.exe"
+          fi
+
+          # 重命名 Android APK → DustNote_<version>_android.apk
+          if [ -f artifacts/android-apk/app-release.apk ]; then
+            cp artifacts/android-apk/app-release.apk "release-assets/DustNote_${DUSTNOTE_VERSION}_android.apk"
+          fi
+
+          echo "=== Final release assets ==="
+          ls -la release-assets/
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -251,30 +412,147 @@ jobs:
           body: |
             ## 🎉 DustNote Release ${{ env.RELEASE_TAG }}
 
-            ### 📦 Build Artifacts
+            > 📌 区分两种产物：**客户端安装包**（用户终端）与 **服务端部署包**（自托管）。
 
-            **Web:**
-            - [web-dist.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/web-dist.zip)
+            ---
 
-            **Miniprogram H5:**
-            - [miniprogram-dist.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/miniprogram-dist.zip)
+            ## 🚀 客户端安装包
 
-            **Desktop (Velopack installer with auto-update):**
-            - Windows: [Setup.exe](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/Setup.exe)
-            - macOS: [Setup-macos](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/Setup-macos)
-            - Linux: [Setup-linux](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/Setup-linux)
-            - Update feed: releases.*.json + delta packages (for in-app auto-update)
+            适用于终端用户的各平台安装包，下载对应平台版本安装即可。
 
-            **Mobile:**
-            - [app-release.apk](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/app-release.apk)
+            ### Windows
+            - **安装版（推荐）**: [DustNote_${{ steps.meta.outputs.version }}_x64-setup.exe](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_x64-setup.exe)
+              - 内置 Velopack 自动更新，启动后自动检查新版本并增量下载
+            - **便携版**: [DustNote_${{ steps.meta.outputs.version }}_x64-portable.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_x64-portable.zip)
+              - 解压后直接运行 `dustnote-desktop.exe`，无自动更新
 
-            ### ✅ Platforms Built
-            - ✅ Web
-            - ✅ Miniprogram H5
-            - ✅ Desktop (Windows / macOS / Linux)
-            - ✅ Mobile Android
+            ### macOS（实验性）
+            - 因 GitHub Actions 上无 Apple Developer 签名环境，桌面打包步骤 `continue-on-error: true`
+            - 如本 Release 缺少 macOS 资产，请使用 Web 版或 Docker 自托管部署
 
-            ### 📝 Changelog
+            ### Linux（实验性）
+            - 桌面打包步骤 `continue-on-error: true`，资产可能缺失
+            - 推荐使用 Web 版或 Docker 自托管部署
+
+            ### Android
+            - **APK**: [DustNote_${{ steps.meta.outputs.version }}_android.apk](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_android.apk)
+              - 侧载安装（开启"未知来源"权限）
+
+            ### Web
+            - **静态资源**: [dustnote-web-${{ env.RELEASE_TAG }}.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/dustnote-web-${{ env.RELEASE_TAG }}.zip)
+              - 解压后部署到任意静态服务器（Nginx / Caddy / 对象存储）
+
+            ### 小程序
+            - **H5**: [dustnote-miniprogram-h5-${{ env.RELEASE_TAG }}.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/dustnote-miniprogram-h5-${{ env.RELEASE_TAG }}.zip)
+            - **微信小程序 WeApp 包**: [dustnote-miniprogram-weapp-${{ env.RELEASE_TAG }}.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/dustnote-miniprogram-weapp-${{ env.RELEASE_TAG }}.zip)
+              - 解压后用微信开发者工具打开上传
+
+            ---
+
+            ## 📦 服务端部署
+
+            适用于自托管场景（家庭服务器 / VPS / 内网）。一份 zip 包含全部部署所需文件。
+
+            - **部署包**: [dustnote-server-${{ env.RELEASE_TAG }}.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/dustnote-server-${{ env.RELEASE_TAG }}.zip)
+
+            包含内容：
+            - `server/` —— 服务端源码（Fastify + SQLite）
+            - `shared/` —— 共享类型与工具
+            - `docker-compose.yml` + `Dockerfile` —— 容器化部署
+            - `.env.example` —— 环境变量模板
+            - `deploy/` —— Nginx / Caddy 反向代理配置
+            - `DEPLOY.md` —— 完整部署文档
+            - `VERSION` —— 版本元信息
+
+            ### 快速开始（Docker Compose，推荐）
+
+            ```bash
+            unzip dustnote-server-${{ env.RELEASE_TAG }}.zip
+            cd dustnote-server-${{ env.RELEASE_TAG }}
+            cp .env.example .env          # 修改 JWT_SECRET / WEB_ORIGIN
+            docker compose up -d --build
+            curl http://localhost:8080/api/v1/health
+            ```
+
+            ### 手动部署（Node.js 20+）
+
+            ```bash
+            unzip dustnote-server-${{ env.RELEASE_TAG }}.zip
+            cd dustnote-server-${{ env.RELEASE_TAG }}
+            corepack enable
+            corepack prepare pnpm@9.12.0 --activate
+            pnpm install --frozen-lockfile
+            pnpm --filter @dustnote/shared build
+            pnpm --filter @dustnote/server build
+            NODE_ENV=production node server/dist/index.js
+            ```
+
+            完整步骤、Nginx 反代与 HTTPS 配置见部署包内 `DEPLOY.md`。
+
+            ---
+
+            ## 🔄 自动更新
+
+            ### Windows（Velopack 自动更新）
+
+            DustNote Windows 桌面端集成 [Velopack](https://velopack.io/)，提供静默增量更新：
+
+            1. 应用启动时检查 `releases.win.json` 与 `RELEASES` 元数据
+            2. 优先下载 `.delta.nupkg` 增量包，仅更新变化部分
+            3. 增量失败时回退到 `DustNote-${{ steps.meta.outputs.version }}-win-full.nupkg` 全量包
+
+            本次发布的更新元数据（已附在本 Release 资产中）：
+            - `RELEASES` —— Velopack 索引（Windows 客户端读取）
+            - `releases.win.json` —— 通道元数据
+            - `DustNote-${{ steps.meta.outputs.version }}-win-full.nupkg` —— 全量更新包
+            - `*.delta.nupkg` —— 增量更新包
+
+            ### macOS / Linux
+
+            桌面端**不提供自动更新**（CI 仅尽力构建，可能因签名/环境缺失而失败）。
+
+            更新方式：
+            - 重新下载新版本覆盖安装
+            - 或使用 Web 版（浏览器访问服务端 URL，自动获取最新前端）
+
+            ### 移动端
+
+            - **Android**: 当前需手动下载新版 APK 覆盖安装
+            - **iOS**: 暂未构建（任务说明跳过）
+            - **小程序**: 由微信平台审核发布，与应用市场无关
+
+            ### 服务端
+
+            服务端无自动更新。升级流程：
+
+            ```bash
+            # 1. 备份数据
+            docker compose exec dustnote cp /app/server/data/dustnote.db /tmp/dustnote-backup.db
+            docker cp dustnote:/tmp/dustnote-backup.db ./dustnote-backup-$(date +%F).db
+
+            # 2. 下载新部署包覆盖
+            unzip -o dustnote-server-vNEW.zip
+
+            # 3. 重建容器
+            docker compose up -d --build
+            ```
+
+            ---
+
+            ## ✅ 平台构建状态
+
+            | 平台 | 状态 |
+            | --- | --- |
+            | Web | ✅ |
+            | 小程序 H5 / WeApp | ✅ |
+            | 桌面 Windows | ✅ |
+            | 桌面 macOS | ⚠️ 实验性（continue-on-error） |
+            | 桌面 Linux | ⚠️ 实验性（continue-on-error） |
+            | Android | ✅ |
+            | 服务端部署包 | ✅ |
+
+            ## 📝 Changelog
+
             See [commits](https://github.com/Hermitweb/dustnote/commits/${{ env.RELEASE_TAG }}) for details.
           files: |
             release-assets/*

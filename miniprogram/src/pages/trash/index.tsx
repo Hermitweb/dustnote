@@ -7,7 +7,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { getApi, useAuthStore, decryptNote, parseEnvelope } from '../../state/auth';
+import { useAuthStore, decryptNote, parseEnvelope } from '../../state/auth';
+import { getRepo } from '../../lib/get-repo';
 
 interface Note {
   id: string;
@@ -29,8 +30,8 @@ export default function Trash() {
   const load = async () => {
     setLoading(true);
     try {
-      const r = await getApi().get<{ notes: Note[] }>('/notes?includeDeleted=1');
-      const deleted = r.notes.filter((n) => n.deletedAt);
+      const snapshot = await getRepo().loadAll();
+      const deleted = (snapshot.notes as Note[]).filter((n) => n.deletedAt);
       deleted.sort((a, b) => b.serverUpdatedAt.localeCompare(a.serverUpdatedAt));
       setNotes(deleted);
       if (masterKey) {
@@ -61,11 +62,7 @@ export default function Trash() {
 
   const handleRestore = async (n: Note) => {
     try {
-      await getApi().patch(`/notes/${n.id}`, {
-        deletedAt: null,
-        clientUpdatedAt: new Date().toISOString(),
-        version: n.version,
-      });
+      await getRepo().restoreNote(n.id);
       Taro.showToast({ title: '已恢复', icon: 'success' });
       await load();
     } catch {
@@ -82,7 +79,7 @@ export default function Trash() {
     });
     if (!r.confirm) return;
     try {
-      await getApi().delete(`/notes/${n.id}/permanent`);
+      await getRepo().permanentDeleteNote(n.id);
       Taro.showToast({ title: '已永久删除', icon: 'success' });
       await load();
     } catch {
@@ -99,17 +96,13 @@ export default function Trash() {
       confirmColor: '#E07B6C',
     });
     if (!r.confirm) return;
-    let ok = 0;
-    for (const n of notes) {
-      try {
-        await getApi().delete(`/notes/${n.id}/permanent`);
-        ok++;
-      } catch {
-        /* skip */
-      }
+    try {
+      await getRepo().emptyTrash();
+      Taro.showToast({ title: '已清空', icon: 'success' });
+      await load();
+    } catch {
+      Taro.showToast({ title: '清空失败', icon: 'none' });
     }
-    Taro.showToast({ title: `已清空 ${ok} 条`, icon: 'success' });
-    await load();
   };
 
   return (

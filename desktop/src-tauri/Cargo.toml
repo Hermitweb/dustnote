@@ -1,6 +1,6 @@
 [package]
 name = "dustnote-desktop"
-version = "0.1.0"
+version = "2.0.0"
 description = "DustNote 桌面端 - 极简跨端个人笔记系统"
 authors = ["DustNote Team"]
 edition = "2021"

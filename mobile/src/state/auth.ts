@@ -1,8 +1,22 @@
 /**
- * 鉴权状态：uninitialized / needs_unlock / unlocked
- * masterKey 仅存内存，App 后台时自动清空
+ * 鉴权状态（v2.0.0 双模式架构）
  *
- * 生物识别解锁流程：
+ * 联机模式（online）：
+ * - uninitialized / needs_unlock / unlocked
+ * - masterKey 通过 deriveMasterKey(password, clientMasterSalt) 派生
+ * - access token 持久化到 AsyncStorage，masterKey 可缓存到 keychain（生物识别）
+ * - 失败重试由服务端账号锁定策略管理（连续 6 次失败锁 15 分钟）
+ *
+ * 单机模式（standalone）：
+ * - uninitialized / needs_unlock / unlocked
+ * - masterKey 随机生成，双重包装（passwordWrappedMasterKey + wrappedMasterKey）
+ * - LocalAuthBlob 持久化到 AsyncStorage（无服务端，无 JWT）
+ * - 失败重试由本地 LocalLockoutState 管理（连续 6 次失败锁 15 分钟）
+ * - recover 后 masterKey 不变，已有笔记可继续解密 ✅
+ *
+ * masterKey 仅存内存，App 后台时自动清空（lock()）
+ *
+ * 生物识别解锁流程（仅联机模式）：
  * 1. 首次 setup / 密码解锁成功后，将 masterKey（base64）以 BIOMETRY 访问控制
  *    写入 react-native-keychain；同时 access token 持久化到 AsyncStorage。
  * 2. 下次启动时若 keychain 有缓存，则可走生物识别：通过指纹 / 面容后，
@@ -18,10 +32,29 @@ import {
   randomBytes,
   wrapMasterKey,
   deriveRecoveryKey,
+  setupLocalAuth,
+  unlockLocalAuth,
+  recoverLocalAuth,
+  recordFailedAttempt,
+  recordSuccessfulAttempt,
+  isLocked,
+  remainingLockoutMs,
+  INITIAL_LOCKOUT_STATE,
+  LOCAL_LOCKOUT_DURATION_MS,
+  type LocalAuthBlob,
+  type LocalLockoutState,
 } from '@dustnote/shared';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, setAccessToken } from '../api';
+import { useModeStore } from '../lib/mode-store';
+import {
+  loadLocalAuthBlob,
+  saveLocalAuthBlob,
+  loadLockoutState,
+  saveLockoutState,
+  clearLockoutState,
+} from '../lib/local-auth-storage';
 
 export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked';
 
@@ -56,13 +89,33 @@ interface AuthStoreState {
   /** keychain 中是否有缓存的 masterKey（可用于生物识别） */
   hasBiometricCache: boolean;
 
-  // actions
+  // 单机模式相关
+  /** 单机模式本地鉴权 blob（仅 standalone 模式有值） */
+  localAuthBlob: LocalAuthBlob | null;
+  /** 单机模式客户端锁定状态 */
+  lockoutState: LocalLockoutState;
+
+  // actions: 通用
   init: () => Promise<void>;
+  lock: () => void;
+  setAccessToken: (token: string) => void;
+
+  // actions: 联机模式
   setup: (password: string) => Promise<string>;
   unlock: (password: string) => Promise<void>;
   unlockWithBiometric: () => Promise<boolean>;
-  lock: () => void;
-  setAccessToken: (token: string) => void;
+
+  // actions: 单机模式
+  /** 单机模式：检查本地鉴权状态 */
+  checkStatusStandalone: () => Promise<void>;
+  /** 单机模式：首次设置主密码；返回恢复码 */
+  setupStandalone: (password: string) => Promise<string>;
+  /** 单机模式：解锁 */
+  unlockStandalone: (password: string) => Promise<void>;
+  /** 单机模式：恢复码重置密码；返回新恢复码 */
+  recoverStandalone: (recoveryCode: string, newPassword: string) => Promise<string>;
+  /** 单机模式：获取剩余锁定时间（ms） */
+  getRemainingLockoutMs: () => number;
 }
 
 export const useAuthStore = create<AuthStoreState>((set, get) => ({
@@ -71,27 +124,67 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   masterKey: null,
   deviceId: null,
   hasBiometricCache: false,
+  localAuthBlob: null,
+  lockoutState: { ...INITIAL_LOCKOUT_STATE },
+
+  // ========== 通用 actions ==========
 
   async init() {
-    // 检查服务端状态
-    const r = await api.get<{ initialized: boolean; deviceKnown: boolean }>('/auth/status');
-    if (!r.initialized) {
-      set({ authState: 'uninitialized' });
+    const { mode, initialized } = useModeStore.getState();
+    // 模式未选择时保持 unknown 状态，等待用户选择
+    if (!initialized) {
+      set({ authState: 'unknown' });
       return;
     }
-    // 尝试探测 keychain 是否有缓存的 masterKey（不触发生物识别）
-    // 注：getGenericPassword 在设置了 ACCESS_CONTROL 时会触发生物识别弹窗，
-    // 这里仅用 hasGenericPassword 之类的轻量探测；如不可用则保守地假设有缓存。
-    let hasCache = false;
-    try {
-      // canImplyAuthentication 不触发弹窗，仅判断 keychain 是否可用
-      const ok = await Keychain.canImplyAuthentication({ service: MASTER_KEYCHAIN_SERVICE });
-      hasCache = ok;
-    } catch {
-      hasCache = false;
+
+    if (mode === 'standalone') {
+      await get().checkStatusStandalone();
+      return;
     }
-    set({ authState: 'needs_unlock', hasBiometricCache: hasCache });
+
+    // 联机模式：检查服务端状态
+    try {
+      const r = await api.get<{ initialized: boolean; deviceKnown: boolean }>('/auth/status');
+      if (!r.initialized) {
+        set({ authState: 'uninitialized' });
+        return;
+      }
+      // 尝试探测 keychain 是否有缓存的 masterKey（不触发生物识别）
+      // 注：getGenericPassword 在设置了 ACCESS_CONTROL 时会触发生物识别弹窗，
+      // 这里仅用 hasGenericPassword 之类的轻量探测；如不可用则保守地假设有缓存。
+      let hasCache = false;
+      try {
+        // canImplyAuthentication 不触发弹窗，仅判断 keychain 是否可用
+        const ok = await Keychain.canImplyAuthentication({ service: MASTER_KEYCHAIN_SERVICE });
+        hasCache = ok;
+      } catch {
+        hasCache = false;
+      }
+      set({ authState: 'needs_unlock', hasBiometricCache: hasCache });
+    } catch {
+      // 服务端不可达：保持 unknown 让 UI 提示用户
+      set({ authState: 'unknown' });
+    }
   },
+
+  lock() {
+    const k = get().masterKey;
+    if (k) k.fill(0);
+    setAccessToken(null);
+    set({
+      authState: 'needs_unlock',
+      masterKey: null,
+      // 单机模式锁定时也清空内存中的 blob（保留持久化层），下次重新从存储加载
+      localAuthBlob: null,
+    });
+  },
+
+  setAccessToken(token: string) {
+    setAccessToken(token);
+    set({ accessToken: token });
+  },
+
+  // ========== 联机模式 actions ==========
 
   async setup(password: string): Promise<string> {
     const recoveryCode = generateRecoveryCode();
@@ -171,15 +264,85 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     return true;
   },
 
-  lock() {
-    const k = get().masterKey;
-    if (k) k.fill(0);
-    setAccessToken(null);
-    set({ authState: 'needs_unlock', masterKey: null });
+  // ========== 单机模式 actions ==========
+
+  async checkStatusStandalone(): Promise<void> {
+    const blob = await loadLocalAuthBlob();
+    const lockout = await loadLockoutState();
+    if (!blob) {
+      set({ authState: 'uninitialized', lockoutState: lockout });
+    } else {
+      // 已设置过主密码，需要解锁（即使锁定也走解锁页，由 UI 显示倒计时）
+      set({
+        authState: 'needs_unlock',
+        localAuthBlob: blob,
+        lockoutState: lockout,
+      });
+    }
   },
 
-  setAccessToken(token: string) {
-    setAccessToken(token);
-    set({ accessToken: token });
+  async setupStandalone(password: string): Promise<string> {
+    const result = await setupLocalAuth(password);
+    await saveLocalAuthBlob(result.blob);
+    await clearLockoutState();
+    set({
+      localAuthBlob: result.blob,
+      masterKey: result.masterKey,
+      lockoutState: { ...INITIAL_LOCKOUT_STATE },
+      authState: 'unlocked',
+    });
+    return result.recoveryCode;
+  },
+
+  async unlockStandalone(password: string): Promise<void> {
+    const { localAuthBlob, lockoutState } = get();
+    if (!localAuthBlob) throw new Error('未初始化');
+    if (isLocked(lockoutState)) {
+      const remaining = remainingLockoutMs(lockoutState);
+      throw new Error(`账号已锁定，请 ${Math.ceil(remaining / 1000)} 秒后重试`);
+    }
+
+    const result = await unlockLocalAuth(password, localAuthBlob);
+    if (!result.success) {
+      const newState = recordFailedAttempt(lockoutState);
+      await saveLockoutState(newState);
+      set({ lockoutState: newState });
+      if (isLocked(newState)) {
+        throw new Error(
+          `密码错误次数过多，账号已锁定 ${LOCAL_LOCKOUT_DURATION_MS / 60000} 分钟`
+        );
+      }
+      throw new Error('主密码错误');
+    }
+
+    const successState = recordSuccessfulAttempt();
+    await saveLockoutState(successState);
+    set({
+      masterKey: result.masterKey,
+      lockoutState: successState,
+      authState: 'unlocked',
+    });
+  },
+
+  async recoverStandalone(recoveryCode: string, newPassword: string): Promise<string> {
+    const { localAuthBlob } = get();
+    if (!localAuthBlob) throw new Error('未初始化');
+    const result = await recoverLocalAuth(recoveryCode, newPassword, localAuthBlob);
+    if (!result.success || !result.blob || !result.masterKey || !result.recoveryCode) {
+      throw new Error('恢复码错误');
+    }
+    await saveLocalAuthBlob(result.blob);
+    await clearLockoutState();
+    set({
+      localAuthBlob: result.blob,
+      masterKey: result.masterKey,
+      lockoutState: { ...INITIAL_LOCKOUT_STATE },
+      authState: 'unlocked',
+    });
+    return result.recoveryCode;
+  },
+
+  getRemainingLockoutMs(): number {
+    return remainingLockoutMs(get().lockoutState);
   },
 }));

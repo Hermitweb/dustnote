@@ -110,3 +110,112 @@ export interface ConflictRecord {
   clientVersion: number;
   serverData?: Note;
 }
+
+// ========== v2.0.0 单机/联机双模式相关类型 ==========
+
+/** 应用模式：单机（无服务器）或联机（连接服务器） */
+export type AppMode = 'standalone' | 'online';
+
+/** 客户端存储的笔记行（与 web/src/lib/store.ts NoteRow 对齐） */
+export interface NoteRow {
+  id: NoteId;
+  /** 密文 JSON 字符串（服务端存的格式） */
+  ciphertext: string;
+  keyVersion: number;
+  isPinned: boolean;
+  isFavorite: boolean;
+  deletedAt: string | null;
+  version: number;
+  clientUpdatedAt: string;
+  serverUpdatedAt: string;
+  folderId: string | null;
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  parentId: string | null;
+  icon: string | null;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string | null;
+  count: number;
+}
+
+export type ThemeId =
+  | 'mint-dawn'
+  | 'mist-blue'
+  | 'dusk-forest'
+  | 'caramel-warm'
+  | 'sakura-pink'
+  | 'minimal-white';
+
+export type AppearanceMode = 'light' | 'dark' | 'auto';
+
+export interface Preferences {
+  theme: ThemeId;
+  mode: AppearanceMode;
+  font: 'system' | 'manrope' | 'lxgw';
+  density: 'comfortable' | 'standard' | 'compact';
+  autoLock: number;
+  language: 'zh-CN' | 'en';
+}
+
+/**
+ * 单机模式本地鉴权 blob（持久化到本地存储）
+ *
+ * 设计要点（v2.0.0）：
+ * - masterKey 是随机 32 字节，**不**从密码派生 → recovery 时可保留原 masterKey，已有笔记不解密失效
+ * - masterKey 有两份包装：
+ *   1. passwordWrappedMasterKey：用 passwordDerivedKey（=deriveMasterKey(password, clientMasterSalt)）加密
+ *   2. wrappedMasterKey：用 recoveryKey（=deriveRecoveryKey(recoveryCode, recoverySalt)）加密
+ * - passwordHash = Argon2id(password, masterSalt)：仅用于 unlock 时校验密码正确性
+ * - recoveryHash = Argon2id(recoveryCode, recoverySalt, 弱参数)：仅用于 recover 时校验恢复码正确性
+ *
+ * 安全模型：
+ * - 离线爆破 passwordHash 成本高（Argon2id m=64MB t=3 p=4）
+ * - 拿到 blob 无法解密笔记（缺少 passwordDerivedKey 或 recoveryKey）
+ * - recovery 后 masterKey 不变，笔记可继续解密
+ */
+export interface LocalAuthBlob {
+  /** Argon2id(password, masterSalt) 的 base64 —— 仅用于校验密码 */
+  passwordHash: string;
+  /** 主密码校验用的 salt（base64，16 字节随机） */
+  masterSalt: string;
+  /** passwordDerivedKey 派生用的 salt（base64，16 字节随机） */
+  clientMasterSalt: string;
+  /**
+   * recoveryKey 加密的 masterKey（JSON 字符串化的 Ciphertext）
+   * recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt)
+   * 用于 recover 流程：校验恢复码后解封原始 masterKey
+   */
+  wrappedMasterKey: string;
+  /**
+   * passwordDerivedKey 加密的 masterKey（JSON 字符串化的 Ciphertext）
+   * passwordDerivedKey = deriveMasterKey(password, clientMasterSalt)
+   * 用于日常 unlock：校验密码后解封 masterKey
+   */
+  passwordWrappedMasterKey: string;
+  /** deriveRecoveryKey(recoveryCode, recoverySalt) 的 base64 —— 仅用于校验恢复码 */
+  recoveryHash: string;
+  /** recoveryCode 派生用的 salt（base64，16 字节随机） */
+  recoverySalt: string;
+  /** KDF 版本 */
+  kdfVersion: number;
+  /** 创建时间 ISO */
+  createdAt: string;
+}
+
+/** 模式存储状态 */
+export interface ModeState {
+  mode: AppMode;
+  /** 仅 online 模式有效；null 表示走同源 /api/v1 */
+  serverUrl: string | null;
+  /** 首次启动是否已选择模式 */
+  initialized: boolean;
+}

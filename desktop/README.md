@@ -42,10 +42,10 @@ pnpm build
 
 | 平台         | 输出                                                               |
 | ------------ | ------------------------------------------------------------------ |
-| Windows      | `src-tauri/target/release/bundle/msi/DustNote_0.1.0_x64_en-US.msi` |
+| Windows      | `src-tauri/target/release/bundle/msi/DustNote_2.0.0_x64_en-US.msi` |
 | macOS        | `src-tauri/target/release/bundle/macos/DustNote.app`               |
-| macOS（ARM） | `src-tauri/target/release/bundle/dmg/DustNote_0.1.0_aarch64.dmg`   |
-| Linux        | `src-tauri/target/release/bundle/deb/DustNote_0.1.0_amd64.deb`     |
+| macOS（ARM） | `src-tauri/target/release/bundle/dmg/DustNote_2.0.0_aarch64.dmg`   |
+| Linux        | `src-tauri/target/release/bundle/deb/DustNote_2.0.0_amd64.deb`     |
 
 ## 桌面端特性
 

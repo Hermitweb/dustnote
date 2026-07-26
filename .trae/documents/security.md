@@ -1,8 +1,9 @@
 # DustNote 安全防护与防信息泄露规范
 
-> 文档版本：v1.0.0
+> 文档版本：v2.0.0
 > 适用产品：DustNote · 尘心笔记
 > 目标读者：架构师 / 后端 / 前端 / 移动端 / 安全工程师 / 运维
+> 关联文档：[standalone-mode.md](./standalone-mode.md)、[tech-architecture.md](./tech-architecture.md)
 
 ---
 
@@ -638,3 +639,194 @@ async function exportBackup(userId: string, password: string) {
 | 国家行为体攻击服务端 | 单用户系统威胁等级低 | E2EE 兜底              |
 | 算法未来被攻破       | 当前无解             | 保留轮换能力           |
 | 内部恶意员工         | 小团队风险有限       | 代码 review + 最小权限 |
+
+---
+
+## 17. 单机模式安全模型（v2.0.0 新增）
+
+> 本章节为 v2.0.0 单机/联机双模式架构的安全补充。完整架构说明见 [standalone-mode.md](./standalone-mode.md)。
+
+### 17.1 单机模式威胁模型
+
+单机模式无服务器依赖，威胁模型与联机模式显著不同：
+
+| 威胁等级 | 场景                          | 单机模式防护                                                     |
+| -------- | ----------------------------- | ---------------------------------------------------------------- |
+| L1       | 路人/同事短暂接触设备         | 自动锁屏（默认 15 分钟）、主密码解锁                              |
+| L2       | 设备丢失/被盗                 | E2EE + LocalAuthBlob 中的 passwordHash 防爆破                     |
+| L3       | 本地存储被脱库（IndexedDB）   | 所有敏感字段密文/哈希存储；masterKey 不入盘                      |
+| L4       | 设备 root + 客户端逆向        | masterKey 仅运行时内存；本地存储无 masterKey 明文                 |
+| L5       | 离线爆破 LocalAuthBlob        | Argon2id(m=64MB, t=3, p=4) + 客户端锁定 6 次/15 分钟              |
+| L6       | 备份 ZIP 泄露                 | 用户自定义备份密码（与主密码不同），AES-256-GCM + Argon2id        |
+| L7       | 内存 dump（运行时抓取）       | masterKey 仅在闭包/Web Worker，使用后清零                         |
+
+### 17.2 masterKey 双重包装机制
+
+> **v2.0.0 关键改进**：masterKey 随机生成（不从密码派生），双重包装。详见 [standalone-mode.md §4.1](./standalone-mode.md)。
+
+```
+随机生成的 masterKey (32B)
+   │
+   ├── Argon2id(password, masterSalt) → passwordKek
+   │       └── AES-GCM(passwordKek).encrypt(masterKey) → passwordWrappedMasterKey
+   │
+   └── Argon2id(recoveryCode, recoverySalt) → recoveryKek
+           └── AES-GCM(recoveryKek).encrypt(masterKey) → wrappedMasterKey
+```
+
+**安全意义**：
+
+1. **masterKey 不变**：改密码或 recover 时仅重新包装 masterKey，**笔记密文不动**
+2. **双重解锁路径**：主密码或恢复码任一即可解封 masterKey，但恢复码一次性使用
+3. **零密文重加密**：避免改密码时数百万字笔记全量重加密的性能损耗
+4. **恢复码不滥用**：recover 流程会重新生成新恢复码，旧恢复码失效
+
+### 17.3 客户端锁定策略
+
+单机模式在客户端实现锁定（与联机模式服务端锁定不同）：
+
+| 配置项         | 值                                       | 说明                                                |
+| -------------- | ---------------------------------------- | --------------------------------------------------- |
+| 失败阈值       | 6 次                                     | 连续 6 次密码错误触发锁定（vs 联机模式 5 次）        |
+| 锁定时长       | 15 分钟                                  | 锁定期间无法尝试解锁                                |
+| 计数器存储     | LocalLockoutState（本地存储）            | 持久化，重启 App 不重置                             |
+| 重置条件       | 成功解锁                                 | 解锁成功后失败计数清零                              |
+
+#### 17.3.1 离线爆破成本分析
+
+Argon2id 参数（m=64MB, t=3, p=4）单次计算耗时约 0.5-1 秒：
+
+| 场景             | 无锁定                       | 启用锁定                      |
+| ---------------- | ---------------------------- | ----------------------------- |
+| 每秒尝试次数     | 1-2 次                       | 6 次 / 15 分钟                |
+| 每小时尝试次数   | 3600-7200 次                 | 24 次                         |
+| 每天             | 86400-172800 次              | 576 次                        |
+| **降速倍数**     | 1×                           | **150×**                      |
+
+**12 位 diceware 恢复码**（7776^12 ≈ 7.6 × 10^46 种组合）：
+
+- 即便每秒 1000 次尝试，仍需 2.4 × 10^36 年
+- 实际单机锁定后每天 576 次，需 4 × 10^44 年
+
+#### 17.3.2 与联机模式锁定对比
+
+| 维度           | 单机模式                              | 联机模式                                            |
+| -------------- | ------------------------------------- | --------------------------------------------------- |
+| 锁定位置       | 客户端（LocalLockoutState）           | 服务端（IP + 指纹）                                 |
+| 失败阈值       | 6 次                                  | 5 次（递增 5/15/60/240/1440 min）                   |
+| 锁定时长       | 固定 15 分钟                          | 递增                                               |
+| 攻击者绕过     | 可清空 LocalLockoutState（但需设备访问） | 无法绕过（服务端权威）                              |
+| 跨账户累计     | 不适用（单账户）                      | 跨账户累计（IP+指纹维度）                           |
+
+### 17.4 单机模式本地存储安全
+
+#### 17.4.1 LocalAuthBlob 字段安全
+
+| 字段                       | 安全属性              | 说明                                   |
+| -------------------------- | --------------------- | -------------------------------------- |
+| passwordHash               | Argon2id 哈希          | 不可逆，离线爆破成本高                  |
+| masterSalt                 | 公开盐                | 防彩虹表，可公开                        |
+| clientMasterSalt           | 公开盐                | 与 masterSalt 区分用途                  |
+| passwordWrappedMasterKey   | AES-256-GCM 密文      | 需主密码 KEK 解封                       |
+| wrappedMasterKey           | AES-256-GCM 密文      | 需恢复码 KEK 解封                       |
+| recoveryHash               | Argon2id 哈希          | 不可逆                                  |
+| recoverySalt               | 公开盐                | 防彩虹表                                |
+| kdfParams                  | 公开参数              | m=64MB, t=3, p=4                       |
+
+> **关键**：本地存储中**永远不会**出现：masterKey 明文、主密码明文、恢复码明文。
+
+#### 17.4.2 各端本地存储加密
+
+| 端           | 存储后端       | 文件                                                                                                | 加密层级                                            |
+| ------------ | -------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Web/Desktop  | IndexedDB      | [web/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/web/src/lib/local-auth-storage.ts) | LocalAuthBlob 字段本身即密文/哈希；IndexedDB 同源策略 |
+| Mobile       | AsyncStorage   | [mobile/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-auth-storage.ts) | AsyncStorage 不加密，依赖字段密文层                  |
+| Miniprogram  | Taro.setStorage | [miniprogram/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-auth-storage.ts) | 同 Mobile，10MB 上限                                |
+
+### 17.5 单机模式与联机模式的安全差异对比
+
+| 维度           | 单机模式                              | 联机模式                                            |
+| -------------- | ------------------------------------- | --------------------------------------------------- |
+| 主密码校验     | 客户端 Argon2id 比对                  | 服务端 Argon2id 比对 + JWT 下发                     |
+| 锁定策略       | 客户端本地（6 次/15 分钟）            | 服务端 IP + 指纹（5/15/60/240/1440 min 递增）       |
+| 备份责任       | 用户完全自主                          | 服务端定期备份 + 用户可导出                         |
+| 数据可达性     | 仅设备本地                            | 服务器 + 本地双副本                                 |
+| 设备丢失风险   | 高（无备份则数据丢失）                | 低（重新登录即可恢复）                              |
+| 跨端攻击面     | 仅本设备                              | 网络传输 + 服务端存储（但 E2EE 保证密文安全）       |
+| 服务端信任     | **不需要**                            | 必须信任（仅信任密文存储）                          |
+| 在线爆破       | 不适用（无网络接口）                  | 服务端限流 + 递增锁定                               |
+| 离线爆破       | 客户端锁定 + Argon2id 防护            | 不适用（无法离线获取服务端哈希）                    |
+| 主密码遗忘     | 恢复码（recover 后 masterKey 保留）   | 恢复码（服务端校验，重新派生）                      |
+| masterKey 派生 | 随机生成 + 双重包装                   | Argon2id(password) 派生                             |
+
+### 17.6 单机模式备份安全
+
+#### 17.6.1 exportBackup 加密
+
+```typescript
+// 简化示意
+async function exportBackup(masterKey: Uint8Array): Promise<Blob> {
+  const backupKey = hkdfSha256(masterKey, 'dustnote-backup-v1');  // 派生备份密钥
+  const nonce = crypto.getRandomValues(new Uint8Array(12));
+  const cipher = gcm(backupKey, nonce);
+
+  const data = {
+    notes: await loadAllNotes(),
+    folders: await loadAllFolders(),
+    tags: await loadAllTags(),
+    preferences: await loadPreferences(),
+  };
+  const ct = cipher.encrypt(utf8ToBytes(JSON.stringify(data)));
+
+  return packZip({
+    'manifest.json': { nonce, kdf: 'hkdf-sha256', version: '2.0.0' },
+    'backup.enc': ct,
+  });
+}
+```
+
+#### 17.6.2 备份安全建议
+
+| 场景                       | 建议                                                              |
+| -------------------------- | ----------------------------------------------------------------- |
+| 备份密码                   | **必须与主密码不同**，避免单点泄露                                |
+| 备份存储                   | 异地存储（云盘 / U 盘 / 加密邮件）                                |
+| 备份频率                   | 至少每周一次（设置 → 数据 → 导出备份）                            |
+| 备份验证                   | 定期导入测试，确保可恢复                                          |
+| 备份删除                   | 旧备份物理销毁（U 盘格式化 / 云盘彻底删除）                       |
+
+### 17.7 单机模式特殊风险与应对
+
+| 风险                          | 等级 | 应对                                                                  |
+| ----------------------------- | ---- | --------------------------------------------------------------------- |
+| 设备丢失 + 无备份             | 高   | 文档强提示用户定期导出 ZIP；未来评估云备份（端到端加密）              |
+| 浏览器清理缓存丢数据          | 高   | Web 端启动时检测 IndexedDB 是否被清空，提示用户                       |
+| App 卸载丢数据（Mobile）      | 高   | AsyncStorage 随 App 卸载清除；强提示导出                              |
+| 小程序 10MB 容量限制          | 中   | 文档说明仅推荐轻量试用；超出限制时引导迁移到联机模式                  |
+| LocalLockoutState 被清空      | 中   | 攻击者需物理设备访问；爆破速度仍受 Argon2id 限制                      |
+| 备份 ZIP + 主密码同时泄露     | 高   | 备份密码与主密码不同；用户教育强调                                    |
+| 模式切换中途断电              | 中   | 原子化迁移 + 失败回滚；mode-store 仅在迁移成功后切换                  |
+| 恢复码丢失                    | 极高 | 首次设置强引导抄写；recover 流程生成新恢复码（一次性使用）            |
+
+### 17.8 单机模式安全检查清单
+
+发布前需通过：
+
+- [ ] LocalAuthBlob 中无 masterKey 明文（grep 验证）
+- [ ] Argon2id 参数正确（m=64MB, t=3, p=4）
+- [ ] 客户端锁定：6 次失败 → 15 分钟锁定
+- [ ] recover 后 masterKey 不变（测试用例覆盖）
+- [ ] exportBackup 输出 ZIP 加密（无明文笔记）
+- [ ] importBackup 校验 manifest 版本
+- [ ] clearBusinessData 不删除 LocalAuthBlob（模式切换后保留鉴权）
+- [ ] 各端 local-auth-storage 持久化正确
+- [ ] 模式切换失败回滚验证
+- [ ] 单机模式 UI 隐藏设备管理 / 在线分享入口
+
+### 17.9 关键文件索引
+
+- [shared/src/local-auth.ts](file:///e:/workspace/dustnote/shared/src/local-auth.ts) — 单机鉴权核心
+- [shared/src/repository.ts](file:///e:/workspace/dustnote/shared/src/repository.ts) — DataRepository 接口
+- [web/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/web/src/lib/local-auth-storage.ts) — Web 持久化
+- [mobile/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-auth-storage.ts) — Mobile 持久化
+- [miniprogram/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-auth-storage.ts) — Miniprogram 持久化

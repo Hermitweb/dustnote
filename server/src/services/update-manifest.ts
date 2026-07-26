@@ -51,7 +51,8 @@ const STATIC_ARTIFACTS = {
     appStoreUrl: 'https://apps.apple.com/app/dustnote/id000000000',
   },
   miniprogram: {
-    version: '0.1.0',
+    // 与 miniprogram/package.json 保持一致
+    version: '2.0.0',
     qrcodeUrl: 'https://cdn.dustnote.app/miniprogram/qr.png',
   },
 };
@@ -96,7 +97,8 @@ export function getManifestForChannel(
       releaseDate,
       changelogUrl: `https://dustnote.app/changelog#${version}`,
       mandatory: false,
-      minServerVersion: '0.1.0',
+      // v2.0.0 引入单机/联机双模式架构，旧版客户端（0.x）无法连接
+      minServerVersion: config.serverVersion,
       artifacts: STATIC_ARTIFACTS,
     },
     minClientVersion: config.minClientVersion,

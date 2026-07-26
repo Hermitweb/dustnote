@@ -1,6 +1,6 @@
 # DustNote 技术架构文档
 
-> 文档版本：v1.0.0
+> 文档版本：v2.0.0
 > 适用产品：DustNote · 尘心笔记
 > 目标读者：架构师 / 后端 / 前端 / 移动端 / 小程序 / DevOps
 
@@ -146,6 +146,217 @@ flowchart TD
     CRIPT[CRDT] -.后台.-> SYNC[同步服务]
     SYNC --> API
 ```
+
+### 1.4 双模式架构（v2.0.0 新增）
+
+> 详见 [standalone-mode.md](./standalone-mode.md)。本节聚焦架构层面的关键设计。
+
+DustNote v2.0.0 引入单机/联机双模式架构。客户端启动时根据 `mode-store` 决定注入哪种 `DataRepository` 实现，业务层（store / state）完全无感知。
+
+```mermaid
+flowchart TD
+    START[App 启动] --> CHECK{mode-store.initialized?}
+    CHECK -- 否 --> MODESELECT[模式选择 UI]
+    MODESELECT --> CHOOSE{用户选择}
+    CHOOSE -- 单机 --> STANDALONE[standalone 模式]
+    CHOOSE -- 联机 --> ONLINE[online 模式]
+    CHECK -- 是 --> READMODE[读取 mode-store.mode]
+    READMODE --> STANDALONE
+    READMODE --> ONLINE
+
+    STANDALONE --> LOCALAUTH[本地鉴权 setup/unlock]
+    LOCALAUTH --> LOCALREPO[LocalRepository<br/>IndexedDB / AsyncStorage / Taro.setStorage]
+    LOCALREPO --> STORE1[业务 store]
+
+    ONLINE --> REMOTEAUTH[服务端鉴权 /auth/setup /auth/unlock]
+    REMOTEAUTH --> REMOTEREPO[RemoteRepository<br/>封装 ApiClient + 离线队列]
+    REMOTEREPO --> STORE2[业务 store]
+```
+
+#### 1.4.1 关键组件
+
+| 组件              | shared 层定义                                                                  | 各端实现                                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| DataRepository    | [shared/src/repository.ts](file:///e:/workspace/dustnote/shared/src/repository.ts) | LocalRepository + RemoteRepository                                                                                                    |
+| LocalAuth         | [shared/src/local-auth.ts](file:///e:/workspace/dustnote/shared/src/local-auth.ts) | 各端通过 local-auth-storage 持久化                                                                                                    |
+| mode-store        | -                                                                              | [web/src/lib/mode-store.ts](file:///e:/workspace/dustnote/web/src/lib/mode-store.ts)、[mobile/src/lib/mode-store.ts](file:///e:/workspace/dustnote/mobile/src/lib/mode-store.ts)、[miniprogram/src/lib/mode-store.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/mode-store.ts) |
+| LocalRepository   | -                                                                              | [web/src/lib/local-repo.ts](file:///e:/workspace/dustnote/web/src/lib/local-repo.ts)（IndexedDB）、[mobile/src/lib/local-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-repo.ts)（AsyncStorage）、[miniprogram/src/lib/local-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-repo.ts)（Taro.setStorage） |
+| RemoteRepository  | -                                                                              | [web/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/web/src/lib/remote-repo.ts)、[mobile/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/remote-repo.ts)、[miniprogram/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/remote-repo.ts) |
+| 工厂 createRepository | -                                                                          | 各端 `repository.ts`                                                                                                                  |
+
+#### 1.4.2 模式判定与切换
+
+`mode-store` 字段：
+
+```typescript
+interface ModeState {
+  mode: 'standalone' | 'online';
+  serverUrl: string | null;
+  initialized: boolean;
+  chooseStandalone(): Promise<void>;
+  chooseOnline(serverUrl: string): Promise<void>;
+  switchMode(mode, serverUrl?): Promise<void>;
+}
+```
+
+- **持久化**：Web=localStorage / Mobile=AsyncStorage / 小程序=Taro.setStorageSync
+- **首次启动**：`initialized === false` → 显示模式选择 UI
+- **模式切换**：必须先执行数据迁移（详见 [standalone-mode.md §7](./standalone-mode.md)），原子化 + 失败回滚
+
+#### 1.4.3 模式切换不影响鉴权
+
+`mode-store` 与 `auth-store` 解耦：
+
+- 切换模式不修改鉴权状态
+- 单机模式鉴权由 LocalAuth（setupLocalAuth/unlockLocalAuth/recoverLocalAuth）完成
+- 联机模式鉴权由服务端 `/auth/setup`、`/auth/unlock` 完成
+- 两套鉴权流程互不干扰，分别持久化
+
+#### 1.4.4 联机模式保留 offline-first
+
+联机模式仍保留 v1.x 的 IndexedDB 缓存 + 离线队列（[v1.1-medium-low-priority.md](./v1.1-medium-low-priority.md) 第 4 项），单机模式则所有操作直接写本地，不走离线队列。
+
+### 1.5 数据访问层抽象（v2.0.0 新增）
+
+#### 1.5.1 DataRepository 接口
+
+定义于 [shared/src/repository.ts](file:///e:/workspace/dustnote/shared/src/repository.ts)，所有端共享类型契约：
+
+```typescript
+export interface DataRepository {
+  // 加载全量
+  loadAll(): Promise<{ notes: NoteRow[]; folders: Folder[]; tags: Tag[]; preferences: Preferences }>;
+
+  // 笔记 CRUD
+  createNote(input): Promise<NoteRow>;
+  updateNote(id, patch): Promise<NoteRow>;
+  moveNote(id, folderId): Promise<NoteRow>;
+  deleteNote(id): Promise<void>;             // 软删除
+  permanentDeleteNote(id): Promise<void>;
+  emptyTrash(): Promise<void>;
+  restoreNote(id): Promise<NoteRow>;
+
+  // 文件夹/标签
+  createFolder(name): Promise<Folder>;
+  deleteFolder(id): Promise<void>;
+  createTag(name, color): Promise<Tag>;
+  deleteTag(id): Promise<void>;
+
+  // 偏好
+  getPreferences(): Promise<Preferences>;
+  setPreferences(patch): Promise<Preferences>;
+
+  // 备份
+  exportBackup(): Promise<Blob>;
+  importBackup(blob): Promise<void>;
+
+  // 模式切换专用
+  clearBusinessData(): Promise<void>;
+}
+```
+
+**关键约束**：
+
+- **不含鉴权方法**（setup/unlock/lock/recover），由 mode-store + auth-store 处理
+- **不暴露存储细节**（IndexedDB / AsyncStorage / API 对调用方透明）
+- **返回值统一为业务类型**（NoteRow / Folder / Tag 等）
+
+#### 1.5.2 LocalRepository（单机模式）
+
+各端实现：
+
+| 端           | 存储后端       | 文件                                                                                                |
+| ------------ | -------------- | --------------------------------------------------------------------------------------------------- |
+| Web/Desktop  | IndexedDB      | [web/src/lib/local-repo.ts](file:///e:/workspace/dustnote/web/src/lib/local-repo.ts)                |
+| Mobile       | AsyncStorage   | [mobile/src/lib/local-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-repo.ts)          |
+| Miniprogram  | Taro.setStorage | [miniprogram/src/lib/local-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-repo.ts) |
+
+实现要点：
+
+- 所有数据 JSON 序列化后存储
+- `clearBusinessData()` 用于模式切换迁移后清空业务数据，**保留** LocalAuthBlob 备查
+- `exportBackup()` 用 masterKey 派生 backupKey（HKDF），AES-256-GCM 加密
+
+#### 1.5.3 RemoteRepository（联机模式）
+
+各端实现：
+
+| 端           | 文件                                                                                                |
+| ------------ | --------------------------------------------------------------------------------------------------- |
+| Web/Desktop  | [web/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/web/src/lib/remote-repo.ts)              |
+| Mobile       | [mobile/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/remote-repo.ts)        |
+| Miniprogram  | [miniprogram/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/remote-repo.ts) |
+
+实现要点：
+
+- 封装各端的 ApiClient（Web/Mobile 调 fetch，Miniprogram 调 Taro.request）
+- 复用 v1.x 的 IndexedDB 缓存 + 离线队列（仅 Web/Desktop）
+- `exportBackup()` 调 `/export/backup`，`importBackup()` 调 `/import/backup`
+
+#### 1.5.4 工厂函数
+
+```typescript
+// web/src/lib/repository.ts（简化）
+export function createRepository(mode: AppMode, opts?: { serverUrl?: string }): DataRepository {
+  if (mode === 'standalone') return new LocalRepository();
+  return new RemoteRepository(opts.serverUrl);
+}
+```
+
+各端 store/state 在 setup/unlock 后调用工厂注入实例，业务 action 通过 `repository.createNote()` 等方法调用，**完全不感知**当前处于哪种模式。
+
+### 1.6 单机鉴权架构（v2.0.0 新增）
+
+> 完整说明见 [standalone-mode.md §4](./standalone-mode.md)。
+
+#### 1.6.1 LocalAuthBlob 结构
+
+```typescript
+interface LocalAuthBlob {
+  passwordHash: string;            // Argon2id(password) 用于 unlock 比对
+  masterSalt: string;              // 主密码派生 KEK 的盐
+  clientMasterSalt: string;        // 客户端派生 KEK 的盐
+  passwordWrappedMasterKey: string; // 主密码 KEK 加密的 masterKey
+  wrappedMasterKey: string;        // 恢复码 KEK 加密的 masterKey
+  recoveryHash: string;            // Argon2id(recoveryCode) 用于 recover 校验
+  recoverySalt: string;            // 恢复码派生 KEK 的盐
+  kdfParams: { m: number; t: number; p: number };
+}
+```
+
+#### 1.6.2 masterKey 双重包装机制
+
+```
+随机生成的 masterKey (32B)
+   │
+   ├── Argon2id(password, masterSalt) → passwordKek
+   │       └── AES-GCM(passwordKek).encrypt(masterKey) → passwordWrappedMasterKey
+   │
+   └── Argon2id(recoveryCode, recoverySalt) → recoveryKek
+           └── AES-GCM(recoveryKek).encrypt(masterKey) → wrappedMasterKey
+```
+
+**关键设计**：
+
+- masterKey 随机生成，**不从密码派生**
+- 改密码 = 重新派生 passwordKek + 重新包装 masterKey，**笔记密文不动**
+- recover = 用 recoveryKek 解封 masterKey + 用新密码重新包装，**masterKey 保留**
+
+#### 1.6.3 客户端锁定
+
+`LocalLockoutState` 持久化到本地存储：
+
+```typescript
+interface LocalLockoutState {
+  failedAttempts: number;          // 当前失败次数
+  lockedUntil: number | null;      // 锁定截止时间戳（ms）
+  lastFailedAt: number | null;
+}
+```
+
+- 6 次失败密码 → 锁定 15 分钟
+- 锁定期间无法尝试解锁
+- 成功解锁后失败计数清零
 
 ---
 

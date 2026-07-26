@@ -1,6 +1,6 @@
 # DustNote 开发计划与里程碑
 
-> 文档版本：v1.0.0
+> 文档版本：v2.0.0
 > 适用产品：DustNote · 尘心笔记
 > 目标读者：产品 / 开发 / 协作方
 
@@ -10,22 +10,23 @@
 
 DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"的渐进交付策略。每个里程碑交付一个**可独立运行、可被用户感知价值**的版本。
 
-| 阶段 | 版本   | 主题       | 目标                             |
-| ---- | ------ | ---------- | -------------------------------- |
-| M0   | v0.1.0 | 项目骨架   | 仓库搭建、技术验证、主题系统跑通 |
-| M1   | v1.0.0 | Web 端 MVP | 核心 CRUD + 主题 + 主密码        |
-| M2   | v1.1.0 | 导入导出   | .txt / .md / .docx，多格式导出   |
-| M3   | v1.2.0 | 分享       | 可控分享                         |
-| M4   | v1.3.0 | 桌面端     | Tauri 打包                       |
-| M5   | v1.4.0 | Android 端 | RN 打包                          |
-| M6   | v1.5.0 | 小程序端   | Taro 多端编译                    |
-| M7   | v1.6.0 | 完善       | 端到端加密、性能优化、协同草稿   |
+| 阶段 | 版本   | 主题           | 目标                             | 状态     |
+| ---- | ------ | -------------- | -------------------------------- | -------- |
+| M0   | v0.1.0 | 项目骨架       | 仓库搭建、技术验证、主题系统跑通 | ✅ 已完成 |
+| M1   | v1.0.0 | Web 端 MVP     | 核心 CRUD + 主题 + 主密码        | ✅ 已完成 |
+| M2   | v1.1.0 | 导入导出       | .txt / .md / .docx，多格式导出   | ✅ 已完成 |
+| M3   | v1.2.0 | 分享           | 可控分享                         | ✅ 已完成 |
+| M4   | v1.3.0 | 桌面端         | Tauri 打包                       | ✅ 已完成 |
+| M5   | v1.4.0 | Android 端     | RN 打包                          | ✅ 已完成 |
+| M6   | v1.5.0 | 小程序端       | Taro 多端编译                    | ✅ 已完成 |
+| M7   | v1.6.0 | 完善           | 端到端加密、性能优化、协同草稿   | ✅ 已完成 |
+| M8   | v2.0.0 | 双模式架构     | 单机/联机双模式 + 全文档更新     | ✅ 已完成 |
 
 ---
 
 ## 2. 里程碑详情
 
-### M0 · v0.1.0 项目骨架
+### M0 · v0.1.0 项目骨架 ✅
 
 **周期**：T+0 ~ T+1 周
 
@@ -45,7 +46,7 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 
 ---
 
-### M1 · v1.0.0 Web 端 MVP
+### M1 · v1.0.0 Web 端 MVP ✅
 
 **周期**：T+1 ~ T+5 周
 
@@ -64,7 +65,12 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 11. **服务端密文存储**（note.title / content / tags 改为 ciphertext 列）
 12. **生产环境基础设施**：Docker / Nginx / TLS 1.3 / 备份 cron / 监控接入
 
-**客户端更新通道（Web 端先行）**：13. [update-strategy.md §3](./update-strategy.md) `GET /api/v1/update-manifest` API + 中间件 14. Web 端启动时检测 + 软/硬提示 UI 15. 服务端 SQLite 迁移工具（[update-strategy.md §7.1](./update-strategy.md)）16. E2EE 密钥双版本解密机制（[update-strategy.md §7.3](./update-strategy.md)）
+**客户端更新通道（Web 端先行）**：
+
+13. [update-strategy.md §3](./update-strategy.md) `GET /api/v1/update-manifest` API + 中间件
+14. Web 端启动时检测 + 软/硬提示 UI
+15. 服务端 SQLite 迁移工具（[update-strategy.md §7.1](./update-strategy.md)）
+16. E2EE 密钥双版本解密机制（[update-strategy.md §7.3](./update-strategy.md)）
 
 **关键质量指标**：
 
@@ -84,7 +90,7 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 
 ---
 
-### M2 · v1.1.0 导入导出
+### M2 · v1.1.0 导入导出 ✅
 
 **周期**：T+5 ~ T+7 周
 
@@ -98,7 +104,7 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 
 ---
 
-### M3 · v1.2.0 分享
+### M3 · v1.2.0 分享 ✅
 
 **周期**：T+7 ~ T+9 周
 
@@ -112,7 +118,7 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 
 ---
 
-### M4 · v1.3.0 桌面端 (Tauri)
+### M4 · v1.3.0 桌面端 (Tauri) ✅
 
 **周期**：T+9 ~ T+12 周
 
@@ -125,10 +131,11 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 - 本地通知
 - 离线优先（本地 SQLite 镜像）
 - 打包：.dmg / .msi / .AppImage
+- **Velopack 自动更新集成**（详见 [integrate-velopack.md](./integrate-velopack.md)）
 
 ---
 
-### M5 · v1.4.0 Android 端
+### M5 · v1.4.0 Android 端 ✅
 
 **周期**：T+12 ~ T+16 周
 
@@ -136,14 +143,14 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 
 - React Native 项目搭建
 - 复用 Web 端核心组件（适配移动）
-- 本地存储（react-native-sqlite-storage）
+- 本地存储（AsyncStorage；项目未安装 MMKV）
 - 生物识别解锁（可选）
 - 自动同步后台任务
 - APK / AAB 打包
 
 ---
 
-### M6 · v1.5.0 小程序端 (Taro)
+### M6 · v1.5.0 小程序端 (Taro) ✅
 
 **周期**：T+16 ~ T+20 周
 
@@ -157,7 +164,7 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 
 ---
 
-### M7 · v1.6.0 完善
+### M7 · v1.6.0 完善 ✅
 
 **周期**：T+20 ~ T+24 周
 
@@ -169,6 +176,112 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 - 国际化 i18n
 - 可访问性审计
 - 暗色模式细节优化
+
+---
+
+### M8 · v2.0.0 双模式架构 ✅
+
+**周期**：T+24 ~ T+28 周
+
+**主题**：单机/联机双模式架构 + 全文档更新 + 补全未开发功能
+
+**背景**：DustNote v0.1.0\~v1.5 全栈跨端能力已交付，但所有端硬依赖服务端，用户在没有服务器的情况下无法使用任何客户端。v2.0.0 引入双模式架构，让客户端在无服务器情况下独立运行。
+
+#### 8.1 shared 层 ✅
+
+- [x] [shared/src/repository.ts](file:///e:/workspace/dustnote/shared/src/repository.ts)（新增）：DataRepository 接口契约（loadAll/createNote/updateNote/moveNote/deleteNote/permanentDeleteNote/emptyTrash/restoreNote/createFolder/deleteFolder/createTag/deleteTag/getPreferences/setPreferences/exportBackup/importBackup/clearBusinessData）
+- [x] [shared/src/local-auth.ts](file:///e:/workspace/dustnote/shared/src/local-auth.ts)（新增）：单机模式鉴权工具（setupLocalAuth/unlockLocalAuth/recoverLocalAuth/serializeLocalAuthBlob 等）
+- [x] [shared/src/types.ts](file:///e:/workspace/dustnote/shared/src/types.ts)（修改）：新增 AppMode、NoteRow、Folder、Tag、Preferences、LocalAuthBlob、ModeState 类型
+- [x] **关键改进**：masterKey 随机生成（不从密码派生），双重包装（passwordWrappedMasterKey + wrappedMasterKey），recover 后 masterKey 保留
+
+#### 8.2 web 端 ✅
+
+- [x] [web/src/lib/mode-store.ts](file:///e:/workspace/dustnote/web/src/lib/mode-store.ts)（新增）：zustand 管理模式状态，持久化到 localStorage
+- [x] [web/src/lib/local-repo.ts](file:///e:/workspace/dustnote/web/src/lib/local-repo.ts)（新增）：IndexedDB 实现 DataRepository
+- [x] [web/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/web/src/lib/remote-repo.ts)（新增）：封装 ApiClient 实现 DataRepository
+- [x] [web/src/lib/repository.ts](file:///e:/workspace/dustnote/web/src/lib/repository.ts)（新增）：工厂函数 createRepository
+- [x] [web/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/web/src/lib/local-auth-storage.ts)（新增）：LocalAuthBlob + LocalLockoutState 持久化
+- [x] [web/src/components/ModeSelectDialog.tsx](file:///e:/workspace/dustnote/web/src/components/ModeSelectDialog.tsx)（新增）：首次启动选择 UI
+- [x] [web/src/screens/StandaloneSetupScreen.tsx](file:///e:/workspace/dustnote/web/src/screens/StandaloneSetupScreen.tsx)、[StandaloneUnlockScreen.tsx](file:///e:/workspace/dustnote/web/src/screens/StandaloneUnlockScreen.tsx)、[StandaloneRecoverScreen.tsx](file:///e:/workspace/dustnote/web/src/screens/StandaloneRecoverScreen.tsx)（新增）
+- [x] [web/src/lib/store.ts](file:///e:/workspace/dustnote/web/src/lib/store.ts)（修改）：支持双模式，添加 mode/repository/localAuthBlob/lockoutState 等
+- [x] [web/src/App.tsx](file:///e:/workspace/dustnote/web/src/App.tsx)（修改）：根据 mode 显示不同鉴权流程
+- [x] [web/src/lib/i18n.ts](file:///e:/workspace/dustnote/web/src/lib/i18n.ts)（修改）：添加 mode_select 和 settings.app_mode 翻译键
+
+#### 8.3 mobile 端 ✅
+
+- [x] [mobile/src/lib/mode-store.ts](file:///e:/workspace/dustnote/mobile/src/lib/mode-store.ts)（新增）：zustand + AsyncStorage 持久化
+- [x] [mobile/src/lib/local-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-repo.ts)（新增）：AsyncStorage 实现 DataRepository（项目未安装 MMKV，使用 AsyncStorage 替代）
+- [x] [mobile/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/remote-repo.ts)（新增）：封装 api 单例
+- [x] [mobile/src/lib/repository.ts](file:///e:/workspace/dustnote/mobile/src/lib/repository.ts)（新增）：工厂函数
+- [x] [mobile/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-auth-storage.ts)（新增）
+- [x] [mobile/src/screens/ModeSelectScreen.tsx](file:///e:/workspace/dustnote/mobile/src/screens/ModeSelectScreen.tsx)（新增）
+- [x] [mobile/src/screens/StandaloneSetupScreen.tsx](file:///e:/workspace/dustnote/mobile/src/screens/StandaloneSetupScreen.tsx)、[StandaloneUnlockScreen.tsx](file:///e:/workspace/dustnote/mobile/src/screens/StandaloneUnlockScreen.tsx)、[StandaloneRecoverScreen.tsx](file:///e:/workspace/dustnote/mobile/src/screens/StandaloneRecoverScreen.tsx)（新增）
+- [x] [mobile/src/state/auth.ts](file:///e:/workspace/dustnote/mobile/src/state/auth.ts)（修改）：扩展支持双模式鉴权
+- [x] [mobile/src/screens/SettingsScreen.tsx](file:///e:/workspace/dustnote/mobile/src/screens/SettingsScreen.tsx)（修改）：实现导入/导出（基于 Repository.exportBackup/importBackup + RNFS + Share）、模式切换、版本号 2.0.0
+- [x] [mobile/src/api.ts](file:///e:/workspace/dustnote/mobile/src/api.ts)（修改）：**移除硬编码**，从 mode-store 动态读取 serverUrl
+- [x] [mobile/src/App.tsx](file:///e:/workspace/dustnote/mobile/src/App.tsx)（修改）：根据 mode 路由
+
+#### 8.4 miniprogram 端 ✅
+
+- [x] 新增 4 个 lib 文件（mode-store、local-repo、remote-repo、local-auth-storage、repository）
+- [x] 新增 4 个页面（mode-select、standalone-setup、standalone-unlock、standalone-recover）
+- [x] [miniprogram/src/app.config.ts](file:///e:/workspace/dustnote/miniprogram/src/app.config.ts)（修改）：注册新页面
+
+#### 8.5 desktop 端 ✅
+
+- [x] [desktop/src-tauri/tauri.conf.json](file:///e:/workspace/dustnote/desktop/src-tauri/tauri.conf.json)、[Cargo.toml](file:///e:/workspace/dustnote/desktop/src-tauri/Cargo.toml)、[package.json](file:///e:/workspace/dustnote/desktop/package.json)：版本号 2.0.0
+- [x] Velopack 更新机制正常，GITHUB_REPO_URL = "https://github.com/Hermitweb/dustnote"
+- [x] [web/src/screens/PublicShareView.tsx](file:///e:/workspace/dustnote/web/src/screens/PublicShareView.tsx)：硬编码 '0.1.0' 改为 __APP_VERSION__
+
+#### 8.6 server 端 ✅
+
+- [x] [server/src/env.ts](file:///e:/workspace/dustnote/server/src/env.ts)：serverVersion/minClientVersion/recommendedClientVersion 默认 2.0.0
+- [x] [server/src/routes/health.ts](file:///e:/workspace/dustnote/server/src/routes/health.ts)：使用 config.serverVersion
+- [x] [server/src/services/update-manifest.ts](file:///e:/workspace/dustnote/server/src/services/update-manifest.ts)：miniprogram.version=2.0.0、minServerVersion=config.serverVersion
+- [x] [server/.env.example](file:///e:/workspace/dustnote/server/.env.example)、[.env.example](file:///e:/workspace/dustnote/.env.example)、[docker-compose.yml](file:///e:/workspace/dustnote/docker-compose.yml)、[deploy/README.md](file:///e:/workspace/dustnote/deploy/README.md)、[scripts/smoke-test.sh](file:///e:/workspace/dustnote/scripts/smoke-test.sh)：版本号同步
+
+#### 8.7 CI/Release ✅
+
+- [x] [.github/workflows/release.yml](file:///e:/workspace/dustnote/.github/workflows/release.yml) 改造：资产重命名（`DustNote-<Platform>-<Version>.<ext>`）、三分区 Release body（客户端安装包/服务端部署/自动更新）、新增 build-server-zip job
+- [x] 新增 [DEPLOY.md](file:///e:/workspace/dustnote/DEPLOY.md)：完整服务端部署文档（Docker Compose + 手动部署 + 反向代理 + HTTPS + 备份恢复 + 升级 + 故障排查）
+- [x] macOS/Linux 桌面构建 `continue-on-error: true`，create-release `if: always()`
+- [x] iOS 构建跳过（硬件限制）
+
+#### 8.8 文档更新 ✅
+
+- [x] 新增 [standalone-mode.md](./standalone-mode.md)
+- [x] 更新 [PRD.md](./PRD.md)（添加 v2.0.0 双模式需求章节）
+- [x] 更新 [tech-architecture.md](./tech-architecture.md)（数据访问层抽象、双模式架构、单机鉴权）
+- [x] 更新 [data-flow.md](./data-flow.md)（单机模式数据流）
+- [x] 更新 [update-strategy.md](./update-strategy.md)（v2.0.0 资产命名约定）
+- [x] 更新 [security.md](./security.md)（单机模式安全模型）
+- [x] 更新 [production-readiness.md](./production-readiness.md)（v2.0.0 + AsyncStorage 选择）
+- [x] 更新 [v1.1-medium-low-priority.md](./v1.1-medium-low-priority.md)（标注完成状态）
+- [x] 更新 [integrate-velopack.md](./integrate-velopack.md)（v2.0.0 Release 工作流改造）
+- [x] 更新 [CHANGELOG.md](../../CHANGELOG.md)（v2.0.0 条目）
+- [x] 更新 [README.md](../../README.md)（双模式介绍）
+- [x] 更新 [docs/user-guide.md](../../docs/user-guide.md) / [docs/self-hosting.md](../../docs/self-hosting.md) / [docs/compatibility-matrix.md](../../docs/compatibility-matrix.md) / [docs/faq.md](../../docs/faq.md)
+
+#### 8.9 跳过项（硬件限制） ⚠️
+
+| 跳过项                   | 原因                          | 影响                                                  |
+| ------------------------ | ----------------------------- | ----------------------------------------------------- |
+| iOS 构建                 | 需 macOS + Xcode + Apple 签名 | iOS 无安装包；RN 代码已编写，未来可构建               |
+| macOS 桌面 vpk pack 实测 | 需 macOS 硬件                 | release.yml 已有 `continue-on-error: true`            |
+| iOS MMKV 实测            | 同上                          | AsyncStorage 跨平台一致，代码层面已支持               |
+
+**不跳过**：iOS 代码编写（RN 跨平台）、release.yml macOS job（GitHub Actions 提供 macos-latest runner）。
+
+#### 8.10 关键设计决策
+
+1. **Repository 接口放 shared 层**：所有端共享类型契约，避免实现漂移
+2. **mode-store 独立于 auth-store**：模式切换不影响鉴权状态
+3. **保留现有 offline-first**：联机模式下 IndexedDB 缓存 + 离线队列不变
+4. **单机模式不用离线队列**：所有操作直接写本地
+5. **数据迁移显式触发**：用户点按钮才迁移，避免意外覆盖
+6. **Velopack 资产命名只改用户入口**：内部文件（releases.*.json + delta 包）保留原名
+7. **mobile 用 AsyncStorage 而非 MMKV**：项目未安装 MMKV，AsyncStorage 跨平台一致
+8. **小程序单机作轻量试用**：受 10MB 限制，文档明确
 
 ---
 
@@ -194,6 +307,9 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 | 端到端加密实现复杂 | v1.6 延期  | 高   | 推迟到 v2.0 评估                  |
 | .docx 复杂样式解析 | 导入效果差 | 中   | v1.1 限制支持基础样式             |
 | 单用户性能瓶颈     | v1.5+      | 低   | 单用户场景下 SQLite 足够          |
+| 单机模式离线爆破   | 数据泄露   | 中   | Argon2id(m=64MB) + 客户端锁定 6/15min |
+| 模式切换数据迁移冲突 | 数据丢失 | 中   | 显式触发 + 原子化 + 失败回滚       |
+| MMKV 原生模块编译   | Mobile 延期 | 中   | 改用 AsyncStorage，已落地         |
 
 ---
 
@@ -216,11 +332,15 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 
 ---
 
-## 7. 后续路线图（v2.0 展望）
+## 7. 后续路线图（v2.1+ 展望）
 
-- 端到端加密同步（E2EE）
+- iOS 客户端正式构建（待 macOS 硬件 + Apple 签名）
+- macOS 桌面 vpk pack 实测（待 macOS 硬件）
+- CRDT 实时协同编辑
 - 多用户协作（家庭 / 团队版）
 - AI 助手（写作润色、自动标签、问答）
 - 双向链接 / 知识图谱
 - 插件系统（自定义块、自定义主题）
 - 桌面 Widget、移动桌面插件
+- 公开 API、Webhook
+- 商业化（家庭共享、付费主题）

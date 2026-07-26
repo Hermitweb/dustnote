@@ -45,7 +45,7 @@ export function PublicShareView({ token }: { token: string }) {
       try {
         const url = `/api/v1/share/public/${token}${pwd ? `?password=${encodeURIComponent(pwd)}` : ''}`;
         const res = await fetch(url, {
-          headers: { 'X-Client-Platform': 'web', 'X-Client-Version': '0.1.0' },
+          headers: { 'X-Client-Platform': 'web', 'X-Client-Version': __APP_VERSION__ },
         });
         const data = (await res.json()) as Record<string, unknown> & {
           error?: string;

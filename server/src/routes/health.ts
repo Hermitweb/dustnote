@@ -4,6 +4,7 @@
 
 import { Router } from 'express';
 import { getDb } from '../db.js';
+import { config } from '../env.js';
 
 export const healthRouter = Router();
 
@@ -28,7 +29,8 @@ healthRouter.get('/health', (_req, res) => {
     res.json({
       ok,
       uptime: process.uptime(),
-      version: process.env.npm_package_version ?? '0.1.0',
+      // 优先使用 env.ts 中集中维护的 serverVersion（与 /update-manifest 一致）
+      version: config.serverVersion,
       db: ok ? 'ok' : 'error',
       notesCount,
       foldersCount,

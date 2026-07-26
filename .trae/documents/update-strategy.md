@@ -1,8 +1,9 @@
 # DustNote 客户端更新通道设计
 
-> 文档版本：v1.0.0
+> 文档版本：v2.0.0
 > 适用产品：DustNote · 尘心笔记
 > 目标读者：架构师 / 客户端工程师 / 运维 / SRE
+> 关联文档：[integrate-velopack.md](./integrate-velopack.md)、[standalone-mode.md](./standalone-mode.md)
 
 ---
 
@@ -783,3 +784,155 @@ dustnote/
 | E2EE 迁移    | 双版本解密 + 惰性重加密               |
 | 回滚         | 服务端 1 min / 客户端平台限制         |
 | 兼容期       | 旧 MAJOR 服务端 90 天                 |
+
+---
+
+## 16. v2.0.0 Release 资产命名与分发（新增）
+
+### 16.1 资产命名约定
+
+v2.0.0 起，所有 GitHub Release 资产统一命名为 `DustNote-<Platform>-<Version>.<ext>`，便于用户识别与自动化脚本解析：
+
+| 资产类型                     | 命名格式                                  | 示例                                    |
+| ---------------------------- | ----------------------------------------- | --------------------------------------- |
+| Windows 桌面安装包           | `DustNote-Windows-<Version>.exe`          | `DustNote-Windows-2.0.0.exe`            |
+| macOS 桌面安装包             | `DustNote-macOS-<Version>.dmg`            | `DustNote-macOS-2.0.0.dmg`              |
+| Linux 桌面安装包             | `DustNote-Linux-<Version>.AppImage`       | `DustNote-Linux-2.0.0.AppImage`         |
+| Android APK                 | `DustNote-Android-<Version>.apk`          | `DustNote-Android-2.0.0.apk`            |
+| 服务端部署包                 | `DustNote-Server-<Version>.zip`           | `DustNote-Server-2.0.0.zip`             |
+| Web 静态资源包               | `DustNote-Web-<Version>.zip`              | `DustNote-Web-2.0.0.zip`                |
+| Velopack 内部文件（不重命名）| 保留原名                                  | `releases.win.json`、`*.nupkg`、`*.delta` |
+
+> **关键约束**：Velopack 的 `releases.*.json` + delta 包必须**保留原名**，UpdateManager 依赖这些文件名做增量更新匹配。仅重命名 `Setup.exe`（用户入口）。
+
+### 16.2 三分区 Release Body 结构
+
+Release body 按用途分为三个分区，便于不同用户群快速找到所需资产：
+
+```markdown
+## 📦 客户端安装包
+
+> 普通用户下载安装包即可使用，无需部署服务端。
+
+| 平台 | 下载 | 说明 |
+|------|------|------|
+| Windows | DustNote-Windows-2.0.0.exe | 双击安装，支持自动更新 |
+| macOS | DustNote-macOS-2.0.0.dmg | Intel + Apple Silicon |
+| Linux | DustNote-Linux-2.0.0.AppImage | 直接运行，免安装 |
+| Android | DustNote-Android-2.0.0.apk | 侧载安装 |
+
+## 🖥️ 服务端部署
+
+> 自托管用户使用，部署到自己的服务器后客户端选择「连接服务器」模式。
+
+- 完整部署文档：[DEPLOY.md](https://github.com/Hermitweb/dustnote/blob/main/DEPLOY.md)
+- 服务端部署包：DustNote-Server-2.0.0.zip（含源码 + Dockerfile + docker-compose.yml）
+- 健康检查：`GET /api/v1/health` 返回 `{ ok, uptime, version: "2.0.0", ... }`
+- 版本要求：客户端 v2.0.0 ↔ 服务端 v2.0.0（兼容矩阵见 [docs/compatibility-matrix.md](../../docs/compatibility-matrix.md)）
+
+## 🔄 自动更新
+
+> 已安装桌面端的用户通过 Velopack 自动检查更新，无需手动下载。
+
+- 更新源：GitHub Releases（`https://github.com/Hermitweb/dustnote`）
+- 内部文件：`releases.*.json` + `*.delta`（增量包，体积减少 70-90%）
+- 桌面端检查更新入口：设置 → 关于 → 检查更新
+- 联机模式额外检查 `/api/v1/update-manifest`（协议兼容性）
+
+### v2.0.0 变更亮点
+- 单机/联机双模式架构（详见 [standalone-mode.md](./standalone-mode.md)）
+- masterKey 双重包装机制
+- 模式切换数据迁移
+- 全文档更新（PRD/roadmap/tech-architecture/security 等）
+```
+
+### 16.3 Release 工作流改造要点
+
+`.github/workflows/release.yml` v2.0.0 改造内容：
+
+| 改动点 | 说明 |
+|--------|------|
+| 资产重命名 | 各平台构建产物统一命名为 `DustNote-<Platform>-<Version>.<ext>` |
+| 三分区 body | Release notes 按客户端/服务端/自动更新三区分组 |
+| 新增 build-server-zip job | 独立打包服务端部署 zip（含 Dockerfile + docker-compose + DEPLOY.md） |
+| Velopack 内部文件保留原名 | `releases.*.json` + delta 包不重命名，仅 Setup.exe 改名 |
+| macOS/Linux 桌面构建 `continue-on-error: true` | macOS 硬件限制（vpk pack 需 macOS） |
+| create-release `if: always()` | 即使 macOS/Linux 失败也创建 Release |
+| iOS 构建跳过 | 需 macOS + Xcode + Apple 签名 |
+
+### 16.4 单机模式 Velopack 更新策略
+
+单机模式无服务器，桌面端**仅依赖 GitHub Release**：
+
+```mermaid
+flowchart LR
+    APP[桌面端启动] --> CHECK[Velopack UpdateManager<br/>检查 GitHub Releases]
+    CHECK --> COMPARE{本地版本 < 最新版本?}
+    COMPARE -- 是 --> DL[下载 delta 包<br/>+ releases.*.json]
+    DL --> APPLY[应用更新 + 重启]
+    COMPARE -- 否 --> IDLE[无需更新]
+```
+
+**关键点**：
+
+- 更新源固定为 `https://github.com/Hermitweb/dustnote`（GITHUB_REPO_URL）
+- 不调用 `/api/v1/update-manifest`（无服务器）
+- delta 包体积小（70-90% 缩减），下载快
+- 应用后自动重启，无需 UAC 弹窗
+
+### 16.5 联机模式双重检查策略
+
+联机模式桌面端**同时**检查两个更新源：
+
+```mermaid
+flowchart TD
+    APP[桌面端启动] --> VEL[1. Velopack 检查 GitHub Releases<br/>管桌面二进制版本]
+    APP --> MANIFEST[2. 调 /api/v1/update-manifest<br/>管服务端协议兼容性]
+    VEL --> VELDEC{有新版?}
+    MANIFEST --> MANDEC{协议兼容?}
+    VELDEC -- 是 --> PROMPT1[提示用户下载二进制更新]
+    MANDEC -- 410 Gone --> FORCE[强制升级流程]
+    MANDEC -- 推荐升级 --> PROMPT2[软提示]
+    MANDEC -- 正常 --> OK[继续使用]
+```
+
+**两套机制职责正交**：
+
+| 机制 | 管什么 | 数据源 | 触发场景 |
+|------|--------|--------|----------|
+| Velopack | 桌面二进制是否有新版 | GitHub Releases | 任意模式 |
+| `/update-manifest` | 服务端协议是否兼容 | DustNote 服务器 | 仅联机模式 |
+
+### 16.6 服务端部署包内容（DustNote-Server-2.0.0.zip）
+
+```
+DustNote-Server-2.0.0/
+├── server/                       # 服务端源码
+│   ├── src/
+│   ├── dist/                     # 已构建产物
+│   ├── package.json
+│   └── Dockerfile
+├── docker-compose.yml            # 一键部署
+├── .env.example                  # 环境变量模板
+├── DEPLOY.md                     # 完整部署文档
+├── docs/
+│   └── self-hosting.md
+└── README.md                     # 快速开始
+```
+
+部署方式见 [DEPLOY.md](../../DEPLOY.md)：
+
+- Docker Compose：`docker compose up -d --build`
+- 手动部署：`pnpm build:server && node dist/index.js`
+- 反向代理：Nginx / Caddy（含 HTTPS 自动签发）
+
+### 16.7 版本兼容矩阵（v2.0.0）
+
+| 客户端版本 | 服务端 1.x | 服务端 2.0.x |
+| ---------- | ---------- | ------------ |
+| 1.x        | ✅ 正常    | ❌ 410 Gone  |
+| 2.0.x      | ❌ 410 Gone | ✅ 正常      |
+
+详细兼容矩阵见 [docs/compatibility-matrix.md](../../docs/compatibility-matrix.md)。
+
+> **EOL 政策**：旧 MAJOR 版本服务端保留 90 天；旧 MAJOR 客户端不强制升级，但服务端可发"软提示"。

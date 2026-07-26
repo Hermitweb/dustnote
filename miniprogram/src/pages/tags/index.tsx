@@ -7,7 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { getApi } from '../../state/auth';
+import { getRepo } from '../../lib/get-repo';
 
 interface Tag {
   id: string;
@@ -23,8 +23,8 @@ export default function Tags() {
   const load = async () => {
     setLoading(true);
     try {
-      const r = await getApi().get<{ tags: Tag[] }>('/tags');
-      setTags(r.tags);
+      const snapshot = await getRepo().loadAll();
+      setTags(snapshot.tags as Tag[]);
     } catch {
       Taro.showToast({ title: '加载失败', icon: 'none' });
     } finally {
@@ -48,7 +48,7 @@ export default function Tags() {
     });
     if (!r.confirm) return;
     try {
-      await getApi().delete(`/tags/${tag.id}`);
+      await getRepo().deleteTag(tag.id);
       setTags((prev) => prev.filter((t) => t.id !== tag.id));
       Taro.showToast({ title: '已删除', icon: 'success' });
     } catch {

@@ -7,3 +7,6 @@ export * from './update-check.js';
 export * from './types.js';
 export * from './crypto.js';
 export * from './api.js';
+// v2.0.0 单机/联机双模式
+export * from './repository.js';
+export * from './local-auth.js';

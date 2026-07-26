@@ -1,8 +1,8 @@
 # DustNote 生产投产就绪状态（Production Readiness）
 
-> 文档版本：v1.0.0
+> 文档版本：v2.0.0
 > 适用产品：DustNote · 尘心笔记
-> 状态：**P0 全部完成，等待 P1 与 GA**
+> 状态：**v2.0.0 双模式架构已交付，P0 全部完成，等待 P1 与 GA**
 
 ---
 
@@ -169,11 +169,13 @@
 ## 6. 投产里程碑
 
 - ✅ **v0.1.0**（2026-06-27）— 项目骨架 + 完整文档体系 + P0 检查单
-- ⏳ **v0.5.0**（计划 4 周后）— Web 端 MVP + 主题系统 + 主密码
-- ⏳ **v0.9.0**（计划 8 周后）— RC 候选 + 完整功能 + 全量测试
-- ⏳ **v1.0.0 GA**（计划 10 周后）— 公开发布
-- ⏳ **v1.1.0**（计划 14 周后）— 导入导出 + 分享
-- ⏳ **v1.2.0**（计划 18 周后）— 桌面端
+- ✅ **v1.0.0** — Web 端 MVP + 主题系统 + 主密码 + E2EE + WebSocket 实时同步
+- ✅ **v1.1.0** — 导入导出 + 分享
+- ✅ **v1.2.0** — 桌面端 (Tauri 2) + Velopack 自动更新
+- ✅ **v1.3.0** — Android (React Native)
+- ✅ **v1.4.0** — 小程序 (Taro 3) 多端编译
+- ✅ **v1.5.0** — 完善（性能、i18n、可访问性）
+- ✅ **v2.0.0** — 单机/联机双模式架构 + 全文档更新 + 补全未开发功能
 
 详见 [roadmap.md](./roadmap.md)
 
@@ -184,6 +186,117 @@
 | 阶段       | 责任人         | 状态         | 日期       |
 | ---------- | -------------- | ------------ | ---------- |
 | 文档完整性 | PM + Tech Lead | ✅           | 2026-06-27 |
-| 工程实现   | 开发团队       | ⏳ 进行中    | -          |
+| 工程实现   | 开发团队       | ✅ v2.0.0    | 2026-07-26 |
 | 安全审计   | 安全负责人     | ⏳ 待安排    | -          |
-| GA 决策    | 全员           | ⏳ 待 v1.0.0 | -          |
+| GA 决策    | 全员           | ⏳ 待 v2.0.0 GA | -       |
+
+---
+
+## 8. v2.0.0 单机模式生产就绪检查（新增）
+
+### 8.1 MMKV / AsyncStorage 选择说明
+
+**决策**：Mobile 端使用 `AsyncStorage` 而非 `react-native-mmkv`。
+
+**理由**：
+
+| 维度         | MMKV                                          | AsyncStorage                              |
+| ------------ | --------------------------------------------- | ----------------------------------------- |
+| 性能         | 高（C++ 实现，同步 API）                      | 中（异步 API，JSON 序列化）               |
+| 原生模块编译 | 需 C++ 编译环境，Android NDK 配置复杂         | RN 内置，无需额外编译                     |
+| 跨平台一致性 | iOS / Android / HarmonyOS 均支持              | RN 全平台一致                             |
+| 安装成本     | 需 `react-native-mmkv` 依赖                   | RN 内置                                   |
+| 容量限制     | 无（基于 mmap）                               | 无（基于 SQLite / RocksDB）               |
+| 加密支持     | 内置 AES-256                                  | 不加密，依赖业务层加密                    |
+
+**项目实际情况**：
+
+- 项目未安装 `react-native-mmkv`
+- 单机模式 LocalAuthBlob 字段本身即密文/哈希，AsyncStorage 不加密不影响安全性
+- 业务数据（NoteRow 等）由 masterKey 派生 localDEK 加密后才存储
+- 未来若需提升性能，可在 LocalRepository 内部替换为 MMKV，接口不变
+
+### 8.2 单机模式生产就绪检查项
+
+发布前需通过：
+
+- [ ] **shared 层**
+  - [ ] [shared/src/repository.ts](file:///e:/workspace/dustnote/shared/src/repository.ts) DataRepository 接口完整
+  - [ ] [shared/src/local-auth.ts](file:///e:/workspace/dustnote/shared/src/local-auth.ts) setupLocalAuth/unlockLocalAuth/recoverLocalAuth 全流程
+  - [ ] [shared/src/types.ts](file:///e:/workspace/dustnote/shared/src/types.ts) 类型导出正确
+  - [ ] masterKey 随机生成（不从密码派生）
+  - [ ] masterKey 双重包装（passwordWrappedMasterKey + wrappedMasterKey）
+  - [ ] recover 后 masterKey 保留（笔记密文不动）
+
+- [ ] **Web/Desktop 端**
+  - [ ] [web/src/lib/mode-store.ts](file:///e:/workspace/dustnote/web/src/lib/mode-store.ts) 持久化到 localStorage
+  - [ ] [web/src/lib/local-repo.ts](file:///e:/workspace/dustnote/web/src/lib/local-repo.ts) IndexedDB CRUD
+  - [ ] [web/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/web/src/lib/remote-repo.ts) 封装 ApiClient
+  - [ ] [web/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/web/src/lib/local-auth-storage.ts) LocalAuthBlob 持久化
+  - [ ] [web/src/components/ModeSelectDialog.tsx](file:///e:/workspace/dustnote/web/src/components/ModeSelectDialog.tsx) 模式选择 UI
+  - [ ] StandaloneSetup/Unlock/Recover 全流程
+  - [ ] [web/src/lib/store.ts](file:///e:/workspace/dustnote/web/src/lib/store.ts) 支持 mode/repository/localAuthBlob/lockoutState
+  - [ ] [web/src/App.tsx](file:///e:/workspace/dustnote/web/src/App.tsx) 根据 mode 显示不同鉴权流程
+  - [ ] i18n 添加 mode_select 和 settings.app_mode 翻译键
+
+- [ ] **Mobile 端**
+  - [ ] [mobile/src/lib/mode-store.ts](file:///e:/workspace/dustnote/mobile/src/lib/mode-store.ts) AsyncStorage 持久化
+  - [ ] [mobile/src/lib/local-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-repo.ts) AsyncStorage 实现
+  - [ ] [mobile/src/api.ts](file:///e:/workspace/dustnote/mobile/src/api.ts) **移除硬编码**，从 mode-store 读 serverUrl
+  - [ ] [mobile/src/screens/SettingsScreen.tsx](file:///e:/workspace/dustnote/mobile/src/screens/SettingsScreen.tsx) 实现导入/导出（RNFS + Share）+ 模式切换 + 版本号 2.0.0
+  - [ ] [mobile/src/state/auth.ts](file:///e:/workspace/dustnote/mobile/src/state/auth.ts) 扩展支持双模式鉴权
+  - [ ] [mobile/src/App.tsx](file:///e:/workspace/dustnote/mobile/src/App.tsx) 根据 mode 路由
+
+- [ ] **Miniprogram 端**
+  - [ ] 新增 lib 文件（mode-store、local-repo、remote-repo、local-auth-storage、repository）
+  - [ ] 新增页面（mode-select、standalone-setup、standalone-unlock、standalone-recover）
+  - [ ] [miniprogram/src/app.config.ts](file:///e:/workspace/dustnote/miniprogram/src/app.config.ts) 注册新页面
+
+- [ ] **Desktop 端**
+  - [ ] [desktop/src-tauri/tauri.conf.json](file:///e:/workspace/dustnote/desktop/src-tauri/tauri.conf.json) version 2.0.0
+  - [ ] [desktop/src-tauri/Cargo.toml](file:///e:/workspace/dustnote/desktop/src-tauri/Cargo.toml) version 2.0.0
+  - [ ] [desktop/package.json](file:///e:/workspace/dustnote/desktop/package.json) version 2.0.0
+  - [ ] Velopack GITHUB_REPO_URL = "https://github.com/Hermitweb/dustnote"
+  - [ ] [web/src/screens/PublicShareView.tsx](file:///e:/workspace/dustnote/web/src/screens/PublicShareView.tsx) 硬编码 '0.1.0' 改为 __APP_VERSION__
+
+- [ ] **Server 端**
+  - [ ] [server/src/env.ts](file:///e:/workspace/dustnote/server/src/env.ts) serverVersion/minClientVersion/recommendedClientVersion 默认 2.0.0
+  - [ ] [server/src/routes/health.ts](file:///e:/workspace/dustnote/server/src/routes/health.ts) 使用 config.serverVersion
+  - [ ] [server/src/services/update-manifest.ts](file:///e:/workspace/dustnote/server/src/services/update-manifest.ts) miniprogram.version=2.0.0
+  - [ ] [server/.env.example](file:///e:/workspace/dustnote/server/.env.example)、[.env.example](file:///e:/workspace/dustnote/.env.example)、[docker-compose.yml](file:///e:/workspace/dustnote/docker-compose.yml)、[deploy/README.md](file:///e:/workspace/dustnote/deploy/README.md) 版本号同步
+
+- [ ] **CI/Release**
+  - [ ] [.github/workflows/release.yml](file:///e:/workspace/dustnote/.github/workflows/release.yml) 资产重命名（DustNote-<Platform>-<Version>.<ext>）
+  - [ ] 三分区 Release body（客户端安装包/服务端部署/自动更新）
+  - [ ] 新增 build-server-zip job
+  - [ ] macOS/Linux 桌面构建 `continue-on-error: true`
+  - [ ] create-release `if: always()`
+  - [ ] iOS 构建跳过（硬件限制）
+  - [ ] 新增 [DEPLOY.md](file:///e:/workspace/dustnote/DEPLOY.md) 完整服务端部署文档
+
+- [ ] **安全验证**
+  - [ ] Argon2id 参数正确（m=64MB, t=3, p=4）
+  - [ ] 客户端锁定 6 次/15 分钟
+  - [ ] LocalAuthBlob 中无 masterKey 明文
+  - [ ] 模式切换失败回滚验证
+  - [ ] 各端 local-auth-storage 持久化正确
+
+- [ ] **文档同步**
+  - [ ] [standalone-mode.md](./standalone-mode.md) 新增
+  - [ ] [PRD.md](./PRD.md) 添加 v2.0.0 双模式需求章节
+  - [ ] [roadmap.md](./roadmap.md) 新增 M8 里程碑
+  - [ ] [tech-architecture.md](./tech-architecture.md) 添加双模式架构章节
+  - [ ] [data-flow.md](./data-flow.md) 添加单机模式数据流
+  - [ ] [update-strategy.md](./update-strategy.md) 添加 v2.0.0 资产命名
+  - [ ] [security.md](./security.md) 添加单机模式安全模型
+  - [ ] [CHANGELOG.md](../../CHANGELOG.md) 添加 v2.0.0 条目
+  - [ ] [README.md](../../README.md) 双模式介绍
+  - [ ] [docs/user-guide.md](../../docs/user-guide.md) / [self-hosting.md](../../docs/self-hosting.md) / [compatibility-matrix.md](../../docs/compatibility-matrix.md) / [faq.md](../../docs/faq.md) 更新
+
+### 8.3 跳过项（硬件限制）
+
+| 跳过项                   | 原因                          | 影响                                                  |
+| ------------------------ | ----------------------------- | ----------------------------------------------------- |
+| iOS 构建                 | 需 macOS + Xcode + Apple 签名 | iOS 无安装包；RN 代码已编写，未来可构建               |
+| macOS 桌面 vpk pack 实测 | 需 macOS 硬件                 | release.yml 已有 `continue-on-error: true`            |
+| iOS MMKV 实测            | 同上                          | AsyncStorage 跨平台一致，代码层面已支持               |

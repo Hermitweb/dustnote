@@ -1,14 +1,20 @@
 /**
- * 小程序鉴权 + E2EE 加密流程
+ * 小程序鉴权 + E2EE 加密流程（v2.0.0 双模式架构）
  *
- * 注意：小程序没有 localStorage / crypto.subtle 完整支持
- * - masterKey 仅存内存（刷新后清空，需重新解锁）
- * - v1 方案：复用 @dustnote/shared 的加密函数（@noble/hashes 是纯 JS）
- * - 流程对齐 web 端 store.ts：
- *   - setup：用 password 派生 masterKey，用 recoveryCode 派生 recoveryKey 包装 masterKey 后上传
- *   - unlock：用 password + 服务端下发的 clientMasterSalt 重新派生 masterKey
+ * 单机模式（standalone）：
+ * - masterKey 随机生成，双重包装（passwordWrappedMasterKey + wrappedMasterKey）
+ * - LocalAuthBlob 持久化到 Taro.setStorage（无服务端，无 JWT）
+ * - 失败重试由本地 LocalLockoutState 管理（连续 6 次失败锁 15 分钟）
+ * - recover 后 masterKey 不变，已有笔记可继续解密 ✅
+ * - masterKey 通过 standalone-session 模块缓存（页面间共享）
  *
- * 真正的强加密方案见 security.md §5.7
+ * 联机模式（online）：
+ * - masterKey 通过 deriveMasterKey(password, clientMasterSalt) 派生
+ * - access token 持久化到 Taro.setStorage
+ * - 失败重试由服务端账号锁定策略管理
+ * - serverUrl 从 mode-store 读取（不再硬编码 IP）
+ *
+ * masterKey 仅存内存，进程退出后清空，需重新解锁。
  */
 
 import { create } from 'zustand';
@@ -26,14 +32,39 @@ import {
   fromBase64,
   toBase64,
   randomBytes,
+  setupLocalAuth,
+  unlockLocalAuth,
+  recoverLocalAuth,
+  recordFailedAttempt,
+  recordSuccessfulAttempt,
+  isLocked,
+  remainingLockoutMs,
+  INITIAL_LOCKOUT_STATE,
+  LOCAL_LOCKOUT_DURATION_MS,
+  type LocalAuthBlob,
+  type LocalLockoutState,
 } from '@dustnote/shared';
+import { useModeStore } from '../lib/mode-store';
+import {
+  loadLocalAuthBlob,
+  loadLocalAuthBlobSync,
+  saveLocalAuthBlob,
+  saveLocalAuthBlobSync,
+  loadLockoutState,
+  loadLockoutStateSync,
+  saveLockoutState,
+  saveLockoutStateSync,
+  clearLockoutState,
+  hasLocalAuthSync,
+} from '../lib/local-auth-storage';
+import {
+  getStandaloneMasterKey,
+  setStandaloneMasterKey,
+  clearStandaloneMasterKey,
+  initStandaloneSession,
+} from '../lib/standalone-session';
 
-const APP_VERSION = '0.1.0';
-
-// 根据运行环境选择 API_BASE：
-// - H5：相对路径，走 devServer proxy（见 config/index.ts）
-// - 小程序：宿主机局域网 IP + 端口（需在微信开发者工具勾选「不校验合法域名」）
-const API_BASE = process.env.TARO_ENV === 'h5' ? '/api/v1' : 'http://192.168.15.200:3210/api/v1';
+const APP_VERSION = '2.0.0';
 
 // 设备 ID：首次生成后持久化到本地存储
 let deviceId = '';
@@ -108,11 +139,32 @@ interface AuthStoreState {
   /** masterKey 仅存内存，刷新后清空 */
   masterKey: Uint8Array | null;
 
+  // 单机模式相关
+  /** 单机模式本地鉴权 blob（仅 standalone 模式有值） */
+  localAuthBlob: LocalAuthBlob | null;
+  /** 单机模式客户端锁定状态 */
+  lockoutState: LocalLockoutState;
+
+  // actions: 通用
   init: () => Promise<void>;
+  lock: () => void;
+  setAccessToken: (token: string) => void;
+
+  // actions: 联机模式
   setup: (password: string) => Promise<string>; // 返回 recoveryCode
   unlock: (password: string) => Promise<void>;
-  setAccessToken: (token: string) => void;
-  lock: () => void;
+
+  // actions: 单机模式
+  /** 单机模式：检查本地鉴权状态 */
+  checkStatusStandalone: () => Promise<void>;
+  /** 单机模式：首次设置主密码；返回恢复码 */
+  setupStandalone: (password: string) => Promise<string>;
+  /** 单机模式：解锁 */
+  unlockStandalone: (password: string) => Promise<void>;
+  /** 单机模式：恢复码重置密码；返回新恢复码 */
+  recoverStandalone: (recoveryCode: string, newPassword: string) => Promise<string>;
+  /** 单机模式：获取剩余锁定时间（ms） */
+  getRemainingLockoutMs: () => number;
 }
 
 export const useAuthStore = create<AuthStoreState>((set, get) => ({
@@ -120,15 +172,62 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   accessToken: null,
   userId: null,
   masterKey: null,
+  localAuthBlob: null,
+  lockoutState: { ...INITIAL_LOCKOUT_STATE },
+
+  // ========== 通用 actions ==========
 
   async init() {
+    // 初始化 standalone session（订阅事件）
+    initStandaloneSession();
+
+    const { mode, initialized } = useModeStore.getState();
+    // 模式未选择时保持 unknown 状态，等待用户选择
+    if (!initialized) {
+      set({ authState: 'unknown' });
+      return;
+    }
+
+    if (mode === 'standalone') {
+      await get().checkStatusStandalone();
+      return;
+    }
+
+    // 联机模式：检查服务端状态
     try {
       const r = await getApi().get<{ initialized: boolean }>('/auth/status');
-      set({ authState: r.initialized ? 'needs_unlock' : 'uninitialized' });
+      if (!r.initialized) {
+        set({ authState: 'uninitialized' });
+        return;
+      }
+      // 已初始化：检查是否有持久化的 access token
+      const token = readPersistedToken();
+      set({ authState: 'needs_unlock', accessToken: token });
     } catch {
-      set({ authState: 'uninitialized' });
+      // 服务端不可达：保持 unknown 让 UI 提示用户
+      set({ authState: 'unknown' });
     }
   },
+
+  lock() {
+    const k = get().masterKey;
+    if (k) k.fill(0);
+    clearStandaloneMasterKey();
+    set({
+      authState: 'needs_unlock',
+      masterKey: null,
+      accessToken: null,
+      // 单机模式锁定时也清空内存中的 blob（保留持久化层），下次重新从存储加载
+      localAuthBlob: null,
+    });
+  },
+
+  setAccessToken(token: string) {
+    persistToken(token);
+    set({ accessToken: token });
+  },
+
+  // ========== 联机模式 actions ==========
 
   async setup(password: string): Promise<string> {
     // 生成恢复码 + 客户端 masterSalt
@@ -185,32 +284,120 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     });
   },
 
-  setAccessToken(token: string) {
-    persistToken(token);
-    set({ accessToken: token });
+  // ========== 单机模式 actions ==========
+
+  async checkStatusStandalone(): Promise<void> {
+    const blob = loadLocalAuthBlobSync();
+    const lockout = loadLockoutStateSync();
+    if (!blob) {
+      set({ authState: 'uninitialized', lockoutState: lockout });
+    } else {
+      // 已设置过主密码，需要解锁
+      // 检查是否有缓存的 masterKey（同进程内页面跳转后可能仍有）
+      const cachedKey = getStandaloneMasterKey();
+      set({
+        authState: cachedKey ? 'unlocked' : 'needs_unlock',
+        localAuthBlob: blob,
+        lockoutState: lockout,
+        masterKey: cachedKey,
+      });
+    }
   },
 
-  lock() {
-    const k = get().masterKey;
-    if (k) k.fill(0);
-    set({ authState: 'needs_unlock', masterKey: null, accessToken: null });
-    try {
-      Taro.removeStorageSync('dustnote_access_token');
-    } catch {
-      /* ignore */
+  async setupStandalone(password: string): Promise<string> {
+    const result = await setupLocalAuth(password);
+    saveLocalAuthBlobSync(result.blob);
+    saveLockoutStateSync({ ...INITIAL_LOCKOUT_STATE });
+    setStandaloneMasterKey(result.masterKey);
+    set({
+      localAuthBlob: result.blob,
+      masterKey: result.masterKey,
+      lockoutState: { ...INITIAL_LOCKOUT_STATE },
+      authState: 'unlocked',
+    });
+    return result.recoveryCode;
+  },
+
+  async unlockStandalone(password: string): Promise<void> {
+    const { localAuthBlob, lockoutState } = get();
+    const blob = localAuthBlob ?? loadLocalAuthBlobSync();
+    if (!blob) throw new Error('未初始化');
+    if (isLocked(lockoutState)) {
+      const remaining = remainingLockoutMs(lockoutState);
+      throw new Error(`账号已锁定，请 ${Math.ceil(remaining / 1000)} 秒后重试`);
     }
+
+    const result = await unlockLocalAuth(password, blob);
+    if (!result.success || !result.masterKey) {
+      const newState = recordFailedAttempt(lockoutState);
+      saveLockoutStateSync(newState);
+      set({ lockoutState: newState });
+      if (isLocked(newState)) {
+        throw new Error(
+          `密码错误次数过多，账号已锁定 ${LOCAL_LOCKOUT_DURATION_MS / 60000} 分钟`
+        );
+      }
+      throw new Error('主密码错误');
+    }
+
+    const successState = recordSuccessfulAttempt();
+    saveLockoutStateSync(successState);
+    setStandaloneMasterKey(result.masterKey);
+    set({
+      localAuthBlob: blob,
+      masterKey: result.masterKey,
+      lockoutState: successState,
+      authState: 'unlocked',
+    });
+  },
+
+  async recoverStandalone(recoveryCode: string, newPassword: string): Promise<string> {
+    const { localAuthBlob } = get();
+    const blob = localAuthBlob ?? loadLocalAuthBlobSync();
+    if (!blob) throw new Error('未初始化');
+    const result = await recoverLocalAuth(recoveryCode, newPassword, blob);
+    if (!result.success || !result.blob || !result.masterKey || !result.recoveryCode) {
+      throw new Error('恢复码错误');
+    }
+    saveLocalAuthBlobSync(result.blob);
+    saveLockoutStateSync({ ...INITIAL_LOCKOUT_STATE });
+    setStandaloneMasterKey(result.masterKey);
+    set({
+      localAuthBlob: result.blob,
+      masterKey: result.masterKey,
+      lockoutState: { ...INITIAL_LOCKOUT_STATE },
+      authState: 'unlocked',
+    });
+    return result.recoveryCode;
+  },
+
+  getRemainingLockoutMs(): number {
+    return remainingLockoutMs(get().lockoutState);
   },
 }));
 
 // ========== API 客户端工厂 ==========
 
 /**
- * 每次调用时读取最新的 accessToken，确保鉴权头随解锁状态变化
- * （对齐 web 端 store.ts 的 api() 工厂模式）
+ * 构造 ApiClient（从 mode-store 读取 serverUrl）
+ *
+ * - H5：serverUrl 为 null 时走相对路径 /api/v1（devServer proxy）
+ * - weapp：serverUrl 必须是完整 URL（如 http://192.168.x.x:3210/api/v1）
+ * - 联机模式下用户在 mode-select 页输入 serverUrl
  */
 export function getApi(): ApiClient {
+  const { serverUrl } = useModeStore.getState();
+  let baseUrl: string;
+  if (serverUrl) {
+    baseUrl = `${serverUrl.replace(/\/+$/, '')}/api/v1`;
+  } else if (process.env.TARO_ENV === 'h5') {
+    baseUrl = '/api/v1';
+  } else {
+    // weapp 未配置 serverUrl：回退到 localhost（仅开发调试用）
+    baseUrl = 'http://localhost:3210/api/v1';
+  }
   return new ApiClient({
-    baseUrl: API_BASE,
+    baseUrl,
     clientVersion: APP_VERSION,
     platform: 'miniprogram',
     channel: 'stable',
@@ -219,11 +406,21 @@ export function getApi(): ApiClient {
   });
 }
 
+const TOKEN_KEY = 'dustnote_access_token';
+
 function persistToken(token: string): void {
   try {
-    Taro.setStorageSync('dustnote_access_token', token);
+    Taro.setStorageSync(TOKEN_KEY, token);
   } catch {
     /* ignore */
+  }
+}
+
+function readPersistedToken(): string | null {
+  try {
+    return Taro.getStorageSync(TOKEN_KEY) || null;
+  } catch {
+    return null;
   }
 }
 

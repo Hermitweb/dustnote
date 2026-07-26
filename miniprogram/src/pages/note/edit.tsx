@@ -1,16 +1,21 @@
 /**
- * 小程序笔记编辑
+ * 小程序笔记编辑（v2.0.0 双模式）
+ *
+ * 数据访问统一通过 getRepo()（standalone → LocalRepository，online → RemoteRepository）
  * 接入 E2EE：加载时解密显示，保存时加密后提交
  *
  * 功能：
  * - 自动保存（输入停止 1500ms 后触发）
  * - 顶栏置顶 / 收藏 / 删除图标按钮
  * - 保存状态指示器
+ * - 分享功能仅联机模式可用（单机模式隐藏分享按钮）
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Input, Textarea } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '../../state/auth';
+import { getRepo } from '../../lib/get-repo';
+import { useModeStore } from '../../lib/mode-store';
 
 interface Folder {
   id: string;
@@ -34,6 +39,7 @@ export default function NoteEdit() {
   const instance = Taro.getCurrentInstance();
   const id = instance && instance.router && instance.router.params && instance.router.params.id;
   const masterKey = useAuthStore((s) => s.masterKey);
+  const mode = useModeStore((s) => s.mode);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   // 保留原始 tags，保存时一起加密回去
@@ -51,8 +57,8 @@ export default function NoteEdit() {
     if (!id || !masterKey) return;
     void (async () => {
       try {
-        const r = await getApi().get<{ notes: NoteData[] }>('/notes');
-        const n = r.notes.find((x) => x.id === id);
+        const snapshot = await getRepo().loadAll();
+        const n = snapshot.notes.find((x) => x.id === id) as NoteData | undefined;
         if (!n) {
           Taro.showToast({ title: '笔记不存在', icon: 'none' });
           return;
@@ -83,19 +89,14 @@ export default function NoteEdit() {
     try {
       // 加密明文后提交
       const { json: cipherJson } = await encryptNote(masterKey, { title, content, tags });
-      const r = await getApi().patch<{ version: number; serverUpdatedAt: string }>(
-        `/notes/${cur.id}`,
-        {
-          ciphertext: cipherJson,
-          keyVersion: 1,
-          isPinned: cur.isPinned,
-          isFavorite: cur.isFavorite,
-          clientUpdatedAt: new Date().toISOString(),
-          version: cur.version,
-        }
-      );
+      const newVersion = await getRepo().updateNote(cur.id, {
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: cur.isPinned,
+        isFavorite: cur.isFavorite,
+      });
       // 更新本地 version，防止下次保存用旧版本号导致 409 冲突
-      setNote((prev) => (prev ? { ...prev, version: r.version } : prev));
+      setNote((prev) => (prev ? { ...prev, version: newVersion } : prev));
       setSaveStatus('saved');
     } catch (err: any) {
       const status = err?.err?.status;
@@ -115,7 +116,6 @@ export default function NoteEdit() {
   saveRef.current = save;
 
   // 自动保存：title / content 变化且加载完成后，1500ms 防抖触发
-  // 注意：不依赖 note，否则 save 成功后 note.version 更新会触发热重设为 unsaved
   useEffect(() => {
     if (!loadedRef.current || !noteRef.current) return;
     setSaveStatus('unsaved');
@@ -137,18 +137,13 @@ export default function NoteEdit() {
     const cur = noteRef.current;
     if (!cur) return;
     const next = !cur.isPinned;
-    const prevVer = cur.version;
     setNote({ ...cur, isPinned: next });
     try {
-      const r = await getApi().patch<{ version: number }>(`/notes/${cur.id}`, {
-        isPinned: next,
-        clientUpdatedAt: new Date().toISOString(),
-        version: prevVer,
-      });
-      setNote((p) => (p ? { ...p, version: r.version } : p));
+      const newVersion = await getRepo().updateNote(cur.id, { isPinned: next });
+      setNote((p) => (p ? { ...p, version: newVersion } : p));
       Taro.showToast({ title: next ? '已置顶' : '已取消置顶', icon: 'none' });
     } catch {
-      setNote({ ...cur, isPinned: !next, version: prevVer });
+      setNote({ ...cur, isPinned: !next });
       Taro.showToast({ title: '操作失败', icon: 'none' });
     }
   };
@@ -157,18 +152,13 @@ export default function NoteEdit() {
     const cur = noteRef.current;
     if (!cur) return;
     const next = !cur.isFavorite;
-    const prevVer = cur.version;
     setNote({ ...cur, isFavorite: next });
     try {
-      const r = await getApi().patch<{ version: number }>(`/notes/${cur.id}`, {
-        isFavorite: next,
-        clientUpdatedAt: new Date().toISOString(),
-        version: prevVer,
-      });
-      setNote((p) => (p ? { ...p, version: r.version } : p));
+      const newVersion = await getRepo().updateNote(cur.id, { isFavorite: next });
+      setNote((p) => (p ? { ...p, version: newVersion } : p));
       Taro.showToast({ title: next ? '已收藏' : '已取消收藏', icon: 'none' });
     } catch {
-      setNote({ ...cur, isFavorite: !next, version: prevVer });
+      setNote({ ...cur, isFavorite: !next });
       Taro.showToast({ title: '操作失败', icon: 'none' });
     }
   };
@@ -184,7 +174,7 @@ export default function NoteEdit() {
     });
     if (!confirm.confirm) return;
     try {
-      await getApi().delete(`/notes/${cur.id}`);
+      await getRepo().deleteNote(cur.id);
       Taro.showToast({ title: '已删除', icon: 'success' });
       setTimeout(() => Taro.navigateBack(), 500);
     } catch {
@@ -192,10 +182,14 @@ export default function NoteEdit() {
     }
   };
 
-  // 创建公开永久分享并复制链接到剪贴板
+  // 创建公开永久分享并复制链接到剪贴板（仅联机模式）
   const onShare = async () => {
     const cur = noteRef.current;
     if (!cur) return;
+    if (mode === 'standalone') {
+      Taro.showToast({ title: '单机模式不支持在线分享，请使用导出', icon: 'none' });
+      return;
+    }
     try {
       const r = await getApi().post<{ token: string }>('/shares', {
         noteId: cur.id,
@@ -220,8 +214,8 @@ export default function NoteEdit() {
     if (!cur) return;
     let folders: Folder[] = [];
     try {
-      const r = await getApi().get<{ folders: Folder[] }>('/folders');
-      folders = r.folders;
+      const snapshot = await getRepo().loadAll();
+      folders = snapshot.folders as Folder[];
     } catch {
       Taro.showToast({ title: '加载文件夹失败', icon: 'none' });
       return;
@@ -246,12 +240,8 @@ export default function NoteEdit() {
       folderName = f.name;
     }
     try {
-      const r = await getApi().patch<{ version: number }>(`/notes/${cur.id}`, {
-        folderId,
-        clientUpdatedAt: new Date().toISOString(),
-        version: cur.version,
-      });
-      setNote({ ...cur, folderId, version: r.version });
+      await getRepo().moveNote(cur.id, folderId);
+      setNote({ ...cur, folderId });
       Taro.showToast({ title: folderId ? `已移动到 ${folderName}` : '已移出文件夹', icon: 'none' });
     } catch {
       Taro.showToast({ title: '移动失败', icon: 'none' });
@@ -296,9 +286,11 @@ export default function NoteEdit() {
           <Text className="icon-btn" onClick={onMoveFolder}>
             📁
           </Text>
-          <Text className="icon-btn" onClick={onShare}>
-            🔗
-          </Text>
+          {mode === 'online' && (
+            <Text className="icon-btn" onClick={onShare}>
+              🔗
+            </Text>
+          )}
           <Text className="icon-btn" onClick={onDelete}>
             🗑️
           </Text>

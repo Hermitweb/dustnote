@@ -1,8 +1,9 @@
 # DustNote 导入导出与分享规范
 
-> 文档版本：v1.0.0
+> 文档版本：v2.0.0
 > 适用产品：DustNote · 尘心笔记
 > 目标读者：产品 / 开发
+> 关联文档：[standalone-mode.md](./standalone-mode.md)、[tech-architecture.md](./tech-architecture.md)
 
 ---
 
@@ -236,3 +237,221 @@ flowchart LR
 | 链接过期     | 超过 expiresAt | 访客看到"链接已过期" |
 | 笔记被删除   | 主人软删除     | 主人可在 30 天内恢复 |
 | 笔记永久删除 | 主人彻底删除   | 自动吊销关联分享     |
+
+---
+
+## 6. 单机模式数据流（v2.0.0 新增）
+
+> 详见 [standalone-mode.md](./standalone-mode.md) 与 [tech-architecture.md §1.4-1.6](./tech-architecture.md)。
+
+### 6.1 单机模式整体数据流
+
+```mermaid
+flowchart LR
+    UI[UI 组件] --> STORE[业务 store / state]
+    STORE --> REPO[DataRepository<br/>(LocalRepository 实例)]
+    REPO --> STORAGE{各端本地存储}
+
+    STORAGE --> IDB[(Web / Desktop<br/>IndexedDB)]
+    STORAGE --> ASYNC[(Mobile<br/>AsyncStorage)]
+    STORAGE --> TARO[(Miniprogram<br/>Taro.setStorage)]
+
+    AUTH[mode-store + auth-store] -.注入.-> REPO
+    AUTH -.本地鉴权.-> LOCALBLOB[(LocalAuthBlob<br/>+ LocalLockoutState)]
+```
+
+### 6.2 单机模式 CRUD 数据流
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant UI as UI 组件
+    participant S as 业务 store
+    participant R as LocalRepository
+    participant LS as 本地存储
+
+    U->>UI: 新建/编辑笔记
+    UI->>S: 调用 store.createNote()
+    S->>S: 用 masterKey 加密内容
+    S->>R: repository.createNote(NoteRow)
+    R->>LS: 写入 IndexedDB / AsyncStorage / Taro.setStorage
+    LS-->>R: 写入成功
+    R-->>S: 返回 NoteRow
+    S->>S: 更新 store 状态
+    S-->>UI: UI 增量渲染
+```
+
+**关键差异（vs 联机模式）**：
+
+- **无网络请求**：所有操作直接写本地存储
+- **无离线队列**：单机模式不需要排队，操作即落地
+- **无 WebSocket 推送**：不监听远程变更
+- **无冲突检测**：单设备单用户场景下不存在冲突
+
+### 6.3 单机鉴权数据流
+
+#### 6.3.1 setup（首次设置）
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant UI as StandaloneSetupScreen
+    participant LA as local-auth.ts
+    participant LS as local-auth-storage
+
+    U->>UI: 输入主密码 + 确认
+    UI->>LA: setupLocalAuth(password)
+    LA->>LA: 随机生成 masterKey (32B)
+    LA->>LA: 随机生成 12 位恢复码
+    LA->>LA: Argon2id 派生 passwordKek + recoveryKek
+    LA->>LA: AES-GCM 双重包装 masterKey
+    LA->>LA: Argon2id 派生 passwordHash + recoveryHash
+    LA->>LS: 持久化 LocalAuthBlob
+    LS-->>LA: OK
+    LA-->>UI: 返回 masterKey + 恢复码
+    UI->>U: 单次显示恢复码（强制抄写）
+    UI->>U: 进入主页
+```
+
+#### 6.3.2 unlock（日常解锁）
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant UI as StandaloneUnlockScreen
+    participant LA as local-auth.ts
+    participant LS as local-auth-storage
+
+    U->>UI: 输入主密码
+    UI->>LS: 读取 LocalAuthBlob + LocalLockoutState
+    LS-->>UI: blob + lockoutState
+    UI->>LA: unlockLocalAuth(password, blob)
+    LA->>LA: 检查 lockoutState（若锁定中则拒绝）
+    LA->>LA: Argon2id(password) → passwordHash'
+    LA->>LA: constantTimeEqual(passwordHash', blob.passwordHash)
+    alt 失败
+        LA->>LS: 失败计数 +1（达阈值则锁定）
+        LA-->>UI: 失败
+        UI->>U: 提示错误
+    else 成功
+        LA->>LA: AES-GCM(passwordKek).decrypt(passwordWrappedMasterKey) → masterKey
+        LA->>LS: 清零失败计数
+        LA-->>UI: 返回 masterKey
+        UI->>U: 进入主页
+    end
+```
+
+#### 6.3.3 recover（恢复码重置）
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant UI as StandaloneRecoverScreen
+    participant LA as local-auth.ts
+    participant LS as local-auth-storage
+
+    U->>UI: 输入恢复码 + 新主密码
+    UI->>LS: 读取 LocalAuthBlob
+    LS-->>UI: blob
+    UI->>LA: recoverLocalAuth(recoveryCode, newPassword, blob)
+    LA->>LA: Argon2id(recoveryCode) → recoveryHash'
+    LA->>LA: constantTimeEqual(recoveryHash', blob.recoveryHash)
+    alt 失败
+        LA-->>UI: 拒绝
+    else 成功
+        LA->>LA: AES-GCM(recoveryKek).decrypt(wrappedMasterKey) → masterKey  ← 解封原 masterKey
+        LA->>LA: 重新生成新恢复码
+        LA->>LA: Argon2id(newPassword) → newPasswordKek
+        LA->>LA: AES-GCM(newPasswordKek).encrypt(masterKey) → newPasswordWrappedMasterKey
+        LA->>LA: AES-GCM(newRecoveryKek).encrypt(masterKey) → newWrappedMasterKey
+        LA->>LS: 更新 LocalAuthBlob（masterKey 不变，密文不动）
+        LA-->>UI: 返回新恢复码
+        UI->>U: 单次显示新恢复码
+    end
+```
+
+### 6.4 单机模式导出/导入数据流
+
+```mermaid
+flowchart LR
+    subgraph Export[导出流]
+        LREPO1[LocalRepository] --> ALL1[loadAll: notes/folders/tags/prefs]
+        ALL1 --> SER[JSON 序列化]
+        SER --> ENC[AES-256-GCM 加密<br/>backupKey = HKDF(masterKey)]
+        ENC --> ZIP[打包 ZIP<br/>manifest.json + backup.enc]
+        ZIP --> DL[用户下载]
+    end
+
+    subgraph Import[导入流]
+        UP[用户上传 ZIP] --> PARSE[解析 manifest.json]
+        PARSE --> DEC[AES-256-GCM 解密]
+        DEC --> DESER[反序列化]
+        DESER --> MERGE[按 id 去重合并]
+        MERGE --> LREPO2[LocalRepository 各分区]
+    end
+```
+
+---
+
+## 7. 模式切换数据迁移流程（v2.0.0 新增）
+
+### 7.1 standalone → online 迁移
+
+```mermaid
+flowchart TD
+    START[用户点击「迁移到联机模式」] --> CONFIRM1[弹窗确认 + 输入服务器地址 + 主密码]
+    CONFIRM1 --> STATUS[/auth/status 检查]
+    STATUS --> CHECK1{服务器已 setup?}
+    CHECK1 -- 是 --> ABORT1[提示用户先 /auth/unlock 或换空服务器]
+    CHECK1 -- 否 --> SETUP[/auth/setup 完成联机鉴权]
+    SETUP --> LOAD[LocalRepository.loadAll]
+    LOAD --> UPLOAD[遍历调用 RemoteRepository.createXxx<br/>folders → tags → notes → preferences]
+    UPLOAD --> VERIFY1[RemoteRepository.loadAll 验证]
+    VERIFY1 --> CLEAR[LocalRepository.clearBusinessData<br/>保留 LocalAuthBlob]
+    CLEAR --> SWITCH[mode-store.switchMode online]
+    SWITCH --> RESTART[重启 App]
+    RESTART --> DONE[✅ 完成]
+
+    CONFIRM1 -.失败.-> ROLLBACK1[不修改 mode-store, 提示用户]
+    SETUP -.失败.-> ROLLBACK1
+    UPLOAD -.失败.-> ROLLBACK2[RemoteRepository.clearBusinessData 回滚]
+    VERIFY1 -.失败.-> ROLLBACK2
+```
+
+### 7.2 online → standalone 迁移
+
+```mermaid
+flowchart TD
+    START[用户点击「迁移到单机模式」] --> CONFIRM2[弹窗确认 + 输入新主密码 + 恢复码]
+    CONFIRM2 --> SSETUP[setupLocalAuth newPassword<br/>生成新 LocalAuthBlob]
+    SSETUP --> EXPORT[RemoteRepository.exportBackup<br/>拉全量密文]
+    EXPORT --> WRITE[写入 LocalRepository]
+    WRITE --> VERIFY2[LocalRepository.loadAll 验证]
+    VERIFY2 --> SWITCH2[mode-store.switchMode standalone]
+    SWITCH2 --> RESTART2[重启 App]
+    RESTART2 --> DONE[✅ 完成]
+
+    CONFIRM2 -.失败.-> ROLLBACK3[不修改 mode-store, 提示用户]
+    SSETUP -.失败.-> ROLLBACK3
+    EXPORT -.失败.-> ROLLBACK3
+    WRITE -.失败.-> ROLLBACK4[LocalRepository.clearBusinessData 回滚]
+    VERIFY2 -.失败.-> ROLLBACK4
+```
+
+### 7.3 失败回滚原则
+
+1. **原子化**：迁移过程中任一步骤失败立即终止
+2. **回滚目标 Repository**：已写入的目标调用 `clearBusinessData()` 清空
+3. **不修改 mode-store**：用户仍处于原模式，可重试
+4. **保留源 Repository 数据**：迁移成功后才清空源数据
+5. **用户提示**：弹窗显示失败原因 + 重试按钮
+
+### 7.4 数据一致性保证
+
+| 阶段              | 一致性保证                                                            |
+| ----------------- | --------------------------------------------------------------------- |
+| 迁移中（写一半）  | 失败则回滚目标，源数据未动                                            |
+| 迁移完成（已切换）| 双方 Repository 都有完整数据，等待用户确认后才清空源                  |
+| 重启后            | mode-store 已切换，新 Repository 是数据源                             |
+
+详细流程见 [standalone-mode.md §7](./standalone-mode.md)。

@@ -7,7 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { getApi } from '../../state/auth';
+import { getRepo } from '../../lib/get-repo';
 
 interface Folder {
   id: string;
@@ -24,8 +24,8 @@ export default function Folders() {
   const load = async () => {
     setLoading(true);
     try {
-      const r = await getApi().get<{ folders: Folder[] }>('/folders');
-      setFolders(r.folders);
+      const snapshot = await getRepo().loadAll();
+      setFolders(snapshot.folders as Folder[]);
     } catch {
       Taro.showToast({ title: '加载失败', icon: 'none' });
     } finally {
@@ -44,10 +44,10 @@ export default function Folders() {
     const name = newName.trim();
     if (!name) return;
     try {
-      const r = await getApi().post<{ id: string }>('/folders', { name });
+      const id = await getRepo().createFolder({ name });
       setFolders((prev) => [
         ...prev,
-        { id: r.id, name, icon: null, createdAt: new Date().toISOString() },
+        { id, name, icon: null, createdAt: new Date().toISOString() },
       ]);
       setNewName('');
       Taro.showToast({ title: '已创建', icon: 'success' });
@@ -65,7 +65,7 @@ export default function Folders() {
     });
     if (!r.confirm) return;
     try {
-      await getApi().delete(`/folders/${folder.id}`);
+      await getRepo().deleteFolder(folder.id);
       setFolders((prev) => prev.filter((f) => f.id !== folder.id));
       Taro.showToast({ title: '已删除', icon: 'success' });
     } catch {

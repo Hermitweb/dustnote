@@ -1,6 +1,10 @@
 /**
  * 全局状态：masterKey、auth、notes、folders、tags、theme、i18n、preferences
  *
+ * v2.0.0 支持 单机/联机 双模式：
+ * - standalone：数据存储在 IndexedDB（LocalRepository），鉴权走 local-auth.ts
+ * - online：数据存储在服务端（RemoteRepository），鉴权走 /auth/* API
+ *
  * masterKey 仅存内存（refresh 后清空），刷新页面需重新解锁
  */
 
@@ -9,6 +13,8 @@ import {
   ApiClient,
   ApiException,
   type Ciphertext,
+  type DataRepository,
+  type AppMode,
   deriveMasterKey,
   decryptString,
   encryptString,
@@ -18,6 +24,17 @@ import {
   fromBase64,
   toBase64,
   randomBytes,
+  setupLocalAuth,
+  unlockLocalAuth,
+  recoverLocalAuth,
+  recordFailedAttempt,
+  recordSuccessfulAttempt,
+  isLocked,
+  remainingLockoutMs,
+  INITIAL_LOCKOUT_STATE,
+  LOCAL_LOCKOUT_DURATION_MS,
+  type LocalAuthBlob,
+  type LocalLockoutState,
 } from '@dustnote/shared';
 import { getDeviceId } from './device';
 import { applyTheme } from './theme';
@@ -33,6 +50,16 @@ import {
 } from './db';
 import { enqueue, peekAll, remove, bumpRetries, size as queueSize } from './offline-queue';
 import type { QueuedOp } from './offline-queue';
+import { useModeStore } from './mode-store';
+import { createRepository } from './repository';
+import {
+  loadLocalAuthBlob,
+  saveLocalAuthBlob,
+  clearLocalAuthBlob,
+  loadLockoutState,
+  saveLockoutState,
+  clearLockoutState,
+} from './local-auth-storage';
 
 const API_BASE = '/api/v1';
 const APP_VERSION = __APP_VERSION__;
@@ -119,6 +146,12 @@ export interface Preferences {
 // ========== Store ==========
 
 interface StoreState {
+  // mode（v2.0.0）
+  /** 当前应用模式 */
+  mode: AppMode;
+  /** 数据访问 Repository（根据 mode 注入） */
+  repository: DataRepository | null;
+
   // auth
   authState: AuthState;
   accessToken: string | null;
@@ -126,6 +159,10 @@ interface StoreState {
   serverSalt: string | null; // base64
   masterKey: Uint8Array | null;
   wrappedMasterKey: Ciphertext | null;
+  /** 单机模式本地鉴权 blob */
+  localAuthBlob: LocalAuthBlob | null;
+  /** 单机模式锁定状态 */
+  lockoutState: LocalLockoutState;
 
   // data
   notes: Map<string, NoteRow>;
@@ -145,12 +182,30 @@ interface StoreState {
   /** 待同步的离线操作数量（来自 offline-queue） */
   pendingCount: number;
 
-  // actions: auth
+  // actions: mode
+  /** 初始化 Repository（根据当前模式注入） */
+  initRepository: () => void;
+  /** 切换模式（含数据迁移） */
+  switchMode: (target: AppMode, serverUrl?: string | null) => Promise<void>;
+
+  // actions: auth（联机模式）
   checkStatus: () => Promise<void>;
   setup: (password: string) => Promise<string>; // 返回 recoveryCode
   unlock: (password: string) => Promise<void>;
   recover: (recoveryCode: string, newPassword: string) => Promise<void>;
   lock: () => void;
+
+  // actions: auth（单机模式）
+  /** 单机模式：检查本地鉴权状态 */
+  checkStatusStandalone: () => void;
+  /** 单机模式：首次设置主密码 */
+  setupStandalone: (password: string) => Promise<string>;
+  /** 单机模式：解锁 */
+  unlockStandalone: (password: string) => Promise<void>;
+  /** 单机模式：恢复码重置密码 */
+  recoverStandalone: (recoveryCode: string, newPassword: string) => Promise<void>;
+  /** 单机模式：获取剩余锁定时间（ms） */
+  getRemainingLockoutMs: () => number;
 
   // actions: data
   loadAll: () => Promise<void>;
@@ -294,12 +349,21 @@ async function runOrEnqueue(
 // ========== Store 实现 ==========
 
 export const useStore = create<StoreState>((set, get) => ({
+  // mode（v2.0.0）
+  mode: useModeStore.getState().mode,
+  repository: null,
+
+  // auth
   authState: 'unknown',
   accessToken: null,
   userId: null,
   serverSalt: null,
   masterKey: null,
   wrappedMasterKey: null,
+  localAuthBlob: null,
+  lockoutState: INITIAL_LOCKOUT_STATE,
+
+  // data
   notes: new Map(),
   notesPlain: new Map(),
   folders: [],
@@ -307,13 +371,136 @@ export const useStore = create<StoreState>((set, get) => ({
   selectedNoteId: null,
   selectedFolderId: null,
   viewMode: 'all',
+
+  // preferences
   preferences: loadPrefs(),
+
+  // offline-first
   isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
   pendingCount: 0,
+
+  // -------- mode actions --------
+
+  initRepository(): void {
+    const { mode } = get();
+    const repo = createRepository(
+      { mode, serverUrl: useModeStore.getState().serverUrl },
+      () => get().accessToken
+    );
+    set({ repository: repo });
+  },
+
+  async switchMode(target: AppMode, serverUrl: string | null = null): Promise<void> {
+    const { repository, masterKey } = get();
+    if (!repository || !masterKey) {
+      throw new Error('切换模式前需先解锁');
+    }
+    // 1. 导出当前模式的数据
+    const backup = await repository.exportBackup();
+    // 2. 更新 mode-store
+    useModeStore.getState().setMode(target);
+    if (serverUrl !== null) {
+      useModeStore.getState().setServerUrl(serverUrl);
+    }
+    // 3. 初始化新 Repository
+    const newRepo = createRepository(
+      { mode: target, serverUrl: useModeStore.getState().serverUrl },
+      () => get().accessToken
+    );
+    // 4. 清空新模式的业务数据（避免重复）
+    await newRepo.clearBusinessData();
+    // 5. 导入备份数据
+    await newRepo.importBackup(backup);
+    // 6. 更新 store
+    set({ mode: target, repository: newRepo });
+    // 7. 重新加载数据
+    await get().loadAll();
+  },
+
+  // -------- standalone auth --------
+
+  checkStatusStandalone(): void {
+    const blob = loadLocalAuthBlob();
+    const lockout = loadLockoutState();
+    if (!blob) {
+      set({ authState: 'uninitialized', lockoutState: lockout });
+    } else if (isLocked(lockout)) {
+      set({ authState: 'needs_unlock', localAuthBlob: blob, lockoutState: lockout });
+    } else {
+      set({ authState: 'needs_unlock', localAuthBlob: blob, lockoutState: lockout });
+    }
+  },
+
+  async setupStandalone(password: string): Promise<string> {
+    const result = await setupLocalAuth(password);
+    saveLocalAuthBlob(result.blob);
+    clearLockoutState();
+    set({
+      localAuthBlob: result.blob,
+      masterKey: result.masterKey,
+      lockoutState: INITIAL_LOCKOUT_STATE,
+      authState: 'unlocked',
+    });
+    return result.recoveryCode;
+  },
+
+  async unlockStandalone(password: string): Promise<void> {
+    const { localAuthBlob, lockoutState } = get();
+    if (!localAuthBlob) throw new Error('未初始化');
+    if (isLocked(lockoutState)) {
+      const remaining = remainingLockoutMs(lockoutState);
+      throw new Error(`账号已锁定，请 ${Math.ceil(remaining / 1000)} 秒后重试`);
+    }
+    const result = await unlockLocalAuth(password, localAuthBlob);
+    if (!result.success) {
+      const newState = recordFailedAttempt(lockoutState);
+      saveLockoutState(newState);
+      set({ lockoutState: newState });
+      if (isLocked(newState)) {
+        throw new Error(`密码错误次数过多，账号已锁定 ${LOCAL_LOCKOUT_DURATION_MS / 60000} 分钟`);
+      }
+      throw new Error('主密码错误');
+    }
+    const successState = recordSuccessfulAttempt();
+    saveLockoutState(successState);
+    set({
+      masterKey: result.masterKey,
+      lockoutState: successState,
+      authState: 'unlocked',
+    });
+  },
+
+  async recoverStandalone(recoveryCode: string, newPassword: string): Promise<void> {
+    const { localAuthBlob } = get();
+    if (!localAuthBlob) throw new Error('未初始化');
+    const result = await recoverLocalAuth(recoveryCode, newPassword, localAuthBlob);
+    if (!result.success || !result.blob || !result.masterKey || !result.recoveryCode) {
+      throw new Error('恢复码错误');
+    }
+    saveLocalAuthBlob(result.blob);
+    clearLockoutState();
+    set({
+      localAuthBlob: result.blob,
+      masterKey: result.masterKey,
+      lockoutState: INITIAL_LOCKOUT_STATE,
+      authState: 'unlocked',
+    });
+  },
+
+  getRemainingLockoutMs(): number {
+    return remainingLockoutMs(get().lockoutState);
+  },
 
   // -------- auth --------
 
   async checkStatus(): Promise<void> {
+    const { mode } = get();
+    if (mode === 'standalone') {
+      // 单机模式：检查本地鉴权 blob
+      get().checkStatusStandalone();
+      return;
+    }
+    // 联机模式：调用 /auth/status API
     const r = await api().get<{ initialized: boolean; deviceKnown: boolean }>('/auth/status');
     if (!r.initialized) {
       set({ authState: 'uninitialized' });
@@ -406,13 +593,45 @@ export const useStore = create<StoreState>((set, get) => ({
   lock(): void {
     const k = get().masterKey;
     if (k) k.fill(0);
-    set({ masterKey: null, selectedNoteId: null });
+    set({ masterKey: null, selectedNoteId: null, notesPlain: new Map() });
   },
 
   // -------- data --------
 
   async loadAll(): Promise<void> {
-    // Offline-first：先用 IndexedDB 缓存填充 store，UI 立即可见；
+    const { mode, repository } = get();
+
+    // 单机模式：直接从 LocalRepository 加载
+    if (mode === 'standalone' && repository) {
+      const snapshot = await repository.loadAll();
+      const notesMap = new Map<string, NoteRow>(snapshot.notes.map((n: NoteRow) => [n.id, n]));
+      set({
+        notes: notesMap,
+        folders: snapshot.folders,
+        tags: snapshot.tags,
+      });
+      if (snapshot.preferences) {
+        set({ preferences: { ...get().preferences, ...snapshot.preferences } });
+      }
+      // 解密笔记
+      const masterKey = get().masterKey;
+      if (masterKey) {
+        const plain = new Map<string, NotePlaintext>();
+        for (const n of snapshot.notes) {
+          try {
+            const envelope = parseEnvelope(n.ciphertext);
+            const pt = await decryptNote(masterKey, envelope);
+            plain.set(n.id, pt);
+          } catch {
+            plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
+          }
+        }
+        set({ notesPlain: plain });
+      }
+      return;
+    }
+
+    // 联机模式：Offline-first，先用 IndexedDB 缓存填充 store，UI 立即可见；
     // 同时发起网络请求拉取最新数据。失败时保留缓存（不抛错）。
     try {
       const [cachedNotes, cachedFolders, cachedTags] = await Promise.all([
@@ -488,6 +707,38 @@ export const useStore = create<StoreState>((set, get) => ({
     const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
     const { json: cipherJson } = await encryptNote(masterKey, empty);
 
+    // 单机模式：直接写入 LocalRepository
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      const id = await repository.createNote({
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: false,
+        isFavorite: false,
+        folderId,
+      });
+      const now = new Date().toISOString();
+      const note: NoteRow = {
+        id,
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: false,
+        isFavorite: false,
+        deletedAt: null,
+        version: 1,
+        clientUpdatedAt: now,
+        serverUpdatedAt: now,
+        folderId,
+      };
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, note);
+      const newPlain = new Map(get().notesPlain);
+      newPlain.set(id, empty);
+      set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: id });
+      return id;
+    }
+
+    // 联机模式：API + 离线队列
     const r = await api().post<{ id: string; serverUpdatedAt: string; version: number }>('/notes', {
       ciphertext: cipherJson,
       keyVersion: 1,
@@ -544,6 +795,24 @@ export const useStore = create<StoreState>((set, get) => ({
     };
     const { json: cipherJson } = await encryptNote(masterKey, merged);
 
+    // 单机模式：直接更新 LocalRepository
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      const version = await repository.updateNote(id, {
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: patch.isPinned ?? note.isPinned,
+        isFavorite: patch.isFavorite ?? note.isFavorite,
+      });
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, { ...note, ciphertext: cipherJson, version });
+      const newPlain = new Map(get().notesPlain);
+      newPlain.set(id, merged);
+      set({ notes: newNotes, notesPlain: newPlain });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
     const body = {
       ciphertext: cipherJson,
       keyVersion: 1,
@@ -590,6 +859,17 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!note) return;
     if (note.folderId === folderId) return; // 已在目标文件夹，无需请求
 
+    // 单机模式：直接更新 LocalRepository
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.moveNote(id, folderId);
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, { ...note, folderId });
+      set({ notes: newNotes });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
     const body = {
       folderId,
       clientUpdatedAt: new Date().toISOString(),
@@ -623,7 +903,18 @@ export const useStore = create<StoreState>((set, get) => ({
   async deleteNote(id: string): Promise<void> {
     const note = get().notes.get(id);
     if (!note) return;
-    // 乐观更新：标记软删除
+
+    // 单机模式：直接更新 LocalRepository
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.deleteNote(id);
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, { ...note, deletedAt: new Date().toISOString() });
+      set({ notes: newNotes, selectedNoteId: null });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
     const newNotes = new Map(get().notes);
     newNotes.set(id, { ...note, deletedAt: new Date().toISOString() });
     set({ notes: newNotes, selectedNoteId: null });
@@ -650,7 +941,24 @@ export const useStore = create<StoreState>((set, get) => ({
   async permanentDeleteNote(id: string): Promise<void> {
     const note = get().notes.get(id);
     if (!note) return;
-    // 乐观更新：从本地移除
+
+    // 单机模式：直接删除
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.permanentDeleteNote(id);
+      const newNotes = new Map(get().notes);
+      newNotes.delete(id);
+      const newPlain = new Map(get().notesPlain);
+      newPlain.delete(id);
+      set({
+        notes: newNotes,
+        notesPlain: newPlain,
+        selectedNoteId: get().selectedNoteId === id ? null : get().selectedNoteId,
+      });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
     const newNotes = new Map(get().notes);
     newNotes.delete(id);
     const newPlain = new Map(get().notesPlain);
@@ -675,7 +983,22 @@ export const useStore = create<StoreState>((set, get) => ({
       .filter((n) => n.deletedAt)
       .map((n) => n.id);
     if (trashIds.length === 0) return;
-    // 乐观更新：先从本地移除所有回收站项
+
+    // 单机模式：直接清空
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.emptyTrash();
+      const newNotes = new Map(get().notes);
+      const newPlain = new Map(get().notesPlain);
+      for (const id of trashIds) {
+        newNotes.delete(id);
+        newPlain.delete(id);
+      }
+      set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: null });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
     const newNotes = new Map(get().notes);
     const newPlain = new Map(get().notesPlain);
     for (const id of trashIds) {
@@ -712,6 +1035,18 @@ export const useStore = create<StoreState>((set, get) => ({
   async restoreNote(id: string): Promise<void> {
     const note = get().notes.get(id);
     if (!note || !note.deletedAt) return;
+
+    // 单机模式：直接恢复
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.restoreNote(id);
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, { ...note, deletedAt: null });
+      set({ notes: newNotes });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
     const body = {
       deletedAt: null,
       clientUpdatedAt: new Date().toISOString(),
@@ -739,6 +1074,27 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async createFolder(name: string): Promise<string> {
+    // 单机模式：直接创建
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      const id = await repository.createFolder({ name });
+      set({
+        folders: [
+          ...get().folders,
+          {
+            id,
+            name,
+            parentId: null,
+            icon: null,
+            sortOrder: get().folders.length,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      });
+      return id;
+    }
+
+    // 联机模式：API
     const r = await api().post<{ id: string }>('/folders', { name });
     set({
       folders: [
@@ -757,7 +1113,25 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async deleteFolder(id: string): Promise<void> {
-    // 乐观更新
+    // 单机模式：直接删除
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.deleteFolder(id);
+      set({ folders: get().folders.filter((f) => f.id !== id) });
+      // 该文件夹下的笔记 folderId 置为 null
+      const newNotes = new Map(get().notes);
+      let changed = false;
+      for (const [nid, n] of newNotes) {
+        if (n.folderId === id) {
+          newNotes.set(nid, { ...n, folderId: null });
+          changed = true;
+        }
+      }
+      if (changed) set({ notes: newNotes });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
     set({ folders: get().folders.filter((f) => f.id !== id) });
     const ok = await runOrEnqueue({ method: 'DELETE', path: `/folders/${id}` }, async () => {
       await api().delete(`/folders/${id}`);
@@ -775,9 +1149,17 @@ export const useStore = create<StoreState>((set, get) => ({
     if (p.theme) applyTheme(p.theme, next.mode);
     if (p.mode) applyTheme(next.theme, p.mode);
     if (p.language) void i18n.changeLanguage(p.language);
-    void api()
-      .patch('/preferences', p)
-      .catch(() => undefined);
+
+    // 单机模式：写入 LocalRepository
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      void repository.setPreferences(p).catch(() => undefined);
+    } else {
+      // 联机模式：同步到服务端
+      void api()
+        .patch('/preferences', p)
+        .catch(() => undefined);
+    }
   },
 
   setTheme(theme: ThemeId): void {
@@ -860,7 +1242,10 @@ export const useStore = create<StoreState>((set, get) => ({
     await clearCache();
     const { clear: clearQueue } = await import('./offline-queue');
     await clearQueue();
-    set({ pendingCount: 0 });
+    // 单机模式：清除本地鉴权数据 + 锁定状态
+    clearLocalAuthBlob();
+    clearLockoutState();
+    set({ pendingCount: 0, localAuthBlob: null, lockoutState: INITIAL_LOCKOUT_STATE });
   },
 }));
 
