@@ -71,9 +71,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Tauri binary 名取自 Cargo.toml 的 package name = "dustnote-desktop"
-          # Windows 生成 dustnote-desktop.exe，macOS/Linux 生成 dustnote-desktop
-          # runtime 必须使用 .NET RID 格式（vpk 1.2.0 要求）
           - os: windows-latest
             channel: win
             runtime: win-x64
@@ -98,17 +95,14 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - uses: dtolnay/rust-toolchain@stable
-      # macOS: Tauri 需要同时支持 ARM64 (Apple Silicon) 与 x86_64 (Intel)
       - name: Add macOS Rust targets
         if: matrix.os == 'macos-latest'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
-      # Linux: Tauri 依赖 webkit2gtk 等系统库
       - name: Install Linux system dependencies
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-      # .NET SDK 8 is required by the vpk CLI tool (Velopack packager)
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
@@ -125,15 +119,7 @@ jobs:
       - name: Build Tauri binary (no bundle — Velopack handles installer)
         working-directory: desktop
         run: pnpm tauri build --no-bundle
-      - name: List built binary
-        shell: bash
-        run: |
-          echo "=== Built binary ==="
-          ls -la desktop/src-tauri/target/release/${{ matrix.main_exe }} 2>/dev/null || echo "Binary not found at expected path"
-      - name: Prepare staging directory (exclude build intermediates)
-        # vpk pack 会打包 --packDir 下的所有文件。target/release 包含 2GB+
-        # 的构建中间文件（deps/, build/, .pdb 等），直接使用会导致安装包
-        # 膨胀到 500MB+。只复制运行时必需的 exe 到 staging 目录。
+      - name: Prepare staging directory
         shell: bash
         run: |
           mkdir -p desktop/src-tauri/staging
@@ -190,46 +176,17 @@ jobs:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.1.10909125'
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
-      - name: Verify react-native install location
-        run: |
-          echo "Checking react-native at workspace root..."
-          ls -la node_modules/react-native/ReactAndroid/gradle.properties || echo "NOT FOUND at root"
-          echo "Checking react-native at mobile/node_modules..."
-          ls -la mobile/node_modules/react-native 2>/dev/null || echo "Not at mobile/node_modules (expected with hoisted layout)"
       - name: Symlink react-native into mobile/node_modules (pnpm hoisted layout)
-        # pnpm node-linker=hoisted places react-native at the workspace root
-        # node_modules/ but does NOT create mobile/node_modules/react-native on
-        # Linux. The React Native Gradle Plugin's ReactRootProjectPlugin and the
-        # cli-platform-android autolinking script both resolve paths relative to
-        # mobile/node_modules, so we mirror the workspace-root packages there.
         run: |
           mkdir -p mobile/node_modules
           for pkg in react-native @react-native @react-native-community; do
             if [ ! -e "mobile/node_modules/$pkg" ] && [ -e "node_modules/$pkg" ]; then
               ln -s "$(pwd)/node_modules/$pkg" "mobile/node_modules/$pkg"
-              echo "Symlinked mobile/node_modules/$pkg -> node_modules/$pkg"
             fi
           done
-          # Verify the file the RN gradle plugin reads actually resolves now.
-          ls -la mobile/node_modules/react-native/ReactAndroid/gradle.properties
-      - name: Verify @babel/runtime install location
-        # Metro must resolve @babel/runtime/helpers/interopRequireDefault
-        # during bundling. With node-linker=hoisted it should be at the
-        # workspace root node_modules/. This step makes path issues visible
-        # in the CI log instead of buried inside a Gradle stack trace.
-        run: |
-          echo "=== Checking @babel/runtime at workspace root ==="
-          ls -la node_modules/@babel/runtime/helpers/interopRequireDefault.js || echo "NOT FOUND at workspace root"
-          echo "=== Checking @babel/runtime at mobile/node_modules ==="
-          ls -la mobile/node_modules/@babel/runtime 2>/dev/null || echo "Not at mobile/node_modules (expected with hoisted layout)"
-          echo "=== Checking @dustnote/shared ==="
-          ls -la node_modules/@dustnote/shared 2>/dev/null || echo "Not at workspace root"
-          ls -la mobile/node_modules/@dustnote/shared 2>/dev/null || echo "Not at mobile/node_modules"
       - run: chmod +x mobile/android/gradlew
       - name: Build Android APK
         working-directory: mobile/android
-        # `set -o pipefail` makes the step fail when gradlew fails; otherwise
-        # `| tee` masks the gradlew exit code with tee's own (always 0).
         run: set -o pipefail && ./gradlew assembleRelease --stacktrace 2>&1 | tee build-output.log
       - name: Verify APK exists
         working-directory: mobile/android
@@ -237,43 +194,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "=== APK output directory ==="
-          find app/build/outputs -type f 2>/dev/null || echo "No outputs directory found"
-          echo "=== All APK files under app/build ==="
-          find app/build -type f -name "*.apk" 2>/dev/null || echo "No APK files found"
           if ! test -f app/build/outputs/apk/release/app-release.apk; then
-            echo "::error::app-release.apk not found at app/build/outputs/apk/release/"
-            # Create a GitHub issue with the build log so we can diagnose
-            # without admin log access. Show error-relevant lines first
-            # (filtered), then the raw tail for full context.
-            {
-              echo "## Error-relevant lines (filtered)"
-              echo ""
-              echo '```'
-              grep -iE 'error|fail|cannot find|module|exception|what went wrong' build-output.log \
-                | grep -vE '^\s+at ' | tail -80 || echo "(no matches)"
-              echo '```'
-              echo ""
-              echo "## Full log (last 400 lines)"
-              echo ""
-              echo '```'
-              tail -400 build-output.log
-              echo '```'
-              echo ""
-              echo "Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            } > issue-body.md
-            gh issue create \
-              --title "Android build: APK not generated by assembleRelease" \
-              --body-file issue-body.md \
-              --label bug || echo "Failed to create issue"
+            echo "::error::app-release.apk not found"
             exit 1
           fi
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: build-output-log
-          path: mobile/android/build-output.log
-          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
@@ -295,15 +219,7 @@ jobs:
         run: |
           ls -laR artifacts || true
           mkdir -p release-assets
-          # Copy all build outputs into a flat directory so the release action
-          # can attach them with a simple glob, regardless of the nested
-          # structure produced by download-artifact.
-          # Include Velopack Releases/ contents (update index + delta packages)
-          # Setup.exe (Windows) / Setup (macOS, Linux) are Velopack installers.
-          # macOS and Linux both produce a file named "Setup" (no extension),
-          # so we rename them per-platform to avoid collision.
           find artifacts -type f \( -name "*.zip" -o -name "*.exe" -o -name "*.apk" -o -name "*.nupkg" -o -name "*.delta" -o -name "releases.*.json" \) -exec cp {} release-assets/ \;
-          # Per-platform Velopack Setup binaries
           for channel in win macos linux; do
             src_dir="artifacts/desktop-velopack-${channel}"
             if [ -d "$src_dir" ]; then
@@ -312,18 +228,12 @@ jobs:
               elif [ -f "$src_dir/Setup" ]; then
                 cp "$src_dir/Setup" "release-assets/Setup-${channel}"
               fi
-              # Also copy the Releases/ update feed if present
               if [ -d "$src_dir/Releases" ]; then
                 cp "$src_dir"/Releases/* release-assets/ 2>/dev/null || true
               fi
             fi
           done
-          {
-            echo "## Release Assets"
-            echo '```'
-            ls -la release-assets
-            echo '```'
-          } >> $GITHUB_STEP_SUMMARY
+          ls -la release-assets
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -345,7 +255,7 @@ jobs:
             - Windows: [Setup.exe](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/Setup.exe)
             - macOS: [Setup-macos](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/Setup-macos)
             - Linux: [Setup-linux](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/Setup-linux)
-            - Update feed: `releases.*.json` + delta packages (for in-app auto-update)
+            - Update feed: releases.*.json + delta packages (for in-app auto-update)
 
             **Mobile:**
             - [app-release.apk](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/app-release.apk)
