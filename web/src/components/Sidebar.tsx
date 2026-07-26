@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -26,6 +26,9 @@ export function Sidebar() {
 
   const [newFolderName, setNewFolderName] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
+  // 搜索：E2EE 下服务端无法检索密文，必须在客户端对解密后的 notesPlain 做匹配。
+  // 大小写不敏感、子串匹配 title/content/tags。空字符串 = 不过滤。
+  const [searchQuery, setSearchQuery] = useState('');
 
   // ========== 多选 ==========
   const [selecting, setSelecting] = useState(false);
@@ -112,17 +115,38 @@ export function Sidebar() {
   };
 
   // ========== 可见笔记 ==========
-  const visibleNotes = Array.from(notes.values())
-    .filter((n) => {
-      if (viewMode === 'trash') return !!n.deletedAt;
-      if (viewMode === 'favorites') return !n.deletedAt && n.isFavorite;
-      return !n.deletedAt;
-    })
-    .filter((n) => (selectedFolderId ? n.folderId === selectedFolderId : true))
-    .sort((a, b) => {
+  // 搜索词归一化：去除首尾空格、转小写。空串表示不过滤。
+  // 用 useMemo 避免每次渲染都重复 toLowerCase；searchQuery 变化时才重算。
+  const normalizedQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+
+  const visibleNotes = useMemo(() => {
+    const list = Array.from(notes.values())
+      .filter((n) => {
+        if (viewMode === 'trash') return !!n.deletedAt;
+        if (viewMode === 'favorites') return !n.deletedAt && n.isFavorite;
+        return !n.deletedAt;
+      })
+      .filter((n) => (selectedFolderId ? n.folderId === selectedFolderId : true));
+
+    // 搜索过滤：在解密后的明文上做大小写不敏感子串匹配。
+    // 匹配范围 = 标题 + 正文 + 标签。解密失败的笔记（plain 为 undefined）
+    // 在有搜索词时隐藏，无搜索词时仍显示（标题显示为 "..."）。
+    const filtered = normalizedQuery
+      ? list.filter((n) => {
+          const plain = notesPlain.get(n.id);
+          if (!plain) return false;
+          if (plain.title.toLowerCase().includes(normalizedQuery)) return true;
+          if (plain.content.toLowerCase().includes(normalizedQuery)) return true;
+          if (plain.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery))) return true;
+          return false;
+        })
+      : list;
+
+    return filtered.sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
       return b.serverUpdatedAt.localeCompare(a.serverUpdatedAt);
     });
+  }, [notes, viewMode, selectedFolderId, notesPlain, normalizedQuery]);
 
   const trashCount = Array.from(notes.values()).filter((n) => n.deletedAt).length;
   const isTrash = viewMode === 'trash';
@@ -160,6 +184,39 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto p-2">
+        {/* 搜索框：客户端全文搜索（E2EE 下服务端无法检索密文） */}
+        <div className="mb-2 px-1">
+          <div className="relative">
+            <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-surface-muted">
+              🔍
+            </span>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('app_bar.search')}
+              className="w-full rounded-lg border border-surface-border bg-surface-bg py-1.5 pl-7 pr-7 text-sm text-surface-fg placeholder-surface-muted focus:border-mint-400 focus:outline-none focus:ring-1 focus:ring-mint-400"
+              type="search"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-xs text-surface-muted hover:bg-surface-sunken hover:text-surface-fg"
+                title={t('common.cancel')}
+                type="button"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          {normalizedQuery && (
+            <p className="mt-1 px-1 text-xs text-surface-muted">
+              {visibleNotes.length > 0
+                ? `匹配 ${visibleNotes.length} 条`
+                : '无匹配笔记'}
+            </p>
+          )}
+        </div>
+
         <NavItem
           label={t('sidebar.all')}
           icon="📝"

@@ -200,4 +200,18 @@ export const migrations: Migration[] = [
       `);
     },
   },
+  {
+    id: 6,
+    name: 'add-account-lockout-columns',
+    up: (db) => {
+      // 账号级锁定：连续 6 次密码错误后锁定 15 分钟。
+      // 与 app.ts 中 IP 级 express-rate-limit 互补——
+      // IP 限流防分布式爆破，账号锁定防单账号定向爆破。
+      db.exec(`
+        ALTER TABLE users ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE users ADD COLUMN locked_until TEXT;
+        UPDATE meta SET value = '6' WHERE key = 'schema_version';
+      `);
+    },
+  },
 ];

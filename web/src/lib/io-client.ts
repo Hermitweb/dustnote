@@ -18,10 +18,11 @@ export function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
 /** 解析 .txt 笔记 */
 function parseTxt(name: string, _buf: ArrayBuffer): NotePlaintext {
   const text = new TextDecoder('utf-8').decode(_buf);
-  // 找第一行非空内容作为标题
-  const firstLine = text.split('\n').find((l) => l.trim()) ?? name;
+  // 找第一行非空内容作为标题；若全文为空则回退到文件名（去掉扩展名）
+  const firstLine = text.split('\n').find((l) => l.trim());
+  const title = firstLine ? firstLine.slice(0, 80) : name.replace(/\.txt$/i, '');
   return {
-    title: firstLine.slice(0, 80) || name.replace(/\.txt$/i, ''),
+    title,
     content: text,
     tags: ['导入'],
   };

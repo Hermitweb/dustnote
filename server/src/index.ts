@@ -9,6 +9,7 @@ import { logger } from './logger.js';
 import { getDb, runMigrations, closeDb } from './db.js';
 import { migrations } from './migrations.js';
 import { setupSyncWss, closeWss } from './services/sync-ws.js';
+import { startTrashCleanup, stopTrashCleanup } from './services/trash-cleanup.js';
 
 // 启动时配置校验
 import './config-validate.js';
@@ -25,7 +26,10 @@ async function main(): Promise<void> {
   // 3. 启动 WebSocket
   setupSyncWss(httpServer);
 
-  // 4. 启动
+  // 4. 启动回收站定期清理（30 天过期笔记永久删除）
+  startTrashCleanup();
+
+  // 5. 启动
   httpServer.listen(config.port, () => {
     logger.info(
       { port: config.port, env: config.nodeEnv, version: config.serverVersion },
@@ -33,10 +37,11 @@ async function main(): Promise<void> {
     );
   });
 
-  // 5. 优雅关闭
+  // 6. 优雅关闭
   const shutdown = async (signal: string) => {
     logger.info({ signal }, '收到关闭信号，开始优雅退出');
     httpServer.close();
+    stopTrashCleanup();
     await closeWss();
     closeDb();
     logger.info('已关闭 HTTP/WS/DB');

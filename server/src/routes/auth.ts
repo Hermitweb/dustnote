@@ -24,6 +24,14 @@ import {
   type Ciphertext,
 } from '@dustnote/shared';
 import { issueAccessToken, issueRefreshToken, verifyToken, REFRESH_TTL } from '../auth/jwt.js';
+import {
+  isLocked,
+  recordFailure,
+  recordSuccess,
+  remainingLockMs,
+  MAX_FAILED_ATTEMPTS,
+  type LockoutState,
+} from '../auth/lockout.js';
 import type { AuthUser } from '../middleware/auth.js';
 
 export const authRouter = Router();
@@ -196,7 +204,7 @@ authRouter.post('/auth/unlock', (req, res) => {
   const db = getDb();
   const user = db
     .prepare(
-      'SELECT id, password_hash, master_salt, kdf_params, kdf_version, client_master_salt FROM users LIMIT 1'
+      'SELECT id, password_hash, master_salt, kdf_params, kdf_version, client_master_salt, failed_attempts, locked_until FROM users LIMIT 1'
     )
     .get() as
     | {
@@ -206,11 +214,30 @@ authRouter.post('/auth/unlock', (req, res) => {
         kdf_params: string;
         kdf_version: number;
         client_master_salt: string | null;
+        failed_attempts: number;
+        locked_until: string | null;
       }
     | undefined;
 
   if (!user) {
     res.status(404).json({ error: 'not_initialized', message: '系统未初始化，请先 setup' });
+    return;
+  }
+
+  // 账号锁定检查：即使密码正确也拒绝，防定向爆破
+  const lockState: LockoutState = {
+    failedAttempts: user.failed_attempts,
+    lockedUntil: user.locked_until,
+  };
+  if (isLocked(lockState)) {
+    const waitMs = remainingLockMs(lockState);
+    const waitMin = Math.ceil(waitMs / 60_000);
+    logger.warn({ userId: user.id }, '账号已锁定，拒绝登录');
+    res.status(423).json({
+      error: 'account_locked',
+      message: `账号已锁定，请在 ${waitMin} 分钟后再试`,
+      retryAfterSeconds: Math.ceil(waitMs / 1000),
+    });
     return;
   }
 
@@ -229,10 +256,37 @@ authRouter.post('/auth/unlock', (req, res) => {
   // 常量时间比较
   const stored = new Uint8Array(user.password_hash);
   if (candidate.length !== stored.length || !constantTimeEqual(candidate, stored)) {
-    logger.warn({ userId: user.id, deviceId: client.deviceId }, '密码错误');
-    res.status(401).json({ error: 'invalid_password', message: '密码错误' });
+    // 记录失败：累计达阈值后锁定 15 分钟
+    const next = recordFailure(lockState);
+    db.prepare(
+      'UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?'
+    ).run(next.failedAttempts, next.lockedUntil, user.id);
+
+    const remaining = MAX_FAILED_ATTEMPTS - next.failedAttempts;
+    logger.warn(
+      { userId: user.id, deviceId: client.deviceId, attempts: next.failedAttempts, locked: !!next.lockedUntil },
+      '密码错误'
+    );
+    if (next.lockedUntil) {
+      res.status(423).json({
+        error: 'account_locked',
+        message: `连续 ${MAX_FAILED_ATTEMPTS} 次密码错误，账号已锁定 15 分钟`,
+        retryAfterSeconds: 900,
+      });
+    } else {
+      res.status(401).json({
+        error: 'invalid_password',
+        message: `密码错误，剩余尝试次数 ${remaining}`,
+      });
+    }
     return;
   }
+
+  // 登录成功：清零失败计数
+  const clean = recordSuccess();
+  db.prepare(
+    'UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?'
+  ).run(clean.failedAttempts, clean.lockedUntil, user.id);
 
   // 注册/更新设备
   const existing = db
