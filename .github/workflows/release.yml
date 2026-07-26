@@ -159,17 +159,21 @@ jobs:
           ls -la desktop/src-tauri/staging/
       - name: Create portable zip (Windows only)
         # Windows 便携版：直接打包 staging 目录（main exe + 依赖）
+        # Windows runner 无 zip 命令，使用 PowerShell 的 Compress-Archive
         if: matrix.os == 'windows-latest'
-        shell: bash
+        shell: pwsh
         env:
           VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.0' }}
         run: |
-          ver="${VPK_VERSION#v}"
-          cd desktop/src-tauri/staging
-          # zip 输出到 desktop/src-tauri/ 以匹配 upload-artifact 的 path
-          zip -r "../DustNote_${ver}_x64-portable.zip" .
-          cd ..
-          ls -la "DustNote_${ver}_x64-portable.zip"
+          $ver = $env:VPK_VERSION -replace '^v', ''
+          $stagingPath = 'desktop/src-tauri/staging'
+          $zipPath = "desktop/src-tauri/DustNote_${ver}_x64-portable.zip"
+          if (-not (Test-Path $stagingPath)) {
+            Write-Error "Staging directory not found: $stagingPath"
+            exit 1
+          }
+          Compress-Archive -Path "$stagingPath/*" -DestinationPath $zipPath -Force
+          Get-Item $zipPath | Format-List Name, Length, FullName
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'windows-latest'
         with:
