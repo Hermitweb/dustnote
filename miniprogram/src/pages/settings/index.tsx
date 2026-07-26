@@ -155,6 +155,39 @@ export default function Settings() {
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
+        <View
+          className="settings-row"
+          onClick={() => {
+            Taro.navigateTo({ url: '/pages/folders/index' }).catch(() => {});
+          }}
+        >
+          <View className="settings-row-label">
+            <Text>📁 文件夹管理</Text>
+          </View>
+          <Text className="settings-row-value">›</Text>
+        </View>
+        <View
+          className="settings-row"
+          onClick={() => {
+            Taro.navigateTo({ url: '/pages/tags/index' }).catch(() => {});
+          }}
+        >
+          <View className="settings-row-label">
+            <Text>🏷️ 标签管理</Text>
+          </View>
+          <Text className="settings-row-value">›</Text>
+        </View>
+        <View
+          className="settings-row"
+          onClick={() => {
+            Taro.navigateTo({ url: '/pages/trash/index' }).catch(() => {});
+          }}
+        >
+          <View className="settings-row-label">
+            <Text>🗑️ 回收站</Text>
+          </View>
+          <Text className="settings-row-value">›</Text>
+        </View>
         <View className="settings-row" onClick={onNotImplemented}>
           <View className="settings-row-label">
             <Text>🔑 修改密码</Text>

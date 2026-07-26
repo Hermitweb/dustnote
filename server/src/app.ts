@@ -41,6 +41,8 @@ export function createApp(): Application {
     'http://localhost:1420',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:1420',
+    'tauri://localhost', // Tauri 桌面客户端生产模式
+    'https://tauri.localhost', // Tauri 桌面客户端生产模式（HTTPS）
   ];
   app.use(
     cors({

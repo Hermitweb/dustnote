@@ -523,6 +523,57 @@ page {
   align-items: center;
   gap: 4rpx;
 }
+.topbar-action-text {
+  font-size: 26rpx;
+  font-weight: 600;
+  padding: 8rpx 4rpx;
+}
+
+/* ========== 文件夹 / 标签管理页 ========== */
+.folder-input-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 20rpx 24rpx;
+  background: var(--bg-elevated);
+  border-bottom: 1rpx solid var(--border);
+}
+.folder-input {
+  flex: 1;
+  background: var(--bg-sunken);
+  border: 1rpx solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16rpx 20rpx;
+  font-size: 26rpx;
+  color: var(--fg);
+}
+.folder-row { cursor: default; }
+.tag-row { padding: 24rpx 32rpx; }
+.tag-hash {
+  color: var(--primary-strong);
+  font-weight: 700;
+  font-size: 28rpx;
+  margin-right: 6rpx;
+}
+.tag-count {
+  background: var(--bg-sunken);
+  border: 1rpx solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 2rpx 14rpx;
+  font-size: 22rpx;
+  color: var(--fg-muted);
+  margin-right: 12rpx;
+}
+.tag-delete { padding: 4rpx 8rpx; font-size: 28rpx; }
+.empty-state-hint {
+  font-size: 22rpx;
+  color: var(--fg-muted);
+  display: block;
+  margin-top: 8rpx;
+  line-height: 1.6;
+  padding: 0 48rpx;
+}
+.mint-btn-disabled { opacity: 0.45; pointer-events: none; }
 
 /* ========== 密码强度条 ========== */
 .strength-bar {

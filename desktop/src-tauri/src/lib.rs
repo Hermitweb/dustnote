@@ -1,9 +1,10 @@
 //! DustNote Desktop 入口库
-//! 
+//!
 //! - 注册系统托盘（显示同步状态）
 //! - 注册全局快捷键（Ctrl+Shift+M 唤起主窗口）
 //! - 注册 autostart 启动项
 //! - 启动时静默运行（如果传了 --silent）
+//! - Velopack 自动更新命令（检查/下载/应用）
 //! - 与 Web 端共享前端 bundle
 
 use tauri::{
@@ -14,6 +15,179 @@ use tauri::{
 use tauri_plugin_autostart::MacosLauncher;
 #[cfg(desktop)]
 use tauri_plugin_global_shortcut::ShortcutState;
+
+// ============================================================================
+// Velopack 自动更新（仅桌面平台编译）
+// ============================================================================
+
+/// GitHub Releases 仓库地址（Velopack 从此读取更新源）
+const GITHUB_REPO_URL: &str = "https://github.com/Hermitweb/dustnote";
+
+/// 返回给前端的更新检查结果
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCheckResult {
+    pub update_available: bool,
+    pub target_version: Option<String>,
+    pub current_version: String,
+    pub is_downgrade: bool,
+}
+
+/// 结构化错误（前端据此区分 dev 期 NotInstalled 等）
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterError {
+    pub kind: &'static str, // "NotInstalled" | "Network" | "Unknown"
+    pub message: String,
+}
+
+// ---- 桌面平台：完整 Velopack 实现 ----
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+mod velopack_impl {
+    use super::{UpdaterError, UpdateCheckResult, GITHUB_REPO_URL};
+    use std::sync::mpsc;
+    use tauri::{AppHandle, Emitter};
+    use velopack::{sources::GithubSource, UpdateCheck, UpdateManager};
+
+    /// 构造 UpdateManager（dev 期未安装时返回 NotInstalled 错误）
+    fn build_manager() -> Result<UpdateManager, velopack::Error> {
+        let source = GithubSource::new(GITHUB_REPO_URL, None, false);
+        UpdateManager::new(source, None, None)
+    }
+
+    /// 把 velopack::Error 映射为前端可读的 UpdaterError
+    fn map_err(e: velopack::Error) -> UpdaterError {
+        let kind = match &e {
+            velopack::Error::NotInstalled(_) => "NotInstalled",
+            velopack::Error::Network(_) => "Network",
+            _ => "Unknown",
+        };
+        UpdaterError {
+            kind,
+            message: e.to_string(),
+        }
+    }
+
+    /// 检查是否有可用更新（不下载）
+    #[tauri::command]
+    pub fn vp_check_for_updates() -> Result<UpdateCheckResult, UpdaterError> {
+        let mgr = build_manager().map_err(map_err)?;
+        let current = mgr.get_current_version_as_string();
+        match mgr.check_for_updates() {
+            Ok(UpdateCheck::UpdateAvailable(info)) => {
+                Ok(UpdateCheckResult {
+                    update_available: true,
+                    target_version: Some(info.TargetFullRelease.Version.clone()),
+                    current_version: current,
+                    is_downgrade: info.IsDowngrade,
+                })
+            }
+            Ok(_) => Ok(UpdateCheckResult {
+                update_available: false,
+                target_version: None,
+                current_version: current,
+                is_downgrade: false,
+            }),
+            Err(e) => Err(map_err(e)),
+        }
+    }
+
+    /// 下载更新；进度通过 event `vp://download-progress` 推送
+    #[tauri::command]
+    pub fn vp_download_updates(app: AppHandle) -> Result<bool, UpdaterError> {
+        let mgr = build_manager().map_err(map_err)?;
+        let check = mgr.check_for_updates().map_err(map_err)?;
+        let info = match check {
+            UpdateCheck::UpdateAvailable(info) => *info, // dereference Box<UpdateInfo>
+            _ => return Ok(false),                       // 没有更新可下载
+        };
+
+        // 进度转发：channel → Tauri event
+        let (tx, rx) = mpsc::channel::<i16>();
+        let app_clone = app.clone();
+        std::thread::spawn(move || {
+            while let Ok(pct) = rx.recv() {
+                let _ = app_clone.emit("vp://download-progress", pct);
+            }
+        });
+
+        let updates = &info;
+        mgr.download_updates(updates, Some(tx)).map_err(map_err)?;
+        Ok(true)
+    }
+
+    /// 应用已下载的更新并立即重启
+    #[tauri::command]
+    pub fn vp_apply_and_restart() -> Result<(), UpdaterError> {
+        let mgr = build_manager().map_err(map_err)?;
+        if let Some(pending) = mgr.get_update_pending_restart() {
+            mgr.apply_updates_and_restart(&pending).map_err(map_err)?;
+            Ok(())
+        } else {
+            Err(UpdaterError {
+                kind: "Unknown",
+                message: "No pending update to apply".into(),
+            })
+        }
+    }
+
+    /// 查询是否有已下载待应用的更新
+    #[tauri::command]
+    pub fn vp_get_pending_update() -> Result<Option<String>, UpdaterError> {
+        let mgr = build_manager().map_err(map_err)?;
+        Ok(mgr.get_update_pending_restart().map(|a| a.Version))
+    }
+
+    /// 返回当前应用版本
+    #[tauri::command]
+    pub fn vp_current_version() -> Result<String, UpdaterError> {
+        let mgr = build_manager().map_err(map_err)?;
+        Ok(mgr.get_current_version_as_string())
+    }
+}
+
+// ---- Mobile 平台：占位 stub（不引入 velopack crate） ----
+
+#[cfg(any(target_os = "android", target_os = "ios"))]
+mod velopack_impl {
+    use super::UpdaterError;
+
+    const NOT_SUPPORTED: UpdaterError = UpdaterError {
+        kind: "Unknown",
+        message: "Velopack not supported on mobile",
+    };
+
+    #[tauri::command]
+    pub fn vp_check_for_updates() -> Result<serde_json::Value, UpdaterError> {
+        Err(NOT_SUPPORTED)
+    }
+    #[tauri::command]
+    pub fn vp_download_updates() -> Result<bool, UpdaterError> {
+        Err(NOT_SUPPORTED)
+    }
+    #[tauri::command]
+    pub fn vp_apply_and_restart() -> Result<(), UpdaterError> {
+        Err(NOT_SUPPORTED)
+    }
+    #[tauri::command]
+    pub fn vp_get_pending_update() -> Result<Option<String>, UpdaterError> {
+        Err(NOT_SUPPORTED)
+    }
+    #[tauri::command]
+    pub fn vp_current_version() -> Result<String, UpdaterError> {
+        Err(NOT_SUPPORTED)
+    }
+}
+
+use velopack_impl::{
+    vp_apply_and_restart, vp_check_for_updates, vp_current_version, vp_download_updates,
+    vp_get_pending_update,
+};
+
+// ============================================================================
+// 既有命令
+// ============================================================================
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -77,10 +251,11 @@ pub fn run() {
                 .build(app)?;
 
             // 全局快捷键：Ctrl+Shift+M 唤起主窗口（仅桌面平台生效）
+            // 若快捷键被其他程序占用，仅打印警告，不阻止启动
             #[cfg(desktop)]
             {
-                app.handle().plugin(
-                    tauri_plugin_global_shortcut::Builder::new()
+                let shortcut_result: Result<(), tauri_plugin_global_shortcut::Error> = (|| {
+                    let builder = tauri_plugin_global_shortcut::Builder::new()
                         .with_shortcuts(["Ctrl+Shift+M"])?
                         .with_handler(|app, _shortcut, event| {
                             if event.state == ShortcutState::Pressed {
@@ -89,9 +264,13 @@ pub fn run() {
                                     let _ = w.set_focus();
                                 }
                             }
-                        })
-                        .build(),
-                )?;
+                        });
+                    app.handle().plugin(builder.build())?;
+                    Ok(())
+                })();
+                if let Err(e) = shortcut_result {
+                    eprintln!("[DustNote] 全局快捷键注册失败（可能被其他程序占用）: {e}");
+                }
             }
 
             // 静默启动
@@ -110,7 +289,15 @@ pub fn run() {
                 api.prevent_close();
             }
         })
-        .invoke_handler(tauri::generate_handler![greet, show_main_window])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            show_main_window,
+            vp_check_for_updates,
+            vp_download_updates,
+            vp_apply_and_restart,
+            vp_get_pending_update,
+            vp_current_version,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

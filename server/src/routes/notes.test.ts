@@ -185,9 +185,9 @@ describe('notes data layer (queries used by notesRouter handlers)', () => {
         )
         .run(NOW(), 'lock-ok', 'user-1');
 
-      const after = testDb
-        .prepare('SELECT version FROM notes WHERE id = ?')
-        .get('lock-ok') as { version: number };
+      const after = testDb.prepare('SELECT version FROM notes WHERE id = ?').get('lock-ok') as {
+        version: number;
+      };
       expect(after.version).toBe(2);
     });
   });

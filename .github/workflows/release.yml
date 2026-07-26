@@ -66,8 +66,27 @@ jobs:
           path: miniprogram-dist.zip
 
   build-desktop:
-    name: Build Desktop
-    runs-on: windows-latest
+    name: Build Desktop (${{ matrix.channel }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Tauri binary 名取自 Cargo.toml 的 package name = "dustnote-desktop"
+          # Windows 生成 dustnote-desktop.exe，macOS/Linux 生成 dustnote-desktop
+          # runtime 必须使用 .NET RID 格式（vpk 1.2.0 要求）
+          - os: windows-latest
+            channel: win
+            runtime: win-x64
+            main_exe: dustnote-desktop.exe
+          - os: macos-latest
+            channel: macos
+            runtime: osx-arm64
+            main_exe: dustnote-desktop
+          - os: ubuntu-22.04
+            channel: linux
+            runtime: linux-x64
+            main_exe: dustnote-desktop
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -79,17 +98,71 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - uses: dtolnay/rust-toolchain@stable
+      # macOS: Tauri 需要同时支持 ARM64 (Apple Silicon) 与 x86_64 (Intel)
+      - name: Add macOS Rust targets
+        if: matrix.os == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      # Linux: Tauri 依赖 webkit2gtk 等系统库
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      # .NET SDK 8 is required by the vpk CLI tool (Velopack packager)
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install vpk (Velopack CLI)
+        run: dotnet tool install -g vpk
+      - name: Add vpk to PATH (Windows)
+        if: matrix.os == 'windows-latest'
+        run: echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
+      - name: Add vpk to PATH (Unix)
+        if: matrix.os != 'windows-latest'
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
-      - name: Build Desktop installer
+      - name: Build Tauri binary (no bundle — Velopack handles installer)
         working-directory: desktop
-        run: pnpm tauri build
-      - name: List bundle files
-        run: Get-ChildItem -Recurse -Filter "*.exe" desktop/src-tauri/target/release/bundle 2>$null | Select-Object FullName
+        run: pnpm tauri build --no-bundle
+      - name: List built binary
+        shell: bash
+        run: |
+          echo "=== Built binary ==="
+          ls -la desktop/src-tauri/target/release/${{ matrix.main_exe }} 2>/dev/null || echo "Binary not found at expected path"
+      - name: Prepare staging directory (exclude build intermediates)
+        # vpk pack 会打包 --packDir 下的所有文件。target/release 包含 2GB+
+        # 的构建中间文件（deps/, build/, .pdb 等），直接使用会导致安装包
+        # 膨胀到 500MB+。只复制运行时必需的 exe 到 staging 目录。
+        shell: bash
+        run: |
+          mkdir -p desktop/src-tauri/staging
+          cp desktop/src-tauri/target/release/${{ matrix.main_exe }} desktop/src-tauri/staging/
+          echo "=== Staging directory contents ==="
+          ls -la desktop/src-tauri/staging/
+      - name: Pack with Velopack
+        working-directory: desktop/src-tauri
+        shell: bash
+        env:
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.1.0' }}
+        run: |
+          ver="${VPK_VERSION#v}"
+          vpk pack --packId DustNote --packVersion "$ver" --packDir staging --mainExe ${{ matrix.main_exe }} --channel ${{ matrix.channel }} --runtime ${{ matrix.runtime }} --icon icons/icon.ico
+      - name: List Velopack outputs
+        shell: bash
+        run: |
+          echo "=== Setup executable ==="
+          ls -la desktop/src-tauri/target/release/Setup.* 2>/dev/null || ls -la desktop/src-tauri/target/release/*Setup* 2>/dev/null || echo "No Setup found"
+          echo "=== Releases directory ==="
+          ls -la desktop/src-tauri/target/release/Releases/ 2>/dev/null || echo "No Releases dir"
       - uses: actions/upload-artifact@v4
         with:
-          name: desktop-installers
-          path: desktop/src-tauri/target/release/bundle/**/*.exe
+          name: desktop-velopack-${{ matrix.channel }}
+          path: |
+            desktop/src-tauri/target/release/Setup.exe
+            desktop/src-tauri/target/release/Setup
+            desktop/src-tauri/target/release/*.appimage
+            desktop/src-tauri/target/release/Releases/
 
   build-mobile:
     name: Build Mobile Android
@@ -225,7 +298,26 @@ jobs:
           # Copy all build outputs into a flat directory so the release action
           # can attach them with a simple glob, regardless of the nested
           # structure produced by download-artifact.
-          find artifacts -type f \( -name "*.zip" -o -name "*.exe" -o -name "*.apk" \) -exec cp {} release-assets/ \;
+          # Include Velopack Releases/ contents (update index + delta packages)
+          # Setup.exe (Windows) / Setup (macOS, Linux) are Velopack installers.
+          # macOS and Linux both produce a file named "Setup" (no extension),
+          # so we rename them per-platform to avoid collision.
+          find artifacts -type f \( -name "*.zip" -o -name "*.exe" -o -name "*.apk" -o -name "*.nupkg" -o -name "*.delta" -o -name "releases.*.json" \) -exec cp {} release-assets/ \;
+          # Per-platform Velopack Setup binaries
+          for channel in win macos linux; do
+            src_dir="artifacts/desktop-velopack-${channel}"
+            if [ -d "$src_dir" ]; then
+              if [ "$channel" = "win" ] && [ -f "$src_dir/Setup.exe" ]; then
+                cp "$src_dir/Setup.exe" release-assets/Setup.exe
+              elif [ -f "$src_dir/Setup" ]; then
+                cp "$src_dir/Setup" "release-assets/Setup-${channel}"
+              fi
+              # Also copy the Releases/ update feed if present
+              if [ -d "$src_dir/Releases" ]; then
+                cp "$src_dir"/Releases/* release-assets/ 2>/dev/null || true
+              fi
+            fi
+          done
           {
             echo "## Release Assets"
             echo '```'
@@ -249,8 +341,11 @@ jobs:
             **Miniprogram H5:**
             - [miniprogram-dist.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/miniprogram-dist.zip)
 
-            **Desktop:**
-            - [DustNote_*-setup.exe](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_*-setup.exe)
+            **Desktop (Velopack installer with auto-update):**
+            - Windows: [Setup.exe](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/Setup.exe)
+            - macOS: [Setup-macos](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/Setup-macos)
+            - Linux: [Setup-linux](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/Setup-linux)
+            - Update feed: `releases.*.json` + delta packages (for in-app auto-update)
 
             **Mobile:**
             - [app-release.apk](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/app-release.apk)
@@ -258,7 +353,7 @@ jobs:
             ### ✅ Platforms Built
             - ✅ Web
             - ✅ Miniprogram H5
-            - ✅ Desktop (Windows)
+            - ✅ Desktop (Windows / macOS / Linux)
             - ✅ Mobile Android
 
             ### 📝 Changelog

@@ -19,6 +19,7 @@
 import { useEffect } from 'react';
 import { isTauri } from './lib/tauri';
 import { registerAutostartApi } from './lib/autostart';
+import { registerUpdaterApi } from './lib/updater';
 // 直接复用 web 端 App 组件（vite + tsc 通过相对路径解析）
 import WebApp from '../../web/src/App';
 
@@ -30,6 +31,9 @@ export function App() {
 
       // 注册 autostart 全局 API（供 web SettingsDialog 在 Tauri 环境下调用）
       registerAutostartApi();
+
+      // 注册 Velopack 更新 API（供 web SettingsDialog 在 Tauri 环境下调用）
+      registerUpdaterApi();
 
       // 设置窗口标题（与 web 端 index.html 的 title 对齐）
       void import('@tauri-apps/api/window')

@@ -21,6 +21,9 @@ import { UnlockScreen } from './screens/UnlockScreen';
 import { NotesListScreen } from './screens/NotesListScreen';
 import { NoteEditScreen } from './screens/NoteEditScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { FoldersScreen } from './screens/FoldersScreen';
+import { TagsScreen } from './screens/TagsScreen';
+import { TrashScreen } from './screens/TrashScreen';
 import { theme, useIsDark } from './theme';
 
 export type RootStackParamList = {
@@ -29,6 +32,9 @@ export type RootStackParamList = {
   NotesList: undefined;
   NoteEdit: { noteId: string };
   Settings: undefined;
+  Folders: undefined;
+  Tags: undefined;
+  Trash: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -94,6 +100,13 @@ export default function App() {
                 component={SettingsScreen}
                 options={{ title: '设置' }}
               />
+              <Stack.Screen
+                name="Folders"
+                component={FoldersScreen}
+                options={{ title: '文件夹' }}
+              />
+              <Stack.Screen name="Tags" component={TagsScreen} options={{ title: '标签' }} />
+              <Stack.Screen name="Trash" component={TrashScreen} options={{ title: '回收站' }} />
             </>
           )}
         </Stack.Navigator>

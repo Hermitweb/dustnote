@@ -7,6 +7,9 @@ export default {
     'pages/share-mgr/index',
     'pages/setup/index',
     'pages/unlock/index',
+    'pages/folders/index',
+    'pages/tags/index',
+    'pages/trash/index',
   ],
   window: {
     backgroundTextStyle: 'light',

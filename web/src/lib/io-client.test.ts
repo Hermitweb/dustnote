@@ -17,6 +17,7 @@ import {
   exportAsMarkdown,
   exportAsHtml,
   exportAsJson,
+  exportAsPdf,
 } from './io-client';
 
 // 用文本内容构造一个 File（jsdom 支持 File 构造器）
@@ -146,5 +147,25 @@ describe('exportAsJson', () => {
     const blob = exportAsJson([1, 2, 3]);
     const text = await blob.text();
     expect(JSON.parse(text)).toEqual([1, 2, 3]);
+  });
+});
+
+describe('exportAsPdf', () => {
+  it('returns a Blob with type application/pdf', async () => {
+    const blob = await exportAsPdf('测试标题', 'Hello World');
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.type).toBe('application/pdf');
+  });
+
+  it('does not throw on empty content', async () => {
+    const blob = await exportAsPdf('', '');
+    expect(blob.size).toBeGreaterThan(0);
+  });
+
+  it('handles multi-paragraph content', async () => {
+    const content = '第一段\n\n第二段\n\n第三段';
+    const blob = await exportAsPdf('多段标题', content);
+    expect(blob.type).toBe('application/pdf');
+    expect(blob.size).toBeGreaterThan(0);
   });
 });

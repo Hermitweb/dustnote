@@ -36,7 +36,19 @@ export function startSyncWs(): void {
   }
 
   ws.addEventListener('open', () => {
-    ws?.send(JSON.stringify({ type: 'subscribe', channels: ['notes', 'shares'] }));
+    // 连接已恢复：先重放离线队列，再订阅 + 拉取最新
+    void useStore
+      .getState()
+      .flushQueue()
+      .finally(() => {
+        ws?.send(JSON.stringify({ type: 'subscribe', channels: ['notes', 'shares'] }));
+        useStore
+          .getState()
+          .loadAll()
+          .catch(() => {});
+        // 标记为在线
+        useStore.getState().setOnline(true);
+      });
   });
 
   ws.addEventListener('message', (ev) => {

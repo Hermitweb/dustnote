@@ -1,0 +1,26 @@
+# Caddy 反向代理配置
+# 将 {$DOMAIN} 替换为你的域名（通过环境变量 DOMAIN 传入）
+# Caddy 会自动申请 Let's Encrypt 证书
+
+{$DOMAIN} {
+	reverse_proxy dustnote:3210 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# 压缩
+	encode gzip zstd
+
+	# 安全头
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

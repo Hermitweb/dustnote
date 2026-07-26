@@ -25,6 +25,30 @@ function getAutostartApi(): AutostartApi | null {
   return (api as AutostartApi) ?? null;
 }
 
+/** 桌面端 Velopack 更新 API（由 desktop/src/lib/updater.ts 注册到 window 上） */
+interface UpdateCheckResult {
+  updateAvailable: boolean;
+  targetVersion: string | null;
+  currentVersion: string;
+  isDowngrade: boolean;
+}
+
+interface UpdaterApi {
+  checkForUpdates: () => Promise<UpdateCheckResult>;
+  downloadUpdates: () => Promise<boolean>;
+  applyAndRestart: () => Promise<void>;
+  getPendingUpdate: () => Promise<string | null>;
+  getCurrentVersion: () => Promise<string>;
+  onDownloadProgress: (cb: (pct: number) => void) => Promise<() => void>;
+}
+
+function getUpdaterApi(): UpdaterApi | null {
+  if (!isTauri()) return null;
+  if (typeof window === 'undefined') return null;
+  const api = (window as unknown as Record<string, unknown>).__DUSTNOTE_UPDATER__;
+  return (api as UpdaterApi) ?? null;
+}
+
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const prefs = useStore((s) => s.preferences);
@@ -69,6 +93,86 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       console.error('[autostart] toggle failed', err);
     } finally {
       setAutostartBusy(false);
+    }
+  }
+
+  // 桌面端：Velopack 应用更新
+  const [updateState, setUpdateState] = useState<
+    'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'uptodate' | 'error'
+  >('idle');
+  const [targetVer, setTargetVer] = useState<string | null>(null);
+  const [updateProgress, setUpdateProgress] = useState(0);
+  const [updateErr, setUpdateErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!desktopEnv) return;
+    const api = getUpdaterApi();
+    if (!api) return;
+    // 启动时静默检查 + 检查是否有待应用更新
+    void (async () => {
+      try {
+        const pending = await api.getPendingUpdate();
+        if (pending) {
+          setTargetVer(pending);
+          setUpdateState('ready');
+          return;
+        }
+        setUpdateState('checking');
+        const r = await api.checkForUpdates();
+        setTargetVer(r.targetVersion);
+        setUpdateState(r.updateAvailable ? 'available' : 'uptodate');
+      } catch {
+        // dev 期 NotInstalled 属预期
+        setUpdateState('idle');
+      }
+    })();
+  }, [desktopEnv]);
+
+  async function handleCheckUpdate(): Promise<void> {
+    const api = getUpdaterApi();
+    if (!api) return;
+    setUpdateState('checking');
+    setUpdateErr(null);
+    try {
+      const r = await api.checkForUpdates();
+      setTargetVer(r.targetVersion);
+      setUpdateState(r.updateAvailable ? 'available' : 'uptodate');
+    } catch (e) {
+      const err = e as { kind?: string; message?: string };
+      if (err?.kind === 'NotInstalled') {
+        setUpdateState('idle');
+        return;
+      }
+      setUpdateErr(err?.message ?? String(e));
+      setUpdateState('error');
+    }
+  }
+
+  async function handleDownloadUpdate(): Promise<void> {
+    const api = getUpdaterApi();
+    if (!api) return;
+    setUpdateState('downloading');
+    setUpdateProgress(0);
+    const unlisten = await api.onDownloadProgress((pct) => setUpdateProgress(pct));
+    try {
+      const ok = await api.downloadUpdates();
+      setUpdateState(ok ? 'ready' : 'uptodate');
+    } catch (e) {
+      setUpdateErr((e as { message?: string })?.message ?? String(e));
+      setUpdateState('error');
+    } finally {
+      unlisten();
+    }
+  }
+
+  async function handleApplyAndRestart(): Promise<void> {
+    const api = getUpdaterApi();
+    if (!api) return;
+    try {
+      await api.applyAndRestart();
+    } catch (e) {
+      setUpdateErr((e as { message?: string })?.message ?? String(e));
+      setUpdateState('error');
     }
   }
 
@@ -233,6 +337,103 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     {autostartBusy ? '…' : autostartEnabled ? '已启用' : '已禁用'}
                   </span>
                 </button>
+              </div>
+            )}
+
+            {/* 桌面端：应用更新（仅 Tauri 环境显示） */}
+            {desktopEnv && (
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-surface-muted">
+                  应用更新
+                </label>
+                <div className="space-y-2 rounded-lg border-2 border-surface-border p-3">
+                  {/* 当前版本 */}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-surface-fg">当前版本</span>
+                    <span className="font-mono text-surface-muted">{__APP_VERSION__}</span>
+                  </div>
+
+                  {/* 检查中 */}
+                  {updateState === 'checking' && (
+                    <div className="flex items-center gap-2 text-sm text-surface-muted">
+                      <span className="animate-spin">⏳</span>
+                      <span>检查更新中…</span>
+                    </div>
+                  )}
+
+                  {/* 发现新版本 */}
+                  {updateState === 'available' && targetVer && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-mint-700">✨ 发现新版本 v{targetVer}</span>
+                      <button
+                        onClick={() => void handleDownloadUpdate()}
+                        className="rounded bg-mint-600 px-3 py-1 text-xs font-medium text-white hover:bg-mint-700"
+                      >
+                        下载
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 下载进度 */}
+                  {updateState === 'downloading' && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs text-surface-muted">
+                        <span>下载中… {updateProgress}%</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-surface-bg">
+                        <div
+                          className="h-full rounded-full bg-mint-500 transition-all"
+                          style={{ width: `${updateProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 更新就绪 */}
+                  {updateState === 'ready' && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-mint-700">
+                        ✅ 更新就绪{targetVer ? ` (v${targetVer})` : ''}
+                      </span>
+                      <button
+                        onClick={() => void handleApplyAndRestart()}
+                        className="rounded bg-mint-600 px-3 py-1 text-xs font-medium text-white hover:bg-mint-700"
+                      >
+                        立即重启
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 已是最新 */}
+                  {updateState === 'uptodate' && (
+                    <div className="text-sm text-surface-muted">✓ 已是最新版本</div>
+                  )}
+
+                  {/* 错误 */}
+                  {updateState === 'error' && (
+                    <div className="space-y-1">
+                      <div className="text-xs text-red-600">{updateErr}</div>
+                      <button
+                        onClick={() => void handleCheckUpdate()}
+                        className="text-xs text-mint-700 underline hover:text-mint-800"
+                      >
+                        重试
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 手动检查按钮（idle / uptodate / error 时显示） */}
+                  {(updateState === 'idle' ||
+                    updateState === 'uptodate' ||
+                    updateState === 'error') && (
+                    <button
+                      onClick={() => void handleCheckUpdate()}
+                      className="w-full rounded-lg border border-surface-border px-3 py-1.5 text-xs text-surface-fg hover:bg-surface-bg"
+                    >
+                      🔍 检查更新
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

@@ -11,6 +11,8 @@ export function Sidebar() {
   const selectedFolderId = useStore((s) => s.selectedFolderId);
   const selectedNoteId = useStore((s) => s.selectedNoteId);
   const viewMode = useStore((s) => s.viewMode);
+  const isOnline = useStore((s) => s.isOnline);
+  const pendingCount = useStore((s) => s.pendingCount);
 
   const selectFolder = useStore((s) => s.selectFolder);
   const createFolder = useStore((s) => s.createFolder);
@@ -64,8 +66,11 @@ export function Sidebar() {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
     if (action === 'delete' || action === 'permdelete') {
-      if (!confirm(`确定${action === 'permdelete' ? '永久' : ''}删除选中的 ${ids.length} 条笔记？`))
-        return;
+      const msg =
+        action === 'permdelete'
+          ? t('sidebar.confirm_permdelete', { count: ids.length })
+          : t('sidebar.confirm_delete', { count: ids.length });
+      if (!confirm(msg)) return;
     }
     let ok = 0;
     for (const id of ids) {
@@ -92,7 +97,7 @@ export function Sidebar() {
           await updateNote(id, { isFavorite: false });
           ok++;
         } else if (action === 'move') {
-          const fid = prompt('输入目标文件夹 ID（留空=未分类）：');
+          const fid = prompt(t('sidebar.move_folder_prompt'));
           await moveNote(id, fid || null);
           ok++;
         }
@@ -102,16 +107,16 @@ export function Sidebar() {
     }
     exitSelect();
     const labels: Record<string, string> = {
-      delete: '删除',
-      permdelete: '永久删除',
-      restore: '恢复',
-      pin: '置顶',
-      unpin: '取消置顶',
-      fav: '收藏',
-      unfav: '取消收藏',
-      move: '移动',
+      delete: t('sidebar.batch.delete'),
+      permdelete: t('sidebar.perm_delete'),
+      restore: t('sidebar.restore'),
+      pin: t('sidebar.batch.pin'),
+      unpin: t('sidebar.batch.unpin'),
+      fav: t('sidebar.batch.fav'),
+      unfav: t('sidebar.batch.unfav'),
+      move: t('sidebar.batch.move'),
     };
-    alert(`已完成：${labels[action]} ${ok} 条`);
+    alert(t('sidebar.batch_done', { label: labels[action], count: ok }));
   };
 
   // ========== 可见笔记 ==========
@@ -161,7 +166,25 @@ export function Sidebar() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-mint-100 text-mint-600 dark:bg-mint-900/30">
             🌿
           </div>
-          <h1 className="text-base font-bold text-surface-fg">{t('app.name')}</h1>
+          <h1 className="flex-1 text-base font-bold text-surface-fg">{t('app.name')}</h1>
+          {/* 离线徽章：断网或有待同步操作时显示 */}
+          {(!isOnline || pendingCount > 0) && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+              title={
+                !isOnline
+                  ? `${t('sidebar.offline')} · ${pendingCount} ${t('sidebar.pending_sync')}`
+                  : `${pendingCount} ${t('sidebar.pending_sync')}`
+              }
+            >
+              {!isOnline && <span aria-hidden>⚠</span>}
+              <span>
+                {!isOnline
+                  ? `${t('sidebar.offline')}${pendingCount > 0 ? ` · ${pendingCount}` : ''}`
+                  : `${pendingCount} ${t('sidebar.pending_sync')}`}
+              </span>
+            </span>
+          )}
         </div>
         {!selecting && (
           <button
@@ -178,7 +201,7 @@ export function Sidebar() {
             onClick={exitSelect}
             className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg hover:bg-surface-sunken"
           >
-            ✕ 退出选择模式
+            {t('sidebar.exit_select')}
           </button>
         )}
       </div>
@@ -211,8 +234,8 @@ export function Sidebar() {
           {normalizedQuery && (
             <p className="mt-1 px-1 text-xs text-surface-muted">
               {visibleNotes.length > 0
-                ? `匹配 ${visibleNotes.length} 条`
-                : '无匹配笔记'}
+                ? t('sidebar.matched', { count: visibleNotes.length })
+                : t('sidebar.no_match')}
             </p>
           )}
         </div>
@@ -240,12 +263,12 @@ export function Sidebar() {
           <div className="mt-1 flex gap-1 px-2">
             <button
               onClick={() => {
-                if (confirm(`确定要清空回收站（${trashCount} 条笔记将被永久删除）吗？`))
+                if (confirm(t('sidebar.confirm_empty_trash', { count: trashCount })))
                   void emptyTrash();
               }}
               className="flex-1 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300"
             >
-              清空回收站
+              {t('sidebar.empty_trash')}
             </button>
           </div>
         )}
@@ -268,7 +291,7 @@ export function Sidebar() {
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
                   autoFocus
-                  placeholder="文件夹名"
+                  placeholder={t('sidebar.folder_name_placeholder')}
                   className="flex-1 rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && newFolderName) {
@@ -337,13 +360,21 @@ export function Sidebar() {
                 }}
                 className="text-xs text-mint-600 hover:text-mint-700"
               >
-                {selecting ? (hasAll ? '取消全选' : '全选') : '选择'}
+                {selecting
+                  ? hasAll
+                    ? t('sidebar.deselect_all')
+                    : t('sidebar.select_all')
+                  : t('sidebar.select')}
               </button>
             )}
           </div>
           {visibleNotes.length === 0 ? (
             <p className="px-2 text-xs text-surface-muted">
-              {isTrash ? '回收站为空' : viewMode === 'favorites' ? '还没有收藏' : '还没有笔记'}
+              {isTrash
+                ? t('sidebar.trash_empty')
+                : viewMode === 'favorites'
+                  ? t('sidebar.favorites_empty')
+                  : t('sidebar.notes_empty')}
             </p>
           ) : (
             visibleNotes.slice(0, 50).map((n) => {
@@ -385,7 +416,7 @@ export function Sidebar() {
                   {!selecting && isTrash && (
                     <div className="absolute right-1 top-1 hidden gap-1 group-hover:flex">
                       <button
-                        title="恢复"
+                        title={t('sidebar.restore')}
                         onClick={(e) => {
                           e.stopPropagation();
                           void restoreNote(n.id);
@@ -395,10 +426,11 @@ export function Sidebar() {
                         ↩️
                       </button>
                       <button
-                        title="永久删除"
+                        title={t('sidebar.perm_delete')}
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (confirm('永久删除后不可恢复，确认？')) void permanentDeleteNote(n.id);
+                          if (confirm(t('sidebar.confirm_permdelete', { count: 1 })))
+                            void permanentDeleteNote(n.id);
                         }}
                         className="rounded bg-surface-bg p-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
                       >
@@ -416,34 +448,44 @@ export function Sidebar() {
       {/* 批量操作栏 */}
       {selecting && selCount > 0 && (
         <div className="border-t border-surface-border bg-surface-card p-2">
-          <div className="mb-2 text-center text-xs text-surface-muted">已选 {selCount} 项</div>
+          <div className="mb-2 text-center text-xs text-surface-muted">
+            {t('sidebar.selected_count', { count: selCount })}
+          </div>
           <div className="flex flex-wrap gap-1">
             {viewMode !== 'trash' && (
               <>
                 <BatchBtn
-                  label="📁 移动"
+                  label={t('sidebar.batch.move')}
                   onClick={() => {
-                    const fid = prompt('目标文件夹 ID（留空=未分类）：');
+                    const fid = prompt(t('sidebar.move_folder_prompt'));
                     if (fid !== null) batchAction('move');
                   }}
                 />
-                <BatchBtn label="📌 置顶" onClick={() => batchAction('pin')} />
-                <BatchBtn label="📌 取消" onClick={() => batchAction('unpin')} />
-                <BatchBtn label="⭐ 收藏" onClick={() => batchAction('fav')} />
-                <BatchBtn label="⭐ 取消" onClick={() => batchAction('unfav')} />
+                <BatchBtn label={t('sidebar.batch.pin')} onClick={() => batchAction('pin')} />
+                <BatchBtn label={t('sidebar.batch.unpin')} onClick={() => batchAction('unpin')} />
+                <BatchBtn label={t('sidebar.batch.fav')} onClick={() => batchAction('fav')} />
+                <BatchBtn label={t('sidebar.batch.unfav')} onClick={() => batchAction('unfav')} />
               </>
             )}
             {isTrash ? (
               <>
-                <BatchBtn label="↩ 恢复" onClick={() => batchAction('restore')} variant="mint" />
                 <BatchBtn
-                  label="🗑️ 彻底删除"
+                  label={t('sidebar.batch.restore')}
+                  onClick={() => batchAction('restore')}
+                  variant="mint"
+                />
+                <BatchBtn
+                  label={t('sidebar.batch.perm_delete')}
                   onClick={() => batchAction('permdelete')}
                   variant="danger"
                 />
               </>
             ) : (
-              <BatchBtn label="🗑️ 删除" onClick={() => batchAction('delete')} variant="danger" />
+              <BatchBtn
+                label={t('sidebar.batch.delete')}
+                onClick={() => batchAction('delete')}
+                variant="danger"
+              />
             )}
           </div>
         </div>

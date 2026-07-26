@@ -40,6 +40,8 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm format:check
       - run: pnpm lint
+      - name: Check i18n keys
+        run: node scripts/check-i18n.mjs
 
   typecheck:
     name: TypeScript Type Check
@@ -199,6 +201,31 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: miniprogram-h5-dist
+          path: miniprogram/dist/
+          if-no-files-found: warn
+
+  build-miniprogram-weapp:
+    name: Build Miniprogram (WeApp)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/miniprogram build:weapp
+      - name: List weapp dist
+        run: ls -la miniprogram/dist/ || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: miniprogram-weapp-dist
           path: miniprogram/dist/
           if-no-files-found: warn
 

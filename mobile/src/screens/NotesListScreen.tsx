@@ -113,7 +113,7 @@ export function NotesListScreen() {
 
   return (
     <View style={styles.container}>
-      {/* 顶部搜索栏 */}
+      {/* 顶部搜索栏 + 快捷入口 */}
       <View style={styles.searchBar}>
         <TextInput
           style={styles.searchInput}
@@ -122,6 +122,15 @@ export function NotesListScreen() {
           onChangeText={setSearch}
           placeholderTextColor={colors.muted}
         />
+        <TouchableOpacity onPress={() => navigation.navigate('Folders')} style={styles.iconButton}>
+          <Text style={styles.iconText}>📁</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('Tags')} style={styles.iconButton}>
+          <Text style={styles.iconText}>🏷️</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('Trash')} style={styles.iconButton}>
+          <Text style={styles.iconText}>🗑️</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.iconButton}>
           <Text style={styles.iconText}>⚙️</Text>
         </TouchableOpacity>
@@ -208,8 +217,8 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       fontSize: 14,
       color: c.fg,
     },
-    iconButton: { paddingHorizontal: 12, justifyContent: 'center' },
-    iconText: { fontSize: 22 },
+    iconButton: { paddingHorizontal: 8, justifyContent: 'center' },
+    iconText: { fontSize: 20 },
     card: {
       backgroundColor: c.card,
       marginHorizontal: 12,

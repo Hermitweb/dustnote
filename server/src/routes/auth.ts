@@ -258,13 +258,20 @@ authRouter.post('/auth/unlock', (req, res) => {
   if (candidate.length !== stored.length || !constantTimeEqual(candidate, stored)) {
     // 记录失败：累计达阈值后锁定 15 分钟
     const next = recordFailure(lockState);
-    db.prepare(
-      'UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?'
-    ).run(next.failedAttempts, next.lockedUntil, user.id);
+    db.prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?').run(
+      next.failedAttempts,
+      next.lockedUntil,
+      user.id
+    );
 
     const remaining = MAX_FAILED_ATTEMPTS - next.failedAttempts;
     logger.warn(
-      { userId: user.id, deviceId: client.deviceId, attempts: next.failedAttempts, locked: !!next.lockedUntil },
+      {
+        userId: user.id,
+        deviceId: client.deviceId,
+        attempts: next.failedAttempts,
+        locked: !!next.lockedUntil,
+      },
       '密码错误'
     );
     if (next.lockedUntil) {
@@ -284,9 +291,11 @@ authRouter.post('/auth/unlock', (req, res) => {
 
   // 登录成功：清零失败计数
   const clean = recordSuccess();
-  db.prepare(
-    'UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?'
-  ).run(clean.failedAttempts, clean.lockedUntil, user.id);
+  db.prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?').run(
+    clean.failedAttempts,
+    clean.lockedUntil,
+    user.id
+  );
 
   // 注册/更新设备
   const existing = db

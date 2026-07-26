@@ -120,7 +120,9 @@ describe('purgeExpiredTrash', () => {
     // cutoff = now - 30d. DELETE WHERE deleted_at < cutoff.
     // 笔记 deleted_at == cutoff（恰好 30 天）不应被删（< 严格小于）。
     const now = new Date('2026-03-01T00:00:00Z');
-    const cutoff = new Date(now.getTime() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const cutoff = new Date(
+      now.getTime() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString();
     insertNote('boundary-note', cutoff);
 
     purgeExpiredTrash(now);

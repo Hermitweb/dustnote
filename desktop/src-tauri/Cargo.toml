@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "DustNote 桌面端 - 极简跨端个人笔记系统"
 authors = ["DustNote Team"]
 edition = "2021"
-rust-version = "1.70"
+rust-version = "1.75"
 
 [lib]
 name = "dustnote_desktop_lib"
@@ -27,6 +27,10 @@ tokio = { version = "1", features = ["full"] }
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+# Velopack 仅桌面平台（Windows/macOS/Linux），mobile target 不引入
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+velopack = "1.2"
 
 [profile.release]
 panic = "abort"

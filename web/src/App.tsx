@@ -15,6 +15,7 @@ import { UnlockScreen } from './screens/UnlockScreen';
 import { PublicShareView } from './screens/PublicShareView';
 import { startSyncWs, stopSyncWs } from './lib/sync-ws';
 import { loadConfig } from './lib/config';
+import { installOnlineListener } from './lib/online-listener';
 import './lib/i18n';
 
 function App() {
@@ -24,16 +25,18 @@ function App() {
   const loadAll = useStore((s) => s.loadAll);
   const preferences = useStore((s) => s.preferences);
   const lock = useStore((s) => s.lock);
+  const refreshPendingCount = useStore((s) => s.refreshPendingCount);
   const updateCheck = useUpdateCheck();
 
   const [showSettings, setShowSettings] = useState(false);
   const [showShares, setShowShares] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
 
-  // 启动：检查状态 + 加载配置
+  // 启动：检查状态 + 加载配置 + 注册 online/offline 监听
   useEffect(() => {
     void checkStatus();
     void loadConfig();
+    installOnlineListener();
   }, [checkStatus, loadAll]);
 
   // 应用主题
@@ -43,15 +46,16 @@ function App() {
     return cleanup;
   }, [preferences.theme, preferences.mode]);
 
-  // 解锁后加载数据 + 启动 WS
+  // 解锁后加载数据 + 启动 WS + 刷新待同步计数
   useEffect(() => {
     if (authState === 'unlocked') {
       void loadAll();
+      void refreshPendingCount();
       startSyncWs();
       return () => stopSyncWs();
     }
     return undefined;
-  }, [authState, loadAll]);
+  }, [authState, loadAll, refreshPendingCount]);
 
   // 公开分享路由：/share/:token
   const shareMatch = location.pathname.match(/^\/share\/([A-Za-z0-9_-]+)$/);

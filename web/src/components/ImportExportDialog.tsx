@@ -1,7 +1,7 @@
 /**
  * 导入 / 导出 对话框
- * - 导入：.txt / .md（.docx 提示安装 mammoth）
- * - 导出：当前笔记 → .md / .html / .json
+ * - 导入：.txt / .md / .docx（mammoth 动态加载）
+ * - 导出：当前笔记 → .md / .html / .json / .pdf
  */
 
 import { useState, useRef } from 'react';
@@ -11,6 +11,7 @@ import {
   exportAsMarkdown,
   exportAsHtml,
   exportAsJson,
+  exportAsPdf,
   downloadBlob,
   detectFormat,
 } from '../lib/io-client';
@@ -40,11 +41,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
           fail++;
           continue;
         }
-        if (fmt === 'docx') {
-          setStatus(`(${i + 1}/${files.length}) .docx 需要安装 mammoth 库`);
-          fail++;
-          continue;
-        }
+        // .docx 由 parseNoteFile 内部动态加载 mammoth 解析
         const pt = await parseNoteFile(f);
         await useStore.getState().createNote(null);
         const selectedId = useStore.getState().selectedNoteId;
@@ -63,7 +60,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
     setMode('main');
   };
 
-  const handleExport = (fmt: 'md' | 'html' | 'json') => {
+  const handleExport = async (fmt: 'md' | 'html' | 'json' | 'pdf') => {
     const id = useStore.getState().selectedNoteId;
     if (!id) {
       setError('请先选择一篇笔记');
@@ -80,6 +77,18 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       downloadBlob(exportAsMarkdown(plain.title, plain.content), `${safeTitle}-${date}.md`);
     } else if (fmt === 'html') {
       downloadBlob(exportAsHtml(plain.title, plain.content), `${safeTitle}-${date}.html`);
+    } else if (fmt === 'pdf') {
+      setMode('exporting');
+      setStatus('生成 PDF 中…');
+      try {
+        const blob = await exportAsPdf(plain.title, plain.content);
+        downloadBlob(blob, `${safeTitle}-${date}.pdf`);
+      } catch (err) {
+        setError(`PDF 导出失败：${(err as Error).message}`);
+        setMode('main');
+        return;
+      }
+      setMode('main');
     } else {
       downloadBlob(
         exportAsJson({
@@ -146,9 +155,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
           {/* 导入 */}
           <div className="rounded-lg border border-surface-border p-3">
             <h3 className="mb-2 text-sm font-semibold text-surface-fg">导入</h3>
-            <p className="mb-2 text-xs text-surface-muted">
-              支持 .txt / .md（.docx 暂需安装 mammoth）
-            </p>
+            <p className="mb-2 text-xs text-surface-muted">支持 .txt / .md / .docx</p>
             <input
               ref={fileInput}
               type="file"
@@ -174,25 +181,32 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
             <p className="mb-2 text-xs text-surface-muted">需先在编辑区选中一篇笔记</p>
             <div className="flex gap-2">
               <button
-                onClick={() => handleExport('md')}
+                onClick={() => void handleExport('md')}
                 disabled={mode !== 'main'}
                 className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
               >
                 .md
               </button>
               <button
-                onClick={() => handleExport('html')}
+                onClick={() => void handleExport('html')}
                 disabled={mode !== 'main'}
                 className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
               >
                 .html
               </button>
               <button
-                onClick={() => handleExport('json')}
+                onClick={() => void handleExport('json')}
                 disabled={mode !== 'main'}
                 className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
               >
                 .json
+              </button>
+              <button
+                onClick={() => void handleExport('pdf')}
+                disabled={mode !== 'main'}
+                className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
+              >
+                .pdf
               </button>
             </div>
           </div>

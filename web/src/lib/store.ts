@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import {
   ApiClient,
+  ApiException,
   type Ciphertext,
   deriveMasterKey,
   decryptString,
@@ -21,6 +22,17 @@ import {
 import { getDeviceId } from './device';
 import { applyTheme } from './theme';
 import i18n from './i18n';
+import {
+  cacheNotes,
+  cacheFolders,
+  cacheTags,
+  loadCachedNotes,
+  loadCachedFolders,
+  loadCachedTags,
+  clearCache,
+} from './db';
+import { enqueue, peekAll, remove, bumpRetries, size as queueSize } from './offline-queue';
+import type { QueuedOp } from './offline-queue';
 
 const API_BASE = '/api/v1';
 const APP_VERSION = __APP_VERSION__;
@@ -128,6 +140,11 @@ interface StoreState {
   // preferences
   preferences: Preferences;
 
+  // offline-first
+  isOnline: boolean;
+  /** 待同步的离线操作数量（来自 offline-queue） */
+  pendingCount: number;
+
   // actions: auth
   checkStatus: () => Promise<void>;
   setup: (password: string) => Promise<string>; // 返回 recoveryCode
@@ -162,6 +179,16 @@ interface StoreState {
   setTheme: (theme: ThemeId) => void;
   setMode: (mode: Mode) => void;
   setLanguage: (lang: 'zh-CN' | 'en') => void;
+
+  // actions: offline
+  /** 由 online-listener 调用，更新在线状态 */
+  setOnline: (online: boolean) => void;
+  /** 刷新 pendingCount（供 UI 订阅） */
+  refreshPendingCount: () => Promise<void>;
+  /** 重放离线队列；409/4xx 丢弃，网络错误保留 */
+  flushQueue: () => Promise<void>;
+  /** 注销时清空本地缓存 + 队列 */
+  clearLocalData: () => Promise<void>;
 }
 
 const DEFAULT_PREFS: Preferences = {
@@ -223,6 +250,47 @@ function parseEnvelope(raw: string): NoteCipherEnvelope {
   throw new Error('invalid envelope');
 }
 
+// ========== 离线辅助 ==========
+
+/**
+ * 判断错误是否为网络故障（应入队重试）。
+ *
+ * - fetch 抛 TypeError：DNS 解析失败 / 离线 / CORS 阻断 → 入队
+ * - ApiException 5xx：服务端错误，可能恢复 → 入队
+ * - ApiException 4xx：客户端错误（如 409 冲突），不可恢复 → 不入队
+ */
+function isTransientNetworkError(err: unknown): boolean {
+  if (err instanceof ApiException) {
+    return err.err.status >= 500;
+  }
+  // TypeError: Failed to fetch
+  return err instanceof TypeError;
+}
+
+/**
+ * 执行一个 mutation；网络失败时入队等待重放。
+ *
+ * @param op 入队用的操作描述（method/path/body/noteId）
+ * @param fn 实际执行网络的函数
+ * @returns 成功返回 true，已入队返回 false
+ */
+async function runOrEnqueue(
+  op: { method: 'POST' | 'PATCH' | 'DELETE'; path: string; body?: unknown; noteId?: string },
+  fn: () => Promise<unknown>
+): Promise<boolean> {
+  try {
+    await fn();
+    return true;
+  } catch (err) {
+    if (isTransientNetworkError(err)) {
+      await enqueue(op);
+      await useStore.getState().refreshPendingCount();
+      return false;
+    }
+    throw err;
+  }
+}
+
 // ========== Store 实现 ==========
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -240,6 +308,8 @@ export const useStore = create<StoreState>((set, get) => ({
   selectedFolderId: null,
   viewMode: 'all',
   preferences: loadPrefs(),
+  isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
+  pendingCount: 0,
 
   // -------- auth --------
 
@@ -342,34 +412,72 @@ export const useStore = create<StoreState>((set, get) => ({
   // -------- data --------
 
   async loadAll(): Promise<void> {
-    const a = api();
-    const [notesRes, foldersRes, tagsRes, meRes] = await Promise.all([
-      // includeDeleted=1：回收站视图需要拿到已软删的笔记
-      a.get<{ notes: NoteRow[] }>('/notes?includeDeleted=1'),
-      a.get<{ folders: Folder[] }>('/folders'),
-      a.get<{ tags: Tag[] }>('/tags'),
-      a.get<{ wrappedMasterKey: Ciphertext }>('/auth/me'),
-    ]);
-    set({
-      notes: new Map(notesRes.notes.map((n: NoteRow) => [n.id, n])),
-      folders: foldersRes.folders,
-      tags: tagsRes.tags,
-      wrappedMasterKey: meRes.wrappedMasterKey,
-    });
+    // Offline-first：先用 IndexedDB 缓存填充 store，UI 立即可见；
+    // 同时发起网络请求拉取最新数据。失败时保留缓存（不抛错）。
+    try {
+      const [cachedNotes, cachedFolders, cachedTags] = await Promise.all([
+        loadCachedNotes(),
+        loadCachedFolders(),
+        loadCachedTags(),
+      ]);
+      if (cachedNotes.notes.size > 0 || cachedFolders.length > 0) {
+        set({
+          notes: cachedNotes.notes,
+          notesPlain: cachedNotes.plain,
+          folders: cachedFolders,
+          tags: cachedTags,
+        });
+      }
+    } catch {
+      /* 缓存读取失败，忽略，继续走网络 */
+    }
 
-    const masterKey = get().masterKey;
-    if (masterKey) {
-      const plain = new Map<string, NotePlaintext>();
-      for (const n of notesRes.notes) {
+    try {
+      const a = api();
+      const [notesRes, foldersRes, tagsRes, meRes] = await Promise.all([
+        // includeDeleted=1：回收站视图需要拿到已软删的笔记
+        a.get<{ notes: NoteRow[] }>('/notes?includeDeleted=1'),
+        a.get<{ folders: Folder[] }>('/folders'),
+        a.get<{ tags: Tag[] }>('/tags'),
+        a.get<{ wrappedMasterKey: Ciphertext }>('/auth/me'),
+      ]);
+      set({
+        notes: new Map(notesRes.notes.map((n: NoteRow) => [n.id, n])),
+        folders: foldersRes.folders,
+        tags: tagsRes.tags,
+        wrappedMasterKey: meRes.wrappedMasterKey,
+      });
+
+      const masterKey = get().masterKey;
+      if (masterKey) {
+        const plain = new Map<string, NotePlaintext>();
+        for (const n of notesRes.notes) {
+          try {
+            const envelope = parseEnvelope(n.ciphertext);
+            const pt = await decryptNote(masterKey, envelope);
+            plain.set(n.id, pt);
+          } catch {
+            plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
+          }
+        }
+        set({ notesPlain: plain });
+
+        // 网络成功后刷新缓存（明文 + 密文）
         try {
-          const envelope = parseEnvelope(n.ciphertext);
-          const pt = await decryptNote(masterKey, envelope);
-          plain.set(n.id, pt);
+          await cacheNotes(get().notes, plain);
+          await cacheFolders(foldersRes.folders);
+          await cacheTags(tagsRes.tags);
         } catch {
-          plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
+          /* 缓存写入失败不影响主流程 */
         }
       }
-      set({ notesPlain: plain });
+    } catch (err) {
+      // 网络失败：如果已有缓存则静默保留；否则抛错让上层处理
+      if (get().notes.size === 0) throw err;
+      // 标记离线状态
+      if (isTransientNetworkError(err)) {
+        set({ isOnline: false });
+      }
     }
   },
 
@@ -436,48 +544,98 @@ export const useStore = create<StoreState>((set, get) => ({
     };
     const { json: cipherJson } = await encryptNote(masterKey, merged);
 
-    const r = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, {
+    const body = {
       ciphertext: cipherJson,
       keyVersion: 1,
       isPinned: patch.isPinned ?? note.isPinned,
       isFavorite: patch.isFavorite ?? note.isFavorite,
       clientUpdatedAt: new Date().toISOString(),
       version: note.version,
-    });
+    };
 
+    // 乐观更新：先写入本地 store，UI 立即反映
     const newNotes = new Map(get().notes);
-    newNotes.set(id, {
-      ...note,
-      version: r.version,
-      serverUpdatedAt: r.serverUpdatedAt,
-      ciphertext: cipherJson,
-    });
+    newNotes.set(id, { ...note, ciphertext: cipherJson });
     const newPlain = new Map(get().notesPlain);
     newPlain.set(id, merged);
     set({ notes: newNotes, notesPlain: newPlain });
+
+    // 网络请求：失败时入队，不回滚（用户已看到变更）
+    const ok = await runOrEnqueue(
+      { method: 'PATCH', path: `/notes/${id}`, body, noteId: id },
+      async () => {
+        const r = await api().patch<{ version: number; serverUpdatedAt: string }>(
+          `/notes/${id}`,
+          body
+        );
+        // 成功后用服务端返回的 version/serverUpdatedAt 校正本地
+        const nn = new Map(get().notes);
+        const updated = nn.get(id);
+        if (updated) {
+          nn.set(id, { ...updated, version: r.version, serverUpdatedAt: r.serverUpdatedAt });
+          set({ notes: nn });
+        }
+      }
+    );
+    if (!ok) {
+      // 已入队，更新离线徽章计数
+      set({ isOnline: false });
+    }
+    // 缓存刷新（异步，不阻塞）
+    void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
   },
 
   async moveNote(id: string, folderId: string | null): Promise<void> {
     const note = get().notes.get(id);
     if (!note) return;
     if (note.folderId === folderId) return; // 已在目标文件夹，无需请求
-    const r = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, {
+
+    const body = {
       folderId,
       clientUpdatedAt: new Date().toISOString(),
       version: note.version,
-    });
+    };
+
+    // 乐观更新
     const newNotes = new Map(get().notes);
-    newNotes.set(id, { ...note, folderId, version: r.version, serverUpdatedAt: r.serverUpdatedAt });
+    newNotes.set(id, { ...note, folderId });
     set({ notes: newNotes });
+
+    const ok = await runOrEnqueue(
+      { method: 'PATCH', path: `/notes/${id}`, body, noteId: id },
+      async () => {
+        const r = await api().patch<{ version: number; serverUpdatedAt: string }>(
+          `/notes/${id}`,
+          body
+        );
+        const nn = new Map(get().notes);
+        const updated = nn.get(id);
+        if (updated) {
+          nn.set(id, { ...updated, version: r.version, serverUpdatedAt: r.serverUpdatedAt });
+          set({ notes: nn });
+        }
+      }
+    );
+    if (!ok) set({ isOnline: false });
+    void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
   },
 
   async deleteNote(id: string): Promise<void> {
     const note = get().notes.get(id);
     if (!note) return;
-    await api().delete(`/notes/${id}`);
+    // 乐观更新：标记软删除
     const newNotes = new Map(get().notes);
     newNotes.set(id, { ...note, deletedAt: new Date().toISOString() });
     set({ notes: newNotes, selectedNoteId: null });
+
+    const ok = await runOrEnqueue(
+      { method: 'DELETE', path: `/notes/${id}`, noteId: id },
+      async () => {
+        await api().delete(`/notes/${id}`);
+      }
+    );
+    if (!ok) set({ isOnline: false });
+    void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
   },
 
   selectNote(id: string | null): void {
@@ -492,7 +650,7 @@ export const useStore = create<StoreState>((set, get) => ({
   async permanentDeleteNote(id: string): Promise<void> {
     const note = get().notes.get(id);
     if (!note) return;
-    await api().delete(`/notes/${id}/permanent`);
+    // 乐观更新：从本地移除
     const newNotes = new Map(get().notes);
     newNotes.delete(id);
     const newPlain = new Map(get().notesPlain);
@@ -502,14 +660,22 @@ export const useStore = create<StoreState>((set, get) => ({
       notesPlain: newPlain,
       selectedNoteId: get().selectedNoteId === id ? null : get().selectedNoteId,
     });
+
+    const ok = await runOrEnqueue(
+      { method: 'DELETE', path: `/notes/${id}/permanent`, noteId: id },
+      async () => {
+        await api().delete(`/notes/${id}/permanent`);
+      }
+    );
+    if (!ok) set({ isOnline: false });
+    void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
   },
   async emptyTrash(): Promise<void> {
     const trashIds = Array.from(get().notes.values())
       .filter((n) => n.deletedAt)
       .map((n) => n.id);
     if (trashIds.length === 0) return;
-    // 并发删除（服务端允许永久删除已软删笔记）
-    await Promise.all(trashIds.map((id) => api().delete(`/notes/${id}/permanent`)));
+    // 乐观更新：先从本地移除所有回收站项
     const newNotes = new Map(get().notes);
     const newPlain = new Map(get().notesPlain);
     for (const id of trashIds) {
@@ -517,18 +683,59 @@ export const useStore = create<StoreState>((set, get) => ({
       newPlain.delete(id);
     }
     set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: null });
+
+    // 并发删除；失败的单条入队
+    const results = await Promise.allSettled(
+      trashIds.map((id) => api().delete(`/notes/${id}/permanent`))
+    );
+    let anyEnqueued = false;
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      const failedId = trashIds[i];
+      if (r!.status === 'rejected' && failedId !== undefined) {
+        if (isTransientNetworkError(r!.reason)) {
+          await enqueue({
+            method: 'DELETE',
+            path: `/notes/${failedId}/permanent`,
+            noteId: failedId,
+          });
+          anyEnqueued = true;
+        }
+      }
+    }
+    if (anyEnqueued) {
+      set({ isOnline: false });
+      await get().refreshPendingCount();
+    }
+    void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
   },
   async restoreNote(id: string): Promise<void> {
     const note = get().notes.get(id);
     if (!note || !note.deletedAt) return;
-    const r = await api().patch<{ version: number }>(`/notes/${id}`, {
+    const body = {
       deletedAt: null,
       clientUpdatedAt: new Date().toISOString(),
       version: note.version,
-    });
+    };
+    // 乐观更新
     const newNotes = new Map(get().notes);
-    newNotes.set(id, { ...note, deletedAt: null, version: r.version });
+    newNotes.set(id, { ...note, deletedAt: null });
     set({ notes: newNotes });
+
+    const ok = await runOrEnqueue(
+      { method: 'PATCH', path: `/notes/${id}`, body, noteId: id },
+      async () => {
+        const r = await api().patch<{ version: number }>(`/notes/${id}`, body);
+        const nn = new Map(get().notes);
+        const updated = nn.get(id);
+        if (updated) {
+          nn.set(id, { ...updated, version: r.version });
+          set({ notes: nn });
+        }
+      }
+    );
+    if (!ok) set({ isOnline: false });
+    void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
   },
 
   async createFolder(name: string): Promise<string> {
@@ -550,8 +757,13 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async deleteFolder(id: string): Promise<void> {
-    await api().delete(`/folders/${id}`);
+    // 乐观更新
     set({ folders: get().folders.filter((f) => f.id !== id) });
+    const ok = await runOrEnqueue({ method: 'DELETE', path: `/folders/${id}` }, async () => {
+      await api().delete(`/folders/${id}`);
+    });
+    if (!ok) set({ isOnline: false });
+    void cacheFolders(get().folders).catch(() => undefined);
   },
 
   // -------- prefs --------
@@ -577,4 +789,83 @@ export const useStore = create<StoreState>((set, get) => ({
   setLanguage(language: 'zh-CN' | 'en'): void {
     get().setPreferences({ language });
   },
+
+  // -------- offline --------
+
+  setOnline(online: boolean): void {
+    set({ isOnline: online });
+    if (online) {
+      // 联网时自动刷新一次 pendingCount（队列可能为空）
+      void get().refreshPendingCount();
+    }
+  },
+
+  async refreshPendingCount(): Promise<void> {
+    try {
+      const n = await queueSize();
+      set({ pendingCount: n });
+    } catch {
+      /* ignore */
+    }
+  },
+
+  async flushQueue(): Promise<void> {
+    const ops = await peekAll();
+    if (ops.length === 0) return;
+
+    let hadConflict = false;
+    for (const op of ops) {
+      try {
+        await replayOp(op);
+        await remove(op.id);
+      } catch (err) {
+        if (err instanceof ApiException) {
+          const status = err.err.status;
+          if (status === 409 || (status >= 400 && status < 500)) {
+            // 冲突或客户端错误：丢弃该 op，避免死循环
+            await remove(op.id);
+            hadConflict = true;
+          } else {
+            // 5xx：服务端可能恢复，保留并增加重试计数
+            await bumpRetries(op.id);
+          }
+        } else if (err instanceof TypeError) {
+          // 网络仍不可达：停止重放，保留 op
+          break;
+        } else {
+          // 未知错误：丢弃避免阻塞队列
+          await remove(op.id);
+        }
+      }
+    }
+
+    await get().refreshPendingCount();
+
+    // 冲突或全部成功后，拉取最新数据校正本地
+    if (hadConflict || ops.length > 0) {
+      try {
+        await get().loadAll();
+      } catch {
+        /* loadAll 内部已处理 */
+      }
+    }
+
+    // 重放后若全部成功，标记为在线
+    if ((await queueSize()) === 0) {
+      set({ isOnline: true });
+    }
+  },
+
+  async clearLocalData(): Promise<void> {
+    await clearCache();
+    const { clear: clearQueue } = await import('./offline-queue');
+    await clearQueue();
+    set({ pendingCount: 0 });
+  },
 }));
+
+/** 重放单个 op：用当前 store 的 accessToken 构造请求 */
+async function replayOp(op: QueuedOp): Promise<void> {
+  const client = api();
+  await client.request<unknown>(op.method, op.path, op.body);
+}

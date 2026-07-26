@@ -177,6 +177,50 @@ export function exportAsJson(data: unknown): Blob {
   return new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
 }
 
+/**
+ * 导出为 PDF（动态加载 jspdf 库）
+ *
+ * jspdf 体积较大（~350KB），按需加载避免首屏开销。
+ * 使用 splitTextToSize 逐行绘制并自动分页。
+ * 注意：jsPDF 默认字体不含 CJK 字形，中文可能出现乱码；
+ * 如需完美中文支持，后续可嵌入 CJK 子集字体。
+ */
+export async function exportAsPdf(title: string, content: string): Promise<Blob> {
+  const { jsPDF } = await import('jspdf');
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 48;
+  const maxWidth = pageWidth - margin * 2;
+
+  // 标题
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  const titleLines: string[] = doc.splitTextToSize(title || '', maxWidth);
+  doc.text(titleLines, margin, margin + 20);
+
+  // 正文
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  let y = margin + 20 + titleLines.length * 24 + 16;
+
+  const paragraphs = content.split('\n');
+  for (const para of paragraphs) {
+    const lines: string[] = doc.splitTextToSize(para || '', maxWidth);
+    for (const line of lines) {
+      if (y > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(line, margin, y);
+      y += 16;
+    }
+  }
+
+  return doc.output('blob');
+}
+
 /** 触发下载 */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);

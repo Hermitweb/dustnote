@@ -17,6 +17,8 @@
     "i18next": "^23.11.5",
     "mammoth": "^1.12.0",
     "marked": "^13.0.2",
+    "jspdf": "^2.5.2",
+    "idb-keyval": "^6.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-i18next": "^14.1.2",
