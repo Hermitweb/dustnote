@@ -12,9 +12,9 @@ on:
 env:
   NODE_VERSION: '20'
   PNPM_VERSION: '9.12.0'
-  # Use the tag name when triggered by a tag; fall back to v0.1.0 for the
-  # branch-triggered initial release.
-  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.1.0' }}
+  # Use the tag name when triggered by a tag; fall back to v2.0.0 for the
+  # branch-triggered release.
+  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.0' }}
 
 concurrency:
   group: release-${{ github.ref }}
@@ -162,12 +162,13 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: bash
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.1.0' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.0' }}
         run: |
           ver="${VPK_VERSION#v}"
           cd desktop/src-tauri/staging
-          zip -r "../../DustNote_${ver}_x64-portable.zip" .
-          cd ../..
+          # zip 输出到 desktop/src-tauri/ 以匹配 upload-artifact 的 path
+          zip -r "../DustNote_${ver}_x64-portable.zip" .
+          cd ..
           ls -la "DustNote_${ver}_x64-portable.zip"
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'windows-latest'
@@ -181,7 +182,7 @@ jobs:
         # macOS/Linux vpk pack 依赖 .app bundle 或额外运行时资源，硬件平台受限
         continue-on-error: ${{ matrix.os != 'windows-latest' }}
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.1.0' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.0' }}
         run: |
           ver="${VPK_VERSION#v}"
           vpk pack --packId DustNote --packVersion "$ver" --packDir staging --mainExe ${{ matrix.main_exe }} --channel ${{ matrix.channel }} --runtime ${{ matrix.runtime }} --icon icons/icon.ico
