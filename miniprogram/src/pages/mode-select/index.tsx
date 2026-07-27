@@ -17,7 +17,7 @@ import { useModeStore } from '../../lib/mode-store';
 import { hasLocalAuthSync } from '../../lib/local-auth-storage';
 import { ApiClient } from '@dustnote/shared';
 
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.3';
 
 /**
  * 测试服务器连通性

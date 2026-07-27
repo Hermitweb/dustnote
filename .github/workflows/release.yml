@@ -4,17 +4,15 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      # Allow the initial release to be cut without a manually-pushed tag.
-      # Revert to tag-only after v0.1.0 is published.
-      - dev/setup-and-fixes
+  # 分支推送不再触发 release（仅 tag 触发，避免分支 push 与 tag push 产生双重 release 冲突）。
+  # 分支推送的 CI 检查由 .github/workflows/ci.yml 负责。
 
 env:
   NODE_VERSION: '20'
   PNPM_VERSION: '9.12.0'
-  # Use the tag name when triggered by a tag; fall back to v2.0.2 for the
+  # Use the tag name when triggered by a tag; fall back to v2.0.3 for the
   # branch-triggered release.
-  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.2' }}
+  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.3' }}
 
 concurrency:
   group: release-${{ github.ref }}
@@ -163,7 +161,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.2' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.3' }}
         run: |
           $ver = $env:VPK_VERSION -replace '^v', ''
           $stagingPath = 'desktop/src-tauri/staging'
@@ -186,7 +184,7 @@ jobs:
         # macOS/Linux vpk pack 依赖 .app bundle 或额外运行时资源，硬件平台受限
         continue-on-error: ${{ matrix.os != 'windows-latest' }}
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.2' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.3' }}
         run: |
           ver="${VPK_VERSION#v}"
           vpk pack --packId DustNote --packVersion "$ver" --packDir staging --mainExe ${{ matrix.main_exe }} --channel ${{ matrix.channel }} --runtime ${{ matrix.runtime }} --icon icons/icon.ico
@@ -260,6 +258,36 @@ jobs:
             echo "::error::app-release.apk not found"
             exit 1
           fi
+      - name: Verify autolinked native modules
+        working-directory: mobile/android
+        run: |
+          set -e
+          PKGLIST="app/build/generated/rncli/src/main/java/com/facebook/react/PackageList.java"
+          if [ ! -f "$PKGLIST" ]; then
+            echo "::error::PackageList.java not found at $PKGLIST — autolinking did not run"
+            exit 1
+          fi
+          echo "--- Autolinked packages ---"
+          grep -E 'packages\.add\(new ' "$PKGLIST" || true
+          COUNT=$(grep -cE 'packages\.add\(new ' "$PKGLIST" || true)
+          echo "Autolinked package count: $COUNT"
+          # mobile/package.json 声明了 10 个原生模块；允许 >= 8 容忍可选模块差异
+          if [ "$COUNT" -lt 8 ]; then
+            echo "::error::Only $COUNT native modules autolinked (expected >= 8). Autolinking likely failed — APK would crash on launch due to missing native modules (SafeAreaProvider/AsyncStorage etc.)."
+            echo "--- Full PackageList.java ---"
+            cat "$PKGLIST"
+            exit 1
+          fi
+          # 启动首帧/模块加载即访问的关键原生模块，缺失会直接闪退
+          for needle in "SafeArea" "AsyncStorage" "Screens"; do
+            if ! grep -q "$needle" "$PKGLIST"; then
+              echo "::error::Critical native module missing in PackageList.java: $needle — APK would crash on launch."
+              echo "--- Full PackageList.java ---"
+              cat "$PKGLIST"
+              exit 1
+            fi
+          done
+          echo "✓ All critical native modules autolinked"
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
@@ -324,7 +352,7 @@ jobs:
           # 6. 版本元信息
           cat > "$STAGE/VERSION" <<EOF
           release_tag: ${RELEASE_TAG}
-          server_version: 2.0.2
+          server_version: 2.0.3
           packaged_at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
           EOF
 

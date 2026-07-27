@@ -120,21 +120,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     if (!desktopEnv) return;
     const api = getUpdaterApi();
     if (!api) return;
-    // 启动时静默检查 + 检查是否有待应用更新（带超时，避免 IPC 挂起卡死设置页）
+    // 打开设置时仅检查"是否有已下载待应用的更新"（本地磁盘读取，毫秒级）。
+    // 不自动发起 checkForUpdates 网络请求——国内访问 GitHub Releases 慢/不稳，
+    // 自动网络检查会让设置页打开时卡顿最多 10s。改为用户主动点"🔍 检查更新"。
     void (async () => {
       try {
         const pending = await withTimeout(api.getPendingUpdate(), 5000);
         if (pending) {
           setTargetVer(pending);
           setUpdateState('ready');
-          return;
         }
-        setUpdateState('checking');
-        const r = await withTimeout(api.checkForUpdates(), 10000);
-        setTargetVer(r.targetVersion);
-        setUpdateState(r.updateAvailable ? 'available' : 'uptodate');
+        // 无 pending 则保持 idle，等用户主动点击"检查更新"
       } catch {
-        // dev 期 NotInstalled 属预期，超时也回 idle
+        // dev 期 NotInstalled 属预期
         setUpdateState('idle');
       }
     })();
