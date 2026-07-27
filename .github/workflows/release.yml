@@ -12,9 +12,9 @@ on:
 env:
   NODE_VERSION: '20'
   PNPM_VERSION: '9.12.0'
-  # Use the tag name when triggered by a tag; fall back to v2.0.1 for the
+  # Use the tag name when triggered by a tag; fall back to v2.0.2 for the
   # branch-triggered release.
-  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.1' }}
+  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.2' }}
 
 concurrency:
   group: release-${{ github.ref }}
@@ -163,7 +163,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.1' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.2' }}
         run: |
           $ver = $env:VPK_VERSION -replace '^v', ''
           $stagingPath = 'desktop/src-tauri/staging'
@@ -186,7 +186,7 @@ jobs:
         # macOS/Linux vpk pack 依赖 .app bundle 或额外运行时资源，硬件平台受限
         continue-on-error: ${{ matrix.os != 'windows-latest' }}
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.1' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.0.2' }}
         run: |
           ver="${VPK_VERSION#v}"
           vpk pack --packId DustNote --packVersion "$ver" --packDir staging --mainExe ${{ matrix.main_exe }} --channel ${{ matrix.channel }} --runtime ${{ matrix.runtime }} --icon icons/icon.ico
@@ -324,7 +324,7 @@ jobs:
           # 6. 版本元信息
           cat > "$STAGE/VERSION" <<EOF
           release_tag: ${RELEASE_TAG}
-          server_version: 2.0.0
+          server_version: 2.0.2
           packaged_at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
           EOF
 

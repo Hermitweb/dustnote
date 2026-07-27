@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#86efac"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0fdf4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+
+  <!-- Notebook white body -->
+  <rect x="300" y="262" width="424" height="516" rx="36" fill="#ffffff"/>
+
+  <!-- Green binding strip (left edge) -->
+  <path d="M300 298 Q300 262 336 262 L356 262 L356 778 L336 778 Q300 778 300 742 Z" fill="#15803d"/>
+
+  <!-- Binding rings -->
+  <circle cx="328" cy="360" r="14" fill="#ffffff"/>
+  <circle cx="328" cy="516" r="14" fill="#ffffff"/>
+  <circle cx="328" cy="672" r="14" fill="#ffffff"/>
+
+  <!-- Text lines -->
+  <rect x="396" y="372" width="272" height="28" rx="14" fill="#bbf7d0"/>
+  <rect x="396" y="440" width="272" height="28" rx="14" fill="#bbf7d0"/>
+  <rect x="396" y="508" width="200" height="28" rx="14" fill="#bbf7d0"/>
+
+  <!-- Leaf accent (top-right, representing nature/尘心) -->
+  <path d="M668 232 Q612 232 612 176 Q612 120 668 120 Q724 120 724 176 Q724 232 668 232 Z" fill="url(#leaf)"/>
+  <path d="M640 200 Q668 168 696 152" stroke="#22c55e" stroke-width="8" fill="none" stroke-linecap="round"/>
+</svg>

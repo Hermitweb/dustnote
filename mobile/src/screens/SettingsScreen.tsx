@@ -37,7 +37,7 @@ import { useColors, useThemeStore, type ThemeMode } from '../theme';
 import type { BackupPayload, AppMode } from '@dustnote/shared';
 import RNFS from 'react-native-fs';
 
-const APP_VERSION = '2.0.1';
+const APP_VERSION = '2.0.2';
 const MODE_OPTIONS: Array<{ mode: ThemeMode; label: string }> = [
   { mode: 'light', label: '☀️ 浅色' },
   { mode: 'dark', label: '🌙 深色' },
