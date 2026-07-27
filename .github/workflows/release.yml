@@ -268,8 +268,10 @@ jobs:
             exit 1
           fi
           echo "--- Autolinked packages ---"
-          grep -E 'packages\.add\(new ' "$PKGLIST" || true
-          COUNT=$(grep -cE 'packages\.add\(new ' "$PKGLIST" || true)
+          # RN 0.74 生成的 PackageList.java 使用 Arrays.<ReactPackage>asList(new XxxPackage(), ...)
+          # 而非旧版 packages.add(new ...) 格式，故按 "new XxxPackage(" 模式匹配实例化语句
+          grep -E 'new [A-Za-z]+Package\(' "$PKGLIST" || true
+          COUNT=$(grep -cE 'new [A-Za-z]+Package\(' "$PKGLIST" || true)
           echo "Autolinked package count: $COUNT"
           # mobile/package.json 声明了 10 个原生模块；允许 >= 8 容忍可选模块差异
           if [ "$COUNT" -lt 8 ]; then
