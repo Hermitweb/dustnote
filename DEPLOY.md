@@ -104,7 +104,7 @@ cat >> .env <<EOF
 DOMAIN=notes.your-domain.com
 WEB_ORIGIN=https://notes.your-domain.com
 JWT_SECRET=$(openssl rand -hex 32)
-SERVER_VERSION=2.0.0
+SERVER_VERSION=2.0.1
 EOF
 
 # 3. 启动（含 Caddy 反向代理）
@@ -227,7 +227,7 @@ NODE_ENV=production
 PORT=3210
 DB_PATH=./data/dustnote.db
 WEB_ORIGIN=https://notes.your-domain.com
-SERVER_VERSION=2.0.0
+SERVER_VERSION=2.0.1
 JWT_SECRET=<openssl rand -hex 32 生成的 64 字符随机串>
 LOG_LEVEL=info
 ```
@@ -495,7 +495,7 @@ WEB_ORIGIN=https://notes.your-domain.com
 {
   "ok": true,
   "uptime": 3600,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "db": "ok",
   "notesCount": 42,
   "foldersCount": 3,

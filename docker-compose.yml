@@ -26,12 +26,12 @@ services:
       - PORT=3210
       - DB_PATH=/app/server/data/dustnote.db
       - WEB_ORIGIN=${WEB_ORIGIN:-http://localhost}
-      - SERVER_VERSION=${SERVER_VERSION:-2.0.0}
+      - SERVER_VERSION=${SERVER_VERSION:-2.0.1}
       - JWT_SECRET=${JWT_SECRET:-dev-secret-change-me}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       # 客户端版本策略（详见 update-strategy.md §2.3）
-      - MIN_CLIENT_VERSION=${MIN_CLIENT_VERSION:-2.0.0}
-      - RECOMMENDED_CLIENT_VERSION=${RECOMMENDED_CLIENT_VERSION:-2.0.0}
+      - MIN_CLIENT_VERSION=${MIN_CLIENT_VERSION:-2.0.1}
+      - RECOMMENDED_CLIENT_VERSION=${RECOMMENDED_CLIENT_VERSION:-2.0.1}
       - FORCE_UPDATE_VERSION=${FORCE_UPDATE_VERSION:-}
       - EOL_DATE_FOR_V0=${EOL_DATE_FOR_V0:-}
     env_file:

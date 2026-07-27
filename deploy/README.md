@@ -50,7 +50,7 @@ docker compose logs -f caddy
 | ---------------- | ---------------------- | --------------------------------------- |
 | `PORT`           | `8080`                 | 宿主机映射端口（HTTP 模式）             |
 | `WEB_ORIGIN`     | `http://localhost`     | Web 前端 origin（CORS 白名单）          |
-| `SERVER_VERSION` | `2.0.0`                | 服务端版本号                            |
+| `SERVER_VERSION` | `2.0.1`                | 服务端版本号                            |
 | `JWT_SECRET`     | `dev-secret-change-me` | JWT 签名密钥（**生产必须修改**）        |
 | `LOG_LEVEL`      | `info`                 | 日志级别（trace/debug/info/warn/error） |
 | `DOMAIN`         | `localhost`            | 域名（仅 TLS 模式）                     |
@@ -109,7 +109,7 @@ docker compose up -d --build
 {
   "ok": true,
   "uptime": 3600,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "db": "ok",
   "notesCount": 42,
   "foldersCount": 3,

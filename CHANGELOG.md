@@ -13,6 +13,24 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.0.1] - 2026-07-27
+
+### 修复 — 安卓端
+
+- **闪退**：[MainActivity.kt](./mobile/android/app/src/main/java/com/dustnote/MainActivity.kt) `onCreate` 传 `null` 导致状态恢复崩溃 → 改传 `savedInstanceState`
+- **应用名称**：[strings.xml](./mobile/android/app/src/main/res/values/strings.xml) `app_name` 为模板默认值 "Hello App Display Name" → "DustNote"
+- **启动器图标**：adaptive icon foreground 错误引用 `@color`（颜色非合法 drawable）→ 新建 vector drawable（薄荷绿渐变 + 白色对勾，与 web/favicon 一致）；各密度 PNG 占位符重新生成
+  - 新增 [ic_launcher_foreground.xml](./mobile/android/app/src/main/res/drawable/ic_launcher_foreground.xml)、[ic_launcher_background.xml](./mobile/android/app/src/main/res/drawable/ic_launcher_background.xml)
+- **版本号**：Android `versionCode` 1→2，`versionName` "0.1.0"→"2.0.1"
+
+### 修复 — Windows 桌面端
+
+- **多窗口**：注册 `tauri-plugin-single-instance` 插件，第二实例唤起已有窗口而非开新窗口
+- **卡在加载界面**（v1.0 起存在的问题）：
+  - [store.ts](./web/src/lib/store.ts) `api()` 工厂硬编码 `'/api/v1'` → 改读 mode-store `serverUrl`，桌面联机模式可达服务器
+  - `checkStatus()` 联机模式无错误处理，服务器不可达时 `authState` 停留 `'unknown'` 卡死 → 加 try/catch，失败时设 `authState='error'`
+  - [App.tsx](./web/src/App.tsx) 新增 `error` 状态界面：显示错误信息 + 重试 / 重新选择模式按钮
+
 ## [2.0.0] - 2026-07-26
 
 ### 重大变更 — 单机/联机双模式架构
@@ -145,6 +163,7 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 - [研发路线图](./.trae/documents/roadmap.md)
 - [生产上线检查单](./.trae/documents/production-readiness.md)
 
-[Unreleased]: https://github.com/Hermitweb/dustnote/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/Hermitweb/dustnote/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/Hermitweb/dustnote/releases/tag/v2.0.1
 [2.0.0]: https://github.com/Hermitweb/dustnote/releases/tag/v2.0.0
 [0.1.0]: https://github.com/Hermitweb/dustnote/releases/tag/v0.1.0
