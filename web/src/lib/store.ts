@@ -64,15 +64,25 @@ import {
 const API_BASE = '/api/v1';
 const APP_VERSION = __APP_VERSION__;
 
-const api = (): ApiClient =>
-  new ApiClient({
-    baseUrl: API_BASE,
+/**
+ * 构造 ApiClient（联机模式鉴权 / 数据同步用）
+ *
+ * 基址选择（与 RemoteRepository 保持一致）：
+ * - mode-store 中 serverUrl 不为空 → 拼接 `${serverUrl}/api/v1`（桌面端联机模式）
+ * - serverUrl 为空 → 同源 `/api/v1`（Web 部署、开发环境 vite proxy）
+ */
+const api = (): ApiClient => {
+  const { serverUrl } = useModeStore.getState();
+  const baseUrl = serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : API_BASE;
+  return new ApiClient({
+    baseUrl,
     clientVersion: APP_VERSION,
     platform: 'web',
     channel: 'stable',
     deviceId: getDeviceId(),
     accessToken: useStore.getState().accessToken ?? undefined,
   });
+};
 
 // ========== 类型 ==========
 
@@ -120,7 +130,7 @@ export interface Tag {
   count: number;
 }
 
-export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked';
+export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked' | 'error';
 
 /** 侧栏视图：全部 / 收藏 / 回收站 */
 export type ViewMode = 'all' | 'favorites' | 'trash';
@@ -154,6 +164,8 @@ interface StoreState {
 
   // auth
   authState: AuthState;
+  /** 联机模式服务器不可达时的错误信息（authState === 'error' 时展示） */
+  serverError: string | null;
   accessToken: string | null;
   userId: string | null;
   serverSalt: string | null; // base64
@@ -355,6 +367,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   // auth
   authState: 'unknown',
+  serverError: null,
   accessToken: null,
   userId: null,
   serverSalt: null,
@@ -501,11 +514,22 @@ export const useStore = create<StoreState>((set, get) => ({
       return;
     }
     // 联机模式：调用 /auth/status API
-    const r = await api().get<{ initialized: boolean; deviceKnown: boolean }>('/auth/status');
-    if (!r.initialized) {
-      set({ authState: 'uninitialized' });
-    } else {
-      set({ authState: 'needs_unlock' });
+    try {
+      const r = await api().get<{ initialized: boolean; deviceKnown: boolean }>(
+        '/auth/status'
+      );
+      if (!r.initialized) {
+        set({ authState: 'uninitialized', serverError: null });
+      } else {
+        set({ authState: 'needs_unlock', serverError: null });
+      }
+    } catch (err) {
+      // 服务器不可达（未启动 / 地址错误 / 网络故障）：
+      // 设置 error 状态，避免 authState 停留在 'unknown' 导致卡在加载界面
+      set({
+        authState: 'error',
+        serverError: err instanceof Error ? err.message : String(err),
+      });
     }
   },
 

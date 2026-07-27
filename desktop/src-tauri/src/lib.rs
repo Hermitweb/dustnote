@@ -204,7 +204,20 @@ fn show_main_window(app: tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    // 单实例运行（仅桌面平台）：第二个实例启动时唤起并聚焦已有窗口
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            let _ = app.get_webview_window("main").map(|w| {
+                let _ = w.show();
+                let _ = w.set_focus();
+            });
+        }));
+    }
+
+    builder
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             Some(vec!["--silent"]),

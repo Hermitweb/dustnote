@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DustNote 启动器图标前景层（adaptive icon）
+  画布 108x108dp，安全区为中心 72x72dp（四边各留 18dp padding）
+  白色对勾 + 叶片主视觉，与 web/favicon.svg、桌面端 icon 保持一致
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 对勾：从 (38,56) 经 (50,68) 到 (70,44)，笔画宽 6dp，白色 -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M38,56 L50,68 L70,44" />
+</vector>

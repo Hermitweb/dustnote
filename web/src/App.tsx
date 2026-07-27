@@ -28,6 +28,7 @@ type StandaloneView = 'setup' | 'unlock' | 'recover';
 function App() {
   const { t } = useTranslation();
   const authState = useStore((s) => s.authState);
+  const serverError = useStore((s) => s.serverError);
   const mode = useStore((s) => s.mode);
   const checkStatus = useStore((s) => s.checkStatus);
   const loadAll = useStore((s) => s.loadAll);
@@ -101,6 +102,46 @@ function App() {
         <div className="text-center">
           <div className="mb-2 text-3xl">🌿</div>
           <div className="text-sm">加载中...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // 联机模式：服务器不可达，显示错误重试界面（避免卡在加载中）
+  if (authState === 'error') {
+    return (
+      <div className="flex h-full items-center justify-center bg-surface-bg p-6">
+        <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
+          <div className="mb-4 text-4xl">⚠️</div>
+          <h2 className="mb-2 text-lg font-semibold text-surface-fg">无法连接到服务器</h2>
+          <p className="mb-1 text-sm text-surface-muted">
+            请确认服务器已启动且地址正确。
+          </p>
+          {serverError && (
+            <p className="mb-6 break-all rounded-lg bg-surface-bg px-3 py-2 text-xs text-red-600 dark:text-red-400">
+              {serverError}
+            </p>
+          )}
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                useModeStore.getState().resetMode();
+                location.reload();
+              }}
+              className="flex-1 rounded-lg border border-surface-border px-4 py-2.5 text-sm font-medium text-surface-fg hover:bg-surface-bg"
+            >
+              重新选择模式
+            </button>
+            <button
+              onClick={() => {
+                useStore.setState({ authState: 'unknown', serverError: null });
+                void checkStatus();
+              }}
+              className="flex-1 rounded-lg bg-mint-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-mint-700"
+            >
+              重试
+            </button>
+          </div>
         </div>
       </div>
     );
