@@ -49,6 +49,19 @@ function getUpdaterApi(): UpdaterApi | null {
   return (api as UpdaterApi) ?? null;
 }
 
+/**
+ * 为 Promise 添加超时保护，避免 Tauri IPC 调用挂起导致设置页卡死。
+ * 超时后 reject，由调用方 catch 处理。
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`操作超时（${ms}ms）`)), ms)
+    ),
+  ]);
+}
+
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const prefs = useStore((s) => s.preferences);
@@ -75,8 +88,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     if (!desktopEnv) return;
     const api = getAutostartApi();
     if (!api) return;
-    void api
-      .isEnabled()
+    void withTimeout(api.isEnabled(), 5000)
       .then(setAutostartEnabled)
       .catch(() => undefined);
   }, [desktopEnv]);
@@ -86,9 +98,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     if (!api || autostartBusy) return;
     setAutostartBusy(true);
     try {
-      if (next) await api.enable();
-      else await api.disable();
-      setAutostartEnabled(await api.isEnabled());
+      if (next) await withTimeout(api.enable(), 5000);
+      else await withTimeout(api.disable(), 5000);
+      setAutostartEnabled(await withTimeout(api.isEnabled(), 5000));
     } catch (err) {
       console.error('[autostart] toggle failed', err);
     } finally {
@@ -108,21 +120,21 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     if (!desktopEnv) return;
     const api = getUpdaterApi();
     if (!api) return;
-    // 启动时静默检查 + 检查是否有待应用更新
+    // 启动时静默检查 + 检查是否有待应用更新（带超时，避免 IPC 挂起卡死设置页）
     void (async () => {
       try {
-        const pending = await api.getPendingUpdate();
+        const pending = await withTimeout(api.getPendingUpdate(), 5000);
         if (pending) {
           setTargetVer(pending);
           setUpdateState('ready');
           return;
         }
         setUpdateState('checking');
-        const r = await api.checkForUpdates();
+        const r = await withTimeout(api.checkForUpdates(), 10000);
         setTargetVer(r.targetVersion);
         setUpdateState(r.updateAvailable ? 'available' : 'uptodate');
       } catch {
-        // dev 期 NotInstalled 属预期
+        // dev 期 NotInstalled 属预期，超时也回 idle
         setUpdateState('idle');
       }
     })();
@@ -134,7 +146,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     setUpdateState('checking');
     setUpdateErr(null);
     try {
-      const r = await api.checkForUpdates();
+      const r = await withTimeout(api.checkForUpdates(), 10000);
       setTargetVer(r.targetVersion);
       setUpdateState(r.updateAvailable ? 'available' : 'uptodate');
     } catch (e) {
@@ -153,15 +165,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     if (!api) return;
     setUpdateState('downloading');
     setUpdateProgress(0);
-    const unlisten = await api.onDownloadProgress((pct) => setUpdateProgress(pct));
+    let unlisten: (() => void) | null = null;
     try {
-      const ok = await api.downloadUpdates();
+      // 注册进度监听（带超时，避免 listen 调用挂起）
+      unlisten = await withTimeout(api.onDownloadProgress((pct) => setUpdateProgress(pct)), 5000);
+      // 下载本身可能较慢，给 10 分钟兜底超时；进度事件会持续刷新，正常下载不会触发
+      const ok = await withTimeout(api.downloadUpdates(), 600000);
       setUpdateState(ok ? 'ready' : 'uptodate');
     } catch (e) {
       setUpdateErr((e as { message?: string })?.message ?? String(e));
       setUpdateState('error');
     } finally {
-      unlisten();
+      unlisten?.();
     }
   }
 
@@ -169,7 +184,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     const api = getUpdaterApi();
     if (!api) return;
     try {
-      await api.applyAndRestart();
+      // 应用更新会触发重启，promise 通常不会 resolve（进程退出）；
+      // 15s 超时仅作为重启失败的兜底
+      await withTimeout(api.applyAndRestart(), 15000);
     } catch (e) {
       setUpdateErr((e as { message?: string })?.message ?? String(e));
       setUpdateState('error');

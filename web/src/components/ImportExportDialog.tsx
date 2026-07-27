@@ -11,7 +11,7 @@ import {
   exportAsMarkdown,
   exportAsHtml,
   exportAsJson,
-  exportAsPdf,
+  printNote,
   downloadBlob,
   detectFormat,
 } from '../lib/io-client';
@@ -79,12 +79,12 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       downloadBlob(exportAsHtml(plain.title, plain.content), `${safeTitle}-${date}.html`);
     } else if (fmt === 'pdf') {
       setMode('exporting');
-      setStatus('生成 PDF 中…');
+      setStatus('正在打开打印对话框…');
       try {
-        const blob = await exportAsPdf(plain.title, plain.content);
-        downloadBlob(blob, `${safeTitle}-${date}.pdf`);
+        await printNote(plain.title, plain.content);
+        setStatus('✅ 已打开打印对话框，选择"另存为 PDF"保存');
       } catch (err) {
-        setError(`PDF 导出失败：${(err as Error).message}`);
+        setError(`打印失败：${(err as Error).message}`);
         setMode('main');
         return;
       }

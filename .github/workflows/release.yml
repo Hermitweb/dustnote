@@ -233,10 +233,18 @@ jobs:
       - name: Symlink react-native into mobile/node_modules (pnpm hoisted layout)
         run: |
           mkdir -p mobile/node_modules
-          for pkg in react-native @react-native @react-native-community; do
-            if [ ! -e "mobile/node_modules/$pkg" ] && [ -e "node_modules/$pkg" ]; then
-              ln -s "$(pwd)/node_modules/$pkg" "mobile/node_modules/$pkg"
-            fi
+          # Link ALL react-native* and @react-native* scoped packages from
+          # the hoisted workspace root node_modules. The previous version only
+          # linked 3 exact names and missed react-native-safe-area-context,
+          # react-native-fs, @react-native-async-storage, etc. — causing
+          # autolinking to silently skip native modules and the release APK
+          # to crash on startup (missing SafeAreaProvider, AsyncStorage, …).
+          for pkg in node_modules/react-native node_modules/react-native-* \
+                     node_modules/@react-native node_modules/@react-native-*; do
+            [ -e "$pkg" ] || continue
+            name=$(basename "$pkg")
+            [ -e "mobile/node_modules/$name" ] && continue
+            ln -s "$(pwd)/$pkg" "mobile/node_modules/$name"
           done
       - run: chmod +x mobile/android/gradlew
       - name: Build Android APK

@@ -8,6 +8,9 @@
  *
  * 这些函数在浏览器端运行，使用 File / Blob / FileReader，
  * 因此 vitest 配置使用 jsdom 环境。
+ *
+ * 注：printNote 依赖浏览器原生打印对话框，无法在 jsdom 中单元测试，
+ * 故不在此覆盖；其行为通过手动测试验证。
  */
 
 import { describe, it, expect } from 'vitest';
@@ -17,7 +20,6 @@ import {
   exportAsMarkdown,
   exportAsHtml,
   exportAsJson,
-  exportAsPdf,
 } from './io-client';
 
 // 用文本内容构造一个 File（jsdom 支持 File 构造器）
@@ -103,6 +105,16 @@ describe('exportAsMarkdown', () => {
     expect(text.startsWith('# 已有标题')).toBe(true);
     expect(text).not.toContain('# # 已有标题');
   });
+
+  it('prepends UTF-8 BOM so Windows Notepad detects encoding', async () => {
+    const blob = exportAsMarkdown('标题', '正文');
+    const buf = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    // BOM = 0xEF 0xBB 0xBF
+    expect(bytes[0]).toBe(0xef);
+    expect(bytes[1]).toBe(0xbb);
+    expect(bytes[2]).toBe(0xbf);
+  });
 });
 
 describe('exportAsHtml', () => {
@@ -147,25 +159,5 @@ describe('exportAsJson', () => {
     const blob = exportAsJson([1, 2, 3]);
     const text = await blob.text();
     expect(JSON.parse(text)).toEqual([1, 2, 3]);
-  });
-});
-
-describe('exportAsPdf', () => {
-  it('returns a Blob with type application/pdf', async () => {
-    const blob = await exportAsPdf('测试标题', 'Hello World');
-    expect(blob).toBeInstanceOf(Blob);
-    expect(blob.type).toBe('application/pdf');
-  });
-
-  it('does not throw on empty content', async () => {
-    const blob = await exportAsPdf('', '');
-    expect(blob.size).toBeGreaterThan(0);
-  });
-
-  it('handles multi-paragraph content', async () => {
-    const content = '第一段\n\n第二段\n\n第三段';
-    const blob = await exportAsPdf('多段标题', content);
-    expect(blob.type).toBe('application/pdf');
-    expect(blob.size).toBeGreaterThan(0);
   });
 });

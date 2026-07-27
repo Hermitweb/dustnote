@@ -98,7 +98,8 @@ export async function parseNoteFile(file: File): Promise<NotePlaintext> {
 /** 导出为 Markdown */
 export function exportAsMarkdown(title: string, content: string): Blob {
   const md = content.startsWith('#') ? content : `# ${title}\n\n${content}`;
-  return new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  // 添加 UTF-8 BOM，确保 Windows 记事本正确识别编码
+  return new Blob(['\uFEFF', md], { type: 'text/markdown;charset=utf-8' });
 }
 
 /** 导出为 HTML */
@@ -178,47 +179,50 @@ export function exportAsJson(data: unknown): Blob {
 }
 
 /**
- * 导出为 PDF（动态加载 jspdf 库）
+ * 打印笔记（通过浏览器原生打印引擎生成 PDF）
  *
- * jspdf 体积较大（~350KB），按需加载避免首屏开销。
- * 使用 splitTextToSize 逐行绘制并自动分页。
- * 注意：jsPDF 默认字体不含 CJK 字形，中文可能出现乱码；
- * 如需完美中文支持，后续可嵌入 CJK 子集字体。
+ * 替代原先的 jsPDF 方案：jsPDF 默认 Helvetica 字体不含 CJK 字形，
+ * 中文会全部乱码。改用浏览器原生打印 → "另存为 PDF"，完美支持中文。
+ * 实现方式：隐藏 iframe 加载 HTML → 调用 print() → 用户选"另存为 PDF"。
  */
-export async function exportAsPdf(title: string, content: string): Promise<Blob> {
-  const { jsPDF } = await import('jspdf');
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+export async function printNote(title: string, content: string): Promise<void> {
+  const htmlBlob = exportAsHtml(title, content);
+  const blobUrl = URL.createObjectURL(htmlBlob);
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 48;
-  const maxWidth = pageWidth - margin * 2;
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.src = blobUrl;
+  document.body.appendChild(iframe);
 
-  // 标题
-  doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
-  const titleLines: string[] = doc.splitTextToSize(title || '', maxWidth);
-  doc.text(titleLines, margin, margin + 20);
-
-  // 正文
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  let y = margin + 20 + titleLines.length * 24 + 16;
-
-  const paragraphs = content.split('\n');
-  for (const para of paragraphs) {
-    const lines: string[] = doc.splitTextToSize(para || '', maxWidth);
-    for (const line of lines) {
-      if (y > pageHeight - margin) {
-        doc.addPage();
-        y = margin;
+  return new Promise<void>((resolve) => {
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {
+        // 某些浏览器/WebView 可能阻止跨域 iframe 打印
       }
-      doc.text(line, margin, y);
-      y += 16;
-    }
-  }
-
-  return doc.output('blob');
+      // 打印对话框关闭后清理 iframe
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        URL.revokeObjectURL(blobUrl);
+        resolve();
+      }, 1000);
+    };
+    // 超时保护：10 秒后无论如何都 resolve
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+        URL.revokeObjectURL(blobUrl);
+      }
+      resolve();
+    }, 10000);
+  });
 }
 
 /** 触发下载 */
