@@ -8,9 +8,9 @@
 //! - 与 Web 端共享前端 bundle
 
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WindowEvent,
+    Emitter, Manager, WindowEvent,
 };
 use tauri_plugin_autostart::MacosLauncher;
 #[cfg(desktop)]
@@ -226,6 +226,37 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
+            // 原生菜单栏
+            let new_note_i = MenuItem::with_id(app, "file_new_note", "新建笔记", true, Some("Ctrl+N"))?;
+            let file_quit_i = MenuItem::with_id(app, "file_quit", "退出 DustNote", true, Some("Ctrl+Q"))?;
+            let file_menu = Submenu::with_items(app, "文件", true, &[&new_note_i, &file_quit_i])?;
+
+            let undo_i = PredefinedMenuItem::undo(app, None)?;
+            let redo_i = PredefinedMenuItem::redo(app, None)?;
+            let cut_i = PredefinedMenuItem::cut(app, None)?;
+            let copy_i = PredefinedMenuItem::copy(app, None)?;
+            let paste_i = PredefinedMenuItem::paste(app, None)?;
+            let select_all_i = PredefinedMenuItem::select_all(app, None)?;
+            let edit_menu = Submenu::with_items(app, "编辑", true, &[
+                &undo_i, &redo_i, &cut_i, &copy_i, &paste_i, &select_all_i
+            ])?;
+
+            let zoom_in_i = MenuItem::with_id(app, "view_zoom_in", "放大", true, Some("Ctrl+="))?;
+            let zoom_out_i = MenuItem::with_id(app, "view_zoom_out", "缩小", true, Some("Ctrl+-"))?;
+            let zoom_reset_i = MenuItem::with_id(app, "view_zoom_reset", "重置缩放", true, Some("Ctrl+0"))?;
+            let fullscreen_i = MenuItem::with_id(app, "view_toggle_fullscreen", "全屏", true, Some("F11"))?;
+            let sidebar_i = MenuItem::with_id(app, "view_toggle_sidebar", "侧边栏", true, Some("Ctrl+B"))?;
+            let view_menu = Submenu::with_items(app, "视图", true, &[
+                &zoom_in_i, &zoom_out_i, &zoom_reset_i, &fullscreen_i, &sidebar_i
+            ])?;
+
+            let about_i = MenuItem::with_id(app, "help_about", "关于 DustNote", true, None::<&str>)?;
+            let check_update_i = MenuItem::with_id(app, "help_check_update", "检查更新", true, None::<&str>)?;
+            let help_menu = Submenu::with_items(app, "帮助", true, &[&about_i, &check_update_i])?;
+
+            let main_menu = Menu::with_items(app, &[&file_menu, &edit_menu, &view_menu, &help_menu])?;
+            app.set_menu(main_menu)?;
+
             // 系统托盘
             let quit_i = MenuItem::with_id(app, "quit", "退出 DustNote", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
@@ -302,6 +333,39 @@ pub fn run() {
                 let _ = window.hide();
                 api.prevent_close();
             }
+        })
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "file_new_note" => {
+                let _ = app.emit("menu://action", "file_new_note");
+            }
+            "file_quit" => {
+                app.exit(0);
+            }
+            "view_zoom_in" => {
+                let _ = app.emit("menu://action", "view_zoom_in");
+            }
+            "view_zoom_out" => {
+                let _ = app.emit("menu://action", "view_zoom_out");
+            }
+            "view_zoom_reset" => {
+                let _ = app.emit("menu://action", "view_zoom_reset");
+            }
+            "view_toggle_fullscreen" => {
+                if let Some(w) = app.get_webview_window("main") {
+                    let is_fs = w.is_fullscreen().unwrap_or(false);
+                    let _ = w.set_fullscreen(!is_fs);
+                }
+            }
+            "view_toggle_sidebar" => {
+                let _ = app.emit("menu://action", "view_toggle_sidebar");
+            }
+            "help_about" => {
+                let _ = app.emit("menu://action", "help_about");
+            }
+            "help_check_update" => {
+                let _ = app.emit("menu://action", "help_check_update");
+            }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             greet,

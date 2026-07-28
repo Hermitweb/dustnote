@@ -51,6 +51,18 @@ export function Editor() {
     return () => clearTimeout(t);
   }, [autoSave, note, viewMode]);
 
+  // Ctrl+S 立即保存（绕过防抖，由 use-keyboard-shortcuts 派发 editor:save-now 事件）
+  useEffect(() => {
+    const saveNow = () => {
+      if (note && plain && (title !== plain.title || content !== plain.content)) {
+        setSaving(true);
+        void updateNote(note.id, { title, content }).finally(() => setSaving(false));
+      }
+    };
+    window.addEventListener('editor:save-now', saveNow);
+    return () => window.removeEventListener('editor:save-now', saveNow);
+  }, [note, plain, title, content, updateNote]);
+
   if (!note || !plain) {
     return (
       <main className="flex flex-1 items-center justify-center bg-surface-bg text-surface-muted">

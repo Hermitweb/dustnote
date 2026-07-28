@@ -34,6 +34,7 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { FoldersScreen } from './screens/FoldersScreen';
 import { TagsScreen } from './screens/TagsScreen';
 import { TrashScreen } from './screens/TrashScreen';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { theme, useIsDark } from './theme';
 
 export type RootStackParamList = {
@@ -54,6 +55,14 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppInner />
+    </ErrorBoundary>
+  );
+}
+
+function AppInner() {
   const isDark = useIsDark();
   const authState = useAuthStore((s) => s.authState);
   const init = useAuthStore((s) => s.init);
@@ -64,7 +73,21 @@ export default function App() {
   // 模式状态加载完成后初始化鉴权（mode 变化时也重新探测）
   useEffect(() => {
     if (hydrated && modeInitialized) {
-      void init();
+      let cancelled = false;
+      // 5s 超时兜底：init() 若永不返回，强制切到 needs_unlock 让用户看到解锁界面
+      const timeout = setTimeout(() => {
+        if (!cancelled && useAuthStore.getState().authState === 'unknown') {
+          useAuthStore.setState({ authState: 'needs_unlock' });
+        }
+      }, 5000);
+      void init().finally(() => {
+        cancelled = true;
+        clearTimeout(timeout);
+      });
+      return () => {
+        cancelled = true;
+        clearTimeout(timeout);
+      };
     }
   }, [hydrated, modeInitialized, mode, init]);
 

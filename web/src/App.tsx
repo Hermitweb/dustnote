@@ -21,6 +21,7 @@ import { PublicShareView } from './screens/PublicShareView';
 import { startSyncWs, stopSyncWs } from './lib/sync-ws';
 import { loadConfig } from './lib/config';
 import { installOnlineListener } from './lib/online-listener';
+import { useKeyboardShortcuts } from './lib/use-keyboard-shortcuts';
 import './lib/i18n';
 
 type StandaloneView = 'setup' | 'unlock' | 'recover';
@@ -39,11 +40,22 @@ function App() {
   const updateCheck = useUpdateCheck();
 
   const modeInitialized = useModeStore((s) => s.initialized);
+  const sidebarHidden = useStore((s) => s.sidebarHidden);
 
   const [showSettings, setShowSettings] = useState(false);
   const [showShares, setShowShares] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [standaloneView, setStandaloneView] = useState<StandaloneView>('setup');
+
+  // 应用内快捷键（仅 unlocked 状态生效）
+  useKeyboardShortcuts(authState);
+
+  // 监听快捷键/菜单触发的打开设置事件
+  useEffect(() => {
+    const openSettings = () => setShowSettings(true);
+    window.addEventListener('app:open-settings', openSettings);
+    return () => window.removeEventListener('app:open-settings', openSettings);
+  }, []);
 
   // 启动：检查模式 + 初始化 Repository + 检查状态 + 加载配置
   useEffect(() => {
@@ -171,7 +183,7 @@ function App() {
   // 主界面
   return (
     <div className="flex h-full">
-      <Sidebar />
+      {!sidebarHidden && <Sidebar />}
       <div className="flex flex-1 flex-col">
         {/* 顶部操作条 */}
         <header className="flex items-center gap-2 border-b border-surface-border bg-surface-card px-4 py-2">

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -25,12 +25,21 @@ export function Sidebar() {
   const deleteNote = useStore((s) => s.deleteNote);
   const updateNote = useStore((s) => s.updateNote);
   const moveNote = useStore((s) => s.moveNote);
+  const searchFocusToken = useStore((s) => s.searchFocusToken);
 
   const [newFolderName, setNewFolderName] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
   // 搜索：E2EE 下服务端无法检索密文，必须在客户端对解密后的 notesPlain 做匹配。
   // 大小写不敏感、子串匹配 title/content/tags。空字符串 = 不过滤。
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 搜索框 ref + 快捷键聚焦（Ctrl+F 触发 searchFocusToken 变化）
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (searchFocusToken > 0) {
+      searchInputRef.current?.focus();
+    }
+  }, [searchFocusToken]);
 
   // ========== 多选 ==========
   const [selecting, setSelecting] = useState(false);
@@ -214,6 +223,7 @@ export function Sidebar() {
               🔍
             </span>
             <input
+              ref={searchInputRef}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('app_bar.search')}

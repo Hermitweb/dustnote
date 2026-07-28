@@ -138,7 +138,13 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     }
 
     if (mode === 'standalone') {
-      await get().checkStatusStandalone();
+      try {
+        await get().checkStatusStandalone();
+      } catch (e) {
+        // 单机模式不应失败（无网络），任何异常都视为存储损坏
+        console.warn('[auth] checkStatusStandalone failed', e);
+        set({ authState: 'uninitialized' });
+      }
       return;
     }
 
@@ -154,15 +160,20 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       // 这里仅用 hasGenericPassword 之类的轻量探测；如不可用则保守地假设有缓存。
       let hasCache = false;
       try {
-        // canImplyAuthentication 不触发弹窗，仅判断 keychain 是否可用
-        const ok = await Keychain.canImplyAuthentication({ service: MASTER_KEYCHAIN_SERVICE });
-        hasCache = ok;
-      } catch {
+        // canImplyAuthentication 在某些 ROM 上会抛 IllegalStateException，加超时保护
+        const ok = await Promise.race([
+          Keychain.canImplyAuthentication({ service: MASTER_KEYCHAIN_SERVICE }),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1500)),
+        ]);
+        hasCache = ok === true;
+      } catch (e) {
+        console.warn('[auth] Keychain.canImplyAuthentication failed', e);
         hasCache = false;
       }
       set({ authState: 'needs_unlock', hasBiometricCache: hasCache });
-    } catch {
+    } catch (e) {
       // 服务端不可达：保持 unknown 让 UI 提示用户
+      console.warn('[auth] /auth/status failed', e);
       set({ authState: 'unknown' });
     }
   },

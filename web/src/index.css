@@ -100,3 +100,48 @@ body {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ========== 桌面端原生感优化（仅 desktop 平台生效） ========== */
+html[data-platform='desktop'] {
+  /* 禁用文本选择（输入框 / 文本区域 / contenteditable / prose 除外） */
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input,
+  textarea,
+  [contenteditable='true'],
+  .prose {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* 禁用图片 / 链接 / 按钮拖拽 */
+  img,
+  a,
+  button {
+    -webkit-user-drag: none;
+    user-drag: none;
+  }
+
+  /* 原生风格滚动条（WebKit / Edge / Chrome） */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--mn-border));
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--mn-fg-muted));
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}

@@ -1,5 +1,5 @@
 /**
- * React Native CLI 配置（v2.0.3+）
+ * React Native CLI 配置（v2.0.4+）
  *
  * 背景：本仓库是 pnpm workspace，.npmrc 设置 node-linker=hoisted，所有依赖
  * 都安装在工作区根 node_modules/。mobile/ 作为 workspace 子包，其

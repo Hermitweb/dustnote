@@ -1,6 +1,7 @@
 package com.dustnote
 
 import android.app.Application
+import android.util.Log
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -16,8 +17,8 @@ class MainApplication : Application(), ReactApplication {
   override val reactNativeHost: ReactNativeHost =
       object : DefaultReactNativeHost(this) {
         override fun getPackages(): List<ReactPackage> =
-            PackageList(this).packages.apply {
-            }
+          PackageList(this).packages.apply {
+          }
 
         override fun getJSMainModuleName(): String = "index"
 
@@ -32,9 +33,14 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
-    SoLoader.init(this, false)
-    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-      load()
+    try {
+      SoLoader.init(this, false)
+      if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+        load()
+      }
+    } catch (t: Throwable) {
+      // SoLoader 初始化失败时记录日志但不崩溃
+      Log.e("DustNote", "SoLoader init failed", t)
     }
   }
 }

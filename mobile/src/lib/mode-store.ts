@@ -90,8 +90,14 @@ export const useModeStore = create<ModeStore>((set, get) => ({
   },
 
   async hydrate(): Promise<void> {
-    const state = await loadState();
-    set({ ...state, hydrated: true });
+    try {
+      const state = await loadState();
+      set({ ...state, hydrated: true });
+    } catch (e) {
+      // 极端情况：AsyncStorage 不可用
+      console.warn('[mode-store] hydrate failed', e);
+      set({ ...DEFAULT_STATE, hydrated: true });
+    }
   },
 }));
 

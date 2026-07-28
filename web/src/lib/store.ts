@@ -186,6 +186,12 @@ interface StoreState {
   /** 当前侧栏视图（全部/收藏/回收站） */
   viewMode: ViewMode;
 
+  // UI 临时状态（不持久化）
+  /** 侧边栏是否隐藏（Ctrl+B 切换） */
+  sidebarHidden: boolean;
+  /** 搜索框聚焦令牌（变化时触发 Sidebar 聚焦搜索框） */
+  searchFocusToken: number;
+
   // preferences
   preferences: Preferences;
 
@@ -232,6 +238,10 @@ interface StoreState {
   selectNote: (id: string | null) => void;
   selectFolder: (id: string | null) => void;
   setViewMode: (mode: ViewMode) => void;
+  /** 切换侧边栏显隐（Ctrl+B） */
+  toggleSidebar: () => void;
+  /** 触发搜索框聚焦（Ctrl+F） */
+  focusSearch: () => void;
   createFolder: (name: string) => Promise<string>;
   deleteFolder: (id: string) => Promise<void>;
   /** 永久删除笔记（不可恢复） */
@@ -384,6 +394,10 @@ export const useStore = create<StoreState>((set, get) => ({
   selectedNoteId: null,
   selectedFolderId: null,
   viewMode: 'all',
+
+  // UI 临时状态
+  sidebarHidden: false,
+  searchFocusToken: 0,
 
   // preferences
   preferences: loadPrefs(),
@@ -961,6 +975,12 @@ export const useStore = create<StoreState>((set, get) => ({
   },
   setViewMode(mode: ViewMode): void {
     set({ viewMode: mode, selectedFolderId: null, selectedNoteId: null });
+  },
+  toggleSidebar(): void {
+    set((s) => ({ sidebarHidden: !s.sidebarHidden }));
+  },
+  focusSearch(): void {
+    set((s) => ({ searchFocusToken: s.searchFocusToken + 1 }));
   },
   async permanentDeleteNote(id: string): Promise<void> {
     const note = get().notes.get(id);
