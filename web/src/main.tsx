@@ -8,9 +8,10 @@ import './index.css';
 document.documentElement.dataset.platform = isTauri() ? 'desktop' : 'web';
 document.documentElement.dataset.env = isProduction() ? 'production' : 'development';
 
-// 桌面端 + 生产环境：禁用浏览器默认右键菜单
-if (isTauri() && isProduction()) {
+// 桌面端：禁用浏览器/webview 默认右键菜单（生产+开发环境均禁用，让应用更像原生软件）
+if (isTauri()) {
   window.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
+  document.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
 }
 
 // 桌面端：拦截浏览器默认快捷键（Ctrl+O 打开文件、Ctrl+P 打印）

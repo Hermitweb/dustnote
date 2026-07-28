@@ -257,6 +257,13 @@ pub fn run() {
             let main_menu = Menu::with_items(app, &[&file_menu, &edit_menu, &view_menu, &help_menu])?;
             app.set_menu(main_menu)?;
 
+            // 禁用 webview 右键菜单（额外防护；前端 main.tsx 已在 JS 层禁用 window+document 的 contextmenu）
+            // Tauri 2 的 WebviewWindow 不支持 init_script（仅 WebviewWindowBuilder 支持），
+            // 改用 eval 注入一次性脚本；DustNote 为 SPA 不会页面刷新，一次注入即永久生效
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.eval("document.addEventListener('contextmenu', e => e.preventDefault());");
+            }
+
             // 系统托盘
             let quit_i = MenuItem::with_id(app, "quit", "退出 DustNote", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;

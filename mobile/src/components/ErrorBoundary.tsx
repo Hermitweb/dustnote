@@ -6,8 +6,7 @@
  */
 
 import React, { Component, type ReactNode } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
 
 interface Props {
   children: ReactNode;
@@ -52,7 +51,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.hasError) return this.props.children;
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FEF2F2' }}>
+      <View style={styles.container}>
         <ScrollView
           contentContainerStyle={{
             padding: 24,
@@ -153,7 +152,15 @@ export class ErrorBoundary extends Component<Props, State> {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     );
   }
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FEF2F2',
+    paddingTop: 60, // 状态栏留白（ErrorBoundary 在 SafeAreaProvider 之外，不能用 SafeAreaView）
+  },
+});
