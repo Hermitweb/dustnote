@@ -22,12 +22,22 @@ export const config = {
   logLevel: getEnv('LOG_LEVEL', 'info'),
   dbPath: getEnv('DB_PATH', './data/dustnote.db'),
   webOrigin: getEnv('WEB_ORIGIN', 'http://localhost:5173'),
-  serverVersion: getEnv('SERVER_VERSION', '2.1.0'),
+  serverVersion: getEnv('SERVER_VERSION', '2.1.1'),
   minClientVersion: getEnv('MIN_CLIENT_VERSION', '2.0.2'),
-  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.1.0'),
+  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.1.1'),
   forceUpdateVersion: getEnvOpt('FORCE_UPDATE_VERSION') ?? null,
   eolDateForV0: getEnvOpt('EOL_DATE_FOR_V0'),
-  jwtSecret: getEnv('JWT_SECRET', 'dev-secret-change-me'),
+  jwtSecret: getEnv('JWT_SECRET', 'dev-secret-change-me-do-not-use-in-production-32plus'),
+  /**
+   * JWT 非对称签名（EdDSA / Ed25519）密钥对。
+   * 配置后优先使用 EdDSA 替代 HS256：
+   *   - JWT_PRIVATE_KEY：PKCS#8 PEM 格式私钥（签名用）
+   *   - JWT_PUBLIC_KEY：SPKI PEM 格式公钥（验证用）
+   * 用 scripts/gen-jwt-keys.js 生成密钥对。
+   * 留空时回退到 JWT_SECRET (HS256)，保持向后兼容。
+   */
+  jwtPrivateKey: getEnvOpt('JWT_PRIVATE_KEY'),
+  jwtPublicKey: getEnvOpt('JWT_PUBLIC_KEY'),
   /**
    * Express trust proxy 层数。部署在 nginx/CDN 后面必须设为反代层数（通常 1），
    * 否则 req.ip 恒等于反代自身地址，express-rate-limit 会把所有人算进同一个桶。

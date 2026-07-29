@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
+import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter';
 
 export function StandaloneSetupScreen() {
   const { t } = useTranslation();
@@ -94,6 +95,7 @@ export function StandaloneSetupScreen() {
             hint={t('auth.setup_password_hint')}
             error={tooWeak ? t('auth.too_weak') : undefined}
           />
+          <PasswordStrengthMeter password={password} />
           <Field
             label={t('auth.setup_password_confirm')}
             type="password"

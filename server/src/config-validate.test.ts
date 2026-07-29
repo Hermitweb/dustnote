@@ -16,7 +16,7 @@ const ConfigSchema = z.object({
     .regex(/^\d+\.\d+\.\d+/)
     .nullable(),
   eolDateForV0: z.string().optional(),
-  jwtSecret: z.string().min(16),
+  jwtSecret: z.string().min(32),
   trustProxy: z.number().int().nonnegative().max(10),
 });
 

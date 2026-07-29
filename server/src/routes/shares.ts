@@ -20,6 +20,14 @@ import type { Ciphertext } from '@dustnote/shared';
 import type { AuthUser } from '../middleware/auth.js';
 import { broadcastShareChanged } from '../services/sync-ws.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
+import {
+  isLocked,
+  recordFailure,
+  remainingLockMs,
+  MAX_FAILED_ATTEMPTS,
+  LOCK_DURATION_MS,
+  type LockoutState,
+} from '../auth/lockout.js';
 
 export const sharesRouter = Router();
 export const publicSharesRouter = Router();
@@ -99,6 +107,16 @@ sharesRouter.post('/shares', async (req, res) => {
       expiresAt
     );
 
+    // 审计：分享创建。带密码 / 过期时间写入 meta 便于事后排查
+    db.prepare(
+      'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
+    ).run(
+      user.userId,
+      user.deviceId,
+      'share_create',
+      JSON.stringify({ shareId: id, noteId: note.id, hasPassword: !!passwordHash, expiresAt })
+    );
+
     logger.info({ userId: user.userId, shareId: id, hasPassword: !!passwordHash }, '分享已创建');
     broadcastShareChanged(user.userId, { id, op: 'create' });
     res.status(201).json({
@@ -170,17 +188,46 @@ sharesRouter.delete('/shares/:id', (req, res) => {
     res.status(404).json({ error: 'not_found' });
     return;
   }
+  // 审计：分享吊销
+  db.prepare(
+    'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
+  ).run(user.userId, user.deviceId, 'share_revoke', JSON.stringify({ shareId: id }));
   broadcastShareChanged(user.userId, { id, op: 'revoke' });
   res.json({ ok: true });
 });
 
 // ========== 公开访问（无需登录）==========
+//
+// 安全注意：
+// 1. 同时支持 GET 和 POST：GET 用于无密码场景 / 历史链接兼容；
+//    密码推荐走 POST body（避免出现在 URL / 反代访问日志 / 浏览器历史里）。
+//    服务端两种方法都接受，让旧客户端不破坏的同时让新客户端能升级。
+// 2. 单分享失败计数：与账号锁定策略一致，6 次错误密码 → 该分享锁 15 分钟。
+//    防止单条分享链接被定向爆破。
 
-const PublicAccessSchema = z.object({
+const PublicAccessQuerySchema = z.object({
   password: z.string().optional(),
 });
 
-publicSharesRouter.get('/share/public/:token', async (req, res) => {
+const PublicAccessBodySchema = z.object({
+  password: z.string().optional(),
+});
+
+/** 读取密码：POST 优先取 body，其次回退到 query（GET 向后兼容） */
+function readPassword(req: { query: unknown; body: unknown; method: string }): string | undefined {
+  // POST：从 body 读取
+  if (req.method === 'POST') {
+    const parsed = PublicAccessBodySchema.safeParse(req.body);
+    if (parsed.success) return parsed.data.password;
+    return undefined;
+  }
+  // GET：从 query 读取（兼容旧链接 / 邮件中的预览请求）
+  const parsed = PublicAccessQuerySchema.safeParse(req.query);
+  if (parsed.success) return parsed.data.password;
+  return undefined;
+}
+
+async function handlePublicShareAccess(req: import('express').Request, res: import('express').Response): Promise<void> {
   try {
     const token = req.params.token;
     if (!token) {
@@ -192,7 +239,7 @@ publicSharesRouter.get('/share/public/:token', async (req, res) => {
       .prepare(
         `
       SELECT s.id, s.note_id, s.password_hash, s.expires_at, s.revoked, s.view_count, s.created_at,
-             s.ciphertext
+             s.ciphertext, s.failed_attempts, s.locked_until
       FROM shares s
       WHERE s.token = ?
     `
@@ -207,6 +254,8 @@ publicSharesRouter.get('/share/public/:token', async (req, res) => {
           view_count: number;
           created_at: string;
           ciphertext: string;
+          failed_attempts: number;
+          locked_until: string | null;
         }
       | undefined;
 
@@ -225,17 +274,52 @@ publicSharesRouter.get('/share/public/:token', async (req, res) => {
 
     // 密码校验
     if (share.password_hash) {
-      const parsed = PublicAccessSchema.safeParse(req.query);
-      if (!parsed.success || !parsed.data.password) {
+      // 单分享锁定检查：与账号锁定复用同一策略，但作用在 shares 表
+      const lockState: LockoutState = {
+        failedAttempts: share.failed_attempts,
+        lockedUntil: share.locked_until,
+      };
+      if (isLocked(lockState)) {
+        const waitMs = remainingLockMs(lockState);
+        logger.warn({ shareId: share.id }, '分享已锁定，拒绝访问');
+        res.status(423).json({
+          error: 'share_locked',
+          message: `该分享已被锁定，请在 ${Math.ceil(waitMs / 60_000)} 分钟后再试`,
+          retryAfterSeconds: Math.ceil(waitMs / 1000),
+        });
+        return;
+      }
+
+      const pwd = readPassword(req);
+      if (!pwd) {
         res.status(401).json({ error: 'password_required', message: '该分享需要密码' });
         return;
       }
-      const ok = await verifyPassword(parsed.data.password, share.password_hash);
+      const ok = await verifyPassword(pwd, share.password_hash);
       if (!ok) {
-        logger.warn({ shareId: share.id }, '分享密码错误');
-        res.status(401).json({ error: 'invalid_password' });
+        // 记录失败：达到阈值则锁定该分享 15 分钟
+        const next = recordFailure(lockState);
+        db.prepare(
+          'UPDATE shares SET failed_attempts = ?, locked_until = ? WHERE id = ?'
+        ).run(next.failedAttempts, next.lockedUntil, share.id);
+        logger.warn(
+          { shareId: share.id, attempts: next.failedAttempts, locked: next.failedAttempts >= MAX_FAILED_ATTEMPTS },
+          '分享密码错误'
+        );
+        const retryAfterMs = next.failedAttempts >= MAX_FAILED_ATTEMPTS
+          ? LOCK_DURATION_MS
+          : 0;
+        res.status(401).json({
+          error: 'invalid_password',
+          message: '密码错误',
+          retryAfterSeconds: Math.ceil(retryAfterMs / 1000),
+        });
         return;
       }
+      // 成功：清零失败计数
+      db.prepare(
+        'UPDATE shares SET failed_attempts = 0, locked_until = NULL WHERE id = ?'
+      ).run(share.id);
     }
 
     // 更新查看次数
@@ -252,4 +336,7 @@ publicSharesRouter.get('/share/public/:token', async (req, res) => {
     logger.error({ err }, '访问分享失败');
     res.status(500).json({ error: 'internal_error' });
   }
-});
+}
+
+publicSharesRouter.get('/share/public/:token', (req, res) => void handlePublicShareAccess(req, res));
+publicSharesRouter.post('/share/public/:token', (req, res) => void handlePublicShareAccess(req, res));

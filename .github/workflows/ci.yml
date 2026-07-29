@@ -285,6 +285,48 @@ jobs:
       - run: pnpm --filter @dustnote/server build
       - run: pnpm --filter @dustnote/server test
 
+  build-android:
+    name: Build Android (Debug APK)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    needs: [lint, typecheck, test]
+    # Android 构建较慢且对 RN 升级敏感，作为 mobile 端回归保护。
+    # 失败不阻塞 web/server 端 PR 合并（continue-on-error），但会发出明确信号。
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dustnote/shared build
+      - name: Build Android Debug APK
+        working-directory: mobile/android
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.network.timeout=300000"
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Upload APK artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest

@@ -24,6 +24,7 @@ import { loadConfig } from './lib/config';
 import { installOnlineListener } from './lib/online-listener';
 import { useKeyboardShortcuts } from './lib/use-keyboard-shortcuts';
 import './lib/i18n';
+import { ToastContainer } from './components/ToastContainer';
 
 type StandaloneView = 'setup' | 'unlock' | 'recover';
 
@@ -42,6 +43,7 @@ function App() {
 
   const modeInitialized = useModeStore((s) => s.initialized);
   const sidebarHidden = useStore((s) => s.sidebarHidden);
+  const toggleSidebar = useStore((s) => s.toggleSidebar);
 
   const [showSettings, setShowSettings] = useState(false);
   const [showShares, setShowShares] = useState(false);
@@ -56,6 +58,14 @@ function App() {
     const openSettings = () => setShowSettings(true);
     window.addEventListener('app:open-settings', openSettings);
     return () => window.removeEventListener('app:open-settings', openSettings);
+  }, []);
+
+  // 移动端响应式：窄屏（< sm 断点 640px）默认收起 sidebar，给编辑器留出全宽
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(max-width: 639px)').matches) {
+      useStore.setState({ sidebarHidden: true });
+    }
   }, []);
 
   // 启动：检查模式 + 初始化 Repository + 检查状态 + 加载配置
@@ -188,7 +198,16 @@ function App() {
       <div className="flex flex-1 flex-col">
         {/* 顶部操作条 */}
         <header className="flex items-center gap-2 border-b border-surface-border bg-surface-card px-4 py-2">
-          <div className="text-sm text-surface-muted">{t('app.tagline')}</div>
+          {/* 移动端汉堡按钮：切换 sidebar 抽屉 */}
+          <button
+            onClick={() => toggleSidebar()}
+            className="rounded p-1.5 text-surface-muted hover:bg-surface-bg sm:hidden"
+            aria-label={t('app_bar.toggle_sidebar')}
+            aria-expanded={!sidebarHidden}
+          >
+            ☰
+          </button>
+          <div className="hidden text-sm text-surface-muted sm:block">{t('app.tagline')}</div>
           <div className="ml-auto flex items-center gap-2">
             {mode === 'standalone' && (
               <span className="rounded bg-mint-100 px-2 py-0.5 text-xs text-mint-700 dark:bg-mint-900/30 dark:text-mint-300">
@@ -200,14 +219,16 @@ function App() {
                 <button
                   onClick={() => setShowAdmin(true)}
                   className="rounded p-1.5 text-surface-muted hover:bg-surface-bg"
-                  title="部署管理"
+                  title={t('admin.title')}
+                  aria-label={t('admin.title')}
                 >
                   🛠️
                 </button>
                 <button
                   onClick={() => setShowShares(true)}
                   className="rounded p-1.5 text-surface-muted hover:bg-surface-bg"
-                  title="分享管理"
+                  title={t('shares.title')}
+                  aria-label={t('shares.title')}
                 >
                   🔗
                 </button>
@@ -217,6 +238,7 @@ function App() {
               onClick={() => setShowSettings(true)}
               className="rounded p-1.5 text-surface-muted hover:bg-surface-bg"
               title={t('app_bar.settings')}
+              aria-label={t('app_bar.settings')}
             >
               ⚙️
             </button>
@@ -224,6 +246,7 @@ function App() {
               onClick={lock}
               className="rounded p-1.5 text-surface-muted hover:bg-surface-bg"
               title={t('app_bar.lock')}
+              aria-label={t('app_bar.lock')}
             >
               🔒
             </button>
@@ -241,6 +264,8 @@ function App() {
       {updateCheck.result && updateCheck.result.status === 'ok' && updateCheck.result.manifest && (
         <UpdateBanner result={updateCheck.result} />
       )}
+
+      <ToastContainer />
     </div>
   );
 }

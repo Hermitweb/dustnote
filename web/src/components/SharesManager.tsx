@@ -4,9 +4,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type Ciphertext, toBase64Url, unwrapKey } from '@dustnote/shared';
+import { type Ciphertext, toBase64Url, unwrapKey, zeroize } from '@dustnote/shared';
 import { useStore } from '../lib/store';
 import { getDeviceId } from '../lib/device';
+import { toast } from '../lib/toast';
 
 interface Share {
   id: string;
@@ -85,8 +86,17 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
     void load();
   }, [load]);
 
+  // Esc 关闭对话框（a11y）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const revoke = async (id: string) => {
-    if (!confirm('确定要吊销这个分享吗？链接将立即失效。')) return;
+    if (!confirm(t('shares.confirm_revoke_one'))) return;
     try {
       const token = useStore.getState().accessToken;
       const r = await fetch(`/api/v1/shares/${id}`, {
@@ -102,14 +112,14 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       await load();
     } catch (err) {
-      alert(`吊销失败：${(err as Error).message}`);
+      alert(t('shares.revoke_fail', { reason: (err as Error).message }));
     }
   };
 
   const batchRevoke = async () => {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
-    if (!confirm(`确定要吊销选中的 ${ids.length} 个分享？链接将立即失效。`)) return;
+    if (!confirm(t('shares.confirm_revoke_batch', { count: ids.length }))) return;
     let ok = 0;
     for (const id of ids) {
       try {
@@ -128,27 +138,31 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
         /* skip */
       }
     }
-    alert(`已吊销 ${ok} 个分享`);
+    toast.success(t('shares.batch_done', { count: ok }));
     exitSelect();
     await load();
   };
 
-  /** 用 masterKey 解封 shareKey，拼回带 fragment 的完整链接 */
+  /** 用 masterKey 解封 shareKey，拼回带 fragment 的完整链接。shareKey 用后立即零化 */
   const buildShareUrl = useCallback(async (s: Share): Promise<string | null> => {
     const masterKey = useStore.getState().masterKey;
     if (!masterKey) return null;
+    let shareKey: Uint8Array | null = null;
     try {
-      const shareKey = await unwrapKey(masterKey, s.wrappedShareKey);
+      shareKey = await unwrapKey(masterKey, s.wrappedShareKey);
       return `${location.origin}/share/${s.token}#${toBase64Url(shareKey)}`;
     } catch {
       return null;
+    } finally {
+      // shareKey 是每次解封出来的临时密钥，用后立即零化
+      zeroize(shareKey);
     }
   }, []);
 
   const copy = async (s: Share) => {
     const url = await buildShareUrl(s);
     if (!url) {
-      alert('无法还原分享链接：请先解锁');
+      toast.error(t('shares.unlock_required'));
       return;
     }
     await navigator.clipboard.writeText(url);
@@ -165,13 +179,18 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="shares-mgr-title"
     >
       <div
         className="flex h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-surface-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-surface-border p-4">
-          <h2 className="text-lg font-bold text-surface-fg">🔗 分享管理</h2>
+          <h2 id="shares-mgr-title" className="text-lg font-bold text-surface-fg">
+            {t('shares.title')}
+          </h2>
           <div className="flex items-center gap-2">
             {activeShares.length > 0 && (
               <button
@@ -183,23 +202,36 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                   }
                 }}
                 className="text-xs text-mint-600 hover:text-mint-700"
+                aria-pressed={selecting}
               >
-                {selecting ? '✕ 退出选择' : '批量选择'}
+                {selecting ? t('shares.exit_select') : t('shares.batch_select')}
               </button>
             )}
-            <button onClick={onClose} className="text-surface-muted hover:text-surface-fg">
+            <button
+              onClick={onClose}
+              className="text-surface-muted hover:text-surface-fg"
+              aria-label={t('common.close')}
+            >
               ✕
             </button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          {loading && <div className="py-8 text-center text-surface-muted">加载中…</div>}
-          {error && <div className="py-8 text-center text-red-600">加载失败：{error}</div>}
+          {loading && (
+            <div className="py-8 text-center text-surface-muted" role="status">
+              {t('shares.loading')}
+            </div>
+          )}
+          {error && (
+            <div className="py-8 text-center text-red-600" role="alert">
+              {t('shares.load_fail', { reason: error })}
+            </div>
+          )}
           {!loading && !error && shares.length === 0 && (
             <div className="py-12 text-center text-surface-muted">
-              <div className="mb-2 text-4xl opacity-50">📭</div>
-              <p>还没有创建过分享</p>
+              <div className="mb-2 text-4xl opacity-50">{t('shares.empty_icon')}</div>
+              <p>{t('shares.empty')}</p>
             </div>
           )}
           <div className="space-y-2">
@@ -218,36 +250,40 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                         <button
                           onClick={() => toggleSelect(s.id)}
                           className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${checked ? 'border-mint-600 bg-mint-600 text-white' : 'border-surface-border hover:border-mint-400'}`}
+                          aria-pressed={checked}
+                          aria-label={t('shares.select_all')}
                         >
                           {checked && '✓'}
                         </button>
                       )}
                       <div>
                         <div className="font-semibold text-surface-fg">
-                          {notesPlain.get(s.noteId)?.title || '(无标题)'}
+                          {notesPlain.get(s.noteId)?.title || t('shares.no_title')}
                         </div>
                         <div className="mt-0.5 text-xs text-surface-muted">
-                          创建于 {new Date(s.createdAt).toLocaleString('zh-CN')}
+                          {t('shares.created_at', {
+                            date: new Date(s.createdAt).toLocaleString('zh-CN'),
+                          })}
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-1">
                       {s.hasPassword && (
                         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                          🔐 密码
+                          {t('shares.password_badge')}
                         </span>
                       )}
                       {s.revoked ? (
                         <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                          已吊销
+                          {t('shares.status_revoked')}
                         </span>
                       ) : expired ? (
                         <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-600">
-                          已过期
+                          {t('shares.status_expired')}
                         </span>
                       ) : (
                         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                          生效中
+                          {t('shares.status_active')}
                         </span>
                       )}
                     </div>
@@ -255,27 +291,35 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                   {/* 密钥藏在 fragment 里，这里只作示意——务必用「复制链接」拿完整地址 */}
                   <div className="mb-2 truncate font-mono text-xs text-surface-muted">
                     {location.origin}/share/{s.token}
-                    <span className="opacity-60">#&lt;密钥&gt;</span>
+                    <span className="opacity-60">
+                      #&lt;{t('shares.link_hint_placeholder')}&gt;
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-surface-muted">
-                    <span>👁 {s.viewCount} 次访问</span>
+                    <span>{t('shares.view_count', { count: s.viewCount })}</span>
                     {s.expiresAt && (
-                      <span>· ⏰ {new Date(s.expiresAt).toLocaleString('zh-CN')} 过期</span>
+                      <span>
+                        {t('shares.expires_at', {
+                          date: new Date(s.expiresAt).toLocaleString('zh-CN'),
+                        })}
+                      </span>
                     )}
                     {!selecting && (
                       <div className="ml-auto flex gap-1">
                         <button
                           onClick={() => void copy(s)}
                           className="rounded bg-mint-100 px-2 py-1 text-xs text-mint-700 hover:bg-mint-200 dark:bg-mint-900/30 dark:text-mint-300"
+                          aria-label={t('shares.copy_link')}
                         >
-                          {copiedId === s.id ? '✅ 已复制' : '复制链接'}
+                          {copiedId === s.id ? t('shares.copied') : t('shares.copy_link')}
                         </button>
                         {canAct && (
                           <button
                             onClick={() => void revoke(s.id)}
                             className="rounded bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:bg-red-900/30"
+                            aria-label={t('shares.revoke')}
                           >
-                            吊销
+                            {t('shares.revoke')}
                           </button>
                         )}
                       </div>
@@ -289,16 +333,22 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
 
         {selecting && selCount > 0 && (
           <div className="border-t border-surface-border p-3 flex items-center justify-between">
-            <span className="text-sm text-surface-muted">已选 {selCount} 项</span>
+            <span className="text-sm text-surface-muted">
+              {t('shares.selected_count', { count: selCount })}
+            </span>
             <div className="flex gap-2">
-              <button onClick={toggleAll} className="text-xs text-mint-600 hover:text-mint-700">
-                {hasAll ? '取消全选' : '全选可用'}
+              <button
+                onClick={toggleAll}
+                className="text-xs text-mint-600 hover:text-mint-700"
+                aria-pressed={hasAll}
+              >
+                {hasAll ? t('shares.deselect_all') : t('shares.select_all')}
               </button>
               <button
                 onClick={batchRevoke}
                 className="rounded bg-red-50 px-3 py-1 text-xs text-red-600 hover:bg-red-100 dark:bg-red-900/30"
               >
-                🗑️ 批量吊销
+                {t('shares.batch_revoke')}
               </button>
             </div>
           </div>

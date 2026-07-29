@@ -15,6 +15,7 @@ import {
   toBase64Url,
   fromBase64Url,
   randomBytes,
+  zeroize,
   KDF_PARAMS,
 } from '../src/crypto';
 
@@ -282,4 +283,65 @@ describe('production KDF parameters', () => {
     expect(unlock.authKey).toEqual(setup.authKey);
     expect(await unwrapKey(unlock.kek, wrapped)).toEqual(masterKey);
   }, 30_000);
+});
+
+describe('AES-GCM AAD (additional authenticated data)', () => {
+  const key = randomBytes(32);
+  const plaintext = new TextEncoder().encode('hello world');
+
+  it('round-trips when AAD matches', async () => {
+    const aad = new TextEncoder().encode('context-a');
+    const ct = await encrypt(key, plaintext, 1, aad);
+    expect(ct.a).toBe(1);
+    const pt = await decrypt(key, ct, aad);
+    expect(pt).toEqual(plaintext);
+  });
+
+  it('rejects decryption with mismatched AAD', async () => {
+    const aadA = new TextEncoder().encode('context-a');
+    const aadB = new TextEncoder().encode('context-b');
+    const ct = await encrypt(key, plaintext, 1, aadA);
+    await expect(decrypt(key, ct, aadB)).rejects.toThrow();
+  });
+
+  it('rejects decryption when AAD is required but not provided', async () => {
+    const aad = new TextEncoder().encode('context-a');
+    const ct = await encrypt(key, plaintext, 1, aad);
+    await expect(decrypt(key, ct)).rejects.toThrow(/AAD/);
+  });
+
+  it('rejects decryption when AAD is provided for a non-AAD ciphertext', async () => {
+    // 历史/无 AAD 加密的密文：a 字段为 0，调用方却传了 AAD——视为上下文不匹配
+    const ct = await encrypt(key, plaintext, 1);
+    expect(ct.a).toBe(0);
+    const aad = new TextEncoder().encode('context-a');
+    await expect(decrypt(key, ct, aad)).rejects.toThrow(/AAD/);
+  });
+
+  it('supports string convenience methods with AAD', async () => {
+    const aad = new TextEncoder().encode('note:abc-123');
+    const ct = await encryptString(key, '敏感内容', 1, aad);
+    const plain = await decryptString(key, ct, aad);
+    expect(plain).toBe('敏感内容');
+  });
+});
+
+describe('zeroize', () => {
+  it('overwrites the buffer with zeros', () => {
+    const buf = new Uint8Array([1, 2, 3, 4, 5]);
+    zeroize(buf);
+    expect(Array.from(buf)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('is a no-op on null/undefined (safe for finally blocks)', () => {
+    expect(() => zeroize(null)).not.toThrow();
+    expect(() => zeroize(undefined)).not.toThrow();
+  });
+
+  it('silently skips read-only views without throwing', () => {
+    const backing = new Uint8Array([1, 2, 3]);
+    const roView = backing.subarray(0).map((b) => b) as Uint8Array;
+    // subarray 返回的视图共享底层 buffer，但 map 返回新数组——这里只测「不抛」
+    expect(() => zeroize(roView)).not.toThrow();
+  });
 });

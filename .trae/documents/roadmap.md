@@ -332,8 +332,49 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 
 ---
 
-## 7. 后续路线图（v2.1+ 展望）
+## 7. v2.1.0 生产就绪度补强 ✅
 
+**周期**：T+29 ~ T+30 周
+
+**主题**：落实 production-readiness.md 中 8 项代码层 P1 任务，让产品达到「可日常使用」的完整度。
+
+> 注：本里程碑主要在 **web / desktop 端**完成；mobile / miniprogram 端的功能对齐见 §8。
+
+### 7.1 已交付（web / desktop）
+
+- [x] **i18n 国际化框架**：[web/src/lib/i18n.ts](file:///e:/workspace/dustnote/web/src/lib/i18n.ts) 基于 react-i18next 中英双语
+- [x] **键盘快捷键 Cheatsheet**（F1）：[web/src/components/Cheatsheet.tsx](file:///e:/workspace/dustnote/web/src/components/Cheatsheet.tsx)
+- [x] **Sentry 错误监控**：[web/src/lib/sentry.ts](file:///e:/workspace/dustnote/web/src/lib/sentry.ts) + [server/src/sentry.ts](file:///e:/workspace/dustnote/server/src/sentry.ts)
+- [x] **移动端生物识别解锁**：[mobile/src/screens/StandaloneUnlockScreen.tsx](file:///e:/workspace/dustnote/mobile/src/screens/StandaloneUnlockScreen.tsx)
+- [x] **笔记历史版本**：迁移 id=9 + [web/src/components/NoteHistoryDialog.tsx](file:///e:/workspace/dustnote/web/src/components/NoteHistoryDialog.tsx)
+- [x] **模板系统**：迁移 id=10 + [web/src/components/TemplatePicker.tsx](file:///e:/workspace/dustnote/web/src/components/TemplatePicker.tsx)
+- [x] **全文搜索 v2**（内存倒排索引）：[web/src/lib/search.ts](file:///e:/workspace/dustnote/web/src/lib/search.ts)
+- [x] **桌面托盘 + 全局快捷键**：[desktop/src-tauri/src/lib.rs](file:///e:/workspace/dustnote/desktop/src-tauri/src/lib.rs)
+
+### 7.2 安全加固（v2.1.0 同期）
+
+- [x] 单分享密码爆破锁定（迁移 id=11）：6 次错误 → 该分享锁 15 分钟
+- [x] 分享密码改 POST body 传输（避免 URL/日志泄漏）
+- [x] AES-GCM AAD 绑定能力（`encrypt/decrypt` 新增 `aad` 参数，向后兼容）
+- [x] 密钥零化 `zeroize()`（masterKey / shareKey 用后清零）
+- [x] JWT_SECRET 弱默认检测 + 最小 32 字符校验
+- [x] /auth/recover 路径补账号锁定（与 unlock 共用计数器）
+- [x] audit_log 覆盖登录/恢复/改密/锁定/分享创建/吊销/笔记永久删除
+- [x] logger 脱敏 authorization/cookie/password/token/ciphertext
+
+### 7.3 v2.1.0 已知缺口
+
+- mobile / miniprogram 端尚未对齐 web 的 5 项能力（搜索/分享创建/导入导出/历史/模板）
+- mobile / miniprogram 端无 i18n 框架
+- CI 未覆盖 Android 构建（仅 build:web/server/miniprogram/desktop）
+
+---
+
+## 8. 后续路线图（v2.2+ 展望）
+
+- **mobile / miniprogram 功能对齐**：补齐搜索 / 分享创建 / 导入导出 / 历史 / 模板 5 项能力
+- **mobile i18n**：与 web 共用 i18n key 命名空间
+- **CI Android 构建**：mobile 端一等公民的回归保护
 - iOS 客户端正式构建（待 macOS 硬件 + Apple 签名）
 - macOS 桌面 vpk pack 实测（待 macOS 硬件）
 - CRDT 实时协同编辑

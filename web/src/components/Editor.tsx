@@ -6,6 +6,7 @@ import { useStore } from '../lib/store';
 import { getDeviceId } from '../lib/device';
 import { sanitizeHtml } from '../lib/sanitize-html';
 import { NoteHistoryDialog } from './NoteHistoryDialog';
+import { toast } from '../lib/toast';
 
 export function Editor() {
   const { t } = useTranslation();
@@ -36,8 +37,8 @@ export function Editor() {
     const name = prompt(t('templates.save_as_prompt'), plain.title);
     if (!name) return;
     saveAsTemplate(name, { title: plain.title, content: plain.content, tags: plain.tags })
-      .then(() => alert(t('templates.save_success')))
-      .catch((err: Error) => alert(t('templates.save_fail', { reason: err.message })));
+      .then(() => toast.success(t('templates.save_success')))
+      .catch((err: Error) => toast.error(t('templates.save_fail', { reason: err.message })));
   }, [plain, saveAsTemplate, t]);
 
   useEffect(() => {
@@ -66,6 +67,20 @@ export function Editor() {
     const t = setTimeout(autoSave, 800);
     return () => clearTimeout(t);
   }, [autoSave, note, viewMode]);
+
+  // beforeunload：防抖窗口内（默认 800ms）的未保存修改丢失
+  // 自动保存会兜底，但用户在 800ms 内关闭窗口/刷新会丢内容，这里再拦一道
+  useEffect(() => {
+    const dirty = title !== plain?.title || content !== plain?.content;
+    if (!dirty || viewMode === 'trash') return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = t('editor.unsaved_warning');
+      return e.returnValue;
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [title, content, plain, viewMode, t]);
 
   // Ctrl+S 立即保存（绕过防抖，由 use-keyboard-shortcuts 派发 editor:save-now 事件）
   useEffect(() => {
@@ -324,7 +339,7 @@ function ShareDialog({
     try {
       const { accessToken, masterKey } = useStore.getState();
       if (!masterKey) {
-        alert(t('editor.share_not_unlocked'));
+        toast.error(t('editor.share_not_unlocked'));
         return;
       }
 
@@ -357,7 +372,7 @@ function ShareDialog({
       });
       const data = (await r.json()) as { token: string; error?: string; message?: string };
       if (!r.ok) {
-        alert(t('editor.share_fail', { reason: data.message ?? data.error ?? r.statusText }));
+        toast.error(t('editor.share_fail', { reason: data.message ?? data.error ?? r.statusText }));
         return;
       }
       // 密钥放 fragment：浏览器不会把 `#` 之后的内容发给服务端

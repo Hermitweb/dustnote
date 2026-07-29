@@ -15,11 +15,13 @@
  * React Navigation 6 + Stack Navigator
  */
 
-import React, { useEffect } from 'react';
-import { StatusBar, View, Text, ActivityIndicator } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { StatusBar, View, Text, ActivityIndicator, AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
+import './lib/i18n'; // 副作用导入：初始化 i18next + 加载 AsyncStorage 语言偏好
 import { useAuthStore } from './state/auth';
 import { useModeStore } from './lib/mode-store';
 import { ModeSelectScreen } from './screens/ModeSelectScreen';
@@ -64,11 +66,32 @@ export default function App() {
 
 function AppInner() {
   const isDark = useIsDark();
+  const { t } = useTranslation();
   const authState = useAuthStore((s) => s.authState);
   const init = useAuthStore((s) => s.init);
+  const lock = useAuthStore((s) => s.lock);
   const mode = useModeStore((s) => s.mode);
   const modeInitialized = useModeStore((s) => s.initialized);
   const hydrated = useModeStore((s) => s.hydrated);
+
+  // 已解锁状态快照：AppState 监听器在闭包中读取，避免 stale closure
+  const authStateRef = useRef(authState);
+  authStateRef.current = authState;
+
+  // 后台自动锁定：App 切到后台/inactive 时立即清空内存中的 masterKey
+  // 防止内存抓取 / Recent Apps 预览泄露密钥；下次回前台需重新解锁
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      // 'inactive' iOS 切多任务/控制中心；'background' 完全退到后台
+      // Android 通常直接 inactive -> background；仅 'active' 时表示回到前台
+      if (nextAppState === 'inactive' || nextAppState === 'background') {
+        if (authStateRef.current === 'unlocked') {
+          lock();
+        }
+      }
+    });
+    return () => subscription.remove();
+  }, [lock]);
 
   // 模式状态加载完成后初始化鉴权（mode 变化时也重新探测）
   useEffect(() => {
@@ -102,7 +125,7 @@ function AppInner() {
       <SafeAreaProvider>
         <View style={{ flex: 1, backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={theme.mint600} />
-          <Text style={{ marginTop: 12, color: fgColor, fontSize: 14 }}>加载中…</Text>
+          <Text style={{ marginTop: 12, color: fgColor, fontSize: 14 }}>{t('app.loading')}</Text>
         </View>
       </SafeAreaProvider>
     );
@@ -139,7 +162,7 @@ function AppInner() {
             <Stack.Screen
               name="ModeSelect"
               component={ModeSelectScreen}
-              options={{ title: '选择使用模式', headerBackVisible: false }}
+              options={{ title: t('app.mode_select_title'), headerBackVisible: false }}
             />
           </Stack.Navigator>
         </NavigationContainer>
@@ -153,7 +176,7 @@ function AppInner() {
       <SafeAreaProvider>
         <View style={{ flex: 1, backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={theme.mint600} />
-          <Text style={{ marginTop: 12, color: fgColor, fontSize: 14 }}>正在检查鉴权状态…</Text>
+          <Text style={{ marginTop: 12, color: fgColor, fontSize: 14 }}>{t('app.checking_auth')}</Text>
         </View>
       </SafeAreaProvider>
     );
@@ -195,20 +218,20 @@ function AppInner() {
             <Stack.Screen
               name="NoteEdit"
               component={NoteEditScreen}
-              options={{ title: '编辑' }}
+              options={{ title: t('app.editor_title') }}
             />
             <Stack.Screen
               name="Settings"
               component={SettingsScreen}
-              options={{ title: '设置' }}
+              options={{ title: t('app.settings_title') }}
             />
             <Stack.Screen
               name="Folders"
               component={FoldersScreen}
-              options={{ title: '文件夹' }}
+              options={{ title: t('app.folders_title') }}
             />
-            <Stack.Screen name="Tags" component={TagsScreen} options={{ title: '标签' }} />
-            <Stack.Screen name="Trash" component={TrashScreen} options={{ title: '回收站' }} />
+            <Stack.Screen name="Tags" component={TagsScreen} options={{ title: t('app.tags_title') }} />
+            <Stack.Screen name="Trash" component={TrashScreen} options={{ title: t('app.trash_title') }} />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>
@@ -248,7 +271,7 @@ function AppInner() {
                 <Stack.Screen
                   name="StandaloneSetup"
                   component={StandaloneSetupScreen}
-                  options={{ title: '设置主密码', headerBackVisible: false }}
+                  options={{ title: t('app.setup_title'), headerBackVisible: false }}
                 />
               )}
               {authState === 'needs_unlock' && (
@@ -261,7 +284,7 @@ function AppInner() {
                   <Stack.Screen
                     name="StandaloneRecover"
                     component={StandaloneRecoverScreen}
-                    options={{ title: '恢复密码' }}
+                    options={{ title: t('app.recover_title') }}
                   />
                 </>
               )}
@@ -272,7 +295,7 @@ function AppInner() {
                 <Stack.Screen
                   name="Setup"
                   component={SetupScreen}
-                  options={{ title: '设置主密码', headerBackVisible: false }}
+                  options={{ title: t('app.setup_title'), headerBackVisible: false }}
                 />
               )}
               {authState === 'needs_unlock' && (

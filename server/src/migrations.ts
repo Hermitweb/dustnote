@@ -365,4 +365,20 @@ export const migrations: Migration[] = [
       `);
     },
   },
+  {
+    id: 11,
+    name: 'share-password-lockout',
+    up: (db) => {
+      // 单分享密码爆破防护。
+      // 账号锁定（users.failed_attempts）保护登录入口，但分享密码校验
+      // 走的是另一条路径——之前没有任何失败计数，攻击者可对单个分享
+      // 链接的密码无限穷举。这里复用 lockout 策略，但加在 shares 表上：
+      // 6 次错误 → 该分享被锁 15 分钟。
+      db.exec(`
+        ALTER TABLE shares ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE shares ADD COLUMN locked_until TEXT;
+        UPDATE meta SET value = '11' WHERE key = 'schema_version';
+      `);
+    },
+  },
 ];

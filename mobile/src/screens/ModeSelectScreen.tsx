@@ -24,6 +24,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useModeStore } from '../lib/mode-store';
 import { useColors } from '../theme';
 import { api } from '../api';
@@ -31,6 +32,7 @@ import type { AppMode } from '@dustnote/shared';
 
 export function ModeSelectScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const setMode = useModeStore((s) => s.setMode);
   const setServerUrl = useModeStore((s) => s.setServerUrl);
   const initialize = useModeStore((s) => s.initialize);
@@ -50,7 +52,7 @@ export function ModeSelectScreen() {
 
   const onTestConnection = async () => {
     if (!serverUrl.trim()) {
-      Alert.alert('提示', '请输入服务器地址');
+      Alert.alert(t('common.hint'), t('mode_select.err_empty_server'));
       return;
     }
     setTesting(true);
@@ -58,9 +60,9 @@ export function ModeSelectScreen() {
       // 临时写入 store，让 api 拦截器使用新 baseUrl
       setServerUrl(serverUrl.trim());
       const r = await api.get<{ initialized: boolean }>('/auth/status');
-      Alert.alert('连接成功', `服务器可达，已初始化：${r.initialized ? '是' : '否'}`);
+      Alert.alert(t('mode_select.connection_ok'), t('mode_select.connection_ok_detail', { yesno: r.initialized ? t('common.ok') : '—' }));
     } catch (err) {
-      Alert.alert('连接失败', (err as Error).message);
+      Alert.alert(t('mode_select.connection_failed'), (err as Error).message);
     } finally {
       setTesting(false);
     }
@@ -68,11 +70,11 @@ export function ModeSelectScreen() {
 
   const onConfirm = () => {
     if (!selected) {
-      Alert.alert('提示', '请选择使用模式');
+      Alert.alert(t('common.hint'), t('mode_select.err_no_mode'));
       return;
     }
     if (selected === 'online' && !serverUrl.trim()) {
-      Alert.alert('提示', '联机模式需要填写服务器地址');
+      Alert.alert(t('common.hint'), t('mode_select.err_no_server'));
       return;
     }
     setMode(selected);
@@ -90,8 +92,8 @@ export function ModeSelectScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.emoji}>🌿</Text>
-      <Text style={styles.title}>欢迎使用 DustNote</Text>
-      <Text style={styles.subtitle}>选择你的使用模式，随时可在设置中切换</Text>
+      <Text style={styles.title}>{t('mode_select.welcome')}</Text>
+      <Text style={styles.subtitle}>{t('mode_select.subtitle')}</Text>
 
       {/* 单机模式卡片 */}
       <TouchableOpacity
@@ -102,11 +104,9 @@ export function ModeSelectScreen() {
         onPress={onSelectStandalone}
       >
         <Text style={styles.cardEmoji}>📱</Text>
-        <Text style={styles.cardTitle}>单机模式</Text>
-        <Text style={styles.cardDesc}>
-          无需服务器，数据存储在本地设备。适合个人使用，数据不离开设备，隐私优先。
-        </Text>
-        <Text style={styles.cardFeatures}>本地加密存储 · 离线可用 · 隐私优先</Text>
+        <Text style={styles.cardTitle}>{t('mode_select.standalone_title')}</Text>
+        <Text style={styles.cardDesc}>{t('mode_select.standalone_desc')}</Text>
+        <Text style={styles.cardFeatures}>{t('mode_select.standalone_features')}</Text>
       </TouchableOpacity>
 
       {/* 联机模式卡片 */}
@@ -118,20 +118,18 @@ export function ModeSelectScreen() {
         onPress={onSelectOnline}
       >
         <Text style={styles.cardEmoji}>🌐</Text>
-        <Text style={styles.cardTitle}>联机模式</Text>
-        <Text style={styles.cardDesc}>
-          连接服务器解锁全部功能：跨设备同步、在线分享、协作。需要部署 DustNote 服务端。
-        </Text>
-        <Text style={styles.cardFeatures}>跨设备同步 · 在线分享 · 实时协作</Text>
+        <Text style={styles.cardTitle}>{t('mode_select.online_title')}</Text>
+        <Text style={styles.cardDesc}>{t('mode_select.online_desc')}</Text>
+        <Text style={styles.cardFeatures}>{t('mode_select.online_features')}</Text>
       </TouchableOpacity>
 
       {/* 联机模式：服务器地址输入 */}
       {selected === 'online' && (
         <View style={styles.serverSection}>
-          <Text style={styles.serverLabel}>服务器地址</Text>
+          <Text style={styles.serverLabel}>{t('mode_select.server_url')}</Text>
           <TextInput
             style={styles.serverInput}
-            placeholder="https://your-server.com"
+            placeholder={t('mode_select.server_url_placeholder')}
             value={serverUrl}
             onChangeText={setServerUrlInput}
             autoCapitalize="none"
@@ -147,7 +145,7 @@ export function ModeSelectScreen() {
             {testing ? (
               <ActivityIndicator size="small" color={colors.mint600} />
             ) : (
-              <Text style={styles.testButtonText}>测试连接</Text>
+              <Text style={styles.testButtonText}>{t('mode_select.test_connection')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -159,7 +157,7 @@ export function ModeSelectScreen() {
         onPress={onConfirm}
       >
         <Text style={styles.confirmButtonText}>
-          {selected === 'online' ? '连接服务器' : '使用单机模式'}
+          {selected === 'online' ? t('mode_select.confirm') : t('mode_select.confirm_standalone')}
         </Text>
       </TouchableOpacity>
     </ScrollView>

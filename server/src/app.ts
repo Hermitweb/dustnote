@@ -162,9 +162,11 @@ export function createApp(): Application {
     (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       logger.error({ err }, '未捕获错误');
       captureException(err);
+      // production 与 staging 都走脱敏；仅 development 直接回传 err.message 便于本地调试
+      const safeEnv = config.nodeEnv === 'development';
       res.status(500).json({
         error: 'internal_error',
-        message: config.nodeEnv === 'production' ? '服务异常' : err.message,
+        message: safeEnv ? err.message : '服务异常',
       });
     }
   );

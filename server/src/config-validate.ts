@@ -19,7 +19,7 @@ const ConfigSchema = z.object({
     .regex(/^\d+\.\d+\.\d+/)
     .nullable(),
   eolDateForV0: z.string().optional(),
-  jwtSecret: z.string().min(16),
+  jwtSecret: z.string().min(32, 'JWT_SECRET 必须 ≥32 字符'),
   trustProxy: z.number().int().nonnegative().max(10),
 });
 
@@ -29,9 +29,19 @@ if (!result.success) {
   process.exit(1);
 }
 
+// 已知的弱默认值（开发便利），生产环境必须拒绝
+const KNOWN_WEAK_DEFAULTS = new Set([
+  'dev-secret-change-me-do-not-use-in-production-32plus',
+]);
+
+// 生产环境额外拒绝已知弱默认值；开发/test 环境仅警告
 if (config.nodeEnv === 'production') {
-  if (config.jwtSecret === 'dev-secret-change-me' || config.jwtSecret.length < 32) {
-    console.error('❌ 生产环境必须设置强 JWT_SECRET（≥32 字符）：openssl rand -base64 48');
+  if (KNOWN_WEAK_DEFAULTS.has(config.jwtSecret)) {
+    console.error('❌ 生产环境禁止使用默认 JWT_SECRET：openssl rand -base64 48');
     process.exit(1);
+  }
+} else if (config.nodeEnv !== 'test') {
+  if (KNOWN_WEAK_DEFAULTS.has(config.jwtSecret)) {
+    console.warn('⚠️  正在使用默认 JWT_SECRET，请勿用于对外暴露的开发环境：export JWT_SECRET="$(openssl rand -base64 48)"');
   }
 }

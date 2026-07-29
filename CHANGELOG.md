@@ -13,6 +13,47 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.1.1] - 2026-07-29
+
+### 修复
+
+#### 安全加固
+- **JWT 非对称签名**：服务端 JWT 从 HS256 对称密钥迁移到 EdDSA / Ed25519 非对称签名，降低密钥泄露风险；保留双算法向后兼容（[server/src/auth/jwt.ts](./server/src/auth/jwt.ts)）
+- **E2EE 端到端加密分享**：分享内容以 AES-256-GCM 加密上传，shareKey 由 masterKey 包装，仅持密钥链接可本地解密（[server/src/routes/shares.ts](./server/src/routes/shares.ts)、[web/src/components/SharesManager.tsx](./web/src/components/SharesManager.tsx)）
+- **分享密码 POST Body 传输**：分享密码从查询字符串改为 POST body，避免 URL 泄露（[server/src/routes/shares.ts](./server/src/routes/shares.ts)）
+- **分享失败锁定**：单分享连续失败 6 次后锁定 15 分钟，防暴力破解
+- **AES-GCM AAD 绑定**：加密上下文绑定 AAD，防跨上下文重放
+- **密钥使用后清零**：敏感密钥用后立即 zeroize
+- **XSS 防护**：新增 sanitize-html 白名单净化，HTML 预览与分享渲染均经 DOMParser 过滤（[web/src/lib/sanitize-html.ts](./web/src/lib/sanitize-html.ts)）
+
+#### 移动端增强
+- **i18n 国际化**：移动端接入 react-i18next，支持中英双语 + AsyncStorage 持久化（[mobile/src/lib/i18n.ts](./mobile/src/lib/i18n.ts)）
+- **笔记模板**：编辑页新增模板选择入口
+- **版本历史**：编辑页新增历史版本查看与恢复入口
+
+#### Web 质量
+- **密码强度计**：实时评估密码强度（长度/字符类型/弱口令黑名单）
+- **Toast 通知**：统一用户操作反馈
+- **无障碍**：分享管理对话框增加 ARIA 语义、焦点陷阱、Esc 关闭
+- **移动端响应式**：侧边栏适配窄屏
+
+#### 构建 / 类型修复
+- **jest-dom 类型声明**：补充 `toBeInTheDocument` / `toHaveAttribute` 匹配器编译期类型，修复 `tsc -b --noEmit`（[web/src/test/jest-dom.d.ts](./web/src/test/jest-dom.d.ts)）
+- **Tauri 防截屏方法名**：`set_protected` → `set_content_protected`（Tauri 2.11 实际 API），修复 cargo check（[desktop/src-tauri/src/lib.rs](./desktop/src-tauri/src/lib.rs)）
+- **Tauri 权限名**：`core:window:allow-set-protected` → `core:window:allow-set-content-protected`（[desktop/src-tauri/capabilities/default.json](./desktop/src-tauri/capabilities/default.json)）
+- **Android 签名证书**：生成 RSA 2048 / 10000 天有效期 release keystore，写入 build.gradle 签名配置 + CI Secrets 解码流程（[docs/android-signing.md](./docs/android-signing.md)）
+
+### 测试
+
+- shared: 57 tests（+8 wrapKey/unwrapKey、AAD、zeroize）
+- server: 71 tests（+10 EdDSA JWT、E2EE shares）
+- web: 67 tests（+19 SharesManager、NoteHistoryDialog 组件测试）
+- desktop: cargo check 通过
+
+### 版本同步
+
+全部 package.json / Cargo.toml / tauri.conf.json / build.gradle / env / release.yml / update-manifest 同步至 2.1.1
+
 ## [2.1.0] - 2026-07-29
 
 ### 新增 — P1 功能补齐（8 项）

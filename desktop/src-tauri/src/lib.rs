@@ -257,11 +257,23 @@ pub fn run() {
             let main_menu = Menu::with_items(app, &[&file_menu, &edit_menu, &view_menu, &help_menu])?;
             app.set_menu(main_menu)?;
 
-            // 禁用 webview 右键菜单（额外防护；前端 main.tsx 已在 JS 层禁用 window+document 的 contextmenu）
+            // 禁用 webview 右键菜单：三重防御
+            //   1. Rust eval 注入 document 级 contextmenu preventDefault（此处，SPA 永久生效）
+            //   2. 前端 desktop/src/main.tsx 的 window 级 capture 监听
+            //   3. 前端 desktop/src/main.tsx 的 document 级 capture 监听
             // Tauri 2 的 WebviewWindow 不支持 init_script（仅 WebviewWindowBuilder 支持），
             // 改用 eval 注入一次性脚本；DustNote 为 SPA 不会页面刷新，一次注入即永久生效
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.eval("document.addEventListener('contextmenu', e => e.preventDefault());");
+                // 防截屏：窗口内容设为 content_protected 后，系统截图、录屏、Recent Apps 预览将得到黑屏
+                // macOS: NSWindow.sharingType = NSWindowSharingNone
+                // Windows: SetWindowDisplayAffinity(WDA_MONITOR)
+                // Linux: 取决于窗口管理器支持
+                // Tauri 2.11 方法名为 set_content_protected（早期文档/示例误写 set_protected）
+                // 失败时仅日志告警，不阻塞启动（部分 Linux WM 不支持）
+                if let Err(e) = w.set_content_protected(true) {
+                    eprintln!("[DustNote] 防截屏 set_content_protected 失败: {e}");
+                }
             }
 
             // 系统托盘

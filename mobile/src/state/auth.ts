@@ -65,11 +65,16 @@ export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked
 const MASTER_KEYCHAIN_SERVICE = 'dustnote.master';
 const ACCESS_TOKEN_KEY = 'dustnote_access_token';
 
-/** 将 masterKey 以生物识别访问控制写入 keychain */
+/** 将 masterKey 以生物识别访问控制写入 keychain
+ *
+ * 安全取舍：使用 BIOMETRY_CURRENT_SET（不允许回退到设备 PIN），避免攻击者通过
+ * 弱 PIN 解封 masterKey。生物识别不可用或失败时，由 UI 引导用户回退到密码输入。
+ * 代价：无生物识别的设备无法使用此缓存，每次都需输入主密码——这是 E2EE 应用的合理取舍。
+ */
 async function cacheMasterKeyForBiometric(masterKey: Uint8Array): Promise<void> {
   await Keychain.setGenericPassword('master', toBase64(masterKey), {
     service: MASTER_KEYCHAIN_SERVICE,
-    accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_CURRENT_SET_OR_DEVICE_PASSCODE,
+    accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_CURRENT_SET,
     accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   });
 }

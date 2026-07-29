@@ -17,7 +17,30 @@ import { useModeStore } from '../../lib/mode-store';
 import { hasLocalAuthSync } from '../../lib/local-auth-storage';
 import { ApiClient } from '@dustnote/shared';
 
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.1.1';
+
+/**
+ * 检测当前运行时是否提供完整的 WebCrypto subtle API
+ *
+ * 小程序运行时（如部分微信版本、支付宝、抖音等）可能不提供 crypto.subtle，
+ * 或提供不完整的 importKey/encrypt/decrypt/sign 实现。
+ * 缺失时单机模式（依赖本地 AES-GCM + HKDF）不可用——必须用联机模式。
+ */
+function isWebCryptoAvailable(): boolean {
+  try {
+    const c = (globalThis as unknown as { crypto?: { subtle?: unknown } }).crypto;
+    const subtle = c?.subtle;
+    if (!subtle) return false;
+    // 检查关键方法是否存在（不调用，避免触发权限弹窗）
+    const s = subtle as Record<string, unknown>;
+    return typeof s.importKey === 'function' &&
+      typeof s.encrypt === 'function' &&
+      typeof s.decrypt === 'function' &&
+      typeof s.sign === 'function';
+  } catch {
+    return false;
+  }
+}
 
 /**
  * 测试服务器连通性
@@ -63,6 +86,9 @@ export default function ModeSelect() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
+  // 启动时检测 WebCrypto 可用性（决定单机模式是否可选）
+  const cryptoAvailable = isWebCryptoAvailable();
+
   // 已选过模式时自动跳转到对应流程（避免每次启动都显示模式选择页）
   useEffect(() => {
     if (!modeInitialized) return;
@@ -76,8 +102,19 @@ export default function ModeSelect() {
     }
   }, [modeInitialized, currentMode]);
 
-  /** 选定单机模式：写入 mode-store，根据是否已设置主密码跳转 */
+  /** 选定单机模式：写入 mode-store，根据是否已设置主密码跳转
+   *  当运行时不支持 WebCrypto 时禁用（单机模式依赖本地 AES-GCM + HKDF）
+   */
   const chooseStandalone = () => {
+    if (!cryptoAvailable) {
+      Taro.showModal({
+        title: '当前环境不支持单机模式',
+        content: '当前小程序运行时未提供完整的 WebCrypto API，本地加解密无法工作。请改用联机模式连接服务器，或使用 DustNote Web / 桌面端。',
+        showCancel: false,
+        confirmText: '我知道了',
+      });
+      return;
+    }
     setMode('standalone');
     setServerUrl(null);
     initialize();
@@ -140,10 +177,18 @@ export default function ModeSelect() {
       <Text className="hero-subtitle">端到端加密 · 单机/联机双模式</Text>
 
       {/* 单机模式入口 */}
-      <View className="mint-card mt-l" style={{ width: '100%', maxWidth: '560rpx' }} onClick={chooseStandalone}>
+      <View
+        className="mint-card mt-l"
+        style={{
+          width: '100%',
+          maxWidth: '560rpx',
+          opacity: cryptoAvailable ? 1 : 0.5,
+        }}
+        onClick={chooseStandalone}
+      >
         <View className="row between">
           <Text className="text-lg fw-bold">📱 单机模式</Text>
-          <Text className="text-mint">›</Text>
+          <Text className="text-mint">{cryptoAvailable ? '›' : '🔒'}</Text>
         </View>
         <Text className="hint mt-s" style={{ display: 'block' }}>
           无需服务器，数据存储在本地，主密码本地验证。
@@ -151,6 +196,11 @@ export default function ModeSelect() {
         <Text className="text-xs text-muted mt-s" style={{ display: 'block' }}>
           适合：私密笔记 / 离线使用 / 数据完全自持
         </Text>
+        {!cryptoAvailable && (
+          <Text className="text-xs error-text mt-s" style={{ display: 'block' }}>
+            ⚠️ 当前运行时不支持 WebCrypto，本模式不可用
+          </Text>
+        )}
       </View>
 
       {/* 联机模式入口 */}

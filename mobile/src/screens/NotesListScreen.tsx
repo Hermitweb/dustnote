@@ -2,6 +2,12 @@
  * 笔记列表：左侧抽屉 + 主区卡片列表
  *
  * 移动端使用底部 Tab + 顶部搜索
+ *
+ * v2.0.0 双模式架构：通过 createRepository 工厂按模式分流
+ * - standalone → LocalRepository（AsyncStorage）
+ * - online     → RemoteRepository（封装 api）
+ *
+ * 不再直接调用 api.get/post，避免单机模式下因无服务端而崩溃
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -13,29 +19,26 @@ import {
   StyleSheet,
   RefreshControl,
   TextInput,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
-import { decryptString, encryptString, type Ciphertext } from '@dustnote/shared';
-import { api } from '../api';
+import {
+  decryptString,
+  encryptString,
+  type Ciphertext,
+  type NoteRow,
+} from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
+import { useModeStore } from '../lib/mode-store';
+import { createRepository } from '../lib/repository';
 import { useColors } from '../theme';
 
 interface NotePlaintext {
   title: string;
   content: string;
   tags: string[];
-}
-
-interface NoteRow {
-  id: string;
-  isPinned: number;
-  isFavorite: number;
-  deletedAt: string | null;
-  serverUpdatedAt: string;
-  ciphertext: string;
-  folderId: string | null;
 }
 
 /** 解析密文信封：兼容新格式 { v, payload } 与旧格式（直接是 Ciphertext） */
@@ -58,21 +61,44 @@ async function decryptNote(masterKey: Uint8Array, ciphertext: string): Promise<N
   return JSON.parse(json) as NotePlaintext;
 }
 
+/** 把明文打包成密文信封 JSON 字符串（用于 createNote / updateNote 的 ciphertext 字段） */
+async function packEnvelope(masterKey: Uint8Array, plain: NotePlaintext): Promise<string> {
+  const payload = await encryptString(masterKey, JSON.stringify(plain), 1);
+  const env = { v: 1, payload };
+  return JSON.stringify(env);
+}
+
+interface NoteListItem extends NoteRow {
+  plain: NotePlaintext | null;
+}
+
 export function NotesListScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const colors = useColors();
   const masterKey = useAuthStore((s) => s.masterKey);
-  const [notes, setNotes] = useState<Array<NoteRow & { plain: NotePlaintext | null }>>([]);
+  const mode = useModeStore((s) => s.mode);
+  const modeInitialized = useModeStore((s) => s.initialized);
+  const [notes, setNotes] = useState<NoteListItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  // 创建 Repository（按当前模式分流）
+  // mode 可能因 hydrated 延迟而短暂为 null，使用 ?? 'online' 兜底避免类型错误
+  const repo = useMemo(
+    () => createRepository({ mode: mode ?? 'online', serverUrl: null, accessToken: null, deviceId: null }),
+    [mode]
+  );
 
   const load = useCallback(async () => {
+    if (!modeInitialized) return;
     setRefreshing(true);
+    setError(null);
     try {
-      const r = await api.get<{ notes: NoteRow[] }>('/notes');
+      const snapshot = await repo.loadAll();
       // 在主线程逐条解密（v1 简化；后续可放到 worker）
-      const withPlain: Array<NoteRow & { plain: NotePlaintext | null }> = [];
-      for (const n of r.notes) {
+      const withPlain: NoteListItem[] = [];
+      for (const n of snapshot.notes) {
         let plain: NotePlaintext | null = null;
         if (masterKey) {
           try {
@@ -86,10 +112,11 @@ export function NotesListScreen() {
       setNotes(withPlain);
     } catch (err) {
       console.warn('加载失败', err);
+      setError(`加载失败：${(err as Error).message}。下拉可重试。`);
     } finally {
       setRefreshing(false);
     }
-  }, [masterKey]);
+  }, [masterKey, repo, modeInitialized]);
 
   useEffect(() => {
     void load();
@@ -101,7 +128,11 @@ export function NotesListScreen() {
       .filter((n) => !n.deletedAt)
       .filter((n) => {
         if (!keyword) return true;
-        return n.plain?.title?.toLowerCase().includes(keyword) ?? false;
+        // 搜索标题 + 内容 + 标签（解密后的明文）
+        const title = n.plain?.title?.toLowerCase() ?? '';
+        const content = n.plain?.content?.toLowerCase() ?? '';
+        const tags = n.plain?.tags?.join(' ').toLowerCase() ?? '';
+        return title.includes(keyword) || content.includes(keyword) || tags.includes(keyword);
       })
       .sort((a, b) => {
         if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
@@ -142,11 +173,21 @@ export function NotesListScreen() {
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} />}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>📝</Text>
-            <Text style={styles.emptyText}>还没有笔记</Text>
-            <Text style={styles.emptyHint}>点击右下角按钮创建第一篇</Text>
-          </View>
+          error ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>⚠️</Text>
+              <Text style={styles.emptyText}>{error}</Text>
+              <TouchableOpacity onPress={() => void load()} style={styles.retryBtn}>
+                <Text style={styles.retryText}>重试</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>📝</Text>
+              <Text style={styles.emptyText}>还没有笔记</Text>
+              <Text style={styles.emptyHint}>点击右下角按钮创建第一篇</Text>
+            </View>
+          )
         }
         renderItem={({ item }) => (
           <TouchableOpacity
@@ -176,19 +217,18 @@ export function NotesListScreen() {
           try {
             // 用真实密文创建空笔记，保证列表展示与其他端一致
             const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
-            const payload = await encryptString(masterKey, JSON.stringify(empty), 1);
-            const env = { v: 1, payload };
-            const r = await api.post<{ id: string }>('/notes', {
-              ciphertext: JSON.stringify(env),
+            const ciphertext = await packEnvelope(masterKey, empty);
+            await repo.createNote({
+              ciphertext,
               keyVersion: 1,
               isPinned: false,
               isFavorite: false,
-              clientUpdatedAt: new Date().toISOString(),
               folderId: null,
             });
-            navigation.navigate('NoteEdit', { noteId: r.id });
+            await load();
           } catch (err) {
             console.warn('创建失败', err);
+            Alert.alert('创建失败', (err as Error).message);
           }
         }}
       >
@@ -237,6 +277,8 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     emptyEmoji: { fontSize: 48, marginBottom: 12 },
     emptyText: { fontSize: 16, color: c.fg, marginBottom: 4 },
     emptyHint: { fontSize: 12, color: c.muted },
+    retryBtn: { marginTop: 12, paddingHorizontal: 20, paddingVertical: 8, backgroundColor: c.mint600, borderRadius: 8 },
+    retryText: { color: 'white', fontSize: 14, fontWeight: '600' },
     fab: {
       position: 'absolute',
       right: 20,

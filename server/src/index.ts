@@ -11,6 +11,7 @@ import { migrations } from './migrations.js';
 import { setupSyncWss, closeWss } from './services/sync-ws.js';
 import { startTrashCleanup, stopTrashCleanup } from './services/trash-cleanup.js';
 import { initSentry, captureException } from './sentry.js';
+import { ACTIVE_ALGORITHM } from './auth/jwt.js';
 
 // 启动时配置校验
 import './config-validate.js';
@@ -36,8 +37,13 @@ async function main(): Promise<void> {
   // 5. 启动
   httpServer.listen(config.port, () => {
     logger.info(
-      { port: config.port, env: config.nodeEnv, version: config.serverVersion },
-      `🚀 DustNote 服务端已启动  http://localhost:${config.port}`
+      {
+        port: config.port,
+        env: config.nodeEnv,
+        version: config.serverVersion,
+        jwtAlg: ACTIVE_ALGORITHM,
+      },
+      `🚀 DustNote 服务端已启动  http://localhost:${config.port}  (JWT: ${ACTIVE_ALGORITHM})`
     );
   });
 

@@ -54,9 +54,16 @@ export function PublicShareView({ token }: { token: string }) {
     async (pwd?: string) => {
       setSubmitting(true);
       try {
-        const url = `/api/v1/share/public/${token}${pwd ? `?password=${encodeURIComponent(pwd)}` : ''}`;
+        // 密码走 POST body，避免出现在 URL / 反代访问日志 / 浏览器历史里
+        const url = `/api/v1/share/public/${token}`;
         const res = await fetch(url, {
-          headers: { 'X-Client-Platform': 'web', 'X-Client-Version': __APP_VERSION__ },
+          method: 'POST',
+          headers: {
+            'X-Client-Platform': 'web',
+            'X-Client-Version': __APP_VERSION__,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(pwd ? { password: pwd } : {}),
         });
         const data = (await res.json()) as Record<string, unknown> & {
           error?: string;
@@ -69,6 +76,11 @@ export function PublicShareView({ token }: { token: string }) {
         }
         if (res.status === 401 && data.error === 'invalid_password') {
           setState({ kind: 'error', message: t('public_share.wrong_password') });
+          return;
+        }
+        if (res.status === 423) {
+          // 单分享密码爆破锁定
+          setState({ kind: 'error', message: data.message ?? t('public_share.locked', { defaultValue: '该分享已被锁定，请稍后再试' }) });
           return;
         }
         if (res.status === 410) {

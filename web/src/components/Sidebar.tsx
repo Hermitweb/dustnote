@@ -3,6 +3,7 @@ import { useStore } from '../lib/store';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { TemplatePicker } from './TemplatePicker';
 import { SearchIndex, highlightMatches, type SearchHit } from '../lib/search';
+import { toast } from '../lib/toast';
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -128,7 +129,7 @@ export function Sidebar() {
       unfav: t('sidebar.batch.unfav'),
       move: t('sidebar.batch.move'),
     };
-    alert(t('sidebar.batch_done', { label: labels[action], count: ok }));
+    toast.success(t('sidebar.batch_done', { label: labels[action], count: ok }));
   };
 
   // ========== 全文搜索 v2（内存倒排索引 + 中文分词） ==========
@@ -204,7 +205,14 @@ export function Sidebar() {
   const hasAll = visibleNotes.length > 0 && selectedIds.size === visibleNotes.length;
 
   return (
-    <aside className="flex h-full w-72 flex-col border-r border-surface-border bg-surface-card">
+    <>
+      {/* 移动端遮罩：sidebar 显示时点击空白处关闭 */}
+      <div
+        className="fixed inset-0 z-30 bg-black/40 sm:hidden"
+        onClick={() => useStore.getState().toggleSidebar()}
+        aria-hidden="true"
+      />
+      <aside className="fixed inset-y-0 left-0 z-40 flex h-full w-72 max-w-[85vw] flex-col border-r border-surface-border bg-surface-card sm:static sm:z-auto sm:max-w-none">
       {/* 顶栏 */}
       <div className="border-b border-surface-border p-4">
         <div className="mb-3 flex items-center gap-2">
@@ -245,6 +253,7 @@ export function Sidebar() {
               onClick={() => setShowTemplatePicker(true)}
               className="rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg transition-colors hover:bg-surface-sunken"
               title={t('templates.open')}
+              aria-label={t('templates.open')}
             >
               📋
             </button>
@@ -556,7 +565,8 @@ export function Sidebar() {
       {showTemplatePicker && (
         <TemplatePicker onClose={() => setShowTemplatePicker(false)} />
       )}
-    </aside>
+      </aside>
+    </>
   );
 }
 

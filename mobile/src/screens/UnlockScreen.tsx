@@ -9,6 +9,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import ReactNativeBiometrics from 'react-native-biometrics';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
@@ -17,6 +18,7 @@ const rnb = new ReactNativeBiometrics();
 
 export function UnlockScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const unlock = useAuthStore((s) => s.unlock);
@@ -28,7 +30,7 @@ export function UnlockScreen() {
     try {
       await unlock(password);
     } catch (err) {
-      Alert.alert('解锁失败', (err as Error).message);
+      Alert.alert(t('auth.unlock_failed'), (err as Error).message);
     } finally {
       setSubmitting(false);
     }
@@ -38,19 +40,19 @@ export function UnlockScreen() {
     try {
       const { available } = await rnb.isSensorAvailable();
       if (!available) {
-        Alert.alert('不可用', '设备未配置生物识别');
+        Alert.alert(t('common.hint'), t('auth.unlock_biometric_unavailable'));
         return;
       }
       // 先用 simplePrompt 让用户确认指纹 / 面容
-      const { success } = await rnb.simplePrompt({ promptMessage: '解锁 DustNote' });
+      const { success } = await rnb.simplePrompt({ promptMessage: t('auth.unlock_biometric_prompt') });
       if (!success) return;
       // 生物识别通过：从 keychain 读取缓存的 masterKey
       const ok = await unlockWithBiometric();
       if (!ok) {
-        Alert.alert('提示', '未找到缓存的解锁信息，请输入主密码完成解锁');
+        Alert.alert(t('common.hint'), t('auth.unlock_biometric_no_cache'));
       }
     } catch (err) {
-      Alert.alert('解锁失败', (err as Error).message);
+      Alert.alert(t('auth.unlock_failed'), (err as Error).message);
     }
   };
 
@@ -59,12 +61,12 @@ export function UnlockScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.emoji}>🌿</Text>
-      <Text style={styles.title}>DustNote</Text>
-      <Text style={styles.subtitle}>输入主密码解锁</Text>
+      <Text style={styles.title}>{t('auth.unlock_title')}</Text>
+      <Text style={styles.subtitle}>{t('auth.unlock_subtitle')}</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="主密码"
+        placeholder={t('auth.unlock_password')}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -78,12 +80,12 @@ export function UnlockScreen() {
         disabled={submitting}
         onPress={onUnlock}
       >
-        <Text style={styles.buttonText}>{submitting ? '解锁中…' : '解锁'}</Text>
+        <Text style={styles.buttonText}>{submitting ? t('auth.unlocking') : t('auth.unlock_btn')}</Text>
       </TouchableOpacity>
 
       {hasBiometricCache && (
         <TouchableOpacity style={styles.bioButton} onPress={onBiometric}>
-          <Text style={styles.bioButtonText}>👆 使用生物识别</Text>
+          <Text style={styles.bioButtonText}>{t('auth.unlock_biometric')}</Text>
         </TouchableOpacity>
       )}
     </View>

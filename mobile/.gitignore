@@ -6,6 +6,10 @@ android/local.properties
 android/.cxx/
 *.keystore
 !debug.keystore
+# Release signing credentials — never commit
+android/keystore.properties
+android/.keystore-pw.txt
+android/.keystore-base64.txt
 
 # Metro
 .metro-health-check*

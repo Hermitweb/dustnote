@@ -30,26 +30,36 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
+import { useLanguageStore, type AppLanguage } from '../lib/i18n';
 import { createRepository } from '../lib/repository';
 import { useColors, useThemeStore, type ThemeMode } from '../theme';
 import type { BackupPayload, AppMode } from '@dustnote/shared';
 import RNFS from 'react-native-fs';
 
-const APP_VERSION = '2.1.0';
-const MODE_OPTIONS: Array<{ mode: ThemeMode; label: string }> = [
-  { mode: 'light', label: '☀️ 浅色' },
-  { mode: 'dark', label: '🌙 深色' },
-  { mode: 'auto', label: '📱 跟随系统' },
+const APP_VERSION = '2.1.1';
+const LANG_OPTIONS: Array<{ lang: AppLanguage; key: string }> = [
+  { lang: 'zh-CN', key: 'settings.lang_zh' },
+  { lang: 'en', key: 'settings.lang_en' },
 ];
 
 export function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const colors = useColors();
+  const { t } = useTranslation();
   const lock = useAuthStore((s) => s.lock);
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
+  const language = useLanguageStore((s) => s.language);
+  const setLanguage = useLanguageStore((s) => s.setLanguage);
+
+  const MODE_OPTIONS: Array<{ mode: ThemeMode; label: string }> = [
+    { mode: 'light', label: t('settings.theme_light') },
+    { mode: 'dark', label: t('settings.theme_dark') },
+    { mode: 'auto', label: t('settings.theme_auto') },
+  ];
 
   // 模式相关
   const appMode = useModeStore((s) => s.mode);
@@ -254,7 +264,7 @@ export function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <Section title="外观" colors={colors}>
+      <Section title={t('settings.appearance')} colors={colors}>
         <View style={styles.modeRow}>
           {MODE_OPTIONS.map((opt) => {
             const active = mode === opt.mode;
@@ -276,14 +286,36 @@ export function SettingsScreen() {
         </View>
       </Section>
 
-      <Section title="应用模式" colors={colors}>
+      <Section title={t('settings.language_section')} colors={colors}>
+        <View style={styles.modeRow}>
+          {LANG_OPTIONS.map((opt) => {
+            const active = language === opt.lang;
+            return (
+              <TouchableOpacity
+                key={opt.lang}
+                style={[
+                  styles.modeChip,
+                  active && { backgroundColor: colors.mint600, borderColor: colors.mint600 },
+                ]}
+                onPress={() => setLanguage(opt.lang)}
+              >
+                <Text style={[styles.modeChipText, active && { color: 'white' }]}>
+                  {t(opt.key)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Section>
+
+      <Section title={t('settings.app_mode_section')} colors={colors}>
         <Row
-          label="当前模式"
-          detail={appMode === 'standalone' ? '单机模式' : '联机模式'}
+          label={t('settings.current_mode')}
+          detail={appMode === 'standalone' ? t('settings.mode_standalone') : t('settings.mode_online')}
           colors={colors}
         />
         <Row
-          label="🔄 切换模式"
+          label={t('settings.switch_mode')}
           onPress={() => {
             setSwitchTarget(appMode === 'standalone' ? 'online' : 'standalone');
             setSwitchServerUrl('');
@@ -291,35 +323,29 @@ export function SettingsScreen() {
           }}
           colors={colors}
         />
-        <Text style={styles.modeHint}>
-          切换模式会迁移你的所有数据（笔记、文件夹、标签、偏好）。
-          单机→联机：上传到服务器；联机→单机：下载到本地。
-        </Text>
+        <Text style={styles.modeHint}>{t('settings.switch_mode_hint')}</Text>
       </Section>
 
-      <Section title="数据" colors={colors}>
+      <Section title={t('settings.data_section')} colors={colors}>
         <Row
-          label="📤 导出备份"
+          label={t('settings.export')}
           onPress={onExport}
           colors={colors}
         />
         <Row
-          label="📥 导入备份"
+          label={t('settings.import')}
           onPress={() => {
             setImportJson('');
             setShowImport(true);
           }}
           colors={colors}
         />
-        <Text style={styles.modeHint}>
-          导出：生成 JSON 备份文件并分享。{'\n'}
-          导入：粘贴备份 JSON 后覆盖式导入（谨慎操作）。
-        </Text>
+        <Text style={styles.modeHint}>{t('settings.data_hint')}</Text>
       </Section>
 
-      <Section title="账户" colors={colors}>
+      <Section title={t('settings.account_section')} colors={colors}>
         <Row
-          label="🔒 锁定"
+          label={t('settings.lock')}
           onPress={() => {
             lock();
             navigation.reset({
@@ -333,13 +359,13 @@ export function SettingsScreen() {
         />
       </Section>
 
-      <Section title="关于" colors={colors}>
-        <Row label="版本" detail={APP_VERSION} colors={colors} />
-        <Row label="加密" detail="AES-256-GCM" colors={colors} />
-        <Row label="客户端" detail="React Native" colors={colors} />
+      <Section title={t('settings.about_section')} colors={colors}>
+        <Row label={t('settings.version')} detail={APP_VERSION} colors={colors} />
+        <Row label={t('settings.encryption')} detail={t('settings.encryption_value')} colors={colors} />
+        <Row label={t('settings.client')} detail={t('settings.client_value')} colors={colors} />
         <Row
-          label="模式"
-          detail={appMode === 'standalone' ? '单机（本地存储）' : '联机（服务器同步）'}
+          label={t('settings.mode_label')}
+          detail={appMode === 'standalone' ? t('settings.mode_detail_standalone') : t('settings.mode_detail_online')}
           colors={colors}
         />
       </Section>

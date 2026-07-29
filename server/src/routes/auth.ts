@@ -127,12 +127,6 @@ function issueSession(
   return { accessToken: access, userId, deviceId };
 }
 
-/** 统一的失败响应，避免用「用户不存在 / 密码错误」这类差异泄露信息 */
-function rejectAuth(res: Response, event: string, meta: Record<string, unknown>): void {
-  logger.warn(meta, event);
-  res.status(401).json({ error: 'invalid_credentials', message: '凭据无效' });
-}
-
 // ========== GET /auth/status ==========
 
 authRouter.get('/auth/status', (req, res) => {
@@ -359,16 +353,66 @@ authRouter.post('/auth/recover', async (req, res) => {
     return;
   }
 
+  const db = getDb();
   const user = loadUser();
   if (!user) {
     res.status(404).json({ error: 'not_initialized' });
     return;
   }
 
-  if (!(await verifyPassword(parsed.data.recoveryAuthKey, user.recovery_auth_hash))) {
-    rejectAuth(res, '恢复码错误', { userId: user.id, deviceId: client.deviceId });
+  // 账号锁定检查：recover 路径与 unlock 共用同一锁定状态，防止定向爆破恢复码
+  // 恢复码虽是 10 位 Crockford Base32（2^50 熵），但仍统一防护以避免旁路
+  const lockState: LockoutState = {
+    failedAttempts: user.failed_attempts,
+    lockedUntil: user.locked_until,
+  };
+  if (isLocked(lockState)) {
+    const waitMs = remainingLockMs(lockState);
+    logger.warn({ userId: user.id }, '账号已锁定，拒绝 recover');
+    res.status(423).json({
+      error: 'account_locked',
+      message: `账号已锁定，请在 ${Math.ceil(waitMs / 60_000)} 分钟后再试`,
+      retryAfterSeconds: Math.ceil(waitMs / 1000),
+    });
     return;
   }
+
+  if (!(await verifyPassword(parsed.data.recoveryAuthKey, user.recovery_auth_hash))) {
+    // 记录失败：与 unlock 共用计数器，达阈值后锁定 15 分钟
+    const next = recordFailure(lockState);
+    db.prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?').run(
+      next.failedAttempts,
+      next.lockedUntil,
+      user.id
+    );
+
+    const remaining = MAX_FAILED_ATTEMPTS - next.failedAttempts;
+    logger.warn(
+      { userId: user.id, deviceId: client.deviceId, attempts: next.failedAttempts },
+      '恢复码错误'
+    );
+    if (next.lockedUntil) {
+      res.status(423).json({
+        error: 'account_locked',
+        message: `连续 ${MAX_FAILED_ATTEMPTS} 次凭据错误，账号已锁定 15 分钟`,
+        retryAfterSeconds: 900,
+      });
+    } else {
+      res.status(401).json({
+        error: 'invalid_credentials',
+        message: `凭据错误，剩余尝试次数 ${remaining}`,
+      });
+    }
+    return;
+  }
+
+  // 恢复成功：清零失败计数
+  const clean = recordSuccess();
+  db.prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?').run(
+    clean.failedAttempts,
+    clean.lockedUntil,
+    user.id
+  );
 
   touchDevice(user.id, client.deviceId, client.platform, parsed.data.deviceName);
   getDb()

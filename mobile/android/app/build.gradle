@@ -27,6 +27,42 @@ react {
 def enableProguardInReleaseBuilds = false
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+/**
+ * Release signing config resolution.
+ *
+ * Priority:
+ *   1. Environment variables (CI):  DUSTNOTE_STORE_FILE / _STORE_PASSWORD /
+ *      _KEY_ALIAS / _KEY_PASSWORD — point at a pre-decoded keystore path.
+ *   2. Local dev: ../keystore.properties (gitignored) next to the android/
+ *      project root, referencing app/dustnote-release.keystore.
+ *   3. Fallback: debug keystore (keeps `assembleRelease` working before a
+ *      release keystore exists; safe for local Debug-only builds).
+ *
+ * keystore.properties is gitignored. CI regenerates it from the
+ * ANDROID_KEYSTORE_BASE64 GitHub secret (see .github/workflows/release.yml).
+ */
+def releaseStoreFile = null
+def releaseStorePassword = null
+def releaseKeyAlias = null
+def releaseKeyPassword = null
+
+if (System.env.DUSTNOTE_STORE_FILE != null) {
+  releaseStoreFile = file(System.env.DUSTNOTE_STORE_FILE)
+  releaseStorePassword = System.env.DUSTNOTE_STORE_PASSWORD
+  releaseKeyAlias = System.env.DUSTNOTE_KEY_ALIAS
+  releaseKeyPassword = System.env.DUSTNOTE_KEY_PASSWORD
+} else {
+  def keystorePropsFile = rootProject.file("keystore.properties")
+  if (keystorePropsFile.exists()) {
+    def props = new Properties()
+    keystorePropsFile.withInputStream { props.load(it) }
+    releaseStoreFile = file(props['storeFile'])
+    releaseStorePassword = props['storePassword']
+    releaseKeyAlias = props['keyAlias']
+    releaseKeyPassword = props['keyPassword']
+  }
+}
+
 android {
   ndkVersion rootProject.ext.ndkVersion
   buildToolsVersion rootProject.ext.buildToolsVersion
@@ -37,8 +73,8 @@ android {
     applicationId "com.dustnote"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 6
-    versionName "2.1.0"
+    versionCode 7
+    versionName "2.1.1"
   }
   signingConfigs {
     debug {
@@ -47,13 +83,26 @@ android {
       keyAlias 'androiddebugkey'
       keyPassword 'android'
     }
+    // Release signing is only registered when credentials are resolvable.
+    // If absent, release builds fall back to the debug config so `assembleRelease`
+    // still works for local dev / CI dry-runs.
+    if (releaseStoreFile != null && releaseStoreFile.exists()) {
+      release {
+        storeFile releaseStoreFile
+        storePassword releaseStorePassword
+        keyAlias releaseKeyAlias
+        keyPassword releaseKeyPassword
+      }
+    }
   }
   buildTypes {
     debug {
       signingConfig signingConfigs.debug
     }
     release {
-      signingConfig signingConfigs.debug
+      signingConfig signingConfigs.release != null
+        ? signingConfigs.release
+        : signingConfigs.debug
       minifyEnabled enableProguardInReleaseBuilds
       proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
     }

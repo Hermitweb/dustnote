@@ -78,6 +78,9 @@ miniprogram_npm/
 data/*.db
 data/*.db-*
 
+# Server runtime stray dirs (e.g. running server from within server/ creates nested server/server/data/)
+server/server/
+
 # Attachments (production)
 attachments/
 

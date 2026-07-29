@@ -170,11 +170,16 @@ export async function deriveSecrets(
   params = KDF_PARAMS
 ): Promise<DerivedSecrets> {
   const ikm = deriveKey(secret, salt, params);
-  const [kek, authKey] = await Promise.all([
-    hkdf(ikm, salt, KEK_INFO, 32),
-    hkdf(ikm, salt, AUTH_INFO, 32),
-  ]);
-  return { kek, authKey };
+  try {
+    const [kek, authKey] = await Promise.all([
+      hkdf(ikm, salt, KEK_INFO, 32),
+      hkdf(ikm, salt, AUTH_INFO, 32),
+    ]);
+    return { kek, authKey };
+  } finally {
+    // ikm 是从主密码派生的高熵中间值，用后立即零化，降低堆泄漏风险
+    zeroize(ikm);
+  }
 }
 
 /** 随机生成 masterKey。只在 setup 时调用一次，此后终生不变。 */
@@ -193,6 +198,14 @@ export interface Ciphertext {
   n: string;
   /** 密文（base64） */
   c: string;
+  /**
+   * AAD 标记：1 = 加密时绑定了 AAD，解密时必须传入同一份 AAD，否则认证失败。
+   * 缺省（undefined / 0）= 历史密文，无 AAD 绑定（向后兼容）。
+   *
+   * 注意：AAD 本身不存放在密文里——它必须是调用方上下文已知的值
+   *（如 noteId、shareToken），存这里反而让攻击者能伪造。
+   */
+  a?: number;
 }
 
 async function importAesKey(key: Uint8Array): Promise<CryptoKey> {
@@ -202,35 +215,56 @@ async function importAesKey(key: Uint8Array): Promise<CryptoKey> {
   ]);
 }
 
+/**
+ * AES-GCM 加密。
+ *
+ * @param key 32 字节密钥
+ * @param plaintext 明文
+ * @param keyVersion 密钥版本，写入密文信封以便双版本迁移
+ * @param aad 可选的「附加认证数据」。绑定后，解密时必须传入相同 AAD，
+ *            否则 AES-GCM 认证失败——可防止把一条密文挪用到另一个上下文
+ *            （如把 note A 的密文塞给 note B 的记录）。
+ */
 export async function encrypt(
   key: Uint8Array,
   plaintext: Uint8Array,
-  keyVersion = 1
+  keyVersion = 1,
+  aad?: Uint8Array
 ): Promise<Ciphertext> {
   const ck = await importAesKey(key);
   const nonce = randomBytes(12);
-  const ct = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce as BufferSource },
-    ck,
-    plaintext as BufferSource
-  );
+  const params: AesGcmParams = { name: 'AES-GCM', iv: nonce as BufferSource };
+  if (aad) (params as AesGcmParams & { additionalData: BufferSource }).additionalData = aad as BufferSource;
+  const ct = await crypto.subtle.encrypt(params, ck, plaintext as BufferSource);
   return {
     v: 1,
     k: keyVersion,
     n: toBase64(nonce),
     c: toBase64(new Uint8Array(ct)),
+    a: aad ? 1 : 0,
   };
 }
 
-export async function decrypt(key: Uint8Array, blob: Ciphertext): Promise<Uint8Array> {
+export async function decrypt(
+  key: Uint8Array,
+  blob: Ciphertext,
+  aad?: Uint8Array
+): Promise<Uint8Array> {
   const ck = await importAesKey(key);
   const nonce = fromBase64(blob.n);
   const ct = fromBase64(blob.c);
-  const pt = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: nonce as BufferSource },
-    ck,
-    ct as BufferSource
-  );
+  const params: AesGcmParams = { name: 'AES-GCM', iv: nonce as BufferSource };
+  const blobHasAad = blob.a === 1;
+  if (blobHasAad) {
+    if (!aad) {
+      throw new Error('decrypt: 此密文绑定了 AAD，但解密时未提供 AAD');
+    }
+    (params as AesGcmParams & { additionalData: BufferSource }).additionalData = aad as BufferSource;
+  } else if (aad) {
+    // 历史密文没有 AAD，但调用方传了 AAD：可能调用方搞错了上下文，拒绝解密
+    throw new Error('decrypt: 此密文未绑定 AAD，但解密时传入了 AAD（上下文不匹配）');
+  }
+  const pt = await crypto.subtle.decrypt(params, ck, ct as BufferSource);
   return new Uint8Array(pt);
 }
 
@@ -239,13 +273,41 @@ export async function decrypt(key: Uint8Array, blob: Ciphertext): Promise<Uint8A
 export async function encryptString(
   key: Uint8Array,
   plaintext: string,
-  keyVersion = 1
+  keyVersion = 1,
+  aad?: Uint8Array
 ): Promise<Ciphertext> {
-  return encrypt(key, encodeUtf8(plaintext), keyVersion);
+  return encrypt(key, encodeUtf8(plaintext), keyVersion, aad);
 }
 
-export async function decryptString(key: Uint8Array, blob: Ciphertext): Promise<string> {
-  return decodeUtf8(await decrypt(key, blob));
+export async function decryptString(
+  key: Uint8Array,
+  blob: Ciphertext,
+  aad?: Uint8Array
+): Promise<string> {
+  return decodeUtf8(await decrypt(key, blob, aad));
+}
+
+// ========== 密钥零化 ==========
+//
+// JavaScript 没有真正的「析构」，Uint8Array 在 GC 前会一直留在堆里。
+// 对持有 masterKey / KEK / shareKey 的 buffer，使用后应主动覆写零，
+// 降低「堆转储 / 内存复用」场景下的密钥泄漏面。
+//
+// 注意：派生密钥的输入（如 Argon2id 的输出 ikm）即便零化，也无法清除
+// noble 内部可能缓存的副本——这是 JS 运行时的固有局限。这里的零化
+// 是「尽力而为」的纵深防御，不是密码学保证。
+
+/**
+ * 用零覆写 Uint8Array。对不可写视图静默跳过。
+ * 接受 undefined 也安全（便于在 finally 块里直接传。
+ */
+export function zeroize(buf: Uint8Array | null | undefined): void {
+  if (!buf) return;
+  try {
+    buf.fill(0);
+  } catch {
+    /* 只读视图或 detached buffer，忽略 */
+  }
 }
 
 // ========== 密钥包装 ==========

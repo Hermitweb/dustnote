@@ -80,6 +80,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     void loadConfig().then((c) => setApiBase(c.apiBase));
   }, []);
 
+  // a11y：Esc 关闭对话框（与点击遮罩一致）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   // 桌面端：开机自启开关
   const desktopEnv = isTauri();
   const [autostartEnabled, setAutostartEnabled] = useState(false);
@@ -197,14 +206,23 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
         onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-dialog-title"
       >
         <div
           className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-surface-fg">{t('settings.title')}</h2>
-            <button onClick={onClose} className="text-surface-muted hover:text-surface-fg">
+            <h2 id="settings-dialog-title" className="text-lg font-bold text-surface-fg">
+              {t('settings.title')}
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-surface-muted hover:text-surface-fg"
+              aria-label={t('common.close')}
+            >
               ✕
             </button>
           </div>

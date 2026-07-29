@@ -329,6 +329,10 @@ notesRouter.delete('/notes/:id/permanent', (req, res) => {
     res.status(404).json({ error: 'not_found' });
     return;
   }
+  // 审计：笔记永久删除（不可恢复，留痕用于事故排查）
+  db.prepare(
+    'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
+  ).run(user.userId, user.deviceId, 'note_permanent_delete', JSON.stringify({ noteId: id }));
   broadcastNoteChanged(user.userId, { id, op: 'permanent_delete' });
   res.json({ ok: true });
 });
