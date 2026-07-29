@@ -225,7 +225,10 @@ jobs:
       - name: Install Android SDK & NDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.1.10909125'
+          # cmake;3.22.1: react-native-quick-crypto 使用 externalNativeBuild + CMakeLists.txt
+          # 构建 C++/JSI 原生代码，缺少 CMake 会导致 assembleRelease 在
+          # configureCMakeRelease 阶段失败
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.1.10909125 cmake;3.22.1'
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build
       - name: Symlink react-native into mobile/node_modules (pnpm hoisted layout)
