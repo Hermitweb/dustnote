@@ -10,6 +10,7 @@ import pinoHttp from 'pino-http';
 import rateLimit from 'express-rate-limit';
 import { config } from './env.js';
 import { logger } from './logger.js';
+import { setupSentryErrorHandler, captureException } from './sentry.js';
 import { versionCheckMiddleware } from './middleware/version-check.js';
 import { authMiddleware } from './middleware/auth.js';
 import { updateManifestRouter } from './routes/update-manifest.js';
@@ -21,6 +22,7 @@ import { tagsRouter } from './routes/tags.js';
 import { sharesRouter, publicSharesRouter } from './routes/shares.js';
 import { exportRouter } from './routes/export.js';
 import { preferencesRouter } from './routes/preferences.js';
+import { templatesRouter } from './routes/templates.js';
 
 export function createApp(): Application {
   const app = express();
@@ -145,16 +147,21 @@ export function createApp(): Application {
   app.use('/api/v1', sharesRouter);
   app.use('/api/v1', exportRouter);
   app.use('/api/v1', preferencesRouter);
+  app.use('/api/v1', templatesRouter);
 
   // 404
   app.use((req, res) => {
     res.status(404).json({ error: 'not_found', path: req.path });
   });
 
+  // Sentry 错误处理（必须在所有路由之后、自定义错误处理之前；未配置 DSN 时为 no-op）
+  setupSentryErrorHandler(app);
+
   // 错误处理
   app.use(
     (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       logger.error({ err }, '未捕获错误');
+      captureException(err);
       res.status(500).json({
         error: 'internal_error',
         message: config.nodeEnv === 'production' ? '服务异常' : err.message,

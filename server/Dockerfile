@@ -2,7 +2,7 @@
 # 需要「web + API 一体」的一键部署请用仓库根目录的 Dockerfile / docker-compose.yml
 #
 # 构建（必须在 monorepo 根目录执行，context 是根目录）：
-#   docker build -f server/Dockerfile -t dustnote-server:2.0.4 .
+#   docker build -f server/Dockerfile -t dustnote-server:2.1.0 .
 
 # ========== 构建阶段 ==========
 FROM node:20-alpine AS builder

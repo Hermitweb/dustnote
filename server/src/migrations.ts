@@ -305,4 +305,64 @@ export const migrations: Migration[] = [
       db.exec(`UPDATE meta SET value = '8' WHERE key = 'schema_version';`);
     },
   },
+  {
+    id: 9,
+    name: 'note-versions',
+    up: (db) => {
+      // 笔记历史版本表：每次笔记内容变更时，将旧密文快照存入此表。
+      // 服务端只存密文，明文在客户端解密后查看。
+      db.exec(`
+        CREATE TABLE note_versions (
+          id               TEXT PRIMARY KEY,
+          note_id          TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+          user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          ciphertext       BLOB NOT NULL,
+          key_version      INTEGER NOT NULL DEFAULT 1,
+          note_version     INTEGER NOT NULL,
+          client_updated_at TEXT NOT NULL,
+          created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX idx_note_versions_note ON note_versions(note_id, created_at DESC);
+      `);
+      db.exec(`UPDATE meta SET value = '9' WHERE key = 'schema_version';`);
+    },
+  },
+  {
+    id: 10,
+    name: 'templates',
+    up: (db) => {
+      // 笔记模板系统（v2.1.0）：
+      // - 预设模板：user_id 为 NULL，全用户共享，content 为明文 Markdown
+      // - 自定义模板：user_id 绑定用户，content 为 ciphertext JSON（E2EE）
+      // 客户端按 is_preset 标志决定明文读取还是解密。
+      db.exec(`
+        CREATE TABLE templates (
+          id          TEXT PRIMARY KEY,
+          user_id     TEXT REFERENCES users(id) ON DELETE CASCADE,
+          name        TEXT NOT NULL,
+          description TEXT NOT NULL DEFAULT '',
+          category    TEXT NOT NULL DEFAULT 'custom',
+          icon        TEXT NOT NULL DEFAULT '📄',
+          content     TEXT NOT NULL,
+          is_preset   INTEGER NOT NULL DEFAULT 0,
+          sort_order  INTEGER NOT NULL DEFAULT 0,
+          created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX idx_templates_user ON templates(user_id);
+        CREATE INDEX idx_templates_preset ON templates(is_preset, sort_order);
+
+        -- 预设模板种子数据（user_id = NULL, is_preset = 1, content = 明文 Markdown）
+        INSERT INTO templates (id, user_id, name, description, category, icon, content, is_preset, sort_order) VALUES
+          ('tpl-blank',       NULL, '空白笔记', '从零开始',                        'blank',   '📄', '', 1, 1),
+          ('tpl-journal',     NULL, '每日日记', '记录今天的所思所感',              'journal', '📔', '# {{date}} 日记\n\n## 今日心情\n\n\n## 三件感恩的事\n1. \n2. \n3. \n\n## 自由书写\n\n', 1, 2),
+          ('tpl-meeting',     NULL, '会议记录', '结构化的会议纪要',                'meeting', '🗓️', '# 会议主题\n\n- **时间**：\n- **地点**：\n- **参会**：\n\n## 议题\n\n1. \n2. \n\n## 决议\n\n- \n\n## 待办（Owner / 截止）\n\n- [ ]  /  \n', 1, 3),
+          ('tpl-todo',        NULL, '待办清单', '可勾选的任务列表',                'todo',    '✅', '# 待办清单\n\n## 今天\n- [ ] \n- [ ] \n\n## 本周\n- [ ] \n- [ ] \n\n## 已完成\n- [x] \n', 1, 4),
+          ('tpl-reading',     NULL, '阅读笔记', '读书摘要与思考',                  'reading', '📚', '# 《书名》\n\n- **作者**：\n- **进度**：\n- **评分**：⭐⭐⭐⭐⭐\n\n## 摘要\n\n\n## 关键观点\n1. \n2. \n\n## 我的思考\n\n', 1, 5),
+          ('tpl-project',     NULL, '项目计划', '项目目标与里程碑',                'project', '🚀', '# 项目名称\n\n## 背景与目标\n\n\n## 范围\n- **包含**：\n- **不包含**：\n\n## 里程碑\n| 里程碑 | 截止日期 | 状态 |\n| ------ | -------- | ---- |\n|        |          |      |\n\n## 风险\n- \n', 1, 6);
+
+        UPDATE meta SET value = '10' WHERE key = 'schema_version';
+      `);
+    },
+  },
 ];

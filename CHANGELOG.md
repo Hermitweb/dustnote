@@ -13,6 +13,84 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.1.0] - 2026-07-29
+
+### 新增 — P1 功能补齐（8 项）
+
+v2.1.0 落实 production-readiness.md 中全部 8 项代码层 P1 任务，让产品达到「可日常使用」的完整度。
+
+#### 1. i18n 国际化框架接入
+
+- [web/src/lib/i18n.ts](./web/src/lib/i18n.ts)：基于 react-i18next 的中英双语框架，覆盖 auth/sidebar/editor/settings/mode_select/import_export/public_share/admin/cheatsheet/history/templates 命名空间
+- 语言切换持久化到 localStorage，设置页提供中英切换
+
+#### 2. 键盘快捷键 Cheatsheet（F1 唤起）
+
+- [web/src/components/Cheatsheet.tsx](./web/src/components/Cheatsheet.tsx)：F1 全局唤起快捷键速查面板
+- 覆盖新建/保存/搜索/侧边栏/设置/锁定等快捷键
+
+#### 3. 错误监控接入（Sentry）
+
+- [web/src/lib/sentry.ts](./web/src/lib/sentry.ts)：客户端 Sentry 初始化（DSN 可选）
+- [server/src/sentry.ts](./server/src/sentry.ts)：服务端 Sentry 集成，适配 @sentry/node v10 的 `setupExpressErrorHandler` API
+- 未配置 DSN 时为 no-op，不影响运行
+
+#### 4. 移动端生物识别解锁
+
+- [mobile/src/screens/StandaloneUnlockScreen.tsx](./mobile/src/screens/StandaloneUnlockScreen.tsx)：单机模式生物识别解锁
+- 使用 react-native-keychain 缓存 masterKey，指纹/Face ID 解锁免输密码
+- Keychain 不可用时降级为密码输入；MIUI 等设备 `canImplyAuthentication` 异常时 1.5s 超时保护
+
+#### 5. 笔记历史版本管理
+
+- [server/src/migrations.ts](./server/src/migrations.ts) id=9：note_versions 表迁移
+- [server/src/routes/notes.ts](./server/src/routes/notes.ts)：历史版本 API（GET 列表 / GET 详情 / POST 恢复）
+- [web/src/components/NoteHistoryDialog.tsx](./web/src/components/NoteHistoryDialog.tsx)：历史版本对话框（版本列表 + 预览 + 恢复）
+- [shared/src/types.ts](./shared/src/types.ts)：NoteVersionMeta / NoteVersion 类型
+- 服务端只存密文，解密预览在客户端完成
+
+#### 6. 模板系统
+
+- [server/src/migrations.ts](./server/src/migrations.ts) id=10：templates 表迁移 + 6 个预设模板 seed（空白/日记/会议/待办/阅读/项目）
+- [server/src/routes/templates.ts](./server/src/routes/templates.ts)：模板 CRUD API（预设明文 + 自定义 E2EE 加密）
+- [shared/src/templates.ts](./shared/src/templates.ts)：bundled 预设模板（单机模式可用）+ `fillTemplatePlaceholders` 占位符替换
+- [web/src/components/TemplatePicker.tsx](./web/src/components/TemplatePicker.tsx)：模板选择对话框
+- [web/src/components/Sidebar.tsx](./web/src/components/Sidebar.tsx)：侧栏新增「📋」模板按钮
+- [web/src/components/Editor.tsx](./web/src/components/Editor.tsx)：编辑器新增「📋」存为模板按钮
+- 预设模板：全用户共享，明文 Markdown；自定义模板：用户私有，masterKey 加密存储
+
+#### 7. 全文搜索 v2（内存倒排索引）
+
+- [web/src/lib/search.ts](./web/src/lib/search.ts)：SearchIndex 类（内存倒排索引 + Intl.Segmenter 中文分词 + 字段权重排序）
+- [web/src/components/Sidebar.tsx](./web/src/components/Sidebar.tsx)：搜索改为索引查询，标题命中权重 > 标签 > 正文
+- 搜索结果高亮：`highlightMatches` 函数将匹配 token 用 `<mark>` 包裹（XSS 安全）
+- 增量更新：笔记变更时单条 reindex，无需全量重建
+- [web/src/lib/search.test.ts](./web/src/lib/search.test.ts)：17 个测试用例覆盖分词/索引/搜索/高亮
+
+#### 8. 桌面系统托盘 + 全局快捷键（v1.3 已交付，本次确认）
+
+- [desktop/src-tauri/src/lib.rs](./desktop/src-tauri/src/lib.rs)：TrayIconBuilder + 全局快捷键 ⌘⇧M 唤起
+- 单实例插件防止多窗口
+
+### 修复
+
+- **安卓端 ErrorBoundary 闪退**：SafeAreaView 必须在 SafeAreaProvider 内使用，ErrorBoundary 改用普通 View + paddingTop 手动留白
+- **Windows 桌面右键菜单**：Rust eval + 前端 window/document 双重事件监听 + CSS user-select 三重防护，所有桌面环境禁用浏览器右键菜单
+- **Tauri 2 编译错误**：WebviewWindow 无 init_script 方法，改用 `w.eval()` 注入 JS
+
+### 安全
+
+- v2 认证协议同步：masterKey 随机生成 + KEK 包装 + authKey 认证 + 10 位 Crockford Base32 恢复码
+- E2EE 分享：shareKey 本地生成 + URL fragment 传递 + 服务端仅存密文
+- XSS 防护：[web/src/lib/sanitize-html.ts](./web/src/lib/sanitize-html.ts) 白名单净化 + [deploy/nginx.conf](./deploy/nginx.conf) CSP 安全头
+- 账号锁定：连续失败锁定 + IP 限流双重防护
+
+### 版本号
+
+- 全部 package.json / Cargo.toml / tauri.conf.json / env / Dockerfile / release.yml 同步至 2.1.0
+- Android versionCode 5→6
+- 数据库迁移版本 9→10
+
 ## [2.0.1] - 2026-07-27
 
 ### 修复 — 安卓端

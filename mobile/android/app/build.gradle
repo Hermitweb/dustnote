@@ -37,8 +37,8 @@ android {
     applicationId "com.dustnote"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 5
-    versionName "2.0.4"
+    versionCode 6
+    versionName "2.1.0"
   }
   signingConfigs {
     debug {
@@ -78,7 +78,7 @@ dependencies {
 //      subprojects are included by settings.gradle but never wired into :app).
 //   2. Registers the `generatePackageList` task (run before preBuild) that
 //      writes PackageList.java to build/generated/rncli/. MainApplication.kt
-//      imports com.facebook.react.PackageList — without this task the Kotlin
+//      imports com.facebook.react.PackageList; without this task the Kotlin
 //      compile fails with "Unresolved reference: PackageList".
 //   3. Adds build/generated/rncli/src/main/java to the main source set so the
 //      generated PackageList.java is visible to the compiler.

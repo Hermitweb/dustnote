@@ -16,11 +16,12 @@
  *
  * masterKey 仅存内存，App 后台时自动清空（lock()）
  *
- * 生物识别解锁流程（仅联机模式）：
+ * 生物识别解锁流程（联机 + 单机模式）：
  * 1. 首次 setup / 密码解锁成功后，将 masterKey（base64）以 BIOMETRY 访问控制
- *    写入 react-native-keychain；同时 access token 持久化到 AsyncStorage。
+ *    写入 react-native-keychain；联机模式同时将 access token 持久化到 AsyncStorage。
  * 2. 下次启动时若 keychain 有缓存，则可走生物识别：通过指纹 / 面容后，
  *    keychain 返回缓存的 masterKey，直接进入已解锁状态，无需再次输入密码。
+ * 3. 单机模式不缓存 access token（无 JWT），仅凭 masterKey 即可解密本地笔记。
  */
 
 import { create } from 'zustand';
@@ -117,6 +118,8 @@ interface AuthStoreState {
   setupStandalone: (password: string) => Promise<string>;
   /** 单机模式：解锁 */
   unlockStandalone: (password: string) => Promise<void>;
+  /** 单机模式：生物识别解锁（读取 keychain 中缓存的 masterKey） */
+  unlockStandaloneWithBiometric: () => Promise<boolean>;
   /** 单机模式：恢复码重置密码；返回新恢复码 */
   recoverStandalone: (recoveryCode: string, newPassword: string) => Promise<string>;
   /** 单机模式：获取剩余锁定时间（ms） */
@@ -310,25 +313,46 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const lockout = await loadLockoutState();
     if (!blob) {
       set({ authState: 'uninitialized', lockoutState: lockout });
-    } else {
-      // 已设置过主密码，需要解锁（即使锁定也走解锁页，由 UI 显示倒计时）
-      set({
-        authState: 'needs_unlock',
-        localAuthBlob: blob,
-        lockoutState: lockout,
-      });
+      return;
     }
+
+    // 探测 keychain 是否有缓存的 masterKey（不触发生物识别弹窗）
+    let hasCache = false;
+    try {
+      const ok = await Promise.race([
+        Keychain.canImplyAuthentication({ service: MASTER_KEYCHAIN_SERVICE }),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1500)),
+      ]);
+      hasCache = ok === true;
+    } catch {
+      hasCache = false;
+    }
+
+    // 已设置过主密码，需要解锁（即使锁定也走解锁页，由 UI 显示倒计时）
+    set({
+      authState: 'needs_unlock',
+      localAuthBlob: blob,
+      lockoutState: lockout,
+      hasBiometricCache: hasCache,
+    });
   },
 
   async setupStandalone(password: string): Promise<string> {
     const result = await setupLocalAuth(password);
     await saveLocalAuthBlob(result.blob);
     await clearLockoutState();
+    // 缓存 masterKey 到 keychain（生物识别保护），便于后续指纹 / 面容解锁
+    try {
+      await cacheMasterKeyForBiometric(result.masterKey);
+    } catch {
+      // keychain 不可用（如模拟器无生物识别）不阻塞流程
+    }
     set({
       localAuthBlob: result.blob,
       masterKey: result.masterKey,
       lockoutState: { ...INITIAL_LOCKOUT_STATE },
       authState: 'unlocked',
+      hasBiometricCache: true,
     });
     return result.recoveryCode;
   },
@@ -356,11 +380,43 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
     const successState = recordSuccessfulAttempt();
     await saveLockoutState(successState);
+    // 密码解锁成功后，刷新 keychain 中的 masterKey 缓存
+    try {
+      if (result.masterKey) {
+        await cacheMasterKeyForBiometric(result.masterKey);
+      }
+    } catch {
+      // keychain 不可用不阻塞流程
+    }
     set({
       masterKey: result.masterKey,
       lockoutState: successState,
       authState: 'unlocked',
+      hasBiometricCache: true,
     });
+  },
+
+  async unlockStandaloneWithBiometric(): Promise<boolean> {
+    const { lockoutState } = get();
+    // 锁定中不允许生物识别绕过（与密码解锁共用同一锁定状态）
+    if (isLocked(lockoutState)) {
+      const remaining = remainingLockoutMs(lockoutState);
+      throw new Error(`账号已锁定，请 ${Math.ceil(remaining / 1000)} 秒后重试`);
+    }
+
+    // 读取 keychain 中受生物识别保护的 masterKey
+    const masterKey = await readCachedMasterKey();
+    if (!masterKey) return false;
+
+    const successState = recordSuccessfulAttempt();
+    await saveLockoutState(successState);
+    set({
+      masterKey,
+      lockoutState: successState,
+      authState: 'unlocked',
+      hasBiometricCache: true,
+    });
+    return true;
   },
 
   async recoverStandalone(recoveryCode: string, newPassword: string): Promise<string> {
@@ -372,11 +428,18 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     }
     await saveLocalAuthBlob(result.blob);
     await clearLockoutState();
+    // 恢复后 masterKey 可能已变更，刷新 keychain 缓存
+    try {
+      await cacheMasterKeyForBiometric(result.masterKey);
+    } catch {
+      // keychain 不可用不阻塞流程
+    }
     set({
       localAuthBlob: result.blob,
       masterKey: result.masterKey,
       lockoutState: { ...INITIAL_LOCKOUT_STATE },
       authState: 'unlocked',
+      hasBiometricCache: true,
     });
     return result.recoveryCode;
   },

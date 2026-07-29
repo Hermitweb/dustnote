@@ -5,6 +5,7 @@ import { THEMES } from '../lib/theme';
 import { ImportExportDialog } from './ImportExportDialog';
 import { SharesManager } from './SharesManager';
 import { getConfig, saveConfig, loadConfig } from '../lib/config';
+import i18n from '../lib/i18n';
 
 /** 检测是否运行在 Tauri 桌面环境 */
 function isTauri(): boolean {
@@ -57,7 +58,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`操作超时（${ms}ms）`)), ms)
+      setTimeout(() => reject(new Error(i18n.t('settings.op_timeout', { ms }))), ms)
     ),
   ]);
 }
@@ -283,20 +284,20 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             {/* 数据管理 */}
             <div>
               <label className="mb-2 block text-xs font-semibold text-surface-muted">
-                数据管理
+                {t('settings.data_mgmt')}
               </label>
               <div className="space-y-2">
                 <button
                   onClick={() => setShowImportExport(true)}
                   className="w-full rounded-lg border border-surface-border px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
                 >
-                  <span className="mr-2">📥📤</span>导入 / 导出
+                  <span className="mr-2">📥📤</span>{t('settings.import_export')}
                 </button>
                 <button
                   onClick={() => setShowShares(true)}
                   className="w-full rounded-lg border border-surface-border px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
                 >
-                  <span className="mr-2">🔗</span>分享管理
+                  <span className="mr-2">🔗</span>{t('settings.shares_mgmt')}
                 </button>
               </div>
             </div>
@@ -304,7 +305,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             {/* 服务器地址 */}
             <div>
               <label className="mb-2 block text-xs font-semibold text-surface-muted">
-                🔗 服务器地址
+                {t('settings.server_url_label')}
               </label>
               <div className="flex gap-2">
                 <input
@@ -320,17 +321,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   }}
                   className="rounded-lg bg-mint-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-mint-700"
                 >
-                  {apiSaved ? '✅' : '保存'}
+                  {apiSaved ? '✅' : t('settings.save_btn')}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-surface-muted">修改后需刷新页面生效</p>
+              <p className="mt-1 text-xs text-surface-muted">{t('settings.refresh_hint')}</p>
             </div>
 
             {/* 桌面端：开机自启开关（仅 Tauri 环境显示） */}
             {desktopEnv && (
               <div>
                 <label className="mb-2 block text-xs font-semibold text-surface-muted">
-                  桌面端
+                  {t('settings.desktop')}
                 </label>
                 <button
                   type="button"
@@ -344,12 +345,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 >
                   <span className="flex items-center gap-2">
                     <span>🚀</span>
-                    <span>开机自启</span>
+                    <span>{t('settings.autostart')}</span>
                   </span>
                   <span
                     className={`text-xs font-semibold ${autostartEnabled ? 'text-mint-700' : 'text-surface-muted'}`}
                   >
-                    {autostartBusy ? '…' : autostartEnabled ? '已启用' : '已禁用'}
+                    {autostartBusy ? '…' : autostartEnabled ? t('settings.autostart_on') : t('settings.autostart_off')}
                   </span>
                 </button>
               </div>
@@ -359,12 +360,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             {desktopEnv && (
               <div>
                 <label className="mb-2 block text-xs font-semibold text-surface-muted">
-                  应用更新
+                  {t('settings.app_update')}
                 </label>
                 <div className="space-y-2 rounded-lg border-2 border-surface-border p-3">
                   {/* 当前版本 */}
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-surface-fg">当前版本</span>
+                    <span className="text-surface-fg">{t('settings.current_version')}</span>
                     <span className="font-mono text-surface-muted">{__APP_VERSION__}</span>
                   </div>
 
@@ -372,19 +373,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   {updateState === 'checking' && (
                     <div className="flex items-center gap-2 text-sm text-surface-muted">
                       <span className="animate-spin">⏳</span>
-                      <span>检查更新中…</span>
+                      <span>{t('settings.checking_update')}</span>
                     </div>
                   )}
 
                   {/* 发现新版本 */}
                   {updateState === 'available' && targetVer && (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-mint-700">✨ 发现新版本 v{targetVer}</span>
+                      <span className="text-mint-700">{t('settings.new_version', { version: targetVer })}</span>
                       <button
                         onClick={() => void handleDownloadUpdate()}
                         className="rounded bg-mint-600 px-3 py-1 text-xs font-medium text-white hover:bg-mint-700"
                       >
-                        下载
+                        {t('settings.download')}
                       </button>
                     </div>
                   )}
@@ -393,7 +394,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   {updateState === 'downloading' && (
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-xs text-surface-muted">
-                        <span>下载中… {updateProgress}%</span>
+                        <span>{t('settings.downloading', { progress: updateProgress })}</span>
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-surface-bg">
                         <div
@@ -408,20 +409,20 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   {updateState === 'ready' && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-mint-700">
-                        ✅ 更新就绪{targetVer ? ` (v${targetVer})` : ''}
+                        {t('settings.update_ready')}{targetVer ? ` (v${targetVer})` : ''}
                       </span>
                       <button
                         onClick={() => void handleApplyAndRestart()}
                         className="rounded bg-mint-600 px-3 py-1 text-xs font-medium text-white hover:bg-mint-700"
                       >
-                        立即重启
+                        {t('settings.restart_now')}
                       </button>
                     </div>
                   )}
 
                   {/* 已是最新 */}
                   {updateState === 'uptodate' && (
-                    <div className="text-sm text-surface-muted">✓ 已是最新版本</div>
+                    <div className="text-sm text-surface-muted">{t('settings.uptodate')}</div>
                   )}
 
                   {/* 错误 */}
@@ -432,7 +433,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                         onClick={() => void handleCheckUpdate()}
                         className="text-xs text-mint-700 underline hover:text-mint-800"
                       >
-                        重试
+                        {t('settings.retry')}
                       </button>
                     </div>
                   )}
@@ -445,7 +446,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                       onClick={() => void handleCheckUpdate()}
                       className="w-full rounded-lg border border-surface-border px-3 py-1.5 text-xs text-surface-fg hover:bg-surface-bg"
                     >
-                      🔍 检查更新
+                      {t('settings.check_update')}
                     </button>
                   )}
                 </div>
@@ -454,11 +455,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
             {/* 关于 */}
             <div className="rounded-lg border border-surface-border p-3 text-xs text-surface-muted">
-              <div>{t('settings.about')}: DustNote · 尘心笔记</div>
+              <div>{t('settings.about')}: {t('settings.about_line')}</div>
               <div className="font-mono">
                 {t('settings.version')}: {__APP_VERSION__}
               </div>
-              <div className="mt-1">E2EE · SQLite · 跨端同步</div>
+              <div className="mt-1">{t('settings.tech_stack')}</div>
             </div>
           </div>
         </div>

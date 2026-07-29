@@ -11,6 +11,7 @@ import { Editor } from './components/Editor';
 import { SettingsDialog } from './components/SettingsDialog';
 import { SharesManager } from './components/SharesManager';
 import { AdminConfig } from './components/AdminConfig';
+import { Cheatsheet } from './components/Cheatsheet';
 import { ModeSelectDialog } from './components/ModeSelectDialog';
 import { SetupScreen } from './screens/SetupScreen';
 import { UnlockScreen } from './screens/UnlockScreen';
@@ -234,6 +235,8 @@ function App() {
       {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
       {showShares && <SharesManager onClose={() => setShowShares(false)} />}
       {showAdmin && <AdminConfig onClose={() => setShowAdmin(false)} />}
+
+      <Cheatsheet />
 
       {updateCheck.result && updateCheck.result.status === 'ok' && updateCheck.result.manifest && (
         <UpdateBanner result={updateCheck.result} />

@@ -5,6 +5,7 @@
  */
 
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
 import {
   parseNoteFile,
@@ -19,6 +20,7 @@ import {
 type Mode = 'main' | 'importing' | 'exporting';
 
 export function ImportExportDialog({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>('main');
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -27,17 +29,19 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
   const handleImport = async (files: FileList) => {
     setMode('importing');
     setError(null);
-    setStatus(`开始导入 ${files.length} 个文件…`);
+    setStatus(t('import_export.start_import', { count: files.length }));
     let ok = 0;
     let fail = 0;
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
       if (!f) continue;
-      setStatus(`(${i + 1}/${files.length}) 解析 ${f.name}…`);
+      setStatus(t('import_export.parsing', { i: i + 1, total: files.length, name: f.name }));
       try {
         const fmt = detectFormat(f.name);
         if (fmt === 'unknown') {
-          setStatus(`(${i + 1}/${files.length}) 跳过不支持的格式：${f.name}`);
+          setStatus(
+            t('import_export.skip_unsupported', { i: i + 1, total: files.length, name: f.name })
+          );
           fail++;
           continue;
         }
@@ -52,23 +56,23 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         }
         ok++;
       } catch (err) {
-        setError(`导入 ${f.name} 失败：${(err as Error).message}`);
+        setError(t('import_export.import_fail', { name: f.name, reason: (err as Error).message }));
         fail++;
       }
     }
-    setStatus(`✅ 完成：成功 ${ok}，失败 ${fail}`);
+    setStatus(t('import_export.done', { ok, fail }));
     setMode('main');
   };
 
   const handleExport = async (fmt: 'md' | 'html' | 'json' | 'pdf') => {
     const id = useStore.getState().selectedNoteId;
     if (!id) {
-      setError('请先选择一篇笔记');
+      setError(t('import_export.no_selection'));
       return;
     }
     const plain = useStore.getState().notesPlain.get(id);
     if (!plain) {
-      setError('笔记未解锁或不存在');
+      setError(t('import_export.not_unlocked'));
       return;
     }
     const date = new Date().toISOString().slice(0, 10);
@@ -79,12 +83,12 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       downloadBlob(exportAsHtml(plain.title, plain.content), `${safeTitle}-${date}.html`);
     } else if (fmt === 'pdf') {
       setMode('exporting');
-      setStatus('正在打开打印对话框…');
+      setStatus(t('import_export.opening_print'));
       try {
         await printNote(plain.title, plain.content);
-        setStatus('✅ 已打开打印对话框，选择"另存为 PDF"保存');
+        setStatus(t('import_export.print_opened'));
       } catch (err) {
-        setError(`打印失败：${(err as Error).message}`);
+        setError(t('import_export.print_fail', { reason: (err as Error).message }));
         setMode('main');
         return;
       }
@@ -99,12 +103,12 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         `${safeTitle}-${date}.json`
       );
     }
-    setStatus(`✅ 已导出：${safeTitle}-${date}.${fmt}`);
+    setStatus(t('import_export.exported', { name: `${safeTitle}-${date}.${fmt}` }));
   };
 
   const handleExportAll = async () => {
     setMode('exporting');
-    setStatus('全量备份中…');
+    setStatus(t('import_export.backup_start'));
     try {
       const state = useStore.getState();
       const notes = Array.from(state.notesPlain.entries())
@@ -127,9 +131,9 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       };
       const date = new Date().toISOString().slice(0, 10);
       downloadBlob(exportAsJson(payload), `dustnote-backup-${date}.json`);
-      setStatus(`✅ 已备份 ${notes.length} 篇笔记`);
+      setStatus(t('import_export.backup_done', { count: notes.length }));
     } catch (err) {
-      setError(`备份失败：${(err as Error).message}`);
+      setError(t('import_export.backup_fail', { reason: (err as Error).message }));
     } finally {
       setMode('main');
     }
@@ -145,7 +149,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-surface-fg">📥📤 导入 / 导出</h2>
+          <h2 className="text-lg font-bold text-surface-fg">{t('import_export.title')}</h2>
           <button onClick={onClose} className="text-surface-muted hover:text-surface-fg">
             ✕
           </button>
@@ -154,8 +158,10 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         <div className="space-y-4">
           {/* 导入 */}
           <div className="rounded-lg border border-surface-border p-3">
-            <h3 className="mb-2 text-sm font-semibold text-surface-fg">导入</h3>
-            <p className="mb-2 text-xs text-surface-muted">支持 .txt / .md / .docx</p>
+            <h3 className="mb-2 text-sm font-semibold text-surface-fg">
+              {t('import_export.import_title')}
+            </h3>
+            <p className="mb-2 text-xs text-surface-muted">{t('import_export.import_hint')}</p>
             <input
               ref={fileInput}
               type="file"
@@ -171,14 +177,16 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
               disabled={mode !== 'main'}
               className="w-full rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
             >
-              {mode === 'importing' ? status || '导入中…' : '选择文件并导入'}
+              {mode === 'importing' ? status || t('import_export.importing') : t('import_export.import_btn')}
             </button>
           </div>
 
           {/* 导出当前笔记 */}
           <div className="rounded-lg border border-surface-border p-3">
-            <h3 className="mb-2 text-sm font-semibold text-surface-fg">导出当前笔记</h3>
-            <p className="mb-2 text-xs text-surface-muted">需先在编辑区选中一篇笔记</p>
+            <h3 className="mb-2 text-sm font-semibold text-surface-fg">
+              {t('import_export.export_title')}
+            </h3>
+            <p className="mb-2 text-xs text-surface-muted">{t('import_export.export_hint')}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => void handleExport('md')}
@@ -213,14 +221,16 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
 
           {/* 全量备份 */}
           <div className="rounded-lg border border-surface-border p-3">
-            <h3 className="mb-2 text-sm font-semibold text-surface-fg">全量备份</h3>
-            <p className="mb-2 text-xs text-surface-muted">客户端解密后打包，文件保存在本地</p>
+            <h3 className="mb-2 text-sm font-semibold text-surface-fg">
+              {t('import_export.backup_title')}
+            </h3>
+            <p className="mb-2 text-xs text-surface-muted">{t('import_export.backup_hint')}</p>
             <button
               onClick={() => void handleExportAll()}
               disabled={mode !== 'main'}
               className="w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
             >
-              {mode === 'exporting' ? status || '备份中…' : '备份为 .json'}
+              {mode === 'exporting' ? status || t('import_export.backing') : t('import_export.backup_btn')}
             </button>
           </div>
 

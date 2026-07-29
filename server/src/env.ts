@@ -22,9 +22,9 @@ export const config = {
   logLevel: getEnv('LOG_LEVEL', 'info'),
   dbPath: getEnv('DB_PATH', './data/dustnote.db'),
   webOrigin: getEnv('WEB_ORIGIN', 'http://localhost:5173'),
-  serverVersion: getEnv('SERVER_VERSION', '2.0.4'),
+  serverVersion: getEnv('SERVER_VERSION', '2.1.0'),
   minClientVersion: getEnv('MIN_CLIENT_VERSION', '2.0.2'),
-  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.0.4'),
+  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.1.0'),
   forceUpdateVersion: getEnvOpt('FORCE_UPDATE_VERSION') ?? null,
   eolDateForV0: getEnvOpt('EOL_DATE_FOR_V0'),
   jwtSecret: getEnv('JWT_SECRET', 'dev-secret-change-me'),
@@ -34,6 +34,8 @@ export const config = {
    * 0 = 不信任任何反代（直接暴露时用）。
    */
   trustProxy: Number.parseInt(getEnv('TRUST_PROXY', '0'), 10),
+  /** Sentry DSN（留空 = 禁用错误监控；自托管部署可不填） */
+  sentryDsn: getEnvOpt('SENTRY_DSN'),
 } as const;
 
 export type AppConfig = typeof config;

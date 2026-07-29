@@ -10,3 +10,5 @@ export * from './api.js';
 // v2.0.0 单机/联机双模式
 export * from './repository.js';
 export * from './local-auth.js';
+// v2.1.0 模板系统
+export * from './templates.js';

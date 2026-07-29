@@ -155,7 +155,7 @@ export function useKeyboardShortcuts(authState: AuthState): void {
               document.documentElement.style.zoom = '1';
               break;
             case 'help_about':
-              alert('DustNote v2.0.4\n尘心笔记\n© 2026 DustNote Team');
+              alert('DustNote v2.1.0\n尘心笔记\n© 2026 DustNote Team');
               break;
             case 'help_check_update':
               window.dispatchEvent(new CustomEvent('app:open-settings'));

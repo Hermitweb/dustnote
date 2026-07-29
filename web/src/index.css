@@ -94,6 +94,17 @@ body {
   margin: 0.75em 0;
 }
 
+/* 搜索高亮：客户端全文搜索 v2 命中 token 的 <mark> 标签 */
+mark {
+  background: rgb(var(--mn-accent) / 0.25);
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
+}
+.dark mark {
+  background: rgb(var(--mn-accent) / 0.35);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     transition-duration: 0.01ms !important;

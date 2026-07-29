@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
 import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
 import { sanitizeHtml } from '../lib/sanitize-html';
@@ -44,6 +45,7 @@ function readShareKey(): Uint8Array | null {
 }
 
 export function PublicShareView({ token }: { token: string }) {
+  const { t } = useTranslation();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -66,30 +68,27 @@ export function PublicShareView({ token }: { token: string }) {
           return;
         }
         if (res.status === 401 && data.error === 'invalid_password') {
-          setState({ kind: 'error', message: '密码错误，请重试' });
+          setState({ kind: 'error', message: t('public_share.wrong_password') });
           return;
         }
         if (res.status === 410) {
-          setState({ kind: 'error', message: data.message ?? '分享已过期或被吊销' });
+          setState({ kind: 'error', message: data.message ?? t('public_share.expired') });
           return;
         }
         if (!res.ok) {
-          setState({ kind: 'error', message: data.message ?? '加载失败' });
+          setState({ kind: 'error', message: data.message ?? t('public_share.load_fail') });
           return;
         }
 
         const shareKey = readShareKey();
         if (!shareKey) {
-          setState({
-            kind: 'error',
-            message: '链接不完整：缺少解密密钥。请确认复制了包含 # 及其之后全部内容的完整链接。',
-          });
+          setState({ kind: 'error', message: t('public_share.link_incomplete') });
           return;
         }
         // 先取到局部常量再做类型守卫：data 带索引签名，直接对属性做窄化不可靠
         const ciphertext = data.ciphertext;
         if (!isCiphertext(ciphertext)) {
-          setState({ kind: 'error', message: '分享数据格式异常' });
+          setState({ kind: 'error', message: t('public_share.bad_data') });
           return;
         }
 
@@ -98,7 +97,7 @@ export function PublicShareView({ token }: { token: string }) {
         try {
           payload = JSON.parse(await decryptString(shareKey, ciphertext)) as SharePayload;
         } catch {
-          setState({ kind: 'error', message: '解密失败：密钥与该分享不匹配' });
+          setState({ kind: 'error', message: t('public_share.decrypt_fail') });
           return;
         }
 
@@ -116,7 +115,7 @@ export function PublicShareView({ token }: { token: string }) {
         setSubmitting(false);
       }
     },
-    [token]
+    [token, t]
   );
 
   useEffect(() => {
@@ -126,7 +125,7 @@ export function PublicShareView({ token }: { token: string }) {
   if (state.kind === 'loading') {
     return (
       <div className="flex h-screen items-center justify-center bg-mint-50 dark:bg-slate-900">
-        <div className="text-mint-700">加载中…</div>
+        <div className="text-mint-700">{t('public_share.loading')}</div>
       </div>
     );
   }
@@ -137,16 +136,16 @@ export function PublicShareView({ token }: { token: string }) {
         <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl dark:bg-slate-800">
           <div className="mb-2 text-center text-3xl">🔐</div>
           <h1 className="mb-4 text-center text-lg font-bold text-slate-900 dark:text-slate-100">
-            此分享需要密码
+            {t('public_share.password_title')}
           </h1>
           <p className="mb-4 text-center text-sm text-slate-600 dark:text-slate-400">
-            请输入分享密码以查看内容
+            {t('public_share.password_hint')}
           </p>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="分享密码"
+            placeholder={t('public_share.password_placeholder')}
             className="mb-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
             autoFocus
             onKeyDown={(e) => {
@@ -158,7 +157,7 @@ export function PublicShareView({ token }: { token: string }) {
             disabled={!password || submitting}
             className="w-full rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
           >
-            {submitting ? '验证中…' : '解锁'}
+            {submitting ? t('public_share.verifying') : t('public_share.unlock')}
           </button>
         </div>
       </div>
@@ -172,7 +171,7 @@ export function PublicShareView({ token }: { token: string }) {
           <div className="mb-2 text-3xl">⚠️</div>
           <p className="text-slate-700 dark:text-slate-200">{state.message}</p>
           <a href="/" className="mt-4 inline-block text-sm text-mint-600 hover:underline">
-            ← 返回 DustNote
+            {t('public_share.back')}
           </a>
         </div>
       </div>
@@ -187,10 +186,10 @@ export function PublicShareView({ token }: { token: string }) {
         {/* 头部 */}
         <div className="mb-6 flex items-center gap-2 text-sm text-slate-500">
           <span>🌿</span>
-          <span>DustNote 分享</span>
+          <span>{t('public_share.badge')}</span>
           {state.hasPassword && (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-              密码保护
+              {t('public_share.password_protected')}
             </span>
           )}
         </div>
@@ -203,15 +202,15 @@ export function PublicShareView({ token }: { token: string }) {
             className="prose prose-sm max-w-none text-slate-700 dark:prose-invert dark:text-slate-200"
             dangerouslySetInnerHTML={{
               // 访客侧渲染的是别人写的内容，必须净化后再注入
-              __html: sanitizeHtml(marked.parse(state.content || '*暂无内容*') as string),
+              __html: sanitizeHtml(marked.parse(state.content || `*${t('public_share.empty')}*`) as string),
             }}
           />
         </article>
 
         <div className="mt-6 text-center text-xs text-slate-400">
-          <p>由 DustNote 分享 · 内容由笔记主人提供</p>
+          <p>{t('public_share.footer')}</p>
           <a href="/" className="mt-2 inline-block text-mint-600 hover:underline">
-            访问 DustNote
+            {t('public_share.visit')}
           </a>
         </div>
       </div>

@@ -5,6 +5,7 @@ import { encryptString, randomBytes, toBase64Url, wrapKey } from '@dustnote/shar
 import { useStore } from '../lib/store';
 import { getDeviceId } from '../lib/device';
 import { sanitizeHtml } from '../lib/sanitize-html';
+import { NoteHistoryDialog } from './NoteHistoryDialog';
 
 export function Editor() {
   const { t } = useTranslation();
@@ -18,13 +19,26 @@ export function Editor() {
   const restoreNote = useStore((s) => s.restoreNote);
   const permanentDeleteNote = useStore((s) => s.permanentDeleteNote);
   const moveNote = useStore((s) => s.moveNote);
+  const appMode = useStore((s) => s.mode);
+  const saveAsTemplate = useStore((s) => s.saveAsTemplate);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [mode, setMode] = useState<'edit' | 'preview' | 'split'>('split');
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // 把当前笔记另存为自定义模板（仅联机模式可用）
+  const handleSaveAsTemplate = useCallback(() => {
+    if (!plain) return;
+    const name = prompt(t('templates.save_as_prompt'), plain.title);
+    if (!name) return;
+    saveAsTemplate(name, { title: plain.title, content: plain.content, tags: plain.tags })
+      .then(() => alert(t('templates.save_success')))
+      .catch((err: Error) => alert(t('templates.save_fail', { reason: err.message })));
+  }, [plain, saveAsTemplate, t]);
 
   useEffect(() => {
     if (plain) {
@@ -85,50 +99,50 @@ export function Editor() {
           disabled={viewMode === 'trash'}
           className={`rounded px-2 py-1 text-xs ${mode === 'edit' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'} ${viewMode === 'trash' ? 'cursor-not-allowed opacity-50' : ''}`}
         >
-          ✏️ 编辑
+          {t('editor.view_edit')}
         </button>
         <button
           onClick={() => setMode('split')}
           disabled={viewMode === 'trash'}
           className={`rounded px-2 py-1 text-xs ${mode === 'split' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'} ${viewMode === 'trash' ? 'cursor-not-allowed opacity-50' : ''}`}
         >
-          ⚡ 分屏
+          {t('editor.view_split')}
         </button>
         <button
           onClick={() => setMode('preview')}
           className={`rounded px-2 py-1 text-xs ${mode === 'preview' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'}`}
         >
-          👁️ 预览
+          {t('editor.view_preview')}
         </button>
 
         <div className="ml-auto flex items-center gap-2">
           {viewMode === 'trash' ? (
             <>
               <span className="rounded bg-amber-100 px-2 py-1 text-xs text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                🗑️ 回收站 · 只读
+                {t('editor.trash_readonly')}
               </span>
               <button
                 onClick={() => void restoreNote(note.id)}
                 className="rounded p-1.5 text-xs text-mint-600 hover:bg-mint-50 dark:hover:bg-mint-900/30"
-                title="恢复"
+                title={t('editor.restore')}
               >
-                ↩️ 恢复
+                ↩️ {t('editor.restore')}
               </button>
               <button
                 onClick={() => {
-                  if (confirm('永久删除后不可恢复，确认？')) {
+                  if (confirm(t('editor.confirm_perm_delete'))) {
                     void permanentDeleteNote(note.id);
                   }
                 }}
                 className="rounded p-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
-                title="永久删除"
+                title={t('editor.perm_delete')}
               >
-                🗑️ 永久删除
+                🗑️ {t('editor.perm_delete')}
               </button>
             </>
           ) : (
             <>
-              {saving && <span className="text-xs text-surface-muted">🔄 加密保存中…</span>}
+              {saving && <span className="text-xs text-surface-muted">{t('editor.saving')}</span>}
               {!saving && title && (
                 <span className="text-xs text-surface-muted">✅ {t('editor.save_indicator')}</span>
               )}
@@ -151,7 +165,7 @@ export function Editor() {
                 <button
                   onClick={() => setShowMoveMenu((v) => !v)}
                   className="rounded p-1.5 text-xs text-surface-muted hover:bg-surface-bg"
-                  title="移动到文件夹"
+                  title={t('editor.move_folder')}
                 >
                   📁
                 </button>
@@ -167,7 +181,7 @@ export function Editor() {
                         }}
                         className={`block w-full px-3 py-1.5 text-left text-xs hover:bg-surface-bg ${note.folderId === null ? 'font-semibold text-mint-600' : 'text-surface-fg'}`}
                       >
-                        📝 未分类
+                        {t('editor.unfiled')}
                       </button>
                       {folders.length > 0 && (
                         <div className="my-1 border-t border-surface-border" />
@@ -185,7 +199,7 @@ export function Editor() {
                         </button>
                       ))}
                       {folders.length === 0 && (
-                        <p className="px-3 py-1.5 text-xs text-surface-muted">还没有文件夹</p>
+                        <p className="px-3 py-1.5 text-xs text-surface-muted">{t('editor.no_folders')}</p>
                       )}
                     </div>
                   </>
@@ -198,9 +212,27 @@ export function Editor() {
               >
                 🔗
               </button>
+              {appMode === 'online' && (
+                <button
+                  onClick={() => setShowHistory(true)}
+                  className="rounded p-1.5 text-xs text-surface-muted hover:bg-surface-bg"
+                  title={t('history.open')}
+                >
+                  📜
+                </button>
+              )}
+              {appMode === 'online' && (
+                <button
+                  onClick={handleSaveAsTemplate}
+                  className="rounded p-1.5 text-xs text-surface-muted hover:bg-surface-bg"
+                  title={t('templates.save_as')}
+                >
+                  📋
+                </button>
+              )}
               <button
                 onClick={() => {
-                  if (confirm('确定要删除这篇笔记吗？')) {
+                  if (confirm(t('editor.confirm_delete'))) {
                     void deleteNote(note.id);
                   }
                 }}
@@ -230,16 +262,7 @@ export function Editor() {
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="# Markdown 支持...
-
-**粗体** *斜体* [链接](https://dustnote.app)
-
-- 列表项 1
-- 列表项 2
-
-\`\`\`js
-console.log('Hello, DustNote!');
-\`\`\`"
+            placeholder={t('editor.md_placeholder')}
             className={`flex-1 resize-none bg-surface-bg p-6 font-mono text-sm text-surface-fg placeholder-surface-muted focus:outline-none ${
               mode === 'split' ? 'border-r border-surface-border' : ''
             }`}
@@ -251,7 +274,7 @@ console.log('Hello, DustNote!');
               className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
               dangerouslySetInnerHTML={{
                 // 导入的 .md/.docx 也会走到这里，同样按不可信内容处理
-                __html: sanitizeHtml(marked.parse(content || '*暂无内容*') as string),
+                __html: sanitizeHtml(marked.parse(content || `*${t('editor.empty_content')}*`) as string),
               }}
             />
           </div>
@@ -264,6 +287,14 @@ console.log('Hello, DustNote!');
           title={title}
           content={content}
           onClose={() => setShowShare(false)}
+        />
+      )}
+
+      {showHistory && (
+        <NoteHistoryDialog
+          noteId={note.id}
+          currentVersion={note.version}
+          onClose={() => setShowHistory(false)}
         />
       )}
     </main>
@@ -293,7 +324,7 @@ function ShareDialog({
     try {
       const { accessToken, masterKey } = useStore.getState();
       if (!masterKey) {
-        alert('请先解锁后再分享');
+        alert(t('editor.share_not_unlocked'));
         return;
       }
 
@@ -301,7 +332,7 @@ function ShareDialog({
       const shareKey = randomBytes(32);
       const ciphertext = await encryptString(
         shareKey,
-        JSON.stringify({ title: title || '新笔记', content })
+        JSON.stringify({ title: title || t('editor.new_note_default'), content })
       );
       // 用 masterKey 包装一份，好让主人换设备后还能还原出完整链接
       const wrappedShareKey = await wrapKey(masterKey, shareKey);
@@ -326,7 +357,7 @@ function ShareDialog({
       });
       const data = (await r.json()) as { token: string; error?: string; message?: string };
       if (!r.ok) {
-        alert(`创建分享失败：${data.message ?? data.error ?? r.statusText}`);
+        alert(t('editor.share_fail', { reason: data.message ?? data.error ?? r.statusText }));
         return;
       }
       // 密钥放 fragment：浏览器不会把 `#` 之后的内容发给服务端
@@ -334,7 +365,7 @@ function ShareDialog({
     } finally {
       setSubmitting(false);
     }
-  }, [noteId, password, expiresHours, title, content]);
+  }, [noteId, password, expiresHours, title, content, t]);
 
   return (
     <div
@@ -406,12 +437,12 @@ function ShareDialog({
                 }}
                 className="rounded-lg bg-mint-600 px-3 py-2 text-xs text-white"
               >
-                {copied ? `✅ ${t('editor.copied')}` : '复制'}
+                {copied ? `✅ ${t('editor.copied')}` : t('editor.copy_key')}
               </button>
             </div>
             <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-              🔑 解密密钥在链接 <code>#</code> 之后的部分，服务器拿不到它。 请务必复制
-              <strong>完整链接</strong>——截断后内容将无法解密，且链接一旦泄露即等同于内容泄露。
+              {t('editor.key_hint')} <strong>{t('editor.key_hint_strong')}</strong>
+              {t('editor.key_hint_tail')}
             </p>
             <button
               onClick={onClose}

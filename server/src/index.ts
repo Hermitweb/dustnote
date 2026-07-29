@@ -10,11 +10,15 @@ import { getDb, runMigrations, closeDb } from './db.js';
 import { migrations } from './migrations.js';
 import { setupSyncWss, closeWss } from './services/sync-ws.js';
 import { startTrashCleanup, stopTrashCleanup } from './services/trash-cleanup.js';
+import { initSentry, captureException } from './sentry.js';
 
 // 启动时配置校验
 import './config-validate.js';
 
 async function main(): Promise<void> {
+  // 0. 初始化 Sentry（必须在 app 创建之前；未配置 DSN 时为 no-op）
+  initSentry();
+
   // 1. 初始化数据库 + 跑迁移
   const db = getDb();
   runMigrations(db, migrations);
@@ -54,5 +58,6 @@ async function main(): Promise<void> {
 
 main().catch((err) => {
   logger.fatal({ err }, '启动失败');
+  captureException(err);
   process.exit(1);
 });

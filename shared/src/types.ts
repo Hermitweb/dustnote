@@ -60,6 +60,22 @@ export interface NoteMeta {
   version: number;
 }
 
+/** 笔记历史版本元数据（列表用，不含密文） */
+export interface NoteVersionMeta {
+  id: string;
+  /** 对应的笔记版本号 */
+  noteVersion: number;
+  keyVersion: number;
+  clientUpdatedAt: string;
+  /** 服务端保存此快照的时间 */
+  createdAt: string;
+}
+
+/** 笔记历史版本完整数据（含密文，客户端解密后查看） */
+export interface NoteVersion extends NoteVersionMeta {
+  ciphertext: EncryptedBlob | string;
+}
+
 export interface Share {
   id: ShareId;
   noteId: NoteId;
@@ -221,4 +237,58 @@ export interface ModeState {
   serverUrl: string | null;
   /** 首次启动是否已选择模式 */
   initialized: boolean;
+}
+
+// ========== v2.1.0 模板系统 ==========
+
+/** 模板分类（用于 UI 分组展示） */
+export type TemplateCategory =
+  | 'blank'
+  | 'journal'
+  | 'meeting'
+  | 'todo'
+  | 'reading'
+  | 'project'
+  | 'custom';
+
+/**
+ * 笔记模板
+ *
+ * 设计要点（v2.1.0）：
+ * - 预设模板（isPreset=true）：user_id 为 NULL，全用户共享，content 为明文 Markdown
+ *   → 由迁移脚本 seed 到 DB；客户端在单机模式下也可从 bundled 预设读取
+ * - 自定义模板（isPreset=false）：user_id 绑定用户，content 为 ciphertext JSON
+ *   （用 masterKey 加密，与笔记信封一致），服务端仅存密文
+ *
+ * 安全模型：
+ * - 预设模板内容是公开 boilerplate，明文存储无风险
+ * - 自定义模板可能含个人结构，按 E2EE 加密存储
+ * - 客户端按 isPreset 标志决定明文读取还是解密
+ */
+export interface Template {
+  id: string;
+  /** 所属用户 ID；NULL 表示预设模板（全用户共享） */
+  userId: string | null;
+  /** 模板名称 */
+  name: string;
+  /** 简短描述 */
+  description: string;
+  /** 分类（用于 UI 分组） */
+  category: TemplateCategory;
+  /** emoji 图标 */
+  icon: string;
+  /**
+   * 模板内容：
+   * - 预设模板：明文 Markdown
+   * - 自定义模板：ciphertext JSON 字符串（与 NoteRow.ciphertext 同格式）
+   */
+  content: string;
+  /** 是否预设模板 */
+  isPreset: boolean;
+  /** 排序权重（小在前） */
+  sortOrder: number;
+  /** 创建时间 */
+  createdAt: string;
+  /** 更新时间 */
+  updatedAt: string;
 }

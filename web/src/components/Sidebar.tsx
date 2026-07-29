@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { TemplatePicker } from './TemplatePicker';
+import { SearchIndex, highlightMatches, type SearchHit } from '../lib/search';
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -29,6 +31,7 @@ export function Sidebar() {
 
   const [newFolderName, setNewFolderName] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   // 搜索：E2EE 下服务端无法检索密文，必须在客户端对解密后的 notesPlain 做匹配。
   // 大小写不敏感、子串匹配 title/content/tags。空字符串 = 不过滤。
   const [searchQuery, setSearchQuery] = useState('');
@@ -128,12 +131,60 @@ export function Sidebar() {
     alert(t('sidebar.batch_done', { label: labels[action], count: ok }));
   };
 
-  // ========== 可见笔记 ==========
-  // 搜索词归一化：去除首尾空格、转小写。空串表示不过滤。
-  // 用 useMemo 避免每次渲染都重复 toLowerCase；searchQuery 变化时才重算。
-  const normalizedQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+  // ========== 全文搜索 v2（内存倒排索引 + 中文分词） ==========
+  // E2EE 下服务端无法检索密文，必须在客户端对解密后的 notesPlain 建索引。
+  // 使用 Intl.Segmenter 做中文分词，标题命中权重 > 标签 > 正文。
+  const searchIndex = useRef(new SearchIndex());
+  // 当前查询的命中详情（noteId → matchedTokens），用于 UI 高亮
+  const [searchHits, setSearchHits] = useState<Map<string, Set<string>>>(new Map());
+
+  // notesPlain 变化时增量重建索引
+  useEffect(() => {
+    searchIndex.current.rebuild(notesPlain);
+  }, [notesPlain]);
+
+  // 搜索词归一化：去除首尾空格。空串表示不过滤。
+  const normalizedQuery = useMemo(() => searchQuery.trim(), [searchQuery]);
+
+  // 执行搜索：返回有序命中列表 + 高亮 token 映射
+  // 依赖 notesPlain：虽然 search 只读 searchIndex.current（ref），
+  // 但 notesPlain 变化时上面的 useEffect 会 rebuild 索引，这里需重新查。
+  const searchResult = useMemo((): {
+    orderedHits: SearchHit[] | null;
+    hitsMap: Map<string, Set<string>>;
+  } => {
+    if (!normalizedQuery) return { orderedHits: null, hitsMap: new Map() };
+    const hits = searchIndex.current.search(normalizedQuery);
+    const hitsMap = new Map<string, Set<string>>();
+    for (const h of hits) {
+      hitsMap.set(h.noteId, h.matchedTokens);
+    }
+    return { orderedHits: hits, hitsMap };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [normalizedQuery, notesPlain]);
+
+  // 同步到 state 供渲染使用（避免 useMemo 中 setState）
+  useEffect(() => {
+    setSearchHits(searchResult.hitsMap);
+  }, [searchResult]);
 
   const visibleNotes = useMemo(() => {
+    // 有搜索词：按相关性得分排序，并按当前视图/文件夹过滤
+    if (searchResult.orderedHits) {
+      const noteMap = notes;
+      return searchResult.orderedHits
+        .map((h) => noteMap.get(h.noteId))
+        .filter((n): n is NonNullable<typeof n> => !!n)
+        .filter((n) => {
+          if (viewMode === 'trash') return !!n.deletedAt;
+          if (viewMode === 'favorites') return !n.deletedAt && n.isFavorite;
+          return !n.deletedAt;
+        })
+        .filter((n) => (selectedFolderId ? n.folderId === selectedFolderId : true))
+        .filter((n) => notesPlain.has(n.id));
+    }
+
+    // 无搜索词：按置顶 + 更新时间排序
     const list = Array.from(notes.values())
       .filter((n) => {
         if (viewMode === 'trash') return !!n.deletedAt;
@@ -141,26 +192,11 @@ export function Sidebar() {
         return !n.deletedAt;
       })
       .filter((n) => (selectedFolderId ? n.folderId === selectedFolderId : true));
-
-    // 搜索过滤：在解密后的明文上做大小写不敏感子串匹配。
-    // 匹配范围 = 标题 + 正文 + 标签。解密失败的笔记（plain 为 undefined）
-    // 在有搜索词时隐藏，无搜索词时仍显示（标题显示为 "..."）。
-    const filtered = normalizedQuery
-      ? list.filter((n) => {
-          const plain = notesPlain.get(n.id);
-          if (!plain) return false;
-          if (plain.title.toLowerCase().includes(normalizedQuery)) return true;
-          if (plain.content.toLowerCase().includes(normalizedQuery)) return true;
-          if (plain.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery))) return true;
-          return false;
-        })
-      : list;
-
-    return filtered.sort((a, b) => {
+    return list.sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
       return b.serverUpdatedAt.localeCompare(a.serverUpdatedAt);
     });
-  }, [notes, viewMode, selectedFolderId, notesPlain, normalizedQuery]);
+  }, [notes, viewMode, selectedFolderId, notesPlain, searchResult]);
 
   const trashCount = Array.from(notes.values()).filter((n) => n.deletedAt).length;
   const isTrash = viewMode === 'trash';
@@ -196,14 +232,23 @@ export function Sidebar() {
           )}
         </div>
         {!selecting && (
-          <button
-            onClick={() => {
-              void createNote(selectedFolderId);
-            }}
-            className="w-full rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
-          >
-            {t('app_bar.new_note')}
-          </button>
+          <div className="flex gap-1">
+            <button
+              onClick={() => {
+                void createNote(selectedFolderId);
+              }}
+              className="flex-1 rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
+            >
+              {t('app_bar.new_note')}
+            </button>
+            <button
+              onClick={() => setShowTemplatePicker(true)}
+              className="rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg transition-colors hover:bg-surface-sunken"
+              title={t('templates.open')}
+            >
+              📋
+            </button>
+          </div>
         )}
         {selecting && (
           <button
@@ -419,7 +464,14 @@ export function Sidebar() {
                       <div className="flex items-center gap-1.5">
                         {n.isPinned && <span className="text-xs">📌</span>}
                         {n.isFavorite && <span className="text-xs">⭐</span>}
-                        <span className="truncate text-surface-fg">{plain?.title ?? '...'}</span>
+                        {plain ? (
+                          <HighlightedTitle
+                            title={plain.title}
+                            matchedTokens={searchHits.get(n.id)}
+                          />
+                        ) : (
+                          <span className="truncate text-surface-fg">...</span>
+                        )}
                       </div>
                     </button>
                   </div>
@@ -500,6 +552,10 @@ export function Sidebar() {
           </div>
         </div>
       )}
+
+      {showTemplatePicker && (
+        <TemplatePicker onClose={() => setShowTemplatePicker(false)} />
+      )}
     </aside>
   );
 }
@@ -546,5 +602,32 @@ function BatchBtn({
     <button className={`${base} ${style}`} onClick={onClick}>
       {label}
     </button>
+  );
+}
+
+/**
+ * 高亮标题：把匹配的 token 用 <mark> 包裹。
+ *
+ * 使用 dangerouslySetInnerHTML 渲染 highlightMatches 的输出（已转义 HTML，
+ * 只插入 <mark> 标签，XSS 安全）。
+ */
+function HighlightedTitle({
+  title,
+  matchedTokens,
+}: {
+  title: string;
+  matchedTokens: Set<string> | undefined;
+}) {
+  if (!matchedTokens || matchedTokens.size === 0) {
+    return <span className="truncate text-surface-fg">{title}</span>;
+  }
+  const html = highlightMatches(title, matchedTokens);
+  return (
+    <span
+      className="truncate text-surface-fg"
+      dangerouslySetInnerHTML={{
+        __html: html,
+      }}
+    />
   );
 }

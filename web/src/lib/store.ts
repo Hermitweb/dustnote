@@ -15,6 +15,7 @@ import {
   type Ciphertext,
   type DataRepository,
   type AppMode,
+  type Template,
   decryptString,
   encryptString,
   generateRecoveryCode,
@@ -35,6 +36,8 @@ import {
   remainingLockoutMs,
   INITIAL_LOCKOUT_STATE,
   LOCAL_LOCKOUT_DURATION_MS,
+  PRESET_TEMPLATES,
+  fillTemplatePlaceholders,
   type LocalAuthBlob,
   type LocalLockoutState,
 } from '@dustnote/shared';
@@ -183,6 +186,8 @@ interface StoreState {
   notesPlain: Map<string, NotePlaintext>;
   folders: Folder[];
   tags: Tag[];
+  /** 笔记模板（预设 + 自定义；单机模式仅有 bundled 预设） */
+  templates: Template[];
   selectedNoteId: string | null;
   selectedFolderId: string | null;
   /** 当前侧栏视图（全部/收藏/回收站） */
@@ -230,6 +235,8 @@ interface StoreState {
   // actions: data
   loadAll: () => Promise<void>;
   createNote: (folderId?: string | null) => Promise<string>;
+  /** 从模板创建笔记：解密模板 content（自定义模板）或直接用明文（预设模板），写入新笔记 */
+  createNoteFromTemplate: (templateId: string, folderId?: string | null) => Promise<string>;
   updateNote: (
     id: string,
     patch: Partial<NotePlaintext> & { isPinned?: boolean; isFavorite?: boolean }
@@ -252,6 +259,14 @@ interface StoreState {
   emptyTrash: () => Promise<void>;
   /** 恢复笔记：从回收站还原 */
   restoreNote: (id: string) => Promise<void>;
+
+  // actions: templates（v2.1.0）
+  /** 加载模板列表（联机：服务端拉取；单机：bundled 预设） */
+  loadTemplates: () => Promise<void>;
+  /** 把当前笔记另存为自定义模板（联机模式专用，加密存储） */
+  saveAsTemplate: (name: string, plain: NotePlaintext) => Promise<void>;
+  /** 删除自定义模板（预设模板不可删） */
+  deleteTemplate: (id: string) => Promise<void>;
 
   // actions: prefs
   setPreferences: (p: Partial<Preferences>) => void;
@@ -393,6 +408,8 @@ export const useStore = create<StoreState>((set, get) => ({
   notesPlain: new Map(),
   folders: [],
   tags: [],
+  // 单机模式无需联网即可使用预设模板；联机模式解锁后会 loadTemplates 覆盖
+  templates: PRESET_TEMPLATES,
   selectedNoteId: null,
   selectedFolderId: null,
   viewMode: 'all',
@@ -712,6 +729,8 @@ export const useStore = create<StoreState>((set, get) => ({
         }
         set({ notesPlain: plain });
       }
+      // 单机模式模板：使用 bundled 预设
+      set({ templates: PRESET_TEMPLATES });
       return;
     }
 
@@ -737,16 +756,18 @@ export const useStore = create<StoreState>((set, get) => ({
 
     try {
       const a = api();
-      const [notesRes, foldersRes, tagsRes] = await Promise.all([
+      const [notesRes, foldersRes, tagsRes, templatesRes] = await Promise.all([
         // includeDeleted=1：回收站视图需要拿到已软删的笔记
         a.get<{ notes: NoteRow[] }>('/notes?includeDeleted=1'),
         a.get<{ folders: Folder[] }>('/folders'),
         a.get<{ tags: Tag[] }>('/tags'),
+        a.get<{ templates: Template[] }>('/templates'),
       ]);
       set({
         notes: new Map(notesRes.notes.map((n: NoteRow) => [n.id, n])),
         folders: foldersRes.folders,
         tags: tagsRes.tags,
+        templates: templatesRes.templates ?? PRESET_TEMPLATES,
       });
 
       const masterKey = get().masterKey;
@@ -779,6 +800,8 @@ export const useStore = create<StoreState>((set, get) => ({
       if (isTransientNetworkError(err)) {
         set({ isOnline: false });
       }
+      // 模板拉取失败时降级为 bundled 预设
+      set({ templates: PRESET_TEMPLATES });
     }
   },
 
@@ -847,6 +870,95 @@ export const useStore = create<StoreState>((set, get) => ({
     newNotes.set(note.id, note);
     const newPlain = new Map(get().notesPlain);
     newPlain.set(note.id, empty);
+    set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: note.id });
+    return note.id;
+  },
+
+  async createNoteFromTemplate(templateId: string, folderId: string | null = null): Promise<string> {
+    const masterKey = get().masterKey;
+    if (!masterKey) throw new Error('未解锁');
+
+    // 查找模板
+    const tpl = get().templates.find((t) => t.id === templateId);
+    if (!tpl) throw new Error('模板不存在');
+
+    // 解析模板内容
+    let plainContent: string;
+    if (tpl.isPreset) {
+      // 预设模板：明文 Markdown
+      plainContent = fillTemplatePlaceholders(tpl.content);
+    } else {
+      // 自定义模板：ciphertext JSON，需用 masterKey 解密
+      const envelope = parseEnvelope(tpl.content);
+      const json = await decryptString(masterKey, envelope.payload);
+      const pt = JSON.parse(json) as NotePlaintext;
+      plainContent = fillTemplatePlaceholders(pt.content);
+    }
+
+    // 从模板内容提取首行作为标题（去掉 Markdown 的 # 号）
+    const firstLine = plainContent.split('\n')[0]?.trim() || '';
+    const title = firstLine.replace(/^#+\s*/, '') || tpl.name;
+
+    const plain: NotePlaintext = { title, content: plainContent, tags: [] };
+    const { json: cipherJson } = await encryptNote(masterKey, plain);
+
+    // 单机模式
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      const id = await repository.createNote({
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: false,
+        isFavorite: false,
+        folderId,
+      });
+      const now = new Date().toISOString();
+      const note: NoteRow = {
+        id,
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: false,
+        isFavorite: false,
+        deletedAt: null,
+        version: 1,
+        clientUpdatedAt: now,
+        serverUpdatedAt: now,
+        folderId,
+      };
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, note);
+      const newPlain = new Map(get().notesPlain);
+      newPlain.set(id, plain);
+      set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: id });
+      return id;
+    }
+
+    // 联机模式
+    const r = await api().post<{ id: string; serverUpdatedAt: string; version: number }>('/notes', {
+      ciphertext: cipherJson,
+      keyVersion: 1,
+      isPinned: false,
+      isFavorite: false,
+      clientUpdatedAt: new Date().toISOString(),
+      folderId,
+    });
+
+    const note: NoteRow = {
+      id: r.id,
+      ciphertext: cipherJson,
+      keyVersion: 1,
+      isPinned: false,
+      isFavorite: false,
+      deletedAt: null,
+      version: r.version,
+      clientUpdatedAt: new Date().toISOString(),
+      serverUpdatedAt: r.serverUpdatedAt,
+      folderId,
+    };
+    const newNotes = new Map(get().notes);
+    newNotes.set(note.id, note);
+    const newPlain = new Map(get().notesPlain);
+    newPlain.set(note.id, plain);
     set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: note.id });
     return note.id;
   },
@@ -1159,6 +1271,71 @@ export const useStore = create<StoreState>((set, get) => ({
     );
     if (!ok) set({ isOnline: false });
     void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
+  },
+
+  // -------- templates（v2.1.0）--------
+
+  async loadTemplates(): Promise<void> {
+    const { mode } = get();
+    // 单机模式：仅使用 bundled 预设模板
+    if (mode === 'standalone') {
+      set({ templates: PRESET_TEMPLATES });
+      return;
+    }
+    // 联机模式：从服务端拉取（预设 + 用户自定义）
+    try {
+      const r = await api().get<{ templates: Template[] }>('/templates');
+      set({ templates: r.templates ?? PRESET_TEMPLATES });
+    } catch {
+      // 拉取失败时保留 bundled 预设，避免 UI 空白
+      set({ templates: PRESET_TEMPLATES });
+    }
+  },
+
+  async saveAsTemplate(name: string, plain: NotePlaintext): Promise<void> {
+    const masterKey = get().masterKey;
+    if (!masterKey) throw new Error('未解锁');
+    const { mode } = get();
+    if (mode !== 'online') {
+      throw new Error('自定义模板仅在联机模式可用');
+    }
+    // 加密模板内容（与笔记信封同格式）
+    const { json: cipherJson } = await encryptNote(masterKey, plain);
+    const r = await api().post<{ id: string }>('/templates', {
+      name,
+      description: '',
+      category: 'custom',
+      icon: '📝',
+      content: cipherJson,
+      sortOrder: 100,
+    });
+    // 更新本地 store
+    const newTemplate: Template = {
+      id: r.id,
+      userId: get().userId,
+      name,
+      description: '',
+      category: 'custom',
+      icon: '📝',
+      content: cipherJson,
+      isPreset: false,
+      sortOrder: 100,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    set({ templates: [...get().templates, newTemplate] });
+  },
+
+  async deleteTemplate(id: string): Promise<void> {
+    const { mode } = get();
+    if (mode !== 'online') {
+      throw new Error('自定义模板仅在联机模式可用');
+    }
+    const tpl = get().templates.find((t) => t.id === id);
+    if (!tpl) return;
+    if (tpl.isPreset) throw new Error('预设模板不可删除');
+    await api().delete(`/templates/${id}`);
+    set({ templates: get().templates.filter((t) => t.id !== id) });
   },
 
   async createFolder(name: string): Promise<string> {

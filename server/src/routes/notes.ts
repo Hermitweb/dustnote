@@ -207,6 +207,31 @@ notesRouter.patch('/notes/:id', (req, res) => {
   const params: unknown[] = [];
 
   if (data.ciphertext !== undefined) {
+    // 内容变更：先将旧密文存入 note_versions 作为历史快照
+    const versionId = randomUUID();
+    db.prepare(
+      `INSERT INTO note_versions (id, note_id, user_id, ciphertext, key_version, note_version, client_updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      versionId,
+      id,
+      user.userId,
+      existing.ciphertext,
+      existing.key_version,
+      existing.version,
+      existing.client_updated_at
+    );
+    // 保留最近 50 个版本，超出自动清理
+    db.prepare(
+      `DELETE FROM note_versions
+       WHERE note_id = ? AND user_id = ?
+         AND id NOT IN (
+           SELECT id FROM note_versions
+           WHERE note_id = ? AND user_id = ?
+           ORDER BY created_at DESC LIMIT 50
+         )`
+    ).run(id, user.userId, id, user.userId);
+
     updates.push('ciphertext = ?');
     params.push(data.ciphertext);
     updates.push('key_version = ?');
@@ -306,4 +331,199 @@ notesRouter.delete('/notes/:id/permanent', (req, res) => {
   }
   broadcastNoteChanged(user.userId, { id, op: 'permanent_delete' });
   res.json({ ok: true });
+});
+
+// ========== GET /notes/:id/versions - 列出历史版本 ==========
+
+notesRouter.get('/notes/:id/versions', (req, res) => {
+  const user = req.user as AuthUser;
+  const id = req.params.id;
+  if (!id) {
+    res.status(400).json({ error: 'missing_id' });
+    return;
+  }
+
+  const db = getDb();
+  // 先确认笔记属于该用户
+  const note = db
+    .prepare('SELECT id FROM notes WHERE id = ? AND user_id = ?')
+    .get(id, user.userId);
+  if (!note) {
+    res.status(404).json({ error: 'not_found' });
+    return;
+  }
+
+  const rows = db
+    .prepare(
+      `SELECT id, note_version, key_version, client_updated_at, created_at
+       FROM note_versions
+       WHERE note_id = ? AND user_id = ?
+       ORDER BY created_at DESC`
+    )
+    .all(id, user.userId) as {
+      id: string;
+      note_version: number;
+      key_version: number;
+      client_updated_at: string;
+      created_at: string;
+    }[];
+
+  res.json({
+    versions: rows.map((r) => ({
+      id: r.id,
+      noteVersion: r.note_version,
+      keyVersion: r.key_version,
+      clientUpdatedAt: r.client_updated_at,
+      createdAt: r.created_at,
+    })),
+  });
+});
+
+// ========== GET /notes/:id/versions/:versionId - 获取历史版本密文 ==========
+
+notesRouter.get('/notes/:id/versions/:versionId', (req, res) => {
+  const user = req.user as AuthUser;
+  const { id, versionId } = req.params;
+  if (!id || !versionId) {
+    res.status(400).json({ error: 'missing_params' });
+    return;
+  }
+
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT id, ciphertext, key_version, note_version, client_updated_at, created_at
+       FROM note_versions
+       WHERE id = ? AND note_id = ? AND user_id = ?`
+    )
+    .get(versionId, id, user.userId) as
+    | {
+        id: string;
+        ciphertext: Buffer | string;
+        key_version: number;
+        note_version: number;
+        client_updated_at: string;
+        created_at: string;
+      }
+    | undefined;
+
+  if (!row) {
+    res.status(404).json({ error: 'not_found' });
+    return;
+  }
+
+  res.json({
+    id: row.id,
+    ciphertext: String(row.ciphertext),
+    keyVersion: row.key_version,
+    noteVersion: row.note_version,
+    clientUpdatedAt: row.client_updated_at,
+    createdAt: row.created_at,
+  });
+});
+
+// ========== POST /notes/:id/versions/:versionId/restore - 恢复历史版本 ==========
+
+notesRouter.post('/notes/:id/versions/:versionId/restore', (req, res) => {
+  const user = req.user as AuthUser;
+  const { id, versionId } = req.params;
+  if (!id || !versionId) {
+    res.status(400).json({ error: 'missing_params' });
+    return;
+  }
+
+  const parsed = z
+    .object({
+      version: z.number().int().nonnegative(),
+      clientUpdatedAt: z.string(),
+    })
+    .safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'invalid_body' });
+    return;
+  }
+
+  const db = getDb();
+  // 获取历史版本密文
+  const versionRow = db
+    .prepare(
+      `SELECT ciphertext, key_version FROM note_versions
+       WHERE id = ? AND note_id = ? AND user_id = ?`
+    )
+    .get(versionId, id, user.userId) as
+    | { ciphertext: Buffer | string; key_version: number }
+    | undefined;
+
+  if (!versionRow) {
+    res.status(404).json({ error: 'version_not_found' });
+    return;
+  }
+
+  // 检查当前笔记状态（乐观锁）
+  const existing = db
+    .prepare('SELECT version FROM notes WHERE id = ? AND user_id = ?')
+    .get(id, user.userId) as { version: number } | undefined;
+
+  if (!existing) {
+    res.status(404).json({ error: 'note_not_found' });
+    return;
+  }
+
+  if (existing.version !== parsed.data.version) {
+    res.status(409).json({
+      error: 'version_mismatch',
+      message: '数据已被其他设备更新',
+      current: existing.version,
+    });
+    return;
+  }
+
+  // 恢复前先将当前密文存为历史版本（与正常更新一致）
+  const currentNote = db
+    .prepare('SELECT ciphertext, key_version, version, client_updated_at FROM notes WHERE id = ? AND user_id = ?')
+    .get(id, user.userId) as {
+      ciphertext: Buffer | string;
+      key_version: number;
+      version: number;
+      client_updated_at: string;
+    };
+
+  const snapshotId = randomUUID();
+  db.prepare(
+    `INSERT INTO note_versions (id, note_id, user_id, ciphertext, key_version, note_version, client_updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    snapshotId,
+    id,
+    user.userId,
+    currentNote.ciphertext,
+    currentNote.key_version,
+    currentNote.version,
+    currentNote.client_updated_at
+  );
+
+  // 用历史版本的密文覆盖当前笔记
+  db.prepare(
+    `UPDATE notes SET ciphertext = ?, key_version = ?, version = version + 1, client_updated_at = ?
+     WHERE id = ? AND user_id = ?`
+  ).run(
+    String(versionRow.ciphertext),
+    versionRow.key_version,
+    parsed.data.clientUpdatedAt,
+    id,
+    user.userId
+  );
+
+  const updated = db
+    .prepare('SELECT server_updated_at, version FROM notes WHERE id = ?')
+    .get(id) as { server_updated_at: string; version: number };
+
+  broadcastNoteChanged(user.userId, { id, op: 'update' });
+
+  logger.info({ userId: user.userId, noteId: id, versionId }, '笔记已恢复到历史版本');
+  res.json({
+    id,
+    serverUpdatedAt: updated.server_updated_at,
+    version: updated.version,
+  });
 });

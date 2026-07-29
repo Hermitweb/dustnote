@@ -66,7 +66,7 @@ import {
   initStandaloneSession,
 } from '../lib/standalone-session';
 
-const APP_VERSION = '2.0.4';
+const APP_VERSION = '2.1.0';
 
 // 设备 ID：首次生成后持久化到本地存储
 let deviceId = '';

@@ -4,23 +4,27 @@
  * 流程：
  * 1. 检查本地 lockoutState，若锁定中显示剩余倒计时
  * 2. 用户输入主密码 → 调用 unlockLocalAuth 校验
+ *    或通过生物识别 → 从 keychain 读取缓存的 masterKey
  * 3. 失败：累加 failedAttempts，达到 6 次后锁定 15 分钟
  * 4. 成功：重置失败计数，解封 masterKey 进入已解锁状态
  *
  * 与联机模式的区别：
  * - 无服务端调用，纯本地校验
  * - 锁定状态在客户端持久化（AsyncStorage）
- * - 无生物识别缓存（单机模式 masterKey 不固定，刷新后清空）
+ * - 生物识别仅缓存 masterKey（无 access token）
  */
 
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import ReactNativeBiometrics from 'react-native-biometrics';
 import type { RootStackParamList } from '../App';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
 import { LOCAL_LOCKOUT_DURATION_MS } from '@dustnote/shared';
+
+const rnb = new ReactNativeBiometrics();
 
 export function StandaloneUnlockScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -30,8 +34,10 @@ export function StandaloneUnlockScreen() {
   const [remainingSec, setRemainingSec] = useState(0);
 
   const unlockStandalone = useAuthStore((s) => s.unlockStandalone);
+  const unlockStandaloneWithBiometric = useAuthStore((s) => s.unlockStandaloneWithBiometric);
   const getRemainingLockoutMs = useAuthStore((s) => s.getRemainingLockoutMs);
   const lockoutState = useAuthStore((s) => s.lockoutState);
+  const hasBiometricCache = useAuthStore((s) => s.hasBiometricCache);
 
   // 锁定中时显示倒计时
   useEffect(() => {
@@ -60,6 +66,30 @@ export function StandaloneUnlockScreen() {
       setPassword('');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const onBiometric = async () => {
+    if (isLocked) {
+      Alert.alert('账号已锁定', `请 ${remainingSec} 秒后重试`);
+      return;
+    }
+    try {
+      const { available } = await rnb.isSensorAvailable();
+      if (!available) {
+        Alert.alert('不可用', '设备未配置生物识别');
+        return;
+      }
+      // 先用 simplePrompt 让用户确认指纹 / 面容
+      const { success } = await rnb.simplePrompt({ promptMessage: '解锁 DustNote' });
+      if (!success) return;
+      // 生物识别通过：从 keychain 读取缓存的 masterKey
+      const ok = await unlockStandaloneWithBiometric();
+      if (!ok) {
+        Alert.alert('提示', '未找到缓存的解锁信息，请输入主密码完成解锁');
+      }
+    } catch (err) {
+      Alert.alert('解锁失败', (err as Error).message);
     }
   };
 
@@ -94,6 +124,12 @@ export function StandaloneUnlockScreen() {
       >
         <Text style={styles.buttonText}>{submitting ? '解锁中…' : '解锁'}</Text>
       </TouchableOpacity>
+
+      {hasBiometricCache && !isLocked && (
+        <TouchableOpacity style={styles.bioButton} onPress={onBiometric}>
+          <Text style={styles.bioButtonText}>👆 使用生物识别</Text>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity
         style={styles.recoverButton}
@@ -141,6 +177,8 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       marginTop: 8,
     },
     buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
+    bioButton: { marginTop: 12, padding: 12, alignItems: 'center' },
+    bioButtonText: { color: c.mint600, fontSize: 14 },
     recoverButton: { marginTop: 16, padding: 12, alignItems: 'center' },
     recoverButtonText: { color: c.mint600, fontSize: 14 },
     lockedHint: {
