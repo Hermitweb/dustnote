@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isValidRecoveryCode } from '@dustnote/shared';
 import { useStore } from '../lib/store';
 
 interface Props {
@@ -26,8 +27,8 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
   const mismatch = confirm.length > 0 && newPassword !== confirm;
 
   async function handleSubmit() {
-    if (recoveryCode.length !== 6) {
-      setError('恢复码必须是 6 位数字');
+    if (!isValidRecoveryCode(recoveryCode)) {
+      setError('恢复码格式不正确（应为 XXXXX-XXXXX）');
       return;
     }
     if (newPassword.length < 8) {
@@ -77,8 +78,10 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
             <input
               type="text"
               value={recoveryCode}
-              onChange={(e) => setRecoveryCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="000000"
+              onChange={(e) => setRecoveryCode(e.target.value.slice(0, 16))}
+              placeholder="A7K2M-9PQR3"
+              autoCapitalize="characters"
+              spellCheck={false}
               className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-center font-mono text-lg tracking-widest focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20"
               autoComplete="off"
               autoFocus
@@ -121,7 +124,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
 
           <button
             type="submit"
-            disabled={submitting || recoveryCode.length !== 6 || newPassword.length < 8 || newPassword !== confirm}
+            disabled={submitting || !isValidRecoveryCode(recoveryCode) || newPassword.length < 8 || newPassword !== confirm}
             className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700 disabled:opacity-50"
           >
             {submitting ? '...' : t('auth.recover_btn')}

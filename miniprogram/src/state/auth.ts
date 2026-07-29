@@ -9,7 +9,7 @@
  * - masterKey 通过 standalone-session 模块缓存（页面间共享）
  *
  * 联机模式（online）：
- * - masterKey 通过 deriveMasterKey(password, clientMasterSalt) 派生
+ * - masterKey 随机生成，用主密码 KEK 包装后存服务端（v2 协议）
  * - access token 持久化到 Taro.setStorage
  * - 失败重试由服务端账号锁定策略管理
  * - serverUrl 从 mode-store 读取（不再硬编码 IP）
@@ -23,12 +23,14 @@ import Taro from '@tarojs/taro';
 import {
   ApiClient,
   type Ciphertext,
-  deriveMasterKey,
   decryptString,
   encryptString,
+  deriveSecrets,
+  generateMasterKey,
   generateRecoveryCode,
-  wrapMasterKey,
-  deriveRecoveryKey,
+  normalizeRecoveryCode,
+  wrapKey,
+  unwrapKey,
   fromBase64,
   toBase64,
   randomBytes,
@@ -138,6 +140,8 @@ interface AuthStoreState {
   userId: string | null;
   /** masterKey 仅存内存，刷新后清空 */
   masterKey: Uint8Array | null;
+  /** 服务端下发的 pwSalt（base64），派生 KEK 用（联机模式） */
+  pwSalt: string | null;
 
   // 单机模式相关
   /** 单机模式本地鉴权 blob（仅 standalone 模式有值） */
@@ -172,6 +176,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   accessToken: null,
   userId: null,
   masterKey: null,
+  pwSalt: null,
   localAuthBlob: null,
   lockoutState: { ...INITIAL_LOCKOUT_STATE },
 
@@ -195,7 +200,10 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
     // 联机模式：检查服务端状态
     try {
-      const r = await getApi().get<{ initialized: boolean }>('/auth/status');
+      const r = await getApi().get<{ initialized: boolean; pwSalt: string | null }>(
+        '/auth/status'
+      );
+      set({ pwSalt: r.pwSalt });
       if (!r.initialized) {
         set({ authState: 'uninitialized' });
         return;
@@ -230,56 +238,68 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   // ========== 联机模式 actions ==========
 
   async setup(password: string): Promise<string> {
-    // 生成恢复码 + 客户端 masterSalt
+    // v2：masterKey 随机生成，与密码解耦；换密码时只换包装，不动笔记
+    const masterKey = generateMasterKey();
     const recoveryCode = generateRecoveryCode();
-    const clientMasterSalt = randomBytes(16);
-    // 用 password 派生 masterKey
-    const masterKey = await deriveMasterKey(password, clientMasterSalt);
-    // 用 recoveryCode 派生 recoveryKey，包装 masterKey
-    const recoverySalt = randomBytes(16);
-    const recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt);
-    const wrapped = await wrapMasterKey(recoveryKey, masterKey);
+    const pwSalt = randomBytes(16);
+    const rcSalt = randomBytes(16);
 
-    const r = await getApi().post<{
-      accessToken: string;
-      userId: string;
-      deviceId: string;
-      clientMasterSalt: string;
-    }>('/auth/setup', {
-      password,
-      recoveryCode,
-      wrappedMasterKey: wrapped,
-      clientMasterSalt: toBase64(clientMasterSalt),
-      deviceName: '小程序',
-    });
+    const pw = await deriveSecrets(password, pwSalt);
+    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), rcSalt);
+    const wrappedPw = await wrapKey(pw.kek, masterKey);
+    const wrappedRc = await wrapKey(rc.kek, masterKey);
+
+    const r = await getApi().post<{ accessToken: string; userId: string; deviceId: string }>(
+      '/auth/setup',
+      {
+        // 主密码不出客户端，服务端只拿到 authKey 和密文
+        authKey: toBase64(pw.authKey),
+        recoveryAuthKey: toBase64(rc.authKey),
+        wrappedMasterKeyPw: wrappedPw,
+        wrappedMasterKeyRc: wrappedRc,
+        pwSalt: toBase64(pwSalt),
+        rcSalt: toBase64(rcSalt),
+        deviceName: '小程序',
+      }
+    );
 
     persistToken(r.accessToken);
     set({
       accessToken: r.accessToken,
       userId: r.userId,
       masterKey,
+      pwSalt: toBase64(pwSalt),
       authState: 'unlocked',
     });
     return recoveryCode;
   },
 
   async unlock(password: string): Promise<void> {
-    // 用 password 登录，服务端返回 clientMasterSalt
+    // v2：pwSalt 在 init 时已拿到；兜底再取一次
+    let salt = get().pwSalt;
+    if (!salt) {
+      const status = await getApi().get<{ pwSalt: string | null }>('/auth/status');
+      salt = status.pwSalt;
+      if (!salt) throw new Error('系统未初始化');
+    }
+
+    const pw = await deriveSecrets(password, fromBase64(salt));
     const r = await getApi().post<{
       accessToken: string;
       userId: string;
       deviceId: string;
-      clientMasterSalt: string;
-    }>('/auth/unlock', { password, deviceName: '小程序' });
-    // 用 password + clientMasterSalt 重新派生 masterKey
-    const clientMasterSalt = fromBase64(r.clientMasterSalt);
-    const masterKey = await deriveMasterKey(password, clientMasterSalt);
+      wrappedMasterKey: Ciphertext;
+    }>('/auth/unlock', { authKey: toBase64(pw.authKey), deviceName: '小程序' });
+
+    // masterKey 只能在本地解封出来，服务端无从得知
+    const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
 
     persistToken(r.accessToken);
     set({
       accessToken: r.accessToken,
       userId: r.userId,
       masterKey,
+      pwSalt: salt,
       authState: 'unlocked',
     });
   },

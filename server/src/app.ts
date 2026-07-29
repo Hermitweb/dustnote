@@ -25,6 +25,11 @@ import { preferencesRouter } from './routes/preferences.js';
 export function createApp(): Application {
   const app = express();
 
+  // 反代层数。必须在任何限流中间件之前设置，否则 req.ip 是 nginx 的地址，
+  // express-rate-limit 会把所有客户端算进同一个计数桶（既挡不住爆破，又能被
+  // 单个 IP 打成全站 DoS）。见 config.trustProxy 注释。
+  app.set('trust proxy', config.trustProxy);
+
   // 安全头
   app.use(
     helmet({
@@ -47,12 +52,10 @@ export function createApp(): Application {
   app.use(
     cors({
       origin(origin, cb) {
-        // 允许同源、无 Origin（如 curl、小程序原生请求）和已知白名单
-        if (!origin || allowedOrigins.includes(origin)) {
-          cb(null, true);
-        } else {
-          cb(new Error(`CORS blocked: ${origin}`));
-        }
+        // 允许同源、无 Origin（如 curl、小程序原生请求）和已知白名单。
+        // 不放行时回 cb(null, false)：跨域响应不带 CORS 头即可，
+        // 抛 Error 会冒泡到错误处理中间件、把一次策略拒绝变成 500。
+        cb(null, !origin || allowedOrigins.includes(origin));
       },
       credentials: true,
       methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
@@ -62,9 +65,10 @@ export function createApp(): Application {
   // Cookie 解析（refresh token）
   app.use(cookieParser());
 
-  // 请求体
-  app.use(express.json({ limit: '60mb' }));
-  app.use(express.urlencoded({ extended: false, limit: '60mb' }));
+  // 请求体。单条笔记的密文远小于此，60mb × 600 req/min 的旧上限等于把内存
+  // 交给任意匿名客户端支配。导入大文件是客户端逐条加密上传的，不需要这么大。
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
   // HTTP 日志
   app.use(
@@ -119,7 +123,13 @@ export function createApp(): Application {
   // 认证相关：对 unlock / recover / setup / refresh 做严格限流，防爆破
   // 注意：在 authMiddleware 之后挂载，所以 refresh 路由能正确处理
   app.use(
-    ['/api/v1/auth/unlock', '/api/v1/auth/recover', '/api/v1/auth/setup', '/api/v1/auth/refresh'],
+    [
+      '/api/v1/auth/unlock',
+      '/api/v1/auth/recover',
+      '/api/v1/auth/recovery-params',
+      '/api/v1/auth/setup',
+      '/api/v1/auth/refresh',
+    ],
     rateLimit({
       windowMs: 15 * 60_000, // 15 分钟窗口
       limit: 20, // 每个 IP 最多 20 次

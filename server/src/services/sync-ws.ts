@@ -37,26 +37,19 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
       return;
     }
 
-    // 解析 token：从 query ?token=xxx 或从 Cookie dustnote_refresh
+    // 解析 token：query ?token=<access token>
+    // 这里只接受 access token。原先的 Cookie dustnote_refresh 回落是死代码
+    // （该 cookie 的 path 是 /api/v1/auth，浏览器根本不会发到 /api/v1/sync/ws），
+    // 且会让 30 天有效的 refresh token 直接当长连接凭证用。
     const url = new URL(req.url, 'http://localhost');
-    const tokenParam = url.searchParams.get('token');
-    const cookieHeader = req.headers.cookie ?? '';
-    const cookies = Object.fromEntries(
-      cookieHeader.split(';').map((p) => {
-        const idx = p.indexOf('=');
-        if (idx < 0) return [p.trim(), ''];
-        return [p.slice(0, idx).trim(), decodeURIComponent(p.slice(idx + 1).trim())];
-      })
-    );
-
-    const token = tokenParam ?? cookies.dustnote_refresh;
+    const token = url.searchParams.get('token');
     if (!token) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();
       return;
     }
     const payload = verifyToken(token);
-    if (!payload) {
+    if (!payload || payload.type !== 'access') {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();
       return;

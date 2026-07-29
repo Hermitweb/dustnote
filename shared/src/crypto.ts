@@ -46,6 +46,12 @@ export function toBase64Url(b: Uint8Array): string {
   return toBase64(b).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+export function fromBase64Url(s: string): Uint8Array {
+  const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
+  // atob 要求长度是 4 的倍数，补回被去掉的 padding
+  return fromBase64(b64.padEnd(Math.ceil(b64.length / 4) * 4, '='));
+}
+
 export function randomBytes(n: number): Uint8Array {
   return nobleRandomBytes(n);
 }
@@ -127,15 +133,53 @@ export async function hkdf(
   return hkdfExpand(prk, encodeUtf8(info), length);
 }
 
-// ========== 主密钥派生 ==========
+// ========== 主密钥与密钥包装（协议 v2）==========
+//
+// 关键设计：masterKey 是**随机生成**的，不由密码派生。
+//
+// 密码只用来派生一把「密钥加密密钥」(KEK)，KEK 包装 masterKey 后存服务端。
+// 这样改密码 / 用恢复码找回时，只需用新 KEK 重新包装同一把 masterKey，
+// 历史笔记照常能解开。v1 的做法是 masterKey = f(password)，密码一变
+// masterKey 就变，所有旧笔记直接成了解不开的密文（数据永久丢失）。
+//
+// 同一份 KDF 输出还会派生一把 authKey 上传给服务端做身份校验，
+// 服务端因此**永远拿不到主密码**，也就无法自行推导 masterKey。
 
-export const KDF_VERSION = 1;
-export const KDF_INFO = `mn-master-v${KDF_VERSION}`;
+export const KDF_VERSION = 2;
+/** KEK 的 HKDF info，用于包装/解封 masterKey */
+export const KEK_INFO = `dustnote-kek-v${KDF_VERSION}`;
+/** authKey 的 HKDF info，用于向服务端证明身份 */
+export const AUTH_INFO = `dustnote-auth-v${KDF_VERSION}`;
 
-/** 主密码 → masterKey */
-export async function deriveMasterKey(password: string, salt: Uint8Array): Promise<Uint8Array> {
-  const ikm = deriveKey(password, salt);
-  return hkdf(ikm, salt, KDF_INFO, 32);
+export interface DerivedSecrets {
+  /** 包装/解封 masterKey 用，绝不离开客户端 */
+  kek: Uint8Array;
+  /** 上传给服务端做身份校验，泄露它也解不开笔记 */
+  authKey: Uint8Array;
+}
+
+/**
+ * 从一个低熵秘密（主密码或恢复码）派生 KEK 和 authKey。
+ *
+ * 两者由同一次 Argon2id 输出经不同 info 的 HKDF 分叉而来：
+ * 服务端拿到 authKey 也无法反推 KEK。
+ */
+export async function deriveSecrets(
+  secret: string,
+  salt: Uint8Array,
+  params = KDF_PARAMS
+): Promise<DerivedSecrets> {
+  const ikm = deriveKey(secret, salt, params);
+  const [kek, authKey] = await Promise.all([
+    hkdf(ikm, salt, KEK_INFO, 32),
+    hkdf(ikm, salt, AUTH_INFO, 32),
+  ]);
+  return { kek, authKey };
+}
+
+/** 随机生成 masterKey。只在 setup 时调用一次，此后终生不变。 */
+export function generateMasterKey(): Uint8Array {
+  return randomBytes(32);
 }
 
 // ========== AES-GCM-256 ==========
@@ -204,39 +248,66 @@ export async function decryptString(key: Uint8Array, blob: Ciphertext): Promise<
   return decodeUtf8(await decrypt(key, blob));
 }
 
-// ========== Recovery Code（6 位数字）==========
+// ========== 密钥包装 ==========
+
+/** 用 KEK 包装 masterKey，产物存服务端 */
+export async function wrapKey(kek: Uint8Array, key: Uint8Array): Promise<Ciphertext> {
+  return encrypt(kek, key, 1);
+}
+
+/** 用 KEK 解封 masterKey；KEK 不对会抛错（AES-GCM 认证失败） */
+export async function unwrapKey(kek: Uint8Array, wrapped: Ciphertext): Promise<Uint8Array> {
+  return decrypt(kek, wrapped);
+}
+
+// ========== Recovery Code ==========
 //
-// 设计：用户在 setup 时拿到一个 6 位 recovery code
-// 它派生一个独立的 recoveryKey，可以解封 wrappedMasterKey
-// 服务端不存 code 明文，只存 hash
+// v1 用的是 6 位纯数字（10^6 ≈ 2^20），配上比主密码更弱的 KDF 参数，
+// 拿到数据库的人可以直接离线穷举出 masterKey——整套 E2EE 的最短板。
+//
+// v2 改为 10 位 Crockford Base32（32^10 ≈ 2^50），并与主密码共用同一套
+// 强 KDF 参数。展示时按 XXXXX-XXXXX 分组，方便用户抄写。
 
+/** Crockford Base32：去掉了容易混淆的 I / L / O / U */
+const RECOVERY_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+const RECOVERY_LENGTH = 10;
+
+/**
+ * 生成恢复码，形如 `A7K2M-9PQR3`。
+ *
+ * 256 能被 32 整除，所以按字节取模不引入偏置。
+ */
 export function generateRecoveryCode(): string {
-  // 使用无符号 32 位整数（避免负数），然后取模
-  const n = nobleRandomBytes(4);
-  const num =
-    (n[0]! & 0xff) * 0x1000000 + (n[1]! & 0xff) * 0x10000 + (n[2]! & 0xff) * 0x100 + (n[3]! & 0xff);
-  const code = (num % 1000000).toString().padStart(6, '0');
-  return code;
+  const bytes = nobleRandomBytes(RECOVERY_LENGTH);
+  let code = '';
+  for (let i = 0; i < RECOVERY_LENGTH; i++) {
+    code += RECOVERY_ALPHABET[bytes[i]! % 32];
+  }
+  return `${code.slice(0, 5)}-${code.slice(5)}`;
 }
 
-export function deriveRecoveryKey(code: string, salt: Uint8Array): Uint8Array {
-  return deriveKey(code, salt, { m: 16 * 1024, t: 2, p: 2, dkLen: 32 });
+/**
+ * 规范化用户输入的恢复码：去掉分隔符、转大写，并按 Crockford 约定
+ * 把易混字符纠正回去（O→0，I/L→1）。
+ *
+ * 派生前必须调用，否则用户抄错一个字形就解不开。
+ */
+export function normalizeRecoveryCode(input: string): string {
+  return input
+    .toUpperCase()
+    .replace(/[^0-9A-Z]/g, '')
+    .replace(/O/g, '0')
+    .replace(/[IL]/g, '1');
 }
 
-/** 用 recoveryKey 包装 masterKey；服务端存 wrappedMasterKey */
-export async function wrapMasterKey(
-  recoveryKey: Uint8Array,
-  masterKey: Uint8Array
-): Promise<Ciphertext> {
-  return encrypt(recoveryKey, masterKey, 1);
-}
-
-/** 用 recoveryKey 解封 masterKey */
-export async function unwrapMasterKey(
-  recoveryKey: Uint8Array,
-  wrapped: Ciphertext
-): Promise<Uint8Array> {
-  return decrypt(recoveryKey, wrapped);
+/** 判断规范化后的恢复码是否形如合法的 v2 恢复码 */
+export function isValidRecoveryCode(input: string): boolean {
+  const normalized = normalizeRecoveryCode(input);
+  if (normalized.length !== RECOVERY_LENGTH) return false;
+  for (const ch of normalized) {
+    if (!RECOVERY_ALPHABET.includes(ch)) return false;
+  }
+  return true;
 }
 
 // ========== 常量时间比较（防计时攻击）==========

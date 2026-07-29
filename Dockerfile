@@ -6,8 +6,12 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 RUN npm install -g pnpm@9.12.0
 
-# 安装依赖
+# better-sqlite3 在 musl 上没有预编译包，必须源码编译
+RUN apk add --no-cache python3 make g++
+
+# 安装依赖（patches/ 必须先于 install，package.json 里有 patchedDependencies）
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
+COPY patches patches
 COPY shared/package.json shared/tsconfig.json shared/
 COPY server/package.json server/tsconfig.json server/
 COPY web/package.json web/tsconfig.json web/vite.config.ts web/tailwind.config.js web/postcss.config.js web/index.html web/

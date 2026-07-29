@@ -1,9 +1,14 @@
 /**
- * 分享 API
- * - 创建分享：token + 可选密码 + 可选过期
- * - 公开访问：通过 /share/public/:token 读取（需要密码则必须带 hashed）
+ * 分享 API（secret-link 方案）
  *
- * 设计：服务端只存密文，访客拿到 token 后还需要可选密码才能下载密文
+ * 服务端全程只见密文：
+ * - 主人本地随机生成 shareKey，用它加密 {title, content} 后上传
+ * - shareKey 放在链接的 URL fragment（`#` 后面）里，浏览器不会把 fragment
+ *   发给服务端，所以服务端拿到 token 也解不开内容
+ * - 另存一份用 masterKey 包装的 shareKey，供主人换设备后还原完整链接
+ *
+ * 可选的分享密码是一道**独立**的访问控制：它只决定能不能下载到密文，
+ * 与解密无关。两者都需要才能看到内容。
  */
 
 import { Router } from 'express';
@@ -11,6 +16,7 @@ import { z } from 'zod';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { getDb } from '../db.js';
 import { logger } from '../logger.js';
+import type { Ciphertext } from '@dustnote/shared';
 import type { AuthUser } from '../middleware/auth.js';
 import { broadcastShareChanged } from '../services/sync-ws.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
@@ -18,12 +24,19 @@ import { hashPassword, verifyPassword } from '../auth/password.js';
 export const sharesRouter = Router();
 export const publicSharesRouter = Router();
 
+const CiphertextSchema = z.object({
+  v: z.number(),
+  k: z.number(),
+  n: z.string().min(1).max(64),
+  c: z.string().min(1).max(400_000),
+});
+
 const CreateShareSchema = z.object({
   noteId: z.string().uuid(),
-  // v1 简化：owner 在客户端解密后把可分享的明文快照上传
-  // 真正的 E2EE 分享（owner 在线解密 / per-share key 包装）见 v1.5
-  title: z.string().min(1).max(256),
-  content: z.string().max(200_000),
+  /** shareKey 加密的 {title, content} */
+  ciphertext: CiphertextSchema,
+  /** masterKey 包装的 shareKey，服务端解不开 */
+  wrappedShareKey: CiphertextSchema,
   password: z.string().min(4).max(64).optional(),
   expiresIn: z
     .number()
@@ -72,7 +85,7 @@ sharesRouter.post('/shares', async (req, res) => {
 
     db.prepare(
       `
-      INSERT INTO shares (id, note_id, user_id, token, password_hash, expires_at, title, content)
+      INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key, password_hash, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `
     ).run(
@@ -80,10 +93,10 @@ sharesRouter.post('/shares', async (req, res) => {
       note.id,
       user.userId,
       token,
+      JSON.stringify(parsed.data.ciphertext),
+      JSON.stringify(parsed.data.wrappedShareKey),
       passwordHash,
-      expiresAt,
-      parsed.data.title,
-      parsed.data.content
+      expiresAt
     );
 
     logger.info({ userId: user.userId, shareId: id, hasPassword: !!passwordHash }, '分享已创建');
@@ -106,8 +119,8 @@ sharesRouter.get('/shares', (req, res) => {
   const rows = db
     .prepare(
       `
-    SELECT id, note_id, token, password_hash IS NOT NULL AS has_password,
-           expires_at, view_count, revoked, created_at, title
+    SELECT id, note_id, token, wrapped_share_key, password_hash IS NOT NULL AS has_password,
+           expires_at, view_count, revoked, created_at
     FROM shares WHERE user_id = ? ORDER BY created_at DESC
   `
     )
@@ -115,24 +128,25 @@ sharesRouter.get('/shares', (req, res) => {
     id: string;
     note_id: string;
     token: string;
+    wrapped_share_key: string;
     has_password: number;
     expires_at: string | null;
     view_count: number;
     revoked: number;
     created_at: string;
-    title: string | null;
   }[];
   res.json({
     shares: rows.map((r) => ({
       id: r.id,
       noteId: r.note_id,
       token: r.token,
+      // 标题不再存服务端；主人用本地已解密的笔记按 noteId 自行显示
+      wrappedShareKey: JSON.parse(r.wrapped_share_key) as Ciphertext,
       hasPassword: !!r.has_password,
       expiresAt: r.expires_at,
       viewCount: r.view_count,
       revoked: !!r.revoked,
       createdAt: r.created_at,
-      title: r.title ?? '(无标题)',
     })),
   });
 });
@@ -178,7 +192,7 @@ publicSharesRouter.get('/share/public/:token', async (req, res) => {
       .prepare(
         `
       SELECT s.id, s.note_id, s.password_hash, s.expires_at, s.revoked, s.view_count, s.created_at,
-             s.title, s.content
+             s.ciphertext
       FROM shares s
       WHERE s.token = ?
     `
@@ -192,8 +206,7 @@ publicSharesRouter.get('/share/public/:token', async (req, res) => {
           revoked: number;
           view_count: number;
           created_at: string;
-          title: string;
-          content: string;
+          ciphertext: string;
         }
       | undefined;
 
@@ -229,8 +242,8 @@ publicSharesRouter.get('/share/public/:token', async (req, res) => {
     db.prepare('UPDATE shares SET view_count = view_count + 1 WHERE id = ?').run(share.id);
 
     res.json({
-      title: share.title,
-      content: share.content,
+      // 只下发密文；解密所需的 shareKey 在链接 fragment 里，从未到过服务端
+      ciphertext: JSON.parse(share.ciphertext) as Ciphertext,
       noteId: share.note_id,
       createdAt: share.created_at,
       expiresAt: share.expires_at,

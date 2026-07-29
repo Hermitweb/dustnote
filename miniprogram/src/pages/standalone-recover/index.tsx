@@ -2,7 +2,7 @@
  * 单机模式恢复页面（v2.0.0）
  *
  * 流程：
- * 1. 用户输入恢复码（6 位）+ 新主密码（≥ 8 字符）+ 确认新密码
+ * 1. 用户输入恢复码（10 位 Crockford Base32）+ 新主密码（≥ 8 字符）+ 确认新密码
  * 2. 调用 shared 的 recoverLocalAuth 校验恢复码 + 解封原始 masterKey + 重新包装
  * 3. 成功：持久化新 blob，通过事件传递原始 masterKey 给首页，显示新恢复码
  * 4. 失败：提示恢复码错误
@@ -17,7 +17,7 @@
 import React, { useState } from 'react';
 import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import { recoverLocalAuth } from '@dustnote/shared';
+import { recoverLocalAuth, isValidRecoveryCode } from '@dustnote/shared';
 import {
   loadLocalAuthBlobSync,
   saveLocalAuthBlobSync,
@@ -51,8 +51,8 @@ export default function StandaloneRecover() {
   const strength = evalStrength(newPassword);
 
   const onRecover = async () => {
-    if (!recoveryCode) {
-      Taro.showToast({ title: '请输入恢复码', icon: 'none' });
+    if (!isValidRecoveryCode(recoveryCode)) {
+      Taro.showToast({ title: '恢复码格式不正确（XXXXX-XXXXX）', icon: 'none' });
       return;
     }
     if (newPassword.length < 8) {
@@ -114,9 +114,9 @@ export default function StandaloneRecover() {
 
       <Input
         className="mint-input"
-        placeholder="6 位恢复码"
+        placeholder="恢复码 (XXXXX-XXXXX)"
         value={recoveryCode}
-        maxlength={6}
+        maxlength={16}
         onInput={(e) => setRecoveryCode((e.detail as { value: string }).value)}
       />
       <Input

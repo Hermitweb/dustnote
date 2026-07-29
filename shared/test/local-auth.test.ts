@@ -9,47 +9,52 @@ import {
   remainingLockoutMs,
   serializeLocalAuthBlob,
   deserializeLocalAuthBlob,
+  LegacyAuthBlobError,
   INITIAL_LOCKOUT_STATE,
   LOCAL_LOCKOUT_THRESHOLD,
   LOCAL_LOCKOUT_DURATION_MS,
+  type LocalLockoutState,
 } from '../src/local-auth';
-import type { LocalAuthBlob, LocalLockoutState } from '../src/types';
+import type { LocalAuthBlob } from '../src/types';
 
 const GOOD_PASSWORD = 'correct-horse-battery-staple';
+/** 弱 KDF 参数，加速测试（协议逻辑与 KDF 强度无关） */
+const FAST_KDF = { m: 64, t: 1, p: 1, dkLen: 32 };
+/** v2 恢复码格式：10 位 Crockford Base32，XXXXX-XXXXX 分组 */
+const RECOVERY_CODE_RE = /^[0-9A-HJKMNP-TV-Z]{5}-[0-9A-HJKMNP-TV-Z]{5}$/;
 
 describe('local-auth: setupLocalAuth', () => {
-  it('produces a blob, masterKey, and 6-digit recovery code', async () => {
-    const result = await setupLocalAuth(GOOD_PASSWORD);
+  it('produces a blob, masterKey, and 10-char Crockford recovery code', async () => {
+    const result = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
     expect(result.blob).toBeDefined();
     expect(result.masterKey).toBeInstanceOf(Uint8Array);
     expect(result.masterKey.length).toBe(32);
-    expect(result.recoveryCode).toMatch(/^\d{6}$/);
+    expect(result.recoveryCode).toMatch(RECOVERY_CODE_RE);
   });
 
   it('rejects passwords shorter than 8 chars', async () => {
-    await expect(setupLocalAuth('short')).rejects.toThrow(/至少 8 字符/);
+    await expect(setupLocalAuth('short', FAST_KDF)).rejects.toThrow(/至少 8 字符/);
   });
 
   it('generates unique salts per setup', async () => {
-    const a = await setupLocalAuth(GOOD_PASSWORD);
-    const b = await setupLocalAuth(GOOD_PASSWORD);
-    expect(a.blob.masterSalt).not.toBe(b.blob.masterSalt);
-    expect(a.blob.clientMasterSalt).not.toBe(b.blob.clientMasterSalt);
-    expect(a.blob.recoverySalt).not.toBe(b.blob.recoverySalt);
+    const a = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    const b = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    expect(a.blob.pwSalt).not.toBe(b.blob.pwSalt);
+    expect(a.blob.rcSalt).not.toBe(b.blob.rcSalt);
     expect(a.recoveryCode).not.toBe(b.recoveryCode);
   });
 
   it('blob contains all required fields', async () => {
-    const { blob } = await setupLocalAuth(GOOD_PASSWORD);
+    const { blob } = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    expect(typeof blob.pwSalt).toBe('string');
+    expect(typeof blob.rcSalt).toBe('string');
     expect(typeof blob.passwordHash).toBe('string');
-    expect(typeof blob.masterSalt).toBe('string');
-    expect(typeof blob.clientMasterSalt).toBe('string');
     expect(typeof blob.wrappedMasterKey).toBe('string');
     expect(typeof blob.passwordWrappedMasterKey).toBe('string');
     expect(typeof blob.recoveryHash).toBe('string');
-    expect(typeof blob.recoverySalt).toBe('string');
     expect(typeof blob.kdfVersion).toBe('number');
     expect(typeof blob.createdAt).toBe('string');
+    expect(blob.kdfVersion).toBe(2);
     // wrappedMasterKey 必须是合法的 Ciphertext JSON
     const wrapped = JSON.parse(blob.wrappedMasterKey);
     expect(wrapped).toHaveProperty('v');
@@ -66,8 +71,8 @@ describe('local-auth: setupLocalAuth', () => {
 
 describe('local-auth: unlockLocalAuth', () => {
   it('succeeds with correct password and returns masterKey', async () => {
-    const setup = await setupLocalAuth(GOOD_PASSWORD);
-    const result = await unlockLocalAuth(GOOD_PASSWORD, setup.blob);
+    const setup = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    const result = await unlockLocalAuth(GOOD_PASSWORD, setup.blob, FAST_KDF);
     expect(result.success).toBe(true);
     expect(result.masterKey).toBeInstanceOf(Uint8Array);
     expect(result.masterKey!.length).toBe(32);
@@ -76,39 +81,58 @@ describe('local-auth: unlockLocalAuth', () => {
   });
 
   it('fails with wrong password', async () => {
-    const setup = await setupLocalAuth(GOOD_PASSWORD);
-    const result = await unlockLocalAuth('wrong-password-12345', setup.blob);
+    const setup = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    const result = await unlockLocalAuth('wrong-password-12345', setup.blob, FAST_KDF);
     expect(result.success).toBe(false);
     expect(result.masterKey).toBeNull();
   });
 
   it('produces same masterKey across multiple unlocks', async () => {
-    const setup = await setupLocalAuth(GOOD_PASSWORD);
-    const r1 = await unlockLocalAuth(GOOD_PASSWORD, setup.blob);
-    const r2 = await unlockLocalAuth(GOOD_PASSWORD, setup.blob);
+    const setup = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    const r1 = await unlockLocalAuth(GOOD_PASSWORD, setup.blob, FAST_KDF);
+    const r2 = await unlockLocalAuth(GOOD_PASSWORD, setup.blob, FAST_KDF);
     expect(r1.success).toBe(true);
     expect(r2.success).toBe(true);
     expect(Array.from(r1.masterKey!)).toEqual(Array.from(r2.masterKey!));
+  });
+
+  it('throws LegacyAuthBlobError for v1 blobs', async () => {
+    const setup = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    const v1Blob = { ...setup.blob, kdfVersion: 1 } as LocalAuthBlob;
+    await expect(unlockLocalAuth(GOOD_PASSWORD, v1Blob, FAST_KDF)).rejects.toThrow(
+      LegacyAuthBlobError
+    );
   });
 });
 
 describe('local-auth: recoverLocalAuth', () => {
   it('succeeds with correct recovery code and produces new blob/masterKey/recoveryCode', async () => {
-    const setup = await setupLocalAuth(GOOD_PASSWORD);
-    const result = await recoverLocalAuth(setup.recoveryCode, 'new-password-12345', setup.blob);
+    const setup = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    const result = await recoverLocalAuth(
+      setup.recoveryCode,
+      'new-password-12345',
+      setup.blob,
+      FAST_KDF
+    );
     expect(result.success).toBe(true);
     expect(result.blob).not.toBeNull();
     expect(result.masterKey).toBeInstanceOf(Uint8Array);
-    expect(result.recoveryCode).toMatch(/^\d{6}$/);
+    expect(result.recoveryCode).toMatch(RECOVERY_CODE_RE);
     // 新恢复码必须与旧的不同
     expect(result.recoveryCode).not.toBe(setup.recoveryCode);
     // 新 salts 必须与旧的不同
-    expect(result.blob!.masterSalt).not.toBe(setup.blob.masterSalt);
+    expect(result.blob!.pwSalt).not.toBe(setup.blob.pwSalt);
   });
 
   it('fails with wrong recovery code', async () => {
-    const setup = await setupLocalAuth(GOOD_PASSWORD);
-    const result = await recoverLocalAuth('000000', 'new-password-12345', setup.blob);
+    const setup = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    // 格式合法但内容错误的恢复码
+    const result = await recoverLocalAuth(
+      'AAAAA-AAAAA',
+      'new-password-12345',
+      setup.blob,
+      FAST_KDF
+    );
     expect(result.success).toBe(false);
     expect(result.blob).toBeNull();
     expect(result.masterKey).toBeNull();
@@ -116,36 +140,59 @@ describe('local-auth: recoverLocalAuth', () => {
   });
 
   it('new password can unlock the new blob', async () => {
-    const setup = await setupLocalAuth(GOOD_PASSWORD);
-    const recovered = await recoverLocalAuth(setup.recoveryCode, 'new-password-12345', setup.blob);
+    const setup = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    const recovered = await recoverLocalAuth(
+      setup.recoveryCode,
+      'new-password-12345',
+      setup.blob,
+      FAST_KDF
+    );
     expect(recovered.success).toBe(true);
-    const unlockResult = await unlockLocalAuth('new-password-12345', recovered.blob!);
+    const unlockResult = await unlockLocalAuth('new-password-12345', recovered.blob!, FAST_KDF);
     expect(unlockResult.success).toBe(true);
     // 新 masterKey 必须与 recover 返回的一致
     expect(Array.from(unlockResult.masterKey!)).toEqual(Array.from(recovered.masterKey!));
   });
 
   it('preserves the original masterKey after recovery (existing notes remain decryptable)', async () => {
-    const setup = await setupLocalAuth(GOOD_PASSWORD);
-    const recovered = await recoverLocalAuth(setup.recoveryCode, 'new-password-12345', setup.blob);
+    const setup = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    const recovered = await recoverLocalAuth(
+      setup.recoveryCode,
+      'new-password-12345',
+      setup.blob,
+      FAST_KDF
+    );
     expect(recovered.success).toBe(true);
     // 关键：recover 后 masterKey 必须与 setup 时一致（已有笔记可继续解密）
     expect(Array.from(recovered.masterKey!)).toEqual(Array.from(setup.masterKey));
   });
 
   it('old password cannot unlock the new blob', async () => {
-    const setup = await setupLocalAuth(GOOD_PASSWORD);
-    const recovered = await recoverLocalAuth(setup.recoveryCode, 'new-password-12345', setup.blob);
+    const setup = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    const recovered = await recoverLocalAuth(
+      setup.recoveryCode,
+      'new-password-12345',
+      setup.blob,
+      FAST_KDF
+    );
     expect(recovered.success).toBe(true);
-    const unlockResult = await unlockLocalAuth(GOOD_PASSWORD, recovered.blob!);
+    const unlockResult = await unlockLocalAuth(GOOD_PASSWORD, recovered.blob!, FAST_KDF);
     expect(unlockResult.success).toBe(false);
   });
 
   it('rejects new passwords shorter than 8 chars', async () => {
-    const setup = await setupLocalAuth(GOOD_PASSWORD);
+    const setup = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
     await expect(
-      recoverLocalAuth(setup.recoveryCode, 'short', setup.blob)
+      recoverLocalAuth(setup.recoveryCode, 'short', setup.blob, FAST_KDF)
     ).rejects.toThrow(/至少 8 字符/);
+  });
+
+  it('accepts recovery code without dash (normalizeRecoveryCode)', async () => {
+    const setup = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    // 去掉分隔符也能通过
+    const noDash = setup.recoveryCode.replace('-', '');
+    const result = await recoverLocalAuth(noDash, 'new-password-12345', setup.blob, FAST_KDF);
+    expect(result.success).toBe(true);
   });
 });
 
@@ -193,7 +240,7 @@ describe('local-auth: lockout state', () => {
 
 describe('local-auth: serialization', () => {
   it('serializes and deserializes a blob', async () => {
-    const { blob } = await setupLocalAuth(GOOD_PASSWORD);
+    const { blob } = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
     const json = serializeLocalAuthBlob(blob);
     expect(typeof json).toBe('string');
     const restored = deserializeLocalAuthBlob(json);
@@ -209,10 +256,10 @@ describe('local-auth: serialization', () => {
     expect(() => deserializeLocalAuthBlob(JSON.stringify(bad))).toThrow(/Invalid/);
   });
 
-  it('deserialize rejects blobs missing passwordWrappedMasterKey (v2 field)', async () => {
-    const { blob } = await setupLocalAuth(GOOD_PASSWORD);
-    const v1Blob = { ...blob } as Partial<LocalAuthBlob>;
-    delete v1Blob.passwordWrappedMasterKey;
-    expect(() => deserializeLocalAuthBlob(JSON.stringify(v1Blob))).toThrow(/Invalid/);
+  it('deserialize rejects blobs missing pwSalt (v2 field)', async () => {
+    const { blob } = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
+    const bad = { ...blob } as Partial<LocalAuthBlob>;
+    delete bad.pwSalt;
+    expect(() => deserializeLocalAuthBlob(JSON.stringify(bad))).toThrow(/Invalid/);
   });
 });

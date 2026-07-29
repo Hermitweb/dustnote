@@ -13,6 +13,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Input, Textarea } from '@tarojs/components';
 import Taro from '@tarojs/taro';
+import { encryptString, randomBytes, toBase64Url, wrapKey } from '@dustnote/shared';
 import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
 import { useModeStore } from '../../lib/mode-store';
@@ -190,17 +191,32 @@ export default function NoteEdit() {
       Taro.showToast({ title: '单机模式不支持在线分享，请使用导出', icon: 'none' });
       return;
     }
+    const masterKey = useAuthStore.getState().masterKey;
+    if (!masterKey) {
+      Taro.showToast({ title: '请先解锁', icon: 'none' });
+      return;
+    }
     try {
+      // shareKey 只在本地生成，服务端只收到密文
+      const shareKey = randomBytes(32);
+      const ciphertext = await encryptString(
+        shareKey,
+        JSON.stringify({ title: title || '未命名笔记', content: content || '' })
+      );
+      const wrappedShareKey = await wrapKey(masterKey, shareKey);
+
       const r = await getApi().post<{ token: string }>('/shares', {
         noteId: cur.id,
-        title: title || '未命名笔记',
-        content: content || '',
+        ciphertext,
+        wrappedShareKey,
       });
-      // H5: 完整可访问的页面链接；weapp: 分享页路径
+
+      // 密钥只放在页面路由参数里（H5 走 hash，weapp 是本地页面路径），不会发给服务端
+      const key = toBase64Url(shareKey);
       const shareUrl =
         process.env.TARO_ENV === 'h5'
-          ? `http://localhost:10086/#/pages/share/index?token=${r.token}`
-          : `/pages/share/index?token=${r.token}`;
+          ? `http://localhost:10086/#/pages/share/index?token=${r.token}&key=${key}`
+          : `/pages/share/index?token=${r.token}&key=${key}`;
       await Taro.setClipboardData({ data: shareUrl });
       Taro.showToast({ title: '分享链接已复制', icon: 'success' });
     } catch {

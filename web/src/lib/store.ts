@@ -15,12 +15,14 @@ import {
   type Ciphertext,
   type DataRepository,
   type AppMode,
-  deriveMasterKey,
   decryptString,
   encryptString,
   generateRecoveryCode,
-  wrapMasterKey,
-  deriveRecoveryKey,
+  generateMasterKey,
+  deriveSecrets,
+  wrapKey,
+  unwrapKey,
+  normalizeRecoveryCode,
   fromBase64,
   toBase64,
   randomBytes,
@@ -529,13 +531,16 @@ export const useStore = create<StoreState>((set, get) => ({
     }
     // 联机模式：调用 /auth/status API
     try {
-      const r = await api().get<{ initialized: boolean; deviceKnown: boolean }>(
-        '/auth/status'
-      );
+      const r = await api().get<{
+        initialized: boolean;
+        deviceKnown: boolean;
+        pwSalt: string | null;
+      }>('/auth/status');
       if (!r.initialized) {
-        set({ authState: 'uninitialized', serverError: null });
+        set({ authState: 'uninitialized', serverError: null, serverSalt: null });
       } else {
-        set({ authState: 'needs_unlock', serverError: null });
+        // pwSalt 是派生 KEK 的前提，客户端在输入密码前就得拿到。盐不是秘密。
+        set({ authState: 'needs_unlock', serverError: null, serverSalt: r.pwSalt });
       }
     } catch (err) {
       // 服务器不可达（未启动 / 地址错误 / 网络故障）：
@@ -548,82 +553,123 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async setup(password: string): Promise<string> {
+    // v2：masterKey 随机生成，与密码无关——这样以后换密码不会让旧笔记解不开
+    const masterKey = generateMasterKey();
     const recoveryCode = generateRecoveryCode();
-    const clientMasterSalt = randomBytes(16);
-    const masterKey = await deriveMasterKey(password, clientMasterSalt);
-    const recoverySalt = randomBytes(16);
-    const recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt);
-    const wrapped = await wrapMasterKey(recoveryKey, masterKey);
+    const pwSalt = randomBytes(16);
+    const rcSalt = randomBytes(16);
+
+    const [pw, rc] = await Promise.all([
+      deriveSecrets(password, pwSalt),
+      deriveSecrets(normalizeRecoveryCode(recoveryCode), rcSalt),
+    ]);
+    const [wrappedPw, wrappedRc] = await Promise.all([
+      wrapKey(pw.kek, masterKey),
+      wrapKey(rc.kek, masterKey),
+    ]);
 
     const r = await api().post<{
       accessToken: string;
       userId: string;
       deviceId: string;
-      clientMasterSalt: string;
     }>('/auth/setup', {
-      password,
-      recoveryCode,
-      wrappedMasterKey: wrapped,
-      clientMasterSalt: toBase64(clientMasterSalt),
+      // 只上传 authKey 和密文，主密码与 masterKey 都不出客户端
+      authKey: toBase64(pw.authKey),
+      recoveryAuthKey: toBase64(rc.authKey),
+      wrappedMasterKeyPw: wrappedPw,
+      wrappedMasterKeyRc: wrappedRc,
+      pwSalt: toBase64(pwSalt),
+      rcSalt: toBase64(rcSalt),
       deviceName: 'Web 浏览器',
     });
 
     set({
       accessToken: r.accessToken,
       userId: r.userId,
-      serverSalt: r.clientMasterSalt,
+      serverSalt: toBase64(pwSalt),
       masterKey,
-      wrappedMasterKey: wrapped,
+      wrappedMasterKey: wrappedPw,
       authState: 'unlocked',
     });
     return recoveryCode;
   },
 
   async unlock(password: string): Promise<void> {
+    // v2：pwSalt 在 checkStatus 时已拿到；直接进解锁页时兜底再取一次
+    let salt = get().serverSalt;
+    if (!salt) {
+      const status = await api().get<{
+        initialized: boolean;
+        pwSalt: string | null;
+      }>('/auth/status');
+      salt = status.pwSalt;
+      if (!salt) throw new Error('系统未初始化');
+    }
+
+    const pw = await deriveSecrets(password, fromBase64(salt));
     const r = await api().post<{
       accessToken: string;
       userId: string;
       deviceId: string;
-      clientMasterSalt: string;
-    }>('/auth/unlock', { password, deviceName: 'Web 浏览器' });
-    const clientMasterSalt = fromBase64(r.clientMasterSalt);
-    const masterKey = await deriveMasterKey(password, clientMasterSalt);
+      wrappedMasterKey: Ciphertext;
+    }>('/auth/unlock', {
+      authKey: toBase64(pw.authKey),
+      deviceName: 'Web 浏览器',
+    });
+
+    // 服务端只能验证 authKey；masterKey 得靠本地 KEK 解封，服务端无从得知
+    const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
 
     set({
       accessToken: r.accessToken,
       userId: r.userId,
-      serverSalt: r.clientMasterSalt,
+      serverSalt: salt,
       masterKey,
+      wrappedMasterKey: r.wrappedMasterKey,
       authState: 'unlocked',
     });
   },
 
   async recover(recoveryCode: string, newPassword: string): Promise<void> {
-    const newClientMasterSalt = randomBytes(16);
-    const newMasterKey = await deriveMasterKey(newPassword, newClientMasterSalt);
-    const recoverySalt = randomBytes(16);
-    const newRecoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt);
-    const newWrapped = await wrapMasterKey(newRecoveryKey, newMasterKey);
+    const a = api();
+    // v2：先取恢复码派生所需的 rc_salt（盐不是秘密，无需鉴权）
+    const { rcSalt } = await a.get<{ rcSalt: string }>('/auth/recovery-params');
+    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), fromBase64(rcSalt));
 
-    const r = await api().post<{
+    const r = await a.post<{
       accessToken: string;
       userId: string;
       deviceId: string;
-      clientMasterSalt: string;
+      wrappedMasterKey: Ciphertext;
     }>('/auth/recover', {
-      recoveryCode,
-      newPassword,
-      newWrappedMasterKey: newWrapped,
-      newClientMasterSalt: toBase64(newClientMasterSalt),
+      recoveryAuthKey: toBase64(rc.authKey),
       deviceName: 'Web 浏览器（恢复）',
+    });
+
+    // 关键：解封出来的是原来那把 masterKey，历史笔记照常能解开
+    const masterKey = await unwrapKey(rc.kek, r.wrappedMasterKey);
+
+    // 拿回 masterKey 后立刻用新密码重新包装（masterKey 本身不变）
+    const newPwSalt = randomBytes(16);
+    const pw = await deriveSecrets(newPassword, newPwSalt);
+    const wrappedPw = await wrapKey(pw.kek, masterKey);
+
+    // 先落 token，rewrap 是需要鉴权的接口（api() 从 store 读 accessToken）
+    set({ accessToken: r.accessToken });
+    await api().post('/auth/rewrap', {
+      password: {
+        authKey: toBase64(pw.authKey),
+        salt: toBase64(newPwSalt),
+        wrappedMasterKey: wrappedPw,
+      },
     });
 
     set({
       accessToken: r.accessToken,
       userId: r.userId,
-      serverSalt: r.clientMasterSalt,
-      masterKey: newMasterKey,
-      wrappedMasterKey: newWrapped,
+      serverSalt: toBase64(newPwSalt),
+      masterKey,
+      wrappedMasterKey: wrappedPw,
       authState: 'unlocked',
     });
   },
@@ -691,18 +737,16 @@ export const useStore = create<StoreState>((set, get) => ({
 
     try {
       const a = api();
-      const [notesRes, foldersRes, tagsRes, meRes] = await Promise.all([
+      const [notesRes, foldersRes, tagsRes] = await Promise.all([
         // includeDeleted=1：回收站视图需要拿到已软删的笔记
         a.get<{ notes: NoteRow[] }>('/notes?includeDeleted=1'),
         a.get<{ folders: Folder[] }>('/folders'),
         a.get<{ tags: Tag[] }>('/tags'),
-        a.get<{ wrappedMasterKey: Ciphertext }>('/auth/me'),
       ]);
       set({
         notes: new Map(notesRes.notes.map((n: NoteRow) => [n.id, n])),
         folders: foldersRes.folders,
         tags: tagsRes.tags,
-        wrappedMasterKey: meRes.wrappedMasterKey,
       });
 
       const masterKey = get().masterKey;

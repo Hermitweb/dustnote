@@ -2,7 +2,7 @@
  * 单机模式：恢复码重置密码（v2.0.0）
  *
  * 流程：
- * 1. 用户输入 6 位恢复码 + 新主密码
+ * 1. 用户输入 10 位恢复码 + 新主密码
  * 2. 调用 recoverLocalAuth 校验恢复码并解封原始 masterKey
  * 3. 用新密码重新包装原始 masterKey（masterKey 不变，已有笔记可继续解密）
  * 4. 生成新恢复码并显示（旧恢复码失效）
@@ -23,6 +23,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { isValidRecoveryCode } from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
 
@@ -37,8 +38,8 @@ export function StandaloneRecoverScreen() {
   const [newRecoveryCode, setNewRecoveryCode] = useState<string | null>(null);
 
   const onSubmit = async () => {
-    if (!/^\d{6}$/.test(recoveryCode)) {
-      Alert.alert('错误', '恢复码为 6 位数字');
+    if (!isValidRecoveryCode(recoveryCode)) {
+      Alert.alert('错误', '恢复码格式不正确（应为 XXXXX-XXXXX）');
       return;
     }
     if (newPassword.length < 8) {
@@ -93,14 +94,14 @@ export function StandaloneRecoverScreen() {
       <Text style={styles.emoji}>🔄</Text>
       <Text style={styles.title}>恢复码重置密码</Text>
       <Text style={styles.subtitle}>
-        输入你的 6 位恢复码和新主密码。{'\n'}恢复后 masterKey 保留，已有笔记可继续解密。
+        输入你的 10 位恢复码和新主密码。{'\n'}恢复后 masterKey 保留，已有笔记可继续解密。
       </Text>
 
       <TextInput
         style={styles.input}
-        placeholder="6 位恢复码"
-        keyboardType="number-pad"
-        maxLength={6}
+        placeholder="恢复码 (XXXXX-XXXXX)"
+        autoCapitalize="characters"
+        maxLength={16}
         value={recoveryCode}
         onChangeText={setRecoveryCode}
         placeholderTextColor={colors.muted}

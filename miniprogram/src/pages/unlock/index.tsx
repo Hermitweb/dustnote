@@ -19,7 +19,7 @@ export default function Unlock() {
     }
     setSubmitting(true);
     try {
-      // store.unlock 内部完成：密码校验 + 用 clientMasterSalt 重新派生 masterKey
+      // store.unlock 内部完成：authKey 校验 + 本地解封 masterKey（v2 协议）
       await unlock(password);
       Taro.reLaunch({ url: '/pages/index/index' });
     } catch (err) {

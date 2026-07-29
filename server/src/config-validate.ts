@@ -20,6 +20,7 @@ const ConfigSchema = z.object({
     .nullable(),
   eolDateForV0: z.string().optional(),
   jwtSecret: z.string().min(16),
+  trustProxy: z.number().int().nonnegative().max(10),
 });
 
 const result = ConfigSchema.safeParse(config);
@@ -28,7 +29,9 @@ if (!result.success) {
   process.exit(1);
 }
 
-if (config.nodeEnv === 'production' && config.jwtSecret === 'dev-secret-change-me') {
-  console.error('❌ 生产环境必须设置强 JWT_SECRET（≥32 字符）');
-  process.exit(1);
+if (config.nodeEnv === 'production') {
+  if (config.jwtSecret === 'dev-secret-change-me' || config.jwtSecret.length < 32) {
+    console.error('❌ 生产环境必须设置强 JWT_SECRET（≥32 字符）：openssl rand -base64 48');
+    process.exit(1);
+  }
 }

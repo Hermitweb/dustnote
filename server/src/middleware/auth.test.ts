@@ -54,6 +54,29 @@ describe('authMiddleware', () => {
     expect(res.statusCode).toBe(200);
   });
 
+  it.each([
+    '/auth/status',
+    '/auth/setup',
+    '/auth/unlock',
+    '/auth/recover',
+    '/auth/recovery-params',
+  ])('lets %s through without a token', async (path) => {
+    const { authMiddleware } = await loadMiddleware();
+    const res = createRes();
+    let called = false;
+    authMiddleware(createReq({ path }), res, () => {
+      called = true;
+    });
+    expect(called).toBe(true);
+  });
+
+  it('still requires a token for /auth/rewrap', async () => {
+    const { authMiddleware } = await loadMiddleware();
+    const res = createRes();
+    authMiddleware(createReq({ path: '/auth/rewrap' }), res, () => {});
+    expect(res.statusCode).toBe(401);
+  });
+
   it('returns 401 when Authorization header is missing', async () => {
     const { authMiddleware } = await loadMiddleware();
     const req = createReq();

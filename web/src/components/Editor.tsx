@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
+import { encryptString, randomBytes, toBase64Url, wrapKey } from '@dustnote/shared';
 import { useStore } from '../lib/store';
 import { getDeviceId } from '../lib/device';
+import { sanitizeHtml } from '../lib/sanitize-html';
 
 export function Editor() {
   const { t } = useTranslation();
@@ -247,7 +249,10 @@ console.log('Hello, DustNote!');
           <div className="flex-1 overflow-y-auto p-6">
             <div
               className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: marked.parse(content || '*暂无内容*') as string }}
+              dangerouslySetInnerHTML={{
+                // 导入的 .md/.docx 也会走到这里，同样按不可信内容处理
+                __html: sanitizeHtml(marked.parse(content || '*暂无内容*') as string),
+              }}
             />
           </div>
         )}
@@ -286,7 +291,21 @@ function ShareDialog({
   const create = useCallback(async () => {
     setSubmitting(true);
     try {
-      const token = useStore.getState().accessToken;
+      const { accessToken, masterKey } = useStore.getState();
+      if (!masterKey) {
+        alert('请先解锁后再分享');
+        return;
+      }
+
+      // shareKey 只在本地生成，服务端永远见不到它
+      const shareKey = randomBytes(32);
+      const ciphertext = await encryptString(
+        shareKey,
+        JSON.stringify({ title: title || '新笔记', content })
+      );
+      // 用 masterKey 包装一份，好让主人换设备后还能还原出完整链接
+      const wrappedShareKey = await wrapKey(masterKey, shareKey);
+
       const r = await fetch(`/api/v1/shares`, {
         method: 'POST',
         headers: {
@@ -295,12 +314,12 @@ function ShareDialog({
           'X-Client-Platform': 'web',
           'X-Client-Channel': 'stable',
           'X-Client-Device-Id': getDeviceId(),
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           noteId,
-          title: title || '新笔记',
-          content,
+          ciphertext,
+          wrappedShareKey,
           password: password || undefined,
           expiresIn: expiresHours ? Number(expiresHours) * 3600 : undefined,
         }),
@@ -310,7 +329,8 @@ function ShareDialog({
         alert(`创建分享失败：${data.message ?? data.error ?? r.statusText}`);
         return;
       }
-      setShareUrl(`${location.origin}/share/${data.token}`);
+      // 密钥放 fragment：浏览器不会把 `#` 之后的内容发给服务端
+      setShareUrl(`${location.origin}/share/${data.token}#${toBase64Url(shareKey)}`);
     } finally {
       setSubmitting(false);
     }
@@ -389,6 +409,10 @@ function ShareDialog({
                 {copied ? `✅ ${t('editor.copied')}` : '复制'}
               </button>
             </div>
+            <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+              🔑 解密密钥在链接 <code>#</code> 之后的部分，服务器拿不到它。 请务必复制
+              <strong>完整链接</strong>——截断后内容将无法解密，且链接一旦泄露即等同于内容泄露。
+            </p>
             <button
               onClick={onClose}
               className="w-full rounded-lg border border-surface-border px-4 py-2 text-sm text-surface-fg"

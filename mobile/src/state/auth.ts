@@ -3,7 +3,7 @@
  *
  * 联机模式（online）：
  * - uninitialized / needs_unlock / unlocked
- * - masterKey 通过 deriveMasterKey(password, clientMasterSalt) 派生
+ * - masterKey 随机生成，用主密码 KEK 包装后存服务端（v2 协议）
  * - access token 持久化到 AsyncStorage，masterKey 可缓存到 keychain（生物识别）
  * - 失败重试由服务端账号锁定策略管理（连续 6 次失败锁 15 分钟）
  *
@@ -25,13 +25,15 @@
 
 import { create } from 'zustand';
 import {
-  deriveMasterKey,
+  deriveSecrets,
+  generateMasterKey,
   generateRecoveryCode,
+  normalizeRecoveryCode,
   fromBase64,
   toBase64,
   randomBytes,
-  wrapMasterKey,
-  deriveRecoveryKey,
+  wrapKey,
+  unwrapKey,
   setupLocalAuth,
   unlockLocalAuth,
   recoverLocalAuth,
@@ -41,6 +43,7 @@ import {
   remainingLockoutMs,
   INITIAL_LOCKOUT_STATE,
   LOCAL_LOCKOUT_DURATION_MS,
+  type Ciphertext,
   type LocalAuthBlob,
   type LocalLockoutState,
 } from '@dustnote/shared';
@@ -86,6 +89,8 @@ interface AuthStoreState {
   accessToken: string | null;
   masterKey: Uint8Array | null;
   deviceId: string | null;
+  /** 服务端下发的 pwSalt（base64），派生 KEK 用 */
+  pwSalt: string | null;
   /** keychain 中是否有缓存的 masterKey（可用于生物识别） */
   hasBiometricCache: boolean;
 
@@ -123,6 +128,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   accessToken: null,
   masterKey: null,
   deviceId: null,
+  pwSalt: null,
   hasBiometricCache: false,
   localAuthBlob: null,
   lockoutState: { ...INITIAL_LOCKOUT_STATE },
@@ -150,7 +156,12 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
     // 联机模式：检查服务端状态
     try {
-      const r = await api.get<{ initialized: boolean; deviceKnown: boolean }>('/auth/status');
+      const r = await api.get<{
+        initialized: boolean;
+        deviceKnown: boolean;
+        pwSalt: string | null;
+      }>('/auth/status');
+      set({ pwSalt: r.pwSalt });
       if (!r.initialized) {
         set({ authState: 'uninitialized' });
         return;
@@ -198,25 +209,30 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   // ========== 联机模式 actions ==========
 
   async setup(password: string): Promise<string> {
+    // v2：masterKey 随机生成，与密码解耦；换密码时只换包装，不动笔记
+    const masterKey = generateMasterKey();
     const recoveryCode = generateRecoveryCode();
-    const clientMasterSalt = randomBytes(16);
-    const masterKey = await deriveMasterKey(password, clientMasterSalt);
-    const recoverySalt = randomBytes(16);
-    const recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt);
-    const wrapped = await wrapMasterKey(recoveryKey, masterKey);
+    const pwSalt = randomBytes(16);
+    const rcSalt = randomBytes(16);
 
-    const r = await api.post<{
-      accessToken: string;
-      userId: string;
-      deviceId: string;
-      clientMasterSalt: string;
-    }>('/auth/setup', {
-      password,
-      recoveryCode,
-      wrappedMasterKey: wrapped,
-      clientMasterSalt: toBase64(clientMasterSalt),
-      deviceName: 'Android 客户端',
-    });
+    const pw = await deriveSecrets(password, pwSalt);
+    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), rcSalt);
+    const wrappedPw = await wrapKey(pw.kek, masterKey);
+    const wrappedRc = await wrapKey(rc.kek, masterKey);
+
+    const r = await api.post<{ accessToken: string; userId: string; deviceId: string }>(
+      '/auth/setup',
+      {
+        // 主密码不出客户端，服务端只拿到 authKey 和密文
+        authKey: toBase64(pw.authKey),
+        recoveryAuthKey: toBase64(rc.authKey),
+        wrappedMasterKeyPw: wrappedPw,
+        wrappedMasterKeyRc: wrappedRc,
+        pwSalt: toBase64(pwSalt),
+        rcSalt: toBase64(rcSalt),
+        deviceName: 'Android 客户端',
+      }
+    );
 
     // 缓存 masterKey 到 keychain（生物识别保护），便于后续指纹 / 面容解锁
     await cacheMasterKeyForBiometric(masterKey);
@@ -227,20 +243,31 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       accessToken: r.accessToken,
       masterKey,
       deviceId: r.deviceId,
+      pwSalt: toBase64(pwSalt),
       hasBiometricCache: true,
     });
     return recoveryCode;
   },
 
   async unlock(password: string): Promise<void> {
+    // v2：pwSalt 在 init 时已拿到；兜底再取一次
+    let salt = get().pwSalt;
+    if (!salt) {
+      const status = await api.get<{ pwSalt: string | null }>('/auth/status');
+      salt = status.pwSalt;
+      if (!salt) throw new Error('系统未初始化');
+    }
+
+    const pw = await deriveSecrets(password, fromBase64(salt));
     const r = await api.post<{
       accessToken: string;
       userId: string;
       deviceId: string;
-      clientMasterSalt: string;
-    }>('/auth/unlock', { password, deviceName: 'Android 客户端' });
-    const clientMasterSalt = fromBase64(r.clientMasterSalt);
-    const masterKey = await deriveMasterKey(password, clientMasterSalt);
+      wrappedMasterKey: Ciphertext;
+    }>('/auth/unlock', { authKey: toBase64(pw.authKey), deviceName: 'Android 客户端' });
+
+    // masterKey 只能在本地解封出来，服务端无从得知
+    const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
 
     // 密码解锁成功后，刷新 keychain 中的 masterKey 缓存
     await cacheMasterKeyForBiometric(masterKey);
@@ -251,6 +278,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       accessToken: r.accessToken,
       masterKey,
       deviceId: r.deviceId,
+      pwSalt: salt,
       hasBiometricCache: true,
     });
   },

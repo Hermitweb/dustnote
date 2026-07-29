@@ -28,6 +28,12 @@ export const config = {
   forceUpdateVersion: getEnvOpt('FORCE_UPDATE_VERSION') ?? null,
   eolDateForV0: getEnvOpt('EOL_DATE_FOR_V0'),
   jwtSecret: getEnv('JWT_SECRET', 'dev-secret-change-me'),
+  /**
+   * Express trust proxy 层数。部署在 nginx/CDN 后面必须设为反代层数（通常 1），
+   * 否则 req.ip 恒等于反代自身地址，express-rate-limit 会把所有人算进同一个桶。
+   * 0 = 不信任任何反代（直接暴露时用）。
+   */
+  trustProxy: Number.parseInt(getEnv('TRUST_PROXY', '0'), 10),
 } as const;
 
 export type AppConfig = typeof config;

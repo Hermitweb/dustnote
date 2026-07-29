@@ -169,43 +169,46 @@ export interface Preferences {
 /**
  * 单机模式本地鉴权 blob（持久化到本地存储）
  *
- * 设计要点（v2.0.0）：
- * - masterKey 是随机 32 字节，**不**从密码派生 → recovery 时可保留原 masterKey，已有笔记不解密失效
+ * 设计要点（v2 协议）：
+ * - masterKey 是随机 32 字节（generateMasterKey），**不**从密码派生
+ *   → recover 时可保留原 masterKey，已有笔记不解密失效
  * - masterKey 有两份包装：
- *   1. passwordWrappedMasterKey：用 passwordDerivedKey（=deriveMasterKey(password, clientMasterSalt)）加密
- *   2. wrappedMasterKey：用 recoveryKey（=deriveRecoveryKey(recoveryCode, recoverySalt)）加密
- * - passwordHash = Argon2id(password, masterSalt)：仅用于 unlock 时校验密码正确性
- * - recoveryHash = Argon2id(recoveryCode, recoverySalt, 弱参数)：仅用于 recover 时校验恢复码正确性
+ *   1. passwordWrappedMasterKey：用 passwordKek（=deriveSecrets(password, pwSalt).kek）加密
+ *   2. wrappedMasterKey：用 recoveryKek（=deriveSecrets(recoveryCode, rcSalt).kek）加密
+ * - passwordHash = deriveSecrets(password, pwSalt).authKey 的 base64 —— 仅用于 unlock 时校验密码
+ * - recoveryHash = deriveSecrets(recoveryCode, rcSalt).authKey 的 base64 —— 仅用于 recover 时校验恢复码
  *
  * 安全模型：
+ * - 一次 Argon2id 同时派生 KEK（包装用）和 authKey（校验用），不做两次昂贵 KDF
  * - 离线爆破 passwordHash 成本高（Argon2id m=64MB t=3 p=4）
- * - 拿到 blob 无法解密笔记（缺少 passwordDerivedKey 或 recoveryKey）
+ * - 拿到 blob 无法解密笔记（缺少 KEK；authKey 不可逆推 KEK）
  * - recovery 后 masterKey 不变，笔记可继续解密
+ * - 恢复码 v2：10 位 Crockford Base32（2^50 熵），与主密码共用强 KDF 参数
+ *
+ * 兼容性：kdfVersion=1 的旧 blob 无法解锁，需提示用户重新 setup
  */
 export interface LocalAuthBlob {
-  /** Argon2id(password, masterSalt) 的 base64 —— 仅用于校验密码 */
+  /** deriveSecrets(password, pwSalt) 派生 KEK + authKey 用的 salt（base64，16 字节随机） */
+  pwSalt: string;
+  /** deriveSecrets(recoveryCode, rcSalt) 派生 recoveryKEK + recoveryAuthKey 用的 salt（base64，16 字节随机） */
+  rcSalt: string;
+  /** deriveSecrets(password, pwSalt).authKey 的 base64 —— 仅用于校验密码 */
   passwordHash: string;
-  /** 主密码校验用的 salt（base64，16 字节随机） */
-  masterSalt: string;
-  /** passwordDerivedKey 派生用的 salt（base64，16 字节随机） */
-  clientMasterSalt: string;
   /**
-   * recoveryKey 加密的 masterKey（JSON 字符串化的 Ciphertext）
-   * recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt)
-   * 用于 recover 流程：校验恢复码后解封原始 masterKey
-   */
-  wrappedMasterKey: string;
-  /**
-   * passwordDerivedKey 加密的 masterKey（JSON 字符串化的 Ciphertext）
-   * passwordDerivedKey = deriveMasterKey(password, clientMasterSalt)
+   * passwordKek 加密的 masterKey（JSON 字符串化的 Ciphertext）
+   * passwordKek = deriveSecrets(password, pwSalt).kek
    * 用于日常 unlock：校验密码后解封 masterKey
    */
   passwordWrappedMasterKey: string;
-  /** deriveRecoveryKey(recoveryCode, recoverySalt) 的 base64 —— 仅用于校验恢复码 */
+  /** deriveSecrets(recoveryCode, rcSalt).authKey 的 base64 —— 仅用于校验恢复码 */
   recoveryHash: string;
-  /** recoveryCode 派生用的 salt（base64，16 字节随机） */
-  recoverySalt: string;
-  /** KDF 版本 */
+  /**
+   * recoveryKek 加密的 masterKey（JSON 字符串化的 Ciphertext）
+   * recoveryKek = deriveSecrets(normalizeRecoveryCode(recoveryCode), rcSalt).kek
+   * 用于 recover 流程：校验恢复码后解封原始 masterKey
+   */
+  wrappedMasterKey: string;
+  /** KDF 版本（v2 = 2；v1 旧数据 = 1，无法解锁需重新 setup） */
   kdfVersion: number;
   /** 创建时间 ISO */
   createdAt: string;

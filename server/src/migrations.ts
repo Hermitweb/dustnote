@@ -9,6 +9,7 @@
  */
 
 import type { Migration } from './db.js';
+import { logger } from './logger.js';
 
 export const migrations: Migration[] = [
   {
@@ -212,6 +213,96 @@ export const migrations: Migration[] = [
         ALTER TABLE users ADD COLUMN locked_until TEXT;
         UPDATE meta SET value = '6' WHERE key = 'schema_version';
       `);
+    },
+  },
+  {
+    id: 7,
+    name: 'e2ee-shares',
+    up: (db) => {
+      // 破坏性变更：分享改为 secret-link（端到端加密）方案。
+      //
+      // 旧实现把笔记的明文快照存进 shares.title / shares.content，
+      // 「服务端仅存密文」的说法对分享过的笔记并不成立。
+      //
+      // 新实现：客户端随机生成 shareKey 加密 {title, content}，服务端只存密文；
+      // shareKey 放在分享链接的 URL fragment 里（`#` 后面的部分浏览器不会发给
+      // 服务端），访客本地解密。同时用 masterKey 包装一份 shareKey 存库，
+      // 好让主人换设备后仍能还原出完整链接——服务端两边都解不开。
+      //
+      // 已有分享是明文快照，没有对应的 shareKey 可迁移，只能丢弃。
+      const existing = db.prepare('SELECT COUNT(*) AS c FROM shares').get() as { c: number };
+      if (existing.c > 0) {
+        logger.warn(
+          { shares: existing.c },
+          '分享升级到 E2EE：已删除全部旧分享链接（旧数据是明文快照，无法转成密文），请重新分享'
+        );
+      }
+
+      db.exec(`
+        DROP TABLE shares;
+
+        CREATE TABLE shares (
+          id            TEXT PRIMARY KEY,
+          note_id       TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+          user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token         TEXT NOT NULL UNIQUE,
+          -- shareKey 加密的 {title, content}，服务端只见密文
+          ciphertext    TEXT NOT NULL,
+          -- masterKey 包装的 shareKey，仅供主人还原链接
+          wrapped_share_key TEXT NOT NULL,
+          password_hash TEXT,
+          expires_at    TEXT,
+          view_count    INTEGER NOT NULL DEFAULT 0,
+          revoked       INTEGER NOT NULL DEFAULT 0,
+          created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX idx_shares_note ON shares(note_id);
+        CREATE INDEX idx_shares_user ON shares(user_id);
+
+        UPDATE meta SET value = '7' WHERE key = 'schema_version';
+      `);
+    },
+  },
+  {
+    id: 8,
+    name: 'auth-protocol-v2',
+    up: (db) => {
+      // 破坏性变更：认证协议 v1 → v2
+      //
+      // v1 的两个致命缺陷：
+      //   1. 客户端把主密码明文发给服务端，服务端又存了 client_master_salt，
+      //      于是服务端能自行推导 masterKey —— E2EE 对服务端形同虚设。
+      //   2. masterKey = f(password)，用恢复码重置后 masterKey 变了，
+      //      历史笔记全部变成解不开的密文。
+      //
+      // v2 改为：masterKey 随机生成，分别用「主密码 KEK」和「恢复码 KEK」
+      // 包装两份存库；服务端只存 authKey 的 scrypt 哈希。
+      //
+      // v1 的凭据在 v2 下无法换算（需要用户重新输入密码），因此已有账号
+      // 必须重新 setup。外键 CASCADE 会带走 notes/shares/folders/tags。
+      // 升级前请自行备份 DB 文件。
+      db.exec(`
+        ALTER TABLE users ADD COLUMN pw_salt BLOB;
+        ALTER TABLE users ADD COLUMN rc_salt BLOB;
+        ALTER TABLE users ADD COLUMN auth_hash TEXT;
+        ALTER TABLE users ADD COLUMN recovery_auth_hash TEXT;
+        ALTER TABLE users ADD COLUMN wrapped_master_key_pw TEXT;
+        ALTER TABLE users ADD COLUMN wrapped_master_key_rc TEXT;
+      `);
+
+      // 只清理旧协议残留的账号（auth_hash 为空即为 v1 账号）
+      const legacy = db
+        .prepare('SELECT COUNT(*) AS c FROM users WHERE auth_hash IS NULL')
+        .get() as { c: number };
+      if (legacy.c > 0) {
+        logger.warn(
+          { users: legacy.c },
+          '认证协议升级到 v2：已清除旧协议账号及其全部笔记（旧密文无法在新协议下解开），请重新 setup'
+        );
+        db.exec(`DELETE FROM users WHERE auth_hash IS NULL;`);
+      }
+
+      db.exec(`UPDATE meta SET value = '8' WHERE key = 'schema_version';`);
     },
   },
 ];

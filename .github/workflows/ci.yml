@@ -305,7 +305,9 @@ jobs:
       - uses: docker/build-push-action@v5
         with:
           context: .
-          file: server/Dockerfile
+          # 根 Dockerfile = web 静态资源 + API + nginx 的一体镜像，
+          # 与 README/docker-compose 的一键部署一致。server/Dockerfile 是仅 API 的变体。
+          file: Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/dustnote:latest

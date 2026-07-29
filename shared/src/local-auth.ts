@@ -1,34 +1,37 @@
 /**
- * 单机模式本地鉴权工具（v2.0.0）
+ * 单机模式本地鉴权工具（v2 协议）
  *
  * 设计意图：
  * - 单机模式无服务器，主密码验证完全本地化（无 JWT）
  * - 复用 shared/src/crypto.ts 的 Argon2id + AES-256-GCM + recovery code 机制
- * - 本地存储 LocalAuthBlob，包含 passwordHash + salts + 双重包装的 masterKey
+ * - 本地存储 LocalAuthBlob，包含 salts + authKey 哈希 + 双重包装的 masterKey
  * - 客户端锁定：连续 6 次失败后锁定 15 分钟（本地记录）
  *
- * 安全模型（关键改进：masterKey 随机生成，不从密码派生）：
- * - masterKey = randomBytes(32) —— 随机生成，setup 时一次性创建
- * - passwordHash = Argon2id(password, masterSalt) —— 仅用于校验密码（离线爆破成本高 m=64MB t=3 p=4）
- * - passwordDerivedKey = deriveMasterKey(password, clientMasterSalt) —— 用于解封 masterKey
- * - passwordWrappedMasterKey = AES-GCM(passwordDerivedKey, masterKey) —— 日常 unlock 用
- * - recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt) —— 用于 recover 时解封 masterKey
- * - wrappedMasterKey = AES-GCM(recoveryKey, masterKey) —— recover 用
- * - recoveryHash = Argon2id(recoveryCode, recoverySalt, 弱参数) —— 仅用于校验恢复码
+ * 安全模型（v2 协议）：
+ * - masterKey = generateMasterKey() —— 随机生成，setup 时一次性创建，终生不变
+ * - { kek, authKey } = deriveSecrets(password, pwSalt) —— 一次 Argon2id 同时派生
+ *   - kek 用于包装/解封 masterKey（绝不离开客户端）
+ *   - authKey 的 base64 存为 passwordHash，仅用于校验密码
+ * - passwordWrappedMasterKey = wrapKey(passwordKek, masterKey) —— 日常 unlock 用
+ * - 同理，恢复码派生 recoveryKek + recoveryAuthKey，包装同一把 masterKey
+ * - recover 后 masterKey 保留，旧笔记可继续解密 ✅
  *
  * 与联机模式的差异：
- * - 联机模式：masterKey = deriveMasterKey(password, clientMasterSalt)，从密码派生；recover 后 masterKey 改变，旧笔记无法解密
- * - 单机模式：masterKey 随机生成，recover 后 masterKey 保留，旧笔记可继续解密 ✅
+ * - 联机模式：authKey 上传服务端做身份校验，masterKey 由服务端密文返回
+ * - 单机模式：authKey 本地存为 hash 做校验，masterKey 本地解封
  * - 两者使用相同的 crypto.ts 原语，密文格式一致
+ *
+ * 兼容性：kdfVersion=1 的旧 blob 无法解锁，需提示用户重新 setup
  */
 
 import {
-  deriveKey,
-  deriveMasterKey,
-  deriveRecoveryKey,
+  deriveSecrets,
+  generateMasterKey,
   generateRecoveryCode,
-  wrapMasterKey,
-  unwrapMasterKey,
+  normalizeRecoveryCode,
+  isValidRecoveryCode,
+  wrapKey,
+  unwrapKey,
   randomBytes,
   toBase64,
   fromBase64,
@@ -36,6 +39,7 @@ import {
   KDF_PARAMS,
   KDF_VERSION,
   type Ciphertext,
+  type KdfParams,
 } from './crypto.js';
 import type { LocalAuthBlob } from './types.js';
 
@@ -66,7 +70,7 @@ export interface SetupLocalAuthResult {
   blob: LocalAuthBlob;
   /** 随机生成的 masterKey（仅在 setup 时返回一次，调用方需立即使用或缓存） */
   masterKey: Uint8Array;
-  /** 6 位恢复码（仅在此返回，后续无法再次获取） */
+  /** 10 位恢复码（仅在此返回一次，后续无法再次获取） */
   recoveryCode: string;
 }
 
@@ -74,58 +78,56 @@ export interface SetupLocalAuthResult {
  * 单机模式首次设置主密码
  *
  * 流程：
- * 1. 生成 masterKey = randomBytes(32)（随机，与密码无关）
- * 2. 生成 masterSalt（16B）+ clientMasterSalt（16B）+ recoverySalt（16B）
- * 3. passwordHash = Argon2id(password, masterSalt)（仅用于校验）
- * 4. passwordDerivedKey = deriveMasterKey(password, clientMasterSalt)
- * 5. passwordWrappedMasterKey = AES-GCM(passwordDerivedKey, masterKey)
- * 6. recoveryCode = generateRecoveryCode() (6 位)
- * 7. recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt)
- * 8. recoveryHash = Argon2id(recoveryCode, recoverySalt, 弱参数)（仅用于校验）
- * 9. wrappedMasterKey = AES-GCM(recoveryKey, masterKey)
+ * 1. 生成 masterKey = generateMasterKey()（随机，与密码无关）
+ * 2. 生成 pwSalt（16B）+ rcSalt（16B）
+ * 3. { passwordKek, passwordAuthKey } = deriveSecrets(password, pwSalt)
+ * 4. passwordWrappedMasterKey = wrapKey(passwordKek, masterKey)
+ * 5. passwordHash = toBase64(passwordAuthKey)（仅用于校验）
+ * 6. recoveryCode = generateRecoveryCode()（10 位 Crockford Base32）
+ * 7. normalizedCode = normalizeRecoveryCode(recoveryCode)
+ * 8. { recoveryKek, recoveryAuthKey } = deriveSecrets(normalizedCode, rcSalt)
+ * 9. wrappedMasterKey = wrapKey(recoveryKek, masterKey)
+ * 10. recoveryHash = toBase64(recoveryAuthKey)（仅用于校验）
  *
  * @param password 用户主密码（>= 8 字符）
  */
-export async function setupLocalAuth(password: string): Promise<SetupLocalAuthResult> {
+export async function setupLocalAuth(
+  password: string,
+  params: KdfParams = KDF_PARAMS
+): Promise<SetupLocalAuthResult> {
   if (password.length < 8) {
     throw new Error('主密码至少 8 字符');
   }
 
   // 1. 随机 masterKey（不依赖密码，recover 时可保留）
-  const masterKey = randomBytes(32);
+  const masterKey = generateMasterKey();
 
-  const masterSalt = randomBytes(16);
-  const clientMasterSalt = randomBytes(16);
-  const recoverySalt = randomBytes(16);
+  const pwSalt = randomBytes(16);
+  const rcSalt = randomBytes(16);
 
-  // 2. passwordHash（仅用于 unlock 时校验密码）
-  const passwordHashBytes = deriveKey(password, masterSalt, KDF_PARAMS);
-  const passwordHash = toBase64(passwordHashBytes);
+  // 2. 密码派生 KEK + authKey（一次 Argon2id）
+  const { kek: passwordKek, authKey: passwordAuthKey } = await deriveSecrets(password, pwSalt, params);
+  const passwordWrappedMasterKey = await wrapKey(passwordKek, masterKey);
+  const passwordHash = toBase64(passwordAuthKey);
 
-  // 3. passwordDerivedKey + passwordWrappedMasterKey（日常 unlock 用）
-  const passwordDerivedKey = await deriveMasterKey(password, clientMasterSalt);
-  const passwordWrappedMasterKey = await wrapMasterKey(passwordDerivedKey, masterKey);
-
-  // 4. recoveryCode + recoveryKey + wrappedMasterKey（recover 用）
+  // 3. 恢复码派生 recoveryKek + recoveryAuthKey
   const recoveryCode = generateRecoveryCode();
-  const recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt);
-  const recoveryHashBytes = deriveKey(recoveryCode, recoverySalt, {
-    m: 16 * 1024,
-    t: 2,
-    p: 2,
-    dkLen: 32,
-  });
-  const recoveryHash = toBase64(recoveryHashBytes);
-  const wrappedMasterKey = await wrapMasterKey(recoveryKey, masterKey);
+  const normalizedCode = normalizeRecoveryCode(recoveryCode);
+  const { kek: recoveryKek, authKey: recoveryAuthKey } = await deriveSecrets(
+    normalizedCode,
+    rcSalt,
+    params
+  );
+  const wrappedMasterKey = await wrapKey(recoveryKek, masterKey);
+  const recoveryHash = toBase64(recoveryAuthKey);
 
   const blob: LocalAuthBlob = {
+    pwSalt: toBase64(pwSalt),
+    rcSalt: toBase64(rcSalt),
     passwordHash,
-    masterSalt: toBase64(masterSalt),
-    clientMasterSalt: toBase64(clientMasterSalt),
-    wrappedMasterKey: JSON.stringify(wrappedMasterKey),
     passwordWrappedMasterKey: JSON.stringify(passwordWrappedMasterKey),
+    wrappedMasterKey: JSON.stringify(wrappedMasterKey),
     recoveryHash,
-    recoverySalt: toBase64(recoverySalt),
     kdfVersion: KDF_VERSION,
     createdAt: new Date().toISOString(),
   };
@@ -142,34 +144,48 @@ export interface UnlockLocalAuthResult {
   masterKey: Uint8Array | null;
 }
 
+/** v1 旧 blob 无法解锁，调用方应提示用户重新 setup */
+export class LegacyAuthBlobError extends Error {
+  constructor(message = '旧版鉴权数据（v1）无法解锁，请重新设置主密码') {
+    super(message);
+    this.name = 'LegacyAuthBlobError';
+  }
+}
+
 /**
  * 单机模式解锁：验证主密码并解封 masterKey
  *
  * 流程：
- * 1. passwordHash' = Argon2id(password, blob.masterSalt)
- * 2. constantTimeEqual(passwordHash', blob.passwordHash)
- * 3. 若匹配，passwordDerivedKey = deriveMasterKey(password, blob.clientMasterSalt)
- * 4. masterKey = unwrapMasterKey(passwordDerivedKey, blob.passwordWrappedMasterKey)
+ * 1. 检查 kdfVersion（v1 抛 LegacyAuthBlobError）
+ * 2. { passwordKek, passwordAuthKey } = deriveSecrets(password, blob.pwSalt)
+ * 3. constantTimeEqual(passwordAuthKey, blob.passwordHash)
+ * 4. 若匹配，masterKey = unwrapKey(passwordKek, blob.passwordWrappedMasterKey)
  *
  * 注意：调用方负责维护 LocalLockoutState（失败计数 + 锁定）
  */
 export async function unlockLocalAuth(
   password: string,
-  blob: LocalAuthBlob
+  blob: LocalAuthBlob,
+  params: KdfParams = KDF_PARAMS
 ): Promise<UnlockLocalAuthResult> {
-  const masterSalt = fromBase64(blob.masterSalt);
-  const passwordHashBytes = deriveKey(password, masterSalt, KDF_PARAMS);
-  const storedHashBytes = fromBase64(blob.passwordHash);
+  if (blob.kdfVersion !== KDF_VERSION) {
+    throw new LegacyAuthBlobError();
+  }
 
-  if (!constantTimeEqual(passwordHashBytes, storedHashBytes)) {
+  const pwSalt = fromBase64(blob.pwSalt);
+  const { kek: passwordKek, authKey: passwordAuthKey } = await deriveSecrets(
+    password,
+    pwSalt,
+    params
+  );
+
+  if (!constantTimeEqual(passwordAuthKey, fromBase64(blob.passwordHash))) {
     return { success: false, masterKey: null };
   }
 
   // 密码正确，解封 masterKey
-  const clientMasterSalt = fromBase64(blob.clientMasterSalt);
-  const passwordDerivedKey = await deriveMasterKey(password, clientMasterSalt);
   const passwordWrapped = JSON.parse(blob.passwordWrappedMasterKey) as Ciphertext;
-  const masterKey = await unwrapMasterKey(passwordDerivedKey, passwordWrapped);
+  const masterKey = await unwrapKey(passwordKek, passwordWrapped);
 
   return { success: true, masterKey };
 }
@@ -191,86 +207,88 @@ export interface RecoverLocalAuthResult {
  * 单机模式恢复：用恢复码重置主密码（保留原 masterKey）
  *
  * 流程：
- * 1. recoveryHash' = Argon2id(recoveryCode, blob.recoverySalt)
- * 2. constantTimeEqual(recoveryHash', blob.recoveryHash)
- * 3. 若匹配，recoveryKey = deriveRecoveryKey(recoveryCode, blob.recoverySalt)
- * 4. originalMasterKey = unwrapMasterKey(recoveryKey, blob.wrappedMasterKey)
- * 5. 用新密码生成新 salts + 新 passwordDerivedKey + 新 recoveryCode
- * 6. 重新包装 originalMasterKey：
- *    - passwordWrappedMasterKey = AES-GCM(newPasswordDerivedKey, originalMasterKey)
- *    - wrappedMasterKey = AES-GCM(newRecoveryKey, originalMasterKey)
- * 7. 返回新 blob + 原 masterKey + 新 recoveryCode
+ * 1. 检查 kdfVersion（v1 抛 LegacyAuthBlobError）
+ * 2. normalizedCode = normalizeRecoveryCode(recoveryCode)
+ * 3. { recoveryKek, recoveryAuthKey } = deriveSecrets(normalizedCode, blob.rcSalt)
+ * 4. constantTimeEqual(recoveryAuthKey, blob.recoveryHash)
+ * 5. 若匹配，originalMasterKey = unwrapKey(recoveryKek, blob.wrappedMasterKey)
+ * 6. 用新密码生成新 pwSalt + 新 recoveryCode + 新 rcSalt
+ * 7. 重新包装 originalMasterKey：
+ *    - passwordWrappedMasterKey = wrapKey(newPasswordKek, originalMasterKey)
+ *    - wrappedMasterKey = wrapKey(newRecoveryKek, originalMasterKey)
+ * 8. 返回新 blob + 原 masterKey + 新 recoveryCode
  *
  * 关键：masterKey 不变，已有笔记可继续解密 ✅
  *
- * @param recoveryCode 用户输入的 6 位恢复码
+ * @param recoveryCode 用户输入的 10 位恢复码
  * @param newPassword 新主密码（>= 8 字符）
  * @param oldBlob 旧的 LocalAuthBlob
  */
 export async function recoverLocalAuth(
   recoveryCode: string,
   newPassword: string,
-  oldBlob: LocalAuthBlob
+  oldBlob: LocalAuthBlob,
+  params: KdfParams = KDF_PARAMS
 ): Promise<RecoverLocalAuthResult> {
   if (newPassword.length < 8) {
     throw new Error('新主密码至少 8 字符');
   }
 
-  // 1. 校验恢复码
-  const recoverySalt = fromBase64(oldBlob.recoverySalt);
-  const recoveryHashBytes = deriveKey(recoveryCode, recoverySalt, {
-    m: 16 * 1024,
-    t: 2,
-    p: 2,
-    dkLen: 32,
-  });
-  const storedRecoveryHashBytes = fromBase64(oldBlob.recoveryHash);
+  if (oldBlob.kdfVersion !== KDF_VERSION) {
+    throw new LegacyAuthBlobError();
+  }
 
-  if (!constantTimeEqual(recoveryHashBytes, storedRecoveryHashBytes)) {
+  // 1. 规范化恢复码并校验
+  const normalizedCode = normalizeRecoveryCode(recoveryCode);
+  if (!isValidRecoveryCode(normalizedCode)) {
     return { success: false, blob: null, masterKey: null, recoveryCode: null };
   }
 
-  // 2. 用 recoveryKey 解封原始 masterKey（保留不变）
-  const recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt);
-  const oldWrapped = JSON.parse(oldBlob.wrappedMasterKey) as Ciphertext;
-  const originalMasterKey = await unwrapMasterKey(recoveryKey, oldWrapped);
-
-  // 3. 用新密码生成新 salts + 新 passwordDerivedKey
-  const newMasterSalt = randomBytes(16);
-  const newClientMasterSalt = randomBytes(16);
-  const newRecoverySalt = randomBytes(16);
-
-  const newPasswordHashBytes = deriveKey(newPassword, newMasterSalt, KDF_PARAMS);
-  const newPasswordHash = toBase64(newPasswordHashBytes);
-  const newPasswordDerivedKey = await deriveMasterKey(newPassword, newClientMasterSalt);
-
-  // 4. 重新包装 originalMasterKey
-  const newPasswordWrappedMasterKey = await wrapMasterKey(
-    newPasswordDerivedKey,
-    originalMasterKey
+  const rcSalt = fromBase64(oldBlob.rcSalt);
+  const { kek: recoveryKek, authKey: recoveryAuthKey } = await deriveSecrets(
+    normalizedCode,
+    rcSalt,
+    params
   );
 
-  // 5. 生成新 recoveryCode + 新 recoveryKey
-  const newRecoveryCode = generateRecoveryCode();
-  const newRecoveryKey = deriveRecoveryKey(newRecoveryCode, newRecoverySalt);
-  const newRecoveryHashBytes = deriveKey(newRecoveryCode, newRecoverySalt, {
-    m: 16 * 1024,
-    t: 2,
-    p: 2,
-    dkLen: 32,
-  });
-  const newRecoveryHash = toBase64(newRecoveryHashBytes);
-  const newWrappedMasterKey = await wrapMasterKey(newRecoveryKey, originalMasterKey);
+  if (!constantTimeEqual(recoveryAuthKey, fromBase64(oldBlob.recoveryHash))) {
+    return { success: false, blob: null, masterKey: null, recoveryCode: null };
+  }
 
-  // 6. 构造新 blob
+  // 2. 用 recoveryKek 解封原始 masterKey（保留不变）
+  const oldWrapped = JSON.parse(oldBlob.wrappedMasterKey) as Ciphertext;
+  const originalMasterKey = await unwrapKey(recoveryKek, oldWrapped);
+
+  // 3. 用新密码生成新 pwSalt + 派生新 KEK + authKey
+  const newPwSalt = randomBytes(16);
+  const { kek: newPasswordKek, authKey: newPasswordAuthKey } = await deriveSecrets(
+    newPassword,
+    newPwSalt,
+    params
+  );
+  const newPasswordWrappedMasterKey = await wrapKey(newPasswordKek, originalMasterKey);
+  const newPasswordHash = toBase64(newPasswordAuthKey);
+
+  // 4. 生成新 recoveryCode + 新 rcSalt + 派生新 recoveryKek + recoveryAuthKey
+  const newRecoveryCode = generateRecoveryCode();
+  const newNormalizedCode = normalizeRecoveryCode(newRecoveryCode);
+  const newRcSalt = randomBytes(16);
+  const { kek: newRecoveryKek, authKey: newRecoveryAuthKey } = await deriveSecrets(
+    newNormalizedCode,
+    newRcSalt,
+    params
+  );
+  const newWrappedMasterKey = await wrapKey(newRecoveryKek, originalMasterKey);
+  const newRecoveryHash = toBase64(newRecoveryAuthKey);
+
+  // 5. 构造新 blob
   const newBlob: LocalAuthBlob = {
+    pwSalt: toBase64(newPwSalt),
+    rcSalt: toBase64(newRcSalt),
     passwordHash: newPasswordHash,
-    masterSalt: toBase64(newMasterSalt),
-    clientMasterSalt: toBase64(newClientMasterSalt),
-    wrappedMasterKey: JSON.stringify(newWrappedMasterKey),
     passwordWrappedMasterKey: JSON.stringify(newPasswordWrappedMasterKey),
+    wrappedMasterKey: JSON.stringify(newWrappedMasterKey),
     recoveryHash: newRecoveryHash,
-    recoverySalt: toBase64(newRecoverySalt),
     kdfVersion: KDF_VERSION,
     createdAt: new Date().toISOString(),
   };
@@ -341,13 +359,12 @@ export function serializeLocalAuthBlob(blob: LocalAuthBlob): string {
 export function deserializeLocalAuthBlob(json: string): LocalAuthBlob {
   const parsed = JSON.parse(json) as LocalAuthBlob;
   if (
+    typeof parsed.pwSalt !== 'string' ||
+    typeof parsed.rcSalt !== 'string' ||
     typeof parsed.passwordHash !== 'string' ||
-    typeof parsed.masterSalt !== 'string' ||
-    typeof parsed.clientMasterSalt !== 'string' ||
-    typeof parsed.wrappedMasterKey !== 'string' ||
     typeof parsed.passwordWrappedMasterKey !== 'string' ||
-    typeof parsed.recoveryHash !== 'string' ||
-    typeof parsed.recoverySalt !== 'string'
+    typeof parsed.wrappedMasterKey !== 'string' ||
+    typeof parsed.recoveryHash !== 'string'
   ) {
     throw new Error('Invalid LocalAuthBlob format');
   }

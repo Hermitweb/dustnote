@@ -1,24 +1,21 @@
 /**
- * 公开分享页：通过 token 拉取密文，本地用 visitor key 解密，渲染 Markdown
- * 不需要登录，端到端加密依然生效（owner 在分享时用一次性 derived key 加密）
+ * 公开分享页（secret-link 方案）
  *
- * 简化策略：分享时服务端已经存储了密文，但访客拿不到 owner 的 masterKey
- * 解决：分享时由 owner 用分享密码（若有）或公开临时 key 加密
+ * 服务端只存密文，解密用的 shareKey 在链接的 URL fragment 里——
+ * `#` 之后的内容浏览器不会发给服务端，所以服务端始终看不到明文。
  *
- * v1 实现：访客直接获取解密的明文（如果有密码则先校验密码，服务端用 owner 的密文
- *         + 分享 password 派生 key 解密后下发明文）
- *         这是为了避免主人要在线处理私钥解锁的复杂流程
- *
- * 真正的 E2EE 分享见 security.md §5.6，本组件为过渡方案
+ * 流程：从 location.hash 取 shareKey → 用 token 拉密文（有密码则先过密码）
+ *      → 本地解密 → 净化后渲染 Markdown
  */
 
 import { useEffect, useState, useCallback } from 'react';
 import { marked } from 'marked';
+import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
+import { sanitizeHtml } from '../lib/sanitize-html';
 
-interface PublicShareData {
-  ciphertext: unknown;
-  keyVersion: number;
-  noteId: string;
+interface SharePayload {
+  title: string;
+  content: string;
 }
 
 type State =
@@ -33,6 +30,18 @@ type State =
       createdAt: string;
       expiresAt: string | null;
     };
+
+/** 从 URL fragment 取出 shareKey；链接被截断（少了 `#…`）时返回 null */
+function readShareKey(): Uint8Array | null {
+  const raw = location.hash.replace(/^#/, '').trim();
+  if (!raw) return null;
+  try {
+    const key = fromBase64Url(raw);
+    return key.length === 32 ? key : null;
+  } catch {
+    return null;
+  }
+}
 
 export function PublicShareView({ token }: { token: string }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
@@ -69,34 +78,38 @@ export function PublicShareView({ token }: { token: string }) {
           return;
         }
 
-        // v1 简化：服务端直接返回明文（如果有密码，先校验）
-        // 真正的 E2EE 分享需要 owner 在线解密
-        const d = data as unknown as PublicShareData & {
-          title?: string;
-          content?: string;
-          createdAt?: string;
-          expiresAt?: string | null;
-        };
-        if (typeof d.title === 'string' && typeof d.content === 'string') {
+        const shareKey = readShareKey();
+        if (!shareKey) {
           setState({
-            kind: 'ready',
-            title: d.title,
-            content: d.content,
-            hasPassword: !!pwd,
-            createdAt: d.createdAt ?? new Date().toISOString(),
-            expiresAt: d.expiresAt ?? null,
+            kind: 'error',
+            message: '链接不完整：缺少解密密钥。请确认复制了包含 # 及其之后全部内容的完整链接。',
           });
-        } else {
-          // 兼容密文返回（暂未实现客户端解密，提示）
-          setState({
-            kind: 'ready',
-            title: '🔒 加密笔记',
-            content: '*此笔记是端到端加密的密文分享。访客端解密需 owner 在场，暂不支持。*',
-            hasPassword: !!pwd,
-            createdAt: new Date().toISOString(),
-            expiresAt: null,
-          });
+          return;
         }
+        // 先取到局部常量再做类型守卫：data 带索引签名，直接对属性做窄化不可靠
+        const ciphertext = data.ciphertext;
+        if (!isCiphertext(ciphertext)) {
+          setState({ kind: 'error', message: '分享数据格式异常' });
+          return;
+        }
+
+        // 解密只发生在这里——服务端从未持有 shareKey
+        let payload: SharePayload;
+        try {
+          payload = JSON.parse(await decryptString(shareKey, ciphertext)) as SharePayload;
+        } catch {
+          setState({ kind: 'error', message: '解密失败：密钥与该分享不匹配' });
+          return;
+        }
+
+        setState({
+          kind: 'ready',
+          title: payload.title,
+          content: payload.content,
+          hasPassword: !!pwd,
+          createdAt: typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString(),
+          expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : null,
+        });
       } catch (err) {
         setState({ kind: 'error', message: (err as Error).message });
       } finally {
@@ -189,7 +202,8 @@ export function PublicShareView({ token }: { token: string }) {
           <div
             className="prose prose-sm max-w-none text-slate-700 dark:prose-invert dark:text-slate-200"
             dangerouslySetInnerHTML={{
-              __html: marked.parse(state.content || '*暂无内容*') as string,
+              // 访客侧渲染的是别人写的内容，必须净化后再注入
+              __html: sanitizeHtml(marked.parse(state.content || '*暂无内容*') as string),
             }}
           />
         </article>

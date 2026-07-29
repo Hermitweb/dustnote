@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { type Ciphertext, toBase64Url, unwrapKey } from '@dustnote/shared';
 import { useStore } from '../lib/store';
 import { getDeviceId } from '../lib/device';
 
@@ -11,16 +12,19 @@ interface Share {
   id: string;
   noteId: string;
   token: string;
+  /** masterKey 包装的 shareKey，用来还原完整分享链接 */
+  wrappedShareKey: Ciphertext;
   hasPassword: boolean;
   expiresAt: string | null;
   viewCount: number;
   revoked: boolean;
   createdAt: string;
-  title: string;
 }
 
 export function SharesManager({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
+  // 标题不再存服务端，用本地已解密的笔记按 noteId 反查
+  const notesPlain = useStore((s) => s.notesPlain);
   const [shares, setShares] = useState<Share[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,9 +133,26 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
     await load();
   };
 
-  const copy = (id: string, token: string) => {
-    void navigator.clipboard.writeText(`${location.origin}/share/${token}`);
-    setCopiedId(id);
+  /** 用 masterKey 解封 shareKey，拼回带 fragment 的完整链接 */
+  const buildShareUrl = useCallback(async (s: Share): Promise<string | null> => {
+    const masterKey = useStore.getState().masterKey;
+    if (!masterKey) return null;
+    try {
+      const shareKey = await unwrapKey(masterKey, s.wrappedShareKey);
+      return `${location.origin}/share/${s.token}#${toBase64Url(shareKey)}`;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const copy = async (s: Share) => {
+    const url = await buildShareUrl(s);
+    if (!url) {
+      alert('无法还原分享链接：请先解锁');
+      return;
+    }
+    await navigator.clipboard.writeText(url);
+    setCopiedId(s.id);
     setTimeout(() => setCopiedId(null), 1500);
   };
   const isExpired = (e: string | null) => (e ? new Date(e).getTime() < Date.now() : false);
@@ -202,7 +223,9 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                         </button>
                       )}
                       <div>
-                        <div className="font-semibold text-surface-fg">{s.title}</div>
+                        <div className="font-semibold text-surface-fg">
+                          {notesPlain.get(s.noteId)?.title || '(无标题)'}
+                        </div>
                         <div className="mt-0.5 text-xs text-surface-muted">
                           创建于 {new Date(s.createdAt).toLocaleString('zh-CN')}
                         </div>
@@ -229,8 +252,10 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                       )}
                     </div>
                   </div>
+                  {/* 密钥藏在 fragment 里，这里只作示意——务必用「复制链接」拿完整地址 */}
                   <div className="mb-2 truncate font-mono text-xs text-surface-muted">
                     {location.origin}/share/{s.token}
+                    <span className="opacity-60">#&lt;密钥&gt;</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-surface-muted">
                     <span>👁 {s.viewCount} 次访问</span>
@@ -240,7 +265,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                     {!selecting && (
                       <div className="ml-auto flex gap-1">
                         <button
-                          onClick={() => copy(s.id, s.token)}
+                          onClick={() => void copy(s)}
                           className="rounded bg-mint-100 px-2 py-1 text-xs text-mint-700 hover:bg-mint-200 dark:bg-mint-900/30 dark:text-mint-300"
                         >
                           {copiedId === s.id ? '✅ 已复制' : '复制链接'}
