@@ -1,14 +1,12 @@
 /**
  * DustNote Android (React Native) 入口
  *
- * Polyfill 必须在所有其他 import 之前加载：
- * - react-native-get-random-values：为 @noble/hashes 提供 CSPRNG（crypto.getRandomValues）
- * - react-native-quick-crypto/auto：补齐 crypto.subtle（AES-GCM / HKDF / HMAC），
- *   RN 0.74 默认不提供 WebCrypto，shared/src/crypto.ts 依赖 subtle.importKey/sign/encrypt/decrypt
+ * polyfill 必须是第一个 import —— metro bundler 按代码顺序同步 require，
+ * 这样 polyfill.js 中的 install() 会在 App 及其依赖 (含 shared/src/crypto.ts)
+ * 加载前执行，确保 global.crypto.subtle 已就绪。
  */
 
-import 'react-native-get-random-values';
-import 'react-native-quick-crypto/auto';
+import './polyfill';
 
 import { AppRegistry } from 'react-native';
 import App from './src/App';
