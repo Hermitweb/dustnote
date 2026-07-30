@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
 import { encryptString, randomBytes, toBase64Url, wrapKey } from '@dustnote/shared';
 import { useStore } from '../lib/store';
+import { useModeStore } from '../lib/mode-store';
 import { getDeviceId } from '../lib/device';
 import { sanitizeHtml } from '../lib/sanitize-html';
 import { NoteHistoryDialog } from './NoteHistoryDialog';
@@ -14,6 +15,12 @@ import {
   insertAtCursor,
 } from '../lib/image-paste';
 import { VoiceInputButton } from './VoiceInputButton';
+
+/** 构造绝对 API 基址（Tauri 桌面端必须用绝对地址，详见 store.ts 注释） */
+function shareApiBase(): string {
+  const { serverUrl } = useModeStore.getState();
+  return serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : '/api/v1';
+}
 
 export function Editor() {
   const { t } = useTranslation();
@@ -488,7 +495,7 @@ function ShareDialog({
       // 用 masterKey 包装一份，好让主人换设备后还能还原出完整链接
       const wrappedShareKey = await wrapKey(masterKey, shareKey);
 
-      const r = await fetch(`/api/v1/shares`, {
+      const r = await fetch(`${shareApiBase()}/shares`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

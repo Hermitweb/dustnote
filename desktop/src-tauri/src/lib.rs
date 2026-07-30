@@ -259,12 +259,18 @@ pub fn run() {
 
             // 禁用 webview 右键菜单：三重防御
             //   1. Rust eval 注入 document 级 contextmenu preventDefault（此处，SPA 永久生效）
-            //   2. 前端 desktop/src/main.tsx 的 window 级 capture 监听
-            //   3. 前端 desktop/src/main.tsx 的 document 级 capture 监听
-            // Tauri 2 的 WebviewWindow 不支持 init_script（仅 WebviewWindowBuilder 支持），
-            // 改用 eval 注入一次性脚本；DustNote 为 SPA 不会页面刷新，一次注入即永久生效
+            //   2. 前端 web/src/main.tsx 的 window 级 capture 监听
+            //   3. 前端 web/src/main.tsx 的 document 级 capture 监听
+            // 但在可编辑元素中保留右键菜单（剪切/复制/粘贴/全选），
+            // 否则用户无法在输入框/文本域中使用右键编辑功能。
             if let Some(w) = app.get_webview_window("main") {
-                let _ = w.eval("document.addEventListener('contextmenu', e => e.preventDefault());");
+                let _ = w.eval(
+                    "document.addEventListener('contextmenu', e => {\
+                        const t = e.target;\
+                        if (t && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;\
+                        e.preventDefault();\
+                    });"
+                );
                 // 防截屏：窗口内容设为 content_protected 后，系统截图、录屏、Recent Apps 预览将得到黑屏
                 // macOS: NSWindow.sharingType = NSWindowSharingNone
                 // Windows: SetWindowDisplayAffinity(WDA_MONITOR)

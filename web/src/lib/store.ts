@@ -498,11 +498,15 @@ export const useStore = create<StoreState>((set, get) => ({
     const result = await setupLocalAuth(password);
     saveLocalAuthBlob(result.blob);
     clearLockoutState();
+    // 注意：此处不设置 authState: 'unlocked'！
+    // setupStandalone 返回 recoveryCode 后 SetupScreen 需要展示恢复码，
+    // 若提前把 authState 改成 'unlocked'，App.tsx 会立即切到主界面，
+    // 导致恢复码界面被卸载、用户永远看不到恢复码。
+    // 用户点击「我已保存」→ reload → checkStatusStandalone 设置 needs_unlock → 输入密码解锁。
     set({
       localAuthBlob: result.blob,
       masterKey: result.masterKey,
       lockoutState: INITIAL_LOCKOUT_STATE,
-      authState: 'unlocked',
     });
     return result.recoveryCode;
   },
@@ -617,13 +621,15 @@ export const useStore = create<StoreState>((set, get) => ({
       deviceName: 'Web 浏览器',
     });
 
+    // 注意：此处不设置 authState: 'unlocked'！
+    // 与 setupStandalone 同理：SetupScreen 需在 setup() 返回后展示恢复码，
+    // 提前切 'unlocked' 会导致恢复码界面被 App.tsx 卸载。
     set({
       accessToken: r.accessToken,
       userId: r.userId,
       serverSalt: toBase64(pwSalt),
       masterKey,
       wrappedMasterKey: wrappedPw,
-      authState: 'unlocked',
     });
     return recoveryCode;
   },
@@ -715,7 +721,14 @@ export const useStore = create<StoreState>((set, get) => ({
       enableGraceUnlock(k, get().wrappedMasterKey, getGraceUnlockMin());
     }
     if (k) k.fill(0);
-    set({ masterKey: null, selectedNoteId: null, notesPlain: new Map() });
+    // 必须将 authState 切回 'needs_unlock'，否则 App.tsx 仍渲染主界面
+    // 但 masterKey 已清空，笔记无法解密 → 用户卡死在空白界面无法解锁
+    set({
+      masterKey: null,
+      selectedNoteId: null,
+      notesPlain: new Map(),
+      authState: 'needs_unlock',
+    });
   },
 
   /**
@@ -1459,7 +1472,12 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ preferences: next });
     if (p.theme) applyTheme(p.theme, next.mode);
     if (p.mode) applyTheme(next.theme, p.mode);
-    if (p.language) void i18n.changeLanguage(p.language);
+    if (p.language) {
+      // 同步 dustnote_language localStorage key：i18n.ts 初始化时从此读取默认语言，
+      // 若不更新则刷新页面后语言会回退到默认 'zh-CN'，用户设置的语言不生效。
+      localStorage.setItem('dustnote_language', p.language);
+      void i18n.changeLanguage(p.language);
+    }
 
     // 单机模式：写入 LocalRepository
     const { mode, repository } = get();
@@ -1569,6 +1587,17 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ pendingCount: 0, localAuthBlob: null, lockoutState: INITIAL_LOCKOUT_STATE });
   },
 }));
+
+// 启动时同步 i18n 语言：preferences 可能保存了用户选择的语言，
+// 但 i18n.ts 初始化时从 dustnote_language localStorage 读取（可能为空 → 默认 zh-CN）。
+// 这里补齐：把 preferences.language 写入 dustnote_language 并切换 i18n。
+{
+  const _startupLang = useStore.getState().preferences.language;
+  if (_startupLang) {
+    localStorage.setItem('dustnote_language', _startupLang);
+    void i18n.changeLanguage(_startupLang);
+  }
+}
 
 /** 重放单个 op：用当前 store 的 accessToken 构造请求 */
 async function replayOp(op: QueuedOp): Promise<void> {

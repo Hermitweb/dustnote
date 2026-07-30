@@ -13,6 +13,35 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.3.2] - 2026-07-30
+
+### 修复 — v2.3.1 用户反馈问题批量修复
+
+针对 v2.3.1 发布后用户反馈的 11 项问题进行逐一排查与修复，并同步扫描全项目类似细节错误。
+
+#### 安卓端
+
+- **安卓启动闪退**（P0）：`mobile/polyfill.js` 中 `react-native-quick-crypto` 的 `install()` 未包裹 try/catch，部分设备/架构下 install 抛异常导致应用启动即白屏崩溃。补 try/catch 后即使 crypto 不可用也能启动并展示 ErrorBoundary。
+
+#### 桌面端 / Web
+
+- **初始设置不显示恢复码**（P0）：`store.ts` 的 `setup()` / `setupStandalone()` 在返回 recoveryCode 前就设置 `authState: 'unlocked'`，导致 App.tsx 立即切换到主界面、SetupScreen 被卸载、恢复码永远不显示。移除 setup 中的 `authState: 'unlocked'` 设置，改为 reload 后由 checkStatus 自然过渡到 needs_unlock。
+- **笔记无法解锁**（P0）：`lock()` 清空 masterKey 后未将 authState 切回 `'needs_unlock'`，导致用户卡在主界面但笔记无法解密。补充 `authState: 'needs_unlock'`，并在 App.tsx 新增宽限期免密解锁自动检查（authState 变为 needs_unlock 时自动尝试 graceUnlock）。
+- **分享界面关闭无响应 + JSON 解析错误**（P0）：`SharesManager.tsx` 和 `Editor.tsx ShareDialog` 使用相对路径 `/api/v1/shares`，Tauri webview 会请求资源服务器返回 HTML 导致 "Unexpected token '<'" 错误。改用 mode-store 的 serverUrl 拼接绝对地址。底部"关闭"从纯文本改为可点击 button。
+- **检查更新超时 + 卡顿**（P1）：`use-update-check.ts` 无超时保护，服务端不可达时无限等待导致 UI 卡顿。新增 10s AbortController 超时，并从 mode-store 获取 apiBase 拼接绝对地址。单机模式（无服务器）下跳过 web 更新检查，由 Velopack 负责桌面端更新。
+- **新建文件夹无确定按钮**（P1）：`Sidebar.tsx` 新建文件夹输入框只有 Enter/Esc 键支持，无视觉确认按钮。补充 ✓ 确认按钮和 ✕ 取消按钮。
+- **笔记移动逻辑错误**（P1）：`Sidebar.tsx` 批量移动使用 `prompt()` 要求用户输入文件夹 ID（用户不知道 ID，也不支持输入文件夹名称）。改为弹出文件夹选择对话框，列出所有现有文件夹供选择。
+- **右键操作不支持**（P1）：`main.tsx` 和 `lib.rs` 全局拦截 contextmenu 事件，导致 input/textarea/contenteditable 中无法使用右键菜单（剪切/复制/粘贴/全选）。改为选择性拦截：仅在非编辑元素上 preventDefault。
+- **编辑选项列表 i18n 英文**（P1）：`store.ts setPreferences()` 修改语言时只调用 `i18n.changeLanguage()` 但不更新 `dustnote_language` localStorage key，导致刷新后语言回退。补全 localStorage 持久化，并在 store 创建后同步 i18n 初始语言。
+- **环境迁移多余关闭按钮**（P2）：`MigrationWizard.tsx` 底部有一个冗余的关闭按钮，与模态框自带关闭功能重复。移除冗余按钮。
+- **自动更新版本回退**（P1）：`release.yml` 中 RELEASE_TAG 和 VPK_VERSION 的 fallback 值过期（v2.2.0 / v2.3.0），更新为 v2.3.2。
+
+### 全项目类似错误扫描
+
+- 扫描所有 `fetch('/api/v1/...')` 相对路径调用 — 已全部修复（SharesManager + Editor ShareDialog）
+- 扫描所有 `prompt()` 滥用 — Editor.tsx 的 saveAsTemplate prompt 为合理的文本输入用途，保留
+- 扫描所有 contextmenu blanket prevention — 已全部改为选择性拦截
+
 ## [2.3.1] - 2026-07-30
 
 ### 修复 — 生产级零故障加固（首席架构师 SOP 扫描）

@@ -44,6 +44,8 @@ function App() {
   const lock = useStore((s) => s.lock);
   const initRepository = useStore((s) => s.initRepository);
   const refreshPendingCount = useStore((s) => s.refreshPendingCount);
+  const hasGraceUnlock = useStore((s) => s.hasGraceUnlock);
+  const graceUnlock = useStore((s) => s.graceUnlock);
   const updateCheck = useUpdateCheck();
 
   const modeInitialized = useModeStore((s) => s.initialized);
@@ -145,6 +147,14 @@ function App() {
     void loadConfig();
     installOnlineListener();
   }, [checkStatus, loadAll, modeInitialized, initRepository]);
+
+  // 宽限期免密解锁：lock() 后 authState 变为 'needs_unlock'，
+  // 若宽限期内有缓存的 masterKey，自动恢复 unlocked 状态，跳过密码输入。
+  useEffect(() => {
+    if (authState === 'needs_unlock' && hasGraceUnlock()) {
+      graceUnlock();
+    }
+  }, [authState, hasGraceUnlock, graceUnlock]);
 
   // 应用主题
   useEffect(() => {

@@ -6,8 +6,21 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type Ciphertext, toBase64Url, unwrapKey, zeroize } from '@dustnote/shared';
 import { useStore } from '../lib/store';
+import { useModeStore } from '../lib/mode-store';
 import { getDeviceId } from '../lib/device';
 import { toast } from '../lib/toast';
+
+/**
+ * 构造绝对 API 基址。
+ * Tauri 桌面端 webview 的 origin 是 tauri://localhost，
+ * 使用相对路径 /api/v1 会请求 Tauri 资源服务器（返回 HTML），
+ * 导致 JSON 解析失败 "Unexpected token '<'"。
+ * 必须用 mode-store 中的 serverUrl 拼接绝对地址。
+ */
+function apiBase(): string {
+  const { serverUrl } = useModeStore.getState();
+  return serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : '/api/v1';
+}
 
 interface Share {
   id: string;
@@ -64,7 +77,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       const token = useStore.getState().accessToken;
-      const r = await fetch('/api/v1/shares', {
+      const r = await fetch(`${apiBase()}/shares`, {
         headers: {
           'X-Client-Version': __APP_VERSION__,
           'X-Client-Platform': 'web',
@@ -99,7 +112,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
     if (!confirm(t('shares.confirm_revoke_one'))) return;
     try {
       const token = useStore.getState().accessToken;
-      const r = await fetch(`/api/v1/shares/${id}`, {
+      const r = await fetch(`${apiBase()}/shares/${id}`, {
         method: 'DELETE',
         headers: {
           'X-Client-Version': __APP_VERSION__,
@@ -123,7 +136,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
     let ok = 0;
     for (const id of ids) {
       try {
-        await fetch(`/api/v1/shares/${id}`, {
+        await fetch(`${apiBase()}/shares/${id}`, {
           method: 'DELETE',
           headers: {
             'X-Client-Version': __APP_VERSION__,
@@ -355,9 +368,12 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
         )}
 
         {!selecting && (
-          <div className="border-t border-surface-border p-3 text-center text-xs text-surface-muted">
+          <button
+            onClick={onClose}
+            className="w-full border-t border-surface-border p-3 text-center text-xs text-surface-muted hover:bg-surface-bg"
+          >
             {t('common.close')}
-          </div>
+          </button>
         )}
       </div>
     </div>

@@ -13,9 +13,23 @@ document.documentElement.dataset.platform = isTauri() ? 'desktop' : 'web';
 document.documentElement.dataset.env = isProduction() ? 'production' : 'development';
 
 // 桌面端：禁用浏览器/webview 默认右键菜单（生产+开发环境均禁用，让应用更像原生软件）
+// 但在可编辑元素（input/textarea/contenteditable）中保留右键菜单，
+// 否则用户无法使用"剪切/复制/粘贴/全选"等编辑功能。
 if (isTauri()) {
-  window.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
-  document.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
+  const contextMenuHandler = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target &&
+      (target.isContentEditable ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA')
+    ) {
+      return; // 允许编辑元素的右键菜单
+    }
+    e.preventDefault();
+  };
+  window.addEventListener('contextmenu', contextMenuHandler, { capture: true });
+  document.addEventListener('contextmenu', contextMenuHandler, { capture: true });
 }
 
 // 桌面端：拦截浏览器默认快捷键（Ctrl+O 打开文件、Ctrl+P 打印）

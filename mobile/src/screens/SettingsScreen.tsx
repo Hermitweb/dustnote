@@ -39,7 +39,7 @@ import { useColors, useThemeStore, type ThemeMode } from '../theme';
 import type { BackupPayload, AppMode } from '@dustnote/shared';
 import RNFS from 'react-native-fs';
 
-const APP_VERSION = '2.3.1';
+const APP_VERSION = '2.3.2';
 const LANG_OPTIONS: Array<{ lang: AppLanguage; key: string }> = [
   { lang: 'zh-CN', key: 'settings.lang_zh' },
   { lang: 'en', key: 'settings.lang_en' },

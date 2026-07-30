@@ -33,6 +33,7 @@ export function Sidebar() {
   const [newFolderName, setNewFolderName] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showMoveDialog, setShowMoveDialog] = useState(false);
   // 搜索：E2EE 下服务端无法检索密文，必须在客户端对解密后的 notesPlain 做匹配。
   // 大小写不敏感、子串匹配 title/content/tags。空字符串 = 不过滤。
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,7 +76,7 @@ export function Sidebar() {
   };
 
   // ========== 批量操作 ==========
-  const batchAction = async (action: string) => {
+  const batchAction = async (action: string, targetFolderId?: string | null) => {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
     if (action === 'delete' || action === 'permdelete') {
@@ -110,8 +111,7 @@ export function Sidebar() {
           await updateNote(id, { isFavorite: false });
           ok++;
         } else if (action === 'move') {
-          const fid = prompt(t('sidebar.move_folder_prompt'));
-          await moveNote(id, fid || null);
+          await moveNote(id, targetFolderId ?? null);
           ok++;
         }
       } catch {
@@ -369,6 +369,27 @@ export function Sidebar() {
                     }
                   }}
                 />
+                <button
+                  onClick={() => {
+                    if (newFolderName) {
+                      void createFolder(newFolderName);
+                      setNewFolderName('');
+                      setShowNewFolder(false);
+                    }
+                  }}
+                  className="rounded bg-mint-600 px-2 py-1 text-xs font-medium text-white hover:bg-mint-700"
+                >
+                  ✓
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNewFolder(false);
+                    setNewFolderName('');
+                  }}
+                  className="rounded border border-surface-border px-2 py-1 text-xs text-surface-muted hover:bg-surface-bg"
+                >
+                  ✕
+                </button>
               </div>
             )}
             {folders.length === 0 ? (
@@ -527,10 +548,7 @@ export function Sidebar() {
               <>
                 <BatchBtn
                   label={t('sidebar.batch.move')}
-                  onClick={() => {
-                    const fid = prompt(t('sidebar.move_folder_prompt'));
-                    if (fid !== null) batchAction('move');
-                  }}
+                  onClick={() => setShowMoveDialog(true)}
                 />
                 <BatchBtn label={t('sidebar.batch.pin')} onClick={() => batchAction('pin')} />
                 <BatchBtn label={t('sidebar.batch.unpin')} onClick={() => batchAction('unpin')} />
@@ -564,6 +582,53 @@ export function Sidebar() {
 
       {showTemplatePicker && (
         <TemplatePicker onClose={() => setShowTemplatePicker(false)} />
+      )}
+
+      {showMoveDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+          onClick={() => setShowMoveDialog(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-surface-card p-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-3 text-sm font-semibold text-surface-fg">
+              {t('sidebar.batch.move')} ({selCount})
+            </h3>
+            <div className="max-h-60 space-y-1 overflow-y-auto">
+              <button
+                onClick={() => {
+                  void batchAction('move', null);
+                  setShowMoveDialog(false);
+                }}
+                className="block w-full rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
+              >
+                📝 {t('editor.unfiled')}
+              </button>
+              {folders.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    void batchAction('move', f.id);
+                    setShowMoveDialog(false);
+                  }}
+                  className="block w-full truncate rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
+                >
+                  {f.icon ?? '📁'} {f.name}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowMoveDialog(false)}
+              className="mt-3 w-full rounded-lg border border-surface-border px-3 py-2 text-xs text-surface-muted hover:bg-surface-bg"
+            >
+              {t('common.cancel')}
+            </button>
+          </div>
+        </div>
       )}
       </aside>
     </>

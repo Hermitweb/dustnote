@@ -18,4 +18,12 @@
 import 'react-native-get-random-values';
 import { install } from 'react-native-quick-crypto';
 
-install();
+// install() 在某些设备/架构下可能抛异常（如 Hermes 新架构兼容问题），
+// 用 try/catch 包裹防止未捕获异常导致应用启动即闪退。
+// crypto.subtle 不可用时 shared/src/crypto.ts 会降级报错，
+// 但至少应用能启动并展示 ErrorBoundary，而非直接白屏崩溃。
+try {
+  install();
+} catch (e) {
+  console.error('[DustNote] react-native-quick-crypto install failed:', e);
+}

@@ -149,12 +149,6 @@ export function MigrationWizard({ onClose }: { onClose: () => void }) {
         />
       </div>
 
-      <button
-        onClick={onClose}
-        className="w-full rounded border border-surface-border px-3 py-1.5 text-xs text-surface-muted hover:bg-surface-bg"
-      >
-        {t('common.close')}
-      </button>
     </div>
   );
 }
