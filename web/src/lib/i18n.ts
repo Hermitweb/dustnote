@@ -33,6 +33,7 @@ const resources = {
         mismatch: '两次输入的密码不一致',
         too_weak: '密码至少需要 8 个字符',
         grace_unlock: '继续使用（免密）',
+        locked_retry: '账号已锁定，请 {{sec}} 秒后重试',
       },
       app_bar: {
         lock: '锁定',
@@ -465,6 +466,7 @@ const resources = {
         mismatch: 'Passwords do not match',
         too_weak: 'Password must be at least 8 characters',
         grace_unlock: 'Continue without password',
+        locked_retry: 'Account locked, retry in {{sec}}s',
       },
       app_bar: {
         lock: 'Lock',

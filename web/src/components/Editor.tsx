@@ -15,6 +15,7 @@ import {
   insertAtCursor,
 } from '../lib/image-paste';
 import { VoiceInputButton } from './VoiceInputButton';
+import { ConfirmDialog } from './ConfirmDialog';
 
 /** 构造绝对 API 基址（Tauri 桌面端必须用绝对地址，详见 store.ts 注释） */
 function shareApiBase(): string {
@@ -43,6 +44,8 @@ export function Editor() {
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPermDeleteConfirm, setShowPermDeleteConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imageProcessing, setImageProcessing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -268,11 +271,7 @@ export function Editor() {
                 ↩️ {t('editor.restore')}
               </button>
               <button
-                onClick={() => {
-                  if (confirm(t('editor.confirm_perm_delete'))) {
-                    void permanentDeleteNote(note.id);
-                  }
-                }}
+                onClick={() => setShowPermDeleteConfirm(true)}
                 className="rounded p-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
                 title={t('editor.perm_delete')}
               >
@@ -286,14 +285,14 @@ export function Editor() {
                 <span className="text-xs text-surface-muted">✅ {t('editor.save_indicator')}</span>
               )}
               <button
-                onClick={() => updateNote(note.id, { isPinned: !note.isPinned })}
+                onClick={() => void updateNote(note.id, { isPinned: !note.isPinned })}
                 className={`rounded p-1.5 text-xs ${note.isPinned ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40' : 'text-surface-muted hover:bg-surface-bg'}`}
                 title={t('editor.pin')}
               >
                 📌
               </button>
               <button
-                onClick={() => updateNote(note.id, { isFavorite: !note.isFavorite })}
+                onClick={() => void updateNote(note.id, { isFavorite: !note.isFavorite })}
                 className={`rounded p-1.5 text-xs ${note.isFavorite ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40' : 'text-surface-muted hover:bg-surface-bg'}`}
                 title={t('editor.favorite')}
               >
@@ -386,11 +385,7 @@ export function Editor() {
                 </span>
               )}
               <button
-                onClick={() => {
-                  if (confirm(t('editor.confirm_delete'))) {
-                    void deleteNote(note.id);
-                  }
-                }}
+                onClick={() => setShowDeleteConfirm(true)}
                 className="rounded p-1.5 text-xs text-surface-muted hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30"
                 title={t('editor.delete')}
               >
@@ -453,6 +448,34 @@ export function Editor() {
           noteId={note.id}
           currentVersion={note.version}
           onClose={() => setShowHistory(false)}
+        />
+      )}
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title={t('editor.delete')}
+          message={t('editor.confirm_delete')}
+          confirmLabel={t('common.delete')}
+          variant="danger"
+          onConfirm={() => {
+            void deleteNote(note.id);
+            setShowDeleteConfirm(false);
+          }}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+
+      {showPermDeleteConfirm && (
+        <ConfirmDialog
+          title={t('editor.perm_delete')}
+          message={t('editor.confirm_perm_delete')}
+          confirmLabel={t('editor.perm_delete')}
+          variant="danger"
+          onConfirm={() => {
+            void permanentDeleteNote(note.id);
+            setShowPermDeleteConfirm(false);
+          }}
+          onCancel={() => setShowPermDeleteConfirm(false)}
         />
       )}
     </main>

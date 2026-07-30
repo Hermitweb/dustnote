@@ -30,6 +30,7 @@ import './lib/i18n';
 import { ToastContainer } from './components/ToastContainer';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { QuickCapture } from './components/QuickCapture';
+import { AboutDialog } from './components/AboutDialog';
 
 type StandaloneView = 'setup' | 'unlock' | 'recover';
 
@@ -44,8 +45,6 @@ function App() {
   const lock = useStore((s) => s.lock);
   const initRepository = useStore((s) => s.initRepository);
   const refreshPendingCount = useStore((s) => s.refreshPendingCount);
-  const hasGraceUnlock = useStore((s) => s.hasGraceUnlock);
-  const graceUnlock = useStore((s) => s.graceUnlock);
   const updateCheck = useUpdateCheck();
 
   const modeInitialized = useModeStore((s) => s.initialized);
@@ -57,6 +56,7 @@ function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showQuickCapture, setShowQuickCapture] = useState(false);
   const [showImportExport, setShowImportExport] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [standaloneView, setStandaloneView] = useState<StandaloneView>('setup');
 
   // 应用内快捷键（仅 unlocked 状态生效）
@@ -104,12 +104,7 @@ function App() {
       useStore.getState().setMode(next);
     };
     const about = () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, no-undef
-      alert(
-        `DustNote v${typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'}\n${t(
-          'app.name',
-        )}\n© 2026 DustNote Team`,
-      );
+      setShowAbout(true);
     };
 
     window.addEventListener('app:new-note', newNote);
@@ -147,14 +142,6 @@ function App() {
     void loadConfig();
     installOnlineListener();
   }, [checkStatus, loadAll, modeInitialized, initRepository]);
-
-  // 宽限期免密解锁：lock() 后 authState 变为 'needs_unlock'，
-  // 若宽限期内有缓存的 masterKey，自动恢复 unlocked 状态，跳过密码输入。
-  useEffect(() => {
-    if (authState === 'needs_unlock' && hasGraceUnlock()) {
-      graceUnlock();
-    }
-  }, [authState, hasGraceUnlock, graceUnlock]);
 
   // 应用主题
   useEffect(() => {
@@ -348,6 +335,8 @@ function App() {
       <CommandPalette />
 
       {showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
+
+      {showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
 
       <ToastContainer />
     </div>

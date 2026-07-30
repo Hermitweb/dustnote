@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { TemplatePicker } from './TemplatePicker';
 import { SearchIndex, highlightMatches, type SearchHit } from '../lib/search';
 import { toast } from '../lib/toast';
+import { ConfirmDialog } from './ConfirmDialog';
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -34,6 +35,11 @@ export function Sidebar() {
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
+  // 确认弹窗状态（替代原生 confirm()）
+  const [pendingBatchAction, setPendingBatchAction] = useState<string | null>(null);
+  const [batchConfirmMsg, setBatchConfirmMsg] = useState('');
+  const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
+  const [permDeleteNoteId, setPermDeleteNoteId] = useState<string | null>(null);
   // 搜索：E2EE 下服务端无法检索密文，必须在客户端对解密后的 notesPlain 做匹配。
   // 大小写不敏感、子串匹配 title/content/tags。空字符串 = 不过滤。
   const [searchQuery, setSearchQuery] = useState('');
@@ -84,8 +90,18 @@ export function Sidebar() {
         action === 'permdelete'
           ? t('sidebar.confirm_permdelete', { count: ids.length })
           : t('sidebar.confirm_delete', { count: ids.length });
-      if (!confirm(msg)) return;
+      // 弹样式化确认弹窗（替代原生 confirm()）
+      setBatchConfirmMsg(msg);
+      setPendingBatchAction(action);
+      return;
     }
+    await doBatchAction(action, targetFolderId);
+  };
+
+  // 确认后执行批量操作（delete / permdelete 经 ConfirmDialog 确认后调用）
+  const doBatchAction = async (action: string, targetFolderId?: string | null) => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
     let ok = 0;
     for (const id of ids) {
       try {
@@ -326,12 +342,9 @@ export function Sidebar() {
         {isTrash && trashCount > 0 && (
           <div className="mt-1 flex gap-1 px-2">
             <button
-              onClick={() => {
-                if (confirm(t('sidebar.confirm_empty_trash', { count: trashCount })))
-                  void emptyTrash();
-              }}
-              className="flex-1 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300"
-            >
+                onClick={() => setShowEmptyTrashConfirm(true)}
+                className="flex-1 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300"
+              >
               {t('sidebar.empty_trash')}
             </button>
           </div>
@@ -521,8 +534,8 @@ export function Sidebar() {
                         title={t('sidebar.perm_delete')}
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (confirm(t('sidebar.confirm_permdelete', { count: 1 })))
-                            void permanentDeleteNote(n.id);
+                          // 弹样式化确认弹窗（替代原生 confirm()）
+                          setPermDeleteNoteId(n.id);
                         }}
                         className="rounded bg-surface-bg p-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
                       >
@@ -629,6 +642,53 @@ export function Sidebar() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* 批量删除/永久删除确认弹窗（替代原生 confirm()） */}
+      {pendingBatchAction && (
+        <ConfirmDialog
+          title={pendingBatchAction === 'permdelete' ? t('sidebar.perm_delete') : t('sidebar.batch.delete')}
+          message={batchConfirmMsg}
+          confirmLabel={pendingBatchAction === 'permdelete' ? t('sidebar.perm_delete') : t('common.delete')}
+          variant="danger"
+          onConfirm={() => {
+            const action = pendingBatchAction;
+            setPendingBatchAction(null);
+            void doBatchAction(action);
+          }}
+          onCancel={() => setPendingBatchAction(null)}
+        />
+      )}
+
+      {/* 清空回收站确认弹窗 */}
+      {showEmptyTrashConfirm && (
+        <ConfirmDialog
+          title={t('sidebar.empty_trash')}
+          message={t('sidebar.confirm_empty_trash', { count: trashCount })}
+          confirmLabel={t('sidebar.empty_trash')}
+          variant="danger"
+          onConfirm={() => {
+            setShowEmptyTrashConfirm(false);
+            void emptyTrash();
+          }}
+          onCancel={() => setShowEmptyTrashConfirm(false)}
+        />
+      )}
+
+      {/* 单条永久删除确认弹窗 */}
+      {permDeleteNoteId && (
+        <ConfirmDialog
+          title={t('sidebar.perm_delete')}
+          message={t('sidebar.confirm_permdelete', { count: 1 })}
+          confirmLabel={t('sidebar.perm_delete')}
+          variant="danger"
+          onConfirm={() => {
+            const id = permDeleteNoteId;
+            setPermDeleteNoteId(null);
+            void permanentDeleteNote(id);
+          }}
+          onCancel={() => setPermDeleteNoteId(null)}
+        />
       )}
       </aside>
     </>

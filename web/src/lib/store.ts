@@ -771,7 +771,15 @@ export const useStore = create<StoreState>((set, get) => ({
         tags: snapshot.tags,
       });
       if (snapshot.preferences) {
-        set({ preferences: { ...get().preferences, ...snapshot.preferences } });
+        const merged = { ...get().preferences, ...snapshot.preferences };
+        set({ preferences: merged });
+        // 同步 i18n 语言：loadAll 从 SQLite 加载的偏好可能与 localStorage 中的
+        // dustnote_language 不同步（如用户在设置中改了语言但 localStorage 未更新），
+        // 必须显式调用 i18n.changeLanguage 才能让 UI 立即切换语言。
+        if (snapshot.preferences.language) {
+          localStorage.setItem('dustnote_language', snapshot.preferences.language);
+          void i18n.changeLanguage(snapshot.preferences.language);
+        }
       }
       // 解密笔记
       const masterKey = get().masterKey;

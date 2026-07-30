@@ -25,6 +25,10 @@ const config = {
     // subpath imports like @babel/runtime/helpers/interopRequireDefault.
     extraNodeModules: {
       '@dustnote/shared': path.resolve(sharedPkg, 'src'),
+      // 显式映射 react，确保 pnpm hoisted 布局下所有模块解析到同一份 React 实例。
+      // 若缺少此映射，某些原生模块（经 nodeModulesPaths 回退到 workspace root）
+      // 可能解析到不同的 react 副本，导致 "Cannot read property 'useRef' of null"。
+      react: path.resolve(rootNodeModules, 'react'),
     },
   },
 };

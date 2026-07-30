@@ -12,7 +12,7 @@ env:
   PNPM_VERSION: '9.12.0'
   # Use the tag name when triggered by a tag; fall back to v2.3.2 for the
   # branch-triggered release.
-  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.2' }}
+  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.3' }}
 
 concurrency:
   group: release-${{ github.ref }}
@@ -161,7 +161,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.2' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.3' }}
         run: |
           $ver = $env:VPK_VERSION -replace '^v', ''
           $stagingPath = 'desktop/src-tauri/staging'
@@ -184,7 +184,7 @@ jobs:
         # macOS/Linux vpk pack 依赖 .app bundle 或额外运行时资源，硬件平台受限
         continue-on-error: ${{ matrix.os != 'windows-latest' }}
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.2' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.3' }}
         run: |
           ver="${VPK_VERSION#v}"
           vpk pack --packId DustNote --packVersion "$ver" --packDir staging --mainExe ${{ matrix.main_exe }} --channel ${{ matrix.channel }} --runtime ${{ matrix.runtime }} --icon icons/icon.ico
@@ -234,6 +234,13 @@ jobs:
       - name: Symlink react-native into mobile/node_modules (pnpm hoisted layout)
         run: |
           mkdir -p mobile/node_modules
+          # Link react itself first — some native modules resolve react relative
+          # to their own location and may not traverse up to workspace root in
+          # the hoisted layout, causing duplicate React instances and
+          # "Cannot read property 'useRef' of null" at render time.
+          if [ -e "node_modules/react" ] && [ ! -e "mobile/node_modules/react" ]; then
+            ln -s "$(pwd)/node_modules/react" "mobile/node_modules/react"
+          fi
           # Link ALL react-native* and @react-native* scoped packages from
           # the hoisted workspace root node_modules. The previous version only
           # linked 3 exact names and missed react-native-safe-area-context,

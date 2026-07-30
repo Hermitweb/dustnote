@@ -3,11 +3,14 @@
  *
  * 调用 unlockLocalAuth 验证密码并解封 masterKey
  * 支持客户端锁定（连续 6 次失败后锁定 15 分钟）
+ * 支持桌面端宽限期免密解锁（仅 30 分钟内）
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
+import { isTauri } from '../lib/platform';
+import { graceRemainingSec } from '../lib/grace-unlock';
 
 interface Props {
   onRecover: () => void;
@@ -17,12 +20,32 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
   const { t } = useTranslation();
   const unlockStandalone = useStore((s) => s.unlockStandalone);
   const getRemainingLockoutMs = useStore((s) => s.getRemainingLockoutMs);
+  const graceUnlock = useStore((s) => s.graceUnlock);
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [graceAvailable, setGraceAvailable] = useState(false);
+  const [graceSec, setGraceSec] = useState(0);
 
   const remainingMs = getRemainingLockoutMs();
   const isLocked = remainingMs > 0;
+
+  // 宽限期免密解锁：仅在桌面端启用
+  useEffect(() => {
+    if (!isTauri()) return;
+    const check = () => {
+      setGraceAvailable(useStore.getState().hasGraceUnlock());
+      setGraceSec(graceRemainingSec());
+    };
+    check();
+    const timer = setInterval(check, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  function handleGraceUnlock() {
+    if (graceUnlock()) return;
+    setGraceAvailable(false);
+  }
 
   async function handleSubmit() {
     if (isLocked) return;
@@ -59,6 +82,16 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
           }}
           className="space-y-4"
         >
+          {graceAvailable && (
+            <button
+              type="button"
+              onClick={handleGraceUnlock}
+              className="w-full rounded-lg border border-mint-500 bg-mint-50 px-6 py-3 text-sm font-semibold text-mint-700 transition-colors hover:bg-mint-100 dark:bg-mint-900/20 dark:text-mint-300"
+            >
+              ⚡ {t('auth.grace_unlock')}（{Math.floor(graceSec / 60)}:{String(graceSec % 60).padStart(2, '0')}）
+            </button>
+          )}
+
           <div>
             <label className="mb-1 block text-xs font-medium text-surface-fg">
               {t('auth.unlock_password')}
@@ -76,7 +109,7 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
 
           {isLocked && (
             <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
-              账号已锁定，请 {Math.ceil(remainingMs / 1000)} 秒后重试
+              {t('auth.locked_retry', { sec: Math.ceil(remainingMs / 1000) })}
             </div>
           )}
 

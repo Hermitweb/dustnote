@@ -13,6 +13,39 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.3.3] - 2026-07-31
+
+### 修复 — v2.3.2 用户反馈问题批量修复
+
+针对 v2.3.2 发布后用户反馈的 7 项问题进行逐一排查与修复。本次重点解决安卓端 React 实例冲突导致的启动崩溃、桌面端锁定/置顶/收藏按钮无响应、原生 alert/confirm 弹窗阻塞 UI 等关键体验问题。
+
+#### 安卓端
+
+- **安卓启动崩溃 "Cannot read property 'useRef' of null"**（P0）：`mobile/polyfill.js` 中 `import { install } from 'react-native-quick-crypto'` 为静态 import，ES module 会在所有后续 import（含 React）之前执行；当 quick-crypto 的 JSI 绑定缺失或 CMake 未编译时，模块加载异常冒泡到 index.js，导致 React 本身加载失败 → `useRef` 等 hook 为 null。改为 `require()` + 双层 try/catch（外层捕获模块加载错误，内层捕获 install 错误），确保即使 crypto 完全不可用 App 也能启动。同时 `metro.config.js` 显式映射 `react` 到 workspace root 的同一份实例，避免 pnpm hoisted 布局下不同原生模块解析到不同 React 副本。CI `release.yml` 新增 react 符号链接步骤，确保 `mobile/node_modules/react` 优先于其他原生模块链接。
+
+#### 桌面端 / Web
+
+- **无法锁定，点击没反应**（P0）：`App.tsx` 中存在一个自动 grace unlock useEffect，`lock()` 后 authState 变为 `needs_unlock` 时立即自动调用 `graceUnlock()` 恢复 unlocked 状态，导致 lock 按钮看起来"点了没反应"。移除该自动 effect，改为在 `UnlockScreen` / `StandaloneUnlockScreen` 中提供手动"⚡ 继续使用（免密）"按钮，宽限期内用户可主动选择免密恢复。
+- **编辑选项列表中文模式还是英文**（P1）：`store.ts loadAll()` 从 SQLite 加载偏好后只更新 `preferences.language` 状态，未调用 `i18n.changeLanguage()` 让运行时 i18n 实例同步切换。补全 `i18n.changeLanguage()` 调用，同时写入 `dustnote_language` localStorage key 保证刷新后一致。
+- **关于信息弹窗卡住无法关闭**（P0）：`App.tsx about()` 使用原生 `alert()`，Tauri webview 中 alert 会阻塞主线程导致界面卡死、无法关闭。新建 `AboutDialog.tsx` 组件，提供样式化 modal（支持 Esc / 点击遮罩关闭），替换原生 alert。
+- **删除弹窗样式优化**（P1）：`Editor.tsx` 和 `Sidebar.tsx` 使用原生 `confirm()`，样式与主题不一致且在桌面端可能阻塞。新建 `ConfirmDialog.tsx` 组件（支持 danger/default 两种 variant、Esc/遮罩关闭），替换所有 `confirm()` 调用：单条删除、永久删除、批量删除、批量永久删除、清空回收站。
+- **置顶/收藏图标点击没反应**（P1）：`Editor.tsx` 中 pin/favorite 按钮的 `onClick` 直接调用 `updateNote()`（返回 Promise）但未用 `void` 标记，React 事件处理器中的 floating Promise 在严格模式下可能被吞掉。补 `void` 前缀确保 Promise 正常执行。
+- **检查更新操作超时（10000ms）界面卡住**（P1）：`SettingsDialog.tsx` 打开时自动调用 `checkForUpdates()` 网络请求，国内访问 GitHub Releases 慢/不稳时最多卡顿 10s。改为打开时仅检查本地磁盘的 `getPendingUpdate()`（毫秒级），网络检查改为用户主动点击"🔍 检查更新"按钮触发，所有 Tauri IPC 调用均带 `withTimeout` 超时保护（5s/10s/600s/15s 分级）。
+
+### 涉及文件
+
+- `mobile/polyfill.js` — 静态 import 改 require + 双层 try/catch
+- `mobile/metro.config.js` — 显式映射 react 到 workspace root 实例
+- `.github/workflows/release.yml` — CI 新增 react 符号链接 + fallback 版本号更新至 v2.3.3
+- `web/src/App.tsx` — 移除自动 grace unlock effect + 接入 AboutDialog
+- `web/src/components/AboutDialog.tsx` — 新建样式化关于弹窗
+- `web/src/components/ConfirmDialog.tsx` — 新建样式化确认弹窗
+- `web/src/components/Editor.tsx` — pin/favorite onClick 补 void + 删除改用 ConfirmDialog
+- `web/src/components/Sidebar.tsx` — 批量删除/清空回收站/单条永久删除改用 ConfirmDialog
+- `web/src/components/SettingsDialog.tsx` — 移除自动网络检查更新 + 全部 IPC 加超时保护
+- `web/src/lib/store.ts` — loadAll 同步 i18n.changeLanguage
+- `web/src/lib/i18n.ts` — 新增 locked_retry 翻译 key
+
 ## [2.3.2] - 2026-07-30
 
 ### 修复 — v2.3.1 用户反馈问题批量修复
