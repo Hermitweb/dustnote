@@ -46,8 +46,13 @@ def releaseStorePassword = null
 def releaseKeyAlias = null
 def releaseKeyPassword = null
 
-if (System.env.DUSTNOTE_STORE_FILE != null) {
-  releaseStoreFile = file(System.env.DUSTNOTE_STORE_FILE)
+// CI 通过 GITHUB_ENV / step env 注入 DUSTNOTE_*。当 secret 未配置时，
+// GitHub Actions 会把空字符串注入环境变量（而非不注入），
+// System.env.VAR 此时返回 "" 而非 null，故必须同时排除空串，
+// 否则 file("") 会抛 "path may not be null or empty string" 导致配置阶段失败。
+def envStoreFile = System.env.DUSTNOTE_STORE_FILE
+if (envStoreFile != null && envStoreFile.length() > 0) {
+  releaseStoreFile = file(envStoreFile)
   releaseStorePassword = System.env.DUSTNOTE_STORE_PASSWORD
   releaseKeyAlias = System.env.DUSTNOTE_KEY_ALIAS
   releaseKeyPassword = System.env.DUSTNOTE_KEY_PASSWORD
@@ -73,8 +78,8 @@ android {
     applicationId "com.dustnote"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 7
-    versionName "2.1.1"
+    versionCode 8
+    versionName "2.1.2"
   }
   signingConfigs {
     debug {

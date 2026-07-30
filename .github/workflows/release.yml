@@ -10,9 +10,9 @@ on:
 env:
   NODE_VERSION: '20'
   PNPM_VERSION: '9.12.0'
-  # Use the tag name when triggered by a tag; fall back to v2.1.1 for the
+  # Use the tag name when triggered by a tag; fall back to v2.1.2 for the
   # branch-triggered release.
-  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.1.1' }}
+  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.1.2' }}
 
 concurrency:
   group: release-${{ github.ref }}
@@ -161,7 +161,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.1.1' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.1.2' }}
         run: |
           $ver = $env:VPK_VERSION -replace '^v', ''
           $stagingPath = 'desktop/src-tauri/staging'
@@ -184,7 +184,7 @@ jobs:
         # macOS/Linux vpk pack 依赖 .app bundle 或额外运行时资源，硬件平台受限
         continue-on-error: ${{ matrix.os != 'windows-latest' }}
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.1.1' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.1.2' }}
         run: |
           ver="${VPK_VERSION#v}"
           vpk pack --packId DustNote --packVersion "$ver" --packDir staging --mainExe ${{ matrix.main_exe }} --channel ${{ matrix.channel }} --runtime ${{ matrix.runtime }} --icon icons/icon.ico
@@ -253,6 +253,7 @@ jobs:
         # 本地开发：mobile/android/keystore.properties + app/dustnote-release.keystore
         # CI：ANDROID_KEYSTORE_BASE64 (base64 编码的 keystore) + 密码 secrets
         # 若未配置 secret，回退到 debug 签名（build.gradle 自动降级）
+        id: keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -261,6 +262,7 @@ jobs:
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
             echo "::warning::ANDROID_KEYSTORE_BASE64 secret not set — release APK will use debug signing (not suitable for production distribution)"
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > mobile/android/app/dustnote-release.keystore
@@ -269,15 +271,24 @@ jobs:
           echo "DUSTNOTE_STORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
           echo "DUSTNOTE_KEY_ALIAS=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
           echo "DUSTNOTE_KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
           echo "✓ Release keystore decoded"
       - name: Build Android APK
         working-directory: mobile/android
+        # 仅在 keystore 实际解码成功时注入 DUSTNOTE_* 环境变量。
+        # 否则 GitHub Actions 会把空字符串注入 env，Gradle 中 System.env.VAR
+        # 返回 ""（非 null），触发 file("") → "path may not be null or empty string"。
         env:
-          DUSTNOTE_STORE_FILE: ${{ env.DUSTNOTE_STORE_FILE }}
-          DUSTNOTE_STORE_PASSWORD: ${{ env.DUSTNOTE_STORE_PASSWORD }}
-          DUSTNOTE_KEY_ALIAS: ${{ env.DUSTNOTE_KEY_ALIAS }}
-          DUSTNOTE_KEY_PASSWORD: ${{ env.DUSTNOTE_KEY_PASSWORD }}
-        run: set -o pipefail && ./gradlew assembleRelease --stacktrace 2>&1 | tee build-output.log
+          DUSTNOTE_STORE_FILE: ${{ steps.keystore.outputs.enabled == 'true' && env.DUSTNOTE_STORE_FILE || '' }}
+          DUSTNOTE_STORE_PASSWORD: ${{ steps.keystore.outputs.enabled == 'true' && env.DUSTNOTE_STORE_PASSWORD || '' }}
+          DUSTNOTE_KEY_ALIAS: ${{ steps.keystore.outputs.enabled == 'true' && env.DUSTNOTE_KEY_ALIAS || '' }}
+          DUSTNOTE_KEY_PASSWORD: ${{ steps.keystore.outputs.enabled == 'true' && env.DUSTNOTE_KEY_PASSWORD || '' }}
+        # 显式 unset 防止空串污染 Gradle 配置阶段（双保险，build.gradle 内亦做空串判断）
+        run: |
+          if [ -z "$DUSTNOTE_STORE_FILE" ]; then
+            unset DUSTNOTE_STORE_FILE DUSTNOTE_STORE_PASSWORD DUSTNOTE_KEY_ALIAS DUSTNOTE_KEY_PASSWORD
+          fi
+          set -o pipefail && ./gradlew assembleRelease --stacktrace 2>&1 | tee build-output.log
       - name: Verify APK exists
         working-directory: mobile/android
         if: always()
@@ -384,7 +395,7 @@ jobs:
           # 6. 版本元信息
           cat > "$STAGE/VERSION" <<EOF
           release_tag: ${RELEASE_TAG}
-          server_version: 2.1.1
+          server_version: 2.1.2
           packaged_at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
           EOF
 
