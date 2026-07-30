@@ -14,7 +14,7 @@
  * 自动 patch；0.7+ 移除了 /auto 子路径，需显式调用 install() 挂载
  * global.crypto / global.Buffer。
  *
- * v2.3.3 修复：原 `import { install } from 'react-native-quick-crypto'` 是静态
+ * v2.3.4 修复：原 `import { install } from 'react-native-quick-crypto'` 是静态
  * import，如果 quick-crypto 的 JS 模块初始化抛错（JSI 绑定缺失 / CMake 未编译
  * 等），metro 会把异常冒泡到 index.js 的 `import './polyfill'`，导致后续所有
  * import（含 React 本身）加载失败 → "Cannot read property 'useRef' of null"。

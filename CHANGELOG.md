@@ -13,6 +13,41 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.3.4] - 2026-07-31
+
+### 修复 — 全端产物审计与加固
+
+以资深 QA + DevOps 视角对安卓、Windows 桌面、Web、iOS（静态）各端构建产物进行全面审计，修复潜在崩溃风险与配置缺陷，新增 Android 平板适配。
+
+#### 安卓端
+
+- **缺失 proguard-rules.pro 文件**（P1 潜在构建失败）：`build.gradle` 在 `release` buildType 中引用了 `proguardFiles ... "proguard-rules.pro"`，但源码树中该文件不存在。当前 `minifyEnabled=false` 不影响构建，若未来启用代码缩减/R8 会导致 `FileNotFoundException`。新建完整的 keep 规则文件，覆盖 React Native 核心（bridge/uimanager/fabric/turbomodule/soloader）、Hermes 引擎、JSI native 方法、所有 autolinked 第三方模块（keychain/biometrics/safe-area/fs/quick-crypto/gesture-handler/reanimated/screens/svg/navigation）、Parcelable CREATOR、Enum 方法、泛型签名。
+- **平板适配缺失**（P2 体验缺陷）：无 `values-sw600dp` / `values-sw720dp` 资源目录，也无 JS 层响应式布局。新建 `values-sw600dp/dimens.xml`（7" 平板）和 `values-sw720dp/dimens.xml`（10"+ 平板）提供原生组件尺寸；新建 `useResponsiveLayout.ts` Hook 检测屏幕宽度并提供适配参数（isTablet / maxContentWidth / cardPadding / fontSize / useSplitView）；集成到 `NotesListScreen.tsx`（平板上限制内容宽度居中显示、增大间距与字号）。
+
+#### Windows / 桌面端
+
+- **托盘图标 unwrap() panic 风险**（P0 潜在崩溃）：`lib.rs` 第 291 行 `app.default_window_icon().unwrap().clone()` 在窗口图标缺失（配置异常或资源加载失败）时会 panic 导致应用启动崩溃。改为条件赋值模式：图标存在则 `.icon(icon.clone())`，不存在则打印警告并跳过，托盘使用系统默认图标仍可正常工作。
+
+#### iOS 端
+
+- 确认无 iOS 项目目录（仅 Tauri 代码中有 `#[cfg(target_os = "ios")]` 占位 stub）。iOS 暂不支持，无需修复，列入后续计划。
+
+#### 共性问题
+
+- **无调试代码残留**：全项目 `console.log` 仅存在于 `diagnostics.ts` 诊断工具（按日志级别路由，非调试残留）；Rust 代码仅剩 `.expect()` on `.run()`（Tauri 标准模式，无法优雅恢复）。
+- **依赖与缓存**：pnpm hoisted node-linker 配置正确；`.npmrc`、`pnpm-workspace.yaml`、`.gitignore` 配置完整。
+- **配置文件**：`AndroidManifest.xml` 权限声明齐全（INTERNET / ACCESS_NETWORK_STATE / USE_BIOMETRIC / USE_FINGERPRINT / READ_EXTERNAL_STORAGE maxSdkVersion=32 / RECEIVE_BOOT_COMPLETED）；`networkSecurityConfig` 正确限制明文流量至 localhost + 10.0.2.2；`usesCleartextTraffic=true` 为 API 23 向后兼容保留（networkSecurityConfig 在 API 24+ 覆盖此值）。
+
+### 涉及文件
+
+- `mobile/android/app/proguard-rules.pro` — 新建 ProGuard keep 规则
+- `mobile/android/app/src/main/res/values-sw600dp/dimens.xml` — 新建 7" 平板尺寸
+- `mobile/android/app/src/main/res/values-sw720dp/dimens.xml` — 新建 10" 平板尺寸
+- `mobile/src/lib/useResponsiveLayout.ts` — 新建响应式布局 Hook
+- `mobile/src/screens/NotesListScreen.tsx` — 集成平板适配
+- `desktop/src-tauri/src/lib.rs` — 修复 unwrap() panic 风险
+- 全端版本号同步至 2.3.4（Android versionCode 15）
+
 ## [2.3.3] - 2026-07-31
 
 ### 修复 — v2.3.2 用户反馈问题批量修复

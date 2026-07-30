@@ -287,8 +287,10 @@ pub fn run() {
             let show_i = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
-            let _tray = TrayIconBuilder::with_id("main")
-                .icon(app.default_window_icon().unwrap().clone())
+            // 系统托盘：default_window_icon 在极少数情况下可能为 None
+            //（如配置缺失或资源加载失败），用 unwrap() 会导致启动 panic。
+            // 若图标存在则设置到托盘，否则仅打印警告，托盘仍可使用（显示系统默认图标）。
+            let mut tray_builder = TrayIconBuilder::with_id("main")
                 .tooltip("DustNote")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
@@ -317,8 +319,15 @@ pub fn run() {
                             let _ = w.set_focus();
                         }
                     }
-                })
-                .build(app)?;
+                });
+
+            if let Some(icon) = app.default_window_icon() {
+                tray_builder = tray_builder.icon(icon.clone());
+            } else {
+                eprintln!("[DustNote] 警告：default_window_icon 为空，托盘将使用系统默认图标");
+            }
+
+            let _tray = tray_builder.build(app)?;
 
             // 全局快捷键：Ctrl+Shift+M 唤起主窗口（仅桌面平台生效）
             // 若快捷键被其他程序占用，仅打印警告，不阻止启动

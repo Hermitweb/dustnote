@@ -78,8 +78,8 @@ android {
     applicationId "com.dustnote"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 14
-    versionName "2.3.3"
+    versionCode 15
+    versionName "2.3.4"
   }
   signingConfigs {
     debug {

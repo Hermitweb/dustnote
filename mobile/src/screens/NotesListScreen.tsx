@@ -34,6 +34,7 @@ import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
 import { useColors } from '../theme';
+import { useResponsiveLayout } from '../lib/useResponsiveLayout';
 
 interface NotePlaintext {
   title: string;
@@ -75,6 +76,7 @@ interface NoteListItem extends NoteRow {
 export function NotesListScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const colors = useColors();
+  const layout = useResponsiveLayout();
   const masterKey = useAuthStore((s) => s.masterKey);
   const mode = useModeStore((s) => s.mode);
   const modeInitialized = useModeStore((s) => s.initialized);
@@ -140,12 +142,12 @@ export function NotesListScreen() {
       });
   }, [notes, search]);
 
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, layout);
 
   return (
     <View style={styles.container}>
       {/* 顶部搜索栏 + 快捷入口 */}
-      <View style={styles.searchBar}>
+      <View style={[styles.searchBar, layout.isTablet && { maxWidth: layout.maxContentWidth, alignSelf: 'center', width: '100%' }]}>
         <TextInput
           style={styles.searchInput}
           placeholder="🔍 搜索笔记…"
@@ -206,7 +208,11 @@ export function NotesListScreen() {
             </Text>
           </TouchableOpacity>
         )}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{
+          paddingBottom: 80,
+          // 平板：限制内容宽度并居中，提升阅读体验
+          ...(layout.isTablet ? { maxWidth: layout.maxContentWidth, alignSelf: 'center', width: '100%' } : {}),
+        }}
       />
 
       {/* 新建按钮 */}
@@ -238,13 +244,16 @@ export function NotesListScreen() {
   );
 }
 
-// 根据当前颜色生成样式；仅在 isDark 变化时重新创建
-function makeStyles(c: ReturnType<typeof useColors>) {
+// 根据当前颜色和响应式布局生成样式；仅在 isDark / 屏幕尺寸变化时重新创建
+function makeStyles(
+  c: ReturnType<typeof useColors>,
+  l: ReturnType<typeof useResponsiveLayout>
+) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.bg },
     searchBar: {
       flexDirection: 'row',
-      padding: 12,
+      padding: l.isTablet ? 16 : 12,
       backgroundColor: c.card,
       borderBottomColor: c.border,
       borderBottomWidth: 1,
@@ -254,16 +263,16 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       backgroundColor: c.bg,
       borderRadius: 8,
       padding: 10,
-      fontSize: 14,
+      fontSize: l.bodyFontSize,
       color: c.fg,
     },
     iconButton: { paddingHorizontal: 8, justifyContent: 'center' },
     iconText: { fontSize: 20 },
     card: {
       backgroundColor: c.card,
-      marginHorizontal: 12,
+      marginHorizontal: l.isTablet ? 16 : 12,
       marginTop: 8,
-      padding: 14,
+      padding: l.cardPadding,
       borderRadius: 8,
       borderColor: c.border,
       borderWidth: 1,
@@ -271,14 +280,14 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     cardHeader: { flexDirection: 'row', alignItems: 'center' },
     pin: { fontSize: 14, marginRight: 4 },
     fav: { fontSize: 14, marginRight: 4 },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: c.fg, flex: 1 },
+    cardTitle: { fontSize: l.titleFontSize - 2, fontWeight: '600', color: c.fg, flex: 1 },
     cardMeta: { fontSize: 12, color: c.muted, marginTop: 4 },
     empty: { alignItems: 'center', marginTop: 80 },
     emptyEmoji: { fontSize: 48, marginBottom: 12 },
-    emptyText: { fontSize: 16, color: c.fg, marginBottom: 4 },
+    emptyText: { fontSize: l.bodyFontSize + 2, color: c.fg, marginBottom: 4 },
     emptyHint: { fontSize: 12, color: c.muted },
     retryBtn: { marginTop: 12, paddingHorizontal: 20, paddingVertical: 8, backgroundColor: c.mint600, borderRadius: 8 },
-    retryText: { color: 'white', fontSize: 14, fontWeight: '600' },
+    retryText: { color: 'white', fontSize: l.bodyFontSize, fontWeight: '600' },
     fab: {
       position: 'absolute',
       right: 20,
