@@ -13,6 +13,77 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.2.0] - 2026-07-30
+
+### 新增 — 生产就绪度补强（GDPR + 设备管理 + 安全加固）
+
+本次发布聚焦"可上线生产产品"视角，补齐合规、安全、运维三类缺口。详见 [docs/production-readiness-audit.md](./docs/production-readiness-audit.md)。
+
+#### 1. GDPR 合规
+
+- **账户删除（Article 17 被遗忘权）**：[server/src/routes/account.ts](./server/src/routes/account.ts) 实现 `DELETE /api/v1/account`，事务级联删除用户全部数据（users / devices / notes / note_versions / folders / tags / note_tags / shares / preferences / templates），audit_log 保留以符合合规审计要求
+- **数据导出（Article 20 数据可携带权）**：`GET /api/v1/account/export` 导出账户全部元数据 + 密文笔记，支持客户端解密后迁移
+
+#### 2. 设备管理
+
+- [server/src/routes/devices.ts](./server/src/routes/devices.ts) 新增三端点：
+  - `GET /api/v1/devices` — 列出当前用户所有登录设备
+  - `DELETE /api/v1/devices/:id` — 吊销指定设备（清空 refresh_token_hash）
+  - `DELETE /api/v1/devices` — 登出其他设备（一键吊销除当前外全部）
+- 路由挂载于 [server/src/app.ts](./server/src/app.ts)，复用 authMiddleware
+
+#### 3. Nginx 生产加固
+
+- [deploy/nginx.conf](./deploy/nginx.conf) 新增：
+  - HSTS（max-age=63072000; includeSubDomains; preload）
+  - 严格 CSP（default-src 'self'; object-src 'none'; frame-ancestors 'none'）
+  - X-Frame-Options: DENY
+  - Permissions-Policy（camera/microphone/geolocation 全禁）
+  - API 速率限制（20r/s + burst 30）
+  - TLS 1.3 only + 现代密码套件
+
+#### 4. i18n 补齐
+
+- [web/src/components/ForceUpdateOverlay.tsx](./web/src/components/ForceUpdateOverlay.tsx) 硬编码中文改用 `useTranslation`
+- [web/src/lib/i18n.ts](./web/src/lib/i18n.ts) 新增 `force_update_title` / `force_update_hint` / `banner_subtitle` / `common.loading` 中英双语
+- i18n 校验脚本通过：284 keys 全部已定义
+
+#### 5. 审计报告
+
+- 新增 [docs/production-readiness-audit.md](./docs/production-readiness-audit.md)：按 production-checklist 7 维度全面评估，标注代码层就绪度 80%、基础设施就绪度 40%，列出 v2.2.1+ 改进路线
+
+### 修复
+
+- **i18n 检查脚本绕过**：移除 i18n.ts 中行内 `//` 注释（check-i18n.mjs 不跳过注释会导致 key 误判缺失）
+
+### 版本同步
+
+- 全部 package.json / Cargo.toml / tauri.conf.json / build.gradle / env / release.yml / docker-compose / .env.example 同步至 2.2.0
+- Android versionCode 9→10
+- server/src/env.ts 默认版本号 2.1.1 → 2.2.0
+- docker-compose.yml fallback 版本号 2.0.1 → 2.2.0
+
+### 已知缺口（v2.2.1+ 跟进）
+
+- 设备管理 / 账户删除的前端 UI 尚未对接（API 已就绪）
+- mobile / miniprogram 端功能未对齐 web（搜索 / 分享创建 / 导入导出 / 历史 / 模板）
+- SBOM / Dependabot / CodeQL 未集成
+- Lighthouse 性能基线未建立
+- Playwright E2E 测试未集成
+
+## [2.1.3] - 2026-07-30
+
+### 修复 — Android
+
+- **react-native-quick-crypto 0.7+ 导入路径变更**：移除 `/auto` 子路径，改用 `import { install } from 'react-native-quick-crypto'; install()`，需独立 side-effect 文件先于 App 加载（ES module imports hoisting）
+- **Gradle 签名配置健壮性**：`build.gradle` 改用 `.length() > 0` 校验 keystore 路径 + `signingConfigs.findByName('release')` 安全查找，避免空字符串注入导致 `file("")` 异常
+
+## [2.1.2] - 2026-07-29
+
+### 修复 — Android
+
+- 修复 release keystore 解码与 gradle 环境变量注入流程
+
 ## [2.1.1] - 2026-07-29
 
 ### 修复
@@ -282,7 +353,12 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 - [研发路线图](./.trae/documents/roadmap.md)
 - [生产上线检查单](./.trae/documents/production-readiness.md)
 
-[Unreleased]: https://github.com/Hermitweb/dustnote/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/Hermitweb/dustnote/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/Hermitweb/dustnote/releases/tag/v2.2.0
+[2.1.3]: https://github.com/Hermitweb/dustnote/releases/tag/v2.1.3
+[2.1.2]: https://github.com/Hermitweb/dustnote/releases/tag/v2.1.2
+[2.1.1]: https://github.com/Hermitweb/dustnote/releases/tag/v2.1.1
+[2.1.0]: https://github.com/Hermitweb/dustnote/releases/tag/v2.1.0
 [2.0.1]: https://github.com/Hermitweb/dustnote/releases/tag/v2.0.1
 [2.0.0]: https://github.com/Hermitweb/dustnote/releases/tag/v2.0.0
 [0.1.0]: https://github.com/Hermitweb/dustnote/releases/tag/v0.1.0

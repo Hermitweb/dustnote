@@ -177,6 +177,9 @@ const resources = {
         lang_zh: '中文',
         lang_en: 'English',
         op_timeout: '操作超时（{{ms}}ms）',
+        force_update_title: '需要升级',
+        force_update_hint: '升级后请刷新页面',
+        banner_subtitle: '建议尽快升级以获得最佳体验',
       },
       mode_select: {
         title: '选择使用模式',
@@ -202,6 +205,7 @@ const resources = {
         delete: '删除',
         save: '保存',
         close: '关闭',
+        loading: '加载中…',
       },
       import_export: {
         title: '📥📤 导入 / 导出',
@@ -537,6 +541,9 @@ const resources = {
         lang_zh: '中文',
         lang_en: 'English',
         op_timeout: 'Operation timed out ({{ms}}ms)',
+        force_update_title: 'Update required',
+        force_update_hint: 'Please refresh the page after updating',
+        banner_subtitle: 'Update now for the best experience',
       },
       mode_select: {
         title: 'Choose a mode',
@@ -562,6 +569,7 @@ const resources = {
         delete: 'Delete',
         save: 'Save',
         close: 'Close',
+        loading: 'Loading…',
       },
       import_export: {
         title: '📥📤 Import / Export',

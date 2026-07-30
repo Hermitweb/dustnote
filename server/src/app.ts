@@ -23,6 +23,8 @@ import { sharesRouter, publicSharesRouter } from './routes/shares.js';
 import { exportRouter } from './routes/export.js';
 import { preferencesRouter } from './routes/preferences.js';
 import { templatesRouter } from './routes/templates.js';
+import { devicesRouter } from './routes/devices.js';
+import { accountRouter } from './routes/account.js';
 
 export function createApp(): Application {
   const app = express();
@@ -148,6 +150,9 @@ export function createApp(): Application {
   app.use('/api/v1', exportRouter);
   app.use('/api/v1', preferencesRouter);
   app.use('/api/v1', templatesRouter);
+  // 设备管理 + 账户管理（GDPR Article 17/20）
+  app.use('/api/v1', devicesRouter);
+  app.use('/api/v1', accountRouter);
 
   // 404
   app.use((req, res) => {
