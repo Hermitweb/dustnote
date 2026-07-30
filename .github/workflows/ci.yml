@@ -144,6 +144,15 @@ jobs:
       - run: pnpm --filter @dustnote/web build
       - name: List web dist
         run: ls -la web/dist/ || true
+      - name: Check bundle size
+        run: |
+          total=$(du -sb web/dist/ | cut -f1)
+          kb=$((total / 1024))
+          max_kb=$((5 * 1024))
+          echo "Web bundle size: ${kb} KB"
+          if [ "$kb" -gt "$max_kb" ]; then
+            echo "::warning::Bundle size ${kb} KB exceeds ${max_kb} KB threshold"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist
@@ -344,6 +353,7 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -357,6 +367,7 @@ jobs:
           # 与 README/docker-compose 的一键部署一致。server/Dockerfile 是仅 API 的变体。
           file: Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ github.repository_owner }}/dustnote:latest
             ghcr.io/${{ github.repository_owner }}/dustnote:${{ github.sha }}

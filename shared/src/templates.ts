@@ -18,6 +18,7 @@ export const PRESET_TEMPLATE_IDS = [
   'tpl-todo',
   'tpl-reading',
   'tpl-project',
+  'tpl-bookmark',
 ] as const;
 
 /**
@@ -110,10 +111,30 @@ export const PRESET_TEMPLATES: Template[] = [
     createdAt: '2026-07-29T00:00:00.000Z',
     updatedAt: '2026-07-29T00:00:00.000Z',
   },
+  {
+    id: 'tpl-bookmark',
+    userId: null,
+    name: '书签收藏',
+    description: 'URL + 摘要，配合剪贴板一键粘贴',
+    category: 'bookmark',
+    icon: '🔗',
+    content:
+      '# {{title}}\n\n- **链接**：{{url}}\n- **收录**：{{date}}\n\n## 摘要\n\n\n## 为什么收藏\n\n',
+    isPreset: true,
+    sortOrder: 7,
+    createdAt: '2026-07-29T00:00:00.000Z',
+    updatedAt: '2026-07-29T00:00:00.000Z',
+  },
 ];
 
 /**
  * 替换模板内容中的占位符（如 {{date}}）。
+ *
+ * 已知占位符：
+ * - {{date}}：当前日期 YYYY-MM-DD
+ * - {{url}} / {{title}}：书签模板预留，由调用方在创建后填入（或留空）
+ *
+ * 未知占位符统一替换为空字符串，避免 {{xxx}} 残留在正文中。
  *
  * @param content 模板原文
  * @returns 替换后的内容（客户端创建笔记时写入）
@@ -123,5 +144,9 @@ export function fillTemplatePlaceholders(content: string): string {
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
     now.getDate()
   ).padStart(2, '0')}`;
-  return content.replace(/\{\{date\}\}/g, dateStr);
+  return content
+    .replace(/\{\{date\}\}/g, dateStr)
+    .replace(/\{\{url\}\}/g, '')
+    .replace(/\{\{title\}\}/g, '')
+    .replace(/\{\{[a-zA-Z_]+\}\}/g, '');
 }

@@ -2,6 +2,7 @@
  * 环境变量集中导出（类型安全的 config 对象）
  */
 
+import { join } from 'node:path';
 import './config.js'; // 触发 .env 加载
 
 function getEnv(key: string, defaultValue?: string): string {
@@ -22,9 +23,9 @@ export const config = {
   logLevel: getEnv('LOG_LEVEL', 'info'),
   dbPath: getEnv('DB_PATH', './data/dustnote.db'),
   webOrigin: getEnv('WEB_ORIGIN', 'http://localhost:5173'),
-  serverVersion: getEnv('SERVER_VERSION', '2.2.0'),
+  serverVersion: getEnv('SERVER_VERSION', '2.3.0'),
   minClientVersion: getEnv('MIN_CLIENT_VERSION', '2.0.2'),
-  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.2.0'),
+  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.3.0'),
   forceUpdateVersion: getEnvOpt('FORCE_UPDATE_VERSION') ?? null,
   eolDateForV0: getEnvOpt('EOL_DATE_FOR_V0'),
   jwtSecret: getEnv('JWT_SECRET', 'dev-secret-change-me-do-not-use-in-production-32plus'),
@@ -46,6 +47,10 @@ export const config = {
   trustProxy: Number.parseInt(getEnv('TRUST_PROXY', '0'), 10),
   /** Sentry DSN（留空 = 禁用错误监控；自托管部署可不填） */
   sentryDsn: getEnvOpt('SENTRY_DSN'),
+  /** SQLite 自动备份目录（默认 ./backups） */
+  backupDir: getEnv('BACKUP_DIR', join(process.cwd(), 'backups')),
+  /** 备份保留份数（默认 30 份，按日期滚动） */
+  backupRetention: Number.parseInt(getEnv('BACKUP_RETENTION', '30'), 10),
 } as const;
 
 export type AppConfig = typeof config;

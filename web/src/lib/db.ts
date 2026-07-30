@@ -74,3 +74,48 @@ export async function loadCachedTags(): Promise<Tag[]> {
 export async function clearCache(): Promise<void> {
   await Promise.all([del(KEYS.notes), del(KEYS.notesPlain), del(KEYS.folders), del(KEYS.tags)]);
 }
+
+// ========== 容量监控（P0-1 防坑：IndexedDB 无限增长会导致 QuotaExceededError） ==========
+
+/**
+ * 获取 IndexedDB 存储用量估算
+ * @returns usage(bytes) / quota(bytes) / usagePercent(0-100)
+ */
+export async function getStorageUsage(): Promise<{
+  usage: number;
+  quota: number;
+  usagePercent: number;
+}> {
+  if (!navigator.storage?.estimate) {
+    return { usage: 0, quota: 0, usagePercent: 0 };
+  }
+  const est = await navigator.storage.estimate();
+  const usage = est.usage ?? 0;
+  const quota = est.quota ?? 0;
+  return {
+    usage,
+    quota,
+    usagePercent: quota > 0 ? Math.round((usage / quota) * 100) : 0,
+  };
+}
+
+/**
+ * 轻量清理：只清离线队列和旧的笔记明文缓存，保留笔记本身
+ * 用于设置页"清理缓存"按钮
+ */
+export async function cleanupCache(): Promise<{ cleared: string[] }> {
+  const cleared: string[] = [];
+  // 离线队列（失败请求重试数据）
+  const { clear } = await import('./offline-queue');
+  await clear();
+  cleared.push('offline-queue');
+  // 诊断日志（保留最近 1000 条，这里只清旧的）
+  const { clearLogs } = await import('./diagnostics');
+  await clearLogs();
+  cleared.push('diagnostics');
+  // 旧自动备份（保留最近 3 份）
+  const { clearAutoBackups } = await import('./auto-backup');
+  await clearAutoBackups();
+  cleared.push('auto-backups');
+  return { cleared };
+}

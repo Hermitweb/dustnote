@@ -28,7 +28,7 @@ vi.mock('idb-keyval', () => ({
 }));
 
 // 动态导入以让 vi.mock 生效
-const { enqueue, peek, peekAll, remove, bumpRetries, clear, size } =
+const { enqueue, peek, peekAll, remove, bumpRetries, clear, size, MAX_RETRIES, getRetryDelay } =
   await import('./offline-queue');
 
 describe('offline-queue', () => {
@@ -99,13 +99,22 @@ describe('offline-queue', () => {
 
   it('bumpRetries increments retry count and removes op after threshold', async () => {
     const op = await enqueue({ method: 'POST', path: '/notes', noteId: 'a' });
-    // 默认阈值 5
-    for (let i = 0; i < 4; i++) {
+    // 默认阈值 MAX_RETRIES=8（指数退避：1+2+4+8+16+30+30+30 ≈ 2 分钟）
+    for (let i = 0; i < MAX_RETRIES - 1; i++) {
       await bumpRetries(op.id);
     }
-    expect(await size()).toBe(1); // 4 次仍未移除
-    await bumpRetries(op.id); // 第 5 次 → 移除
+    expect(await size()).toBe(1); // 阈值-1 次仍未移除
+    await bumpRetries(op.id); // 第 MAX_RETRIES 次 → 移除
     expect(await size()).toBe(0);
+  });
+
+  it('getRetryDelay returns exponential backoff capped at 30s with jitter', () => {
+    expect(getRetryDelay(0)).toBeGreaterThanOrEqual(1000);
+    expect(getRetryDelay(0)).toBeLessThan(1500);
+    expect(getRetryDelay(1)).toBeGreaterThanOrEqual(2000);
+    expect(getRetryDelay(1)).toBeLessThan(2500);
+    expect(getRetryDelay(10)).toBeGreaterThanOrEqual(30000);
+    expect(getRetryDelay(10)).toBeLessThan(30500);
   });
 
   it('persists across "reload"（内存 mock 验证 persist 调用）', async () => {

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from './lib/store';
+import type { ThemeId, Mode } from './lib/store';
 import { useModeStore } from './lib/mode-store';
-import { applyTheme, watchSystemTheme } from './lib/theme';
+import { applyTheme, watchSystemTheme, THEMES } from './lib/theme';
 import { useUpdateCheck } from './lib/use-update-check';
 import { ForceUpdateOverlay } from './components/ForceUpdateOverlay';
 import { UpdateBanner } from './components/UpdateBanner';
@@ -12,6 +13,8 @@ import { SettingsDialog } from './components/SettingsDialog';
 import { SharesManager } from './components/SharesManager';
 import { AdminConfig } from './components/AdminConfig';
 import { Cheatsheet } from './components/Cheatsheet';
+import { CommandPalette } from './components/CommandPalette';
+import { ImportExportDialog } from './components/ImportExportDialog';
 import { ModeSelectDialog } from './components/ModeSelectDialog';
 import { SetupScreen } from './screens/SetupScreen';
 import { UnlockScreen } from './screens/UnlockScreen';
@@ -25,6 +28,8 @@ import { installOnlineListener } from './lib/online-listener';
 import { useKeyboardShortcuts } from './lib/use-keyboard-shortcuts';
 import './lib/i18n';
 import { ToastContainer } from './components/ToastContainer';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
+import { QuickCapture } from './components/QuickCapture';
 
 type StandaloneView = 'setup' | 'unlock' | 'recover';
 
@@ -48,6 +53,8 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showShares, setShowShares] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showQuickCapture, setShowQuickCapture] = useState(false);
+  const [showImportExport, setShowImportExport] = useState(false);
   const [standaloneView, setStandaloneView] = useState<StandaloneView>('setup');
 
   // 应用内快捷键（仅 unlocked 状态生效）
@@ -56,9 +63,71 @@ function App() {
   // 监听快捷键/菜单触发的打开设置事件
   useEffect(() => {
     const openSettings = () => setShowSettings(true);
+    const openQuickCapture = () => setShowQuickCapture(true);
     window.addEventListener('app:open-settings', openSettings);
-    return () => window.removeEventListener('app:open-settings', openSettings);
+    window.addEventListener('app:quick-capture', openQuickCapture);
+    return () => {
+      window.removeEventListener('app:open-settings', openSettings);
+      window.removeEventListener('app:quick-capture', openQuickCapture);
+    };
   }, []);
+
+  // 监听命令面板派发的命令事件（CommandPalette 通过 window 自定义事件触发命令执行）
+  useEffect(() => {
+    const newNote = () => {
+      void useStore.getState().createNote();
+    };
+    const doLock = () => {
+      useStore.getState().lock();
+    };
+    const openShares = () => setShowShares(true);
+    const openImportExport = () => setShowImportExport(true);
+    const toggleTheme = () => {
+      const prefs = useStore.getState().preferences;
+      const ids = THEMES.map((th) => th.id);
+      const idx = ids.indexOf(prefs.theme);
+      const next: ThemeId = ids[(idx + 1) % ids.length] ?? 'mint-dawn';
+      useStore.getState().setTheme(next);
+    };
+    const toggleMode = () => {
+      const prefs = useStore.getState().preferences;
+      // auto → 先解析为当前系统偏好，再切换到相反
+      const effective: Mode =
+        prefs.mode === 'auto'
+          ? window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
+          : prefs.mode;
+      const next: Mode = effective === 'dark' ? 'light' : 'dark';
+      useStore.getState().setMode(next);
+    };
+    const about = () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, no-undef
+      alert(
+        `DustNote v${typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'}\n${t(
+          'app.name',
+        )}\n© 2026 DustNote Team`,
+      );
+    };
+
+    window.addEventListener('app:new-note', newNote);
+    window.addEventListener('app:lock', doLock);
+    window.addEventListener('app:open-shares', openShares);
+    window.addEventListener('app:import-export', openImportExport);
+    window.addEventListener('app:toggle-theme', toggleTheme);
+    window.addEventListener('app:toggle-mode', toggleMode);
+    window.addEventListener('app:about', about);
+
+    return () => {
+      window.removeEventListener('app:new-note', newNote);
+      window.removeEventListener('app:lock', doLock);
+      window.removeEventListener('app:open-shares', openShares);
+      window.removeEventListener('app:import-export', openImportExport);
+      window.removeEventListener('app:toggle-theme', toggleTheme);
+      window.removeEventListener('app:toggle-mode', toggleMode);
+      window.removeEventListener('app:about', about);
+    };
+  }, [t]);
 
   // 移动端响应式：窄屏（< sm 断点 640px）默认收起 sidebar，给编辑器留出全宽
   useEffect(() => {
@@ -258,6 +327,7 @@ function App() {
       {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
       {showShares && <SharesManager onClose={() => setShowShares(false)} />}
       {showAdmin && <AdminConfig onClose={() => setShowAdmin(false)} />}
+      {showImportExport && <ImportExportDialog onClose={() => setShowImportExport(false)} />}
 
       <Cheatsheet />
 
@@ -265,9 +335,25 @@ function App() {
         <UpdateBanner result={updateCheck.result} />
       )}
 
+      <CommandPalette />
+
+      {showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
+
       <ToastContainer />
     </div>
   );
 }
 
-export default App;
+/**
+ * 带错误边界的 App 包装
+ * 捕获渲染异常，避免白屏，提供错误码 + 诊断导出
+ */
+function AppWithBoundary() {
+  return (
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
+  );
+}
+
+export default AppWithBoundary;

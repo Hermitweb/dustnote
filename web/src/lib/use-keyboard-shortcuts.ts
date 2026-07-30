@@ -49,6 +49,13 @@ function buildShortcuts(authState: AuthState): ShortcutDef[] {
       },
     },
     {
+      key: 'ctrl+shift+n',
+      desktopOnly: true,
+      action: () => {
+        window.dispatchEvent(new CustomEvent('app:quick-capture'));
+      },
+    },
+    {
       key: 'ctrl+s',
       desktopOnly: true,
       action: () => {
@@ -77,6 +84,13 @@ function buildShortcuts(authState: AuthState): ShortcutDef[] {
       key: 'ctrl+l',
       action: () => {
         useStore.getState().lock();
+      },
+    },
+    {
+      key: 'ctrl+k',
+      allowInInput: true,
+      action: () => {
+        window.dispatchEvent(new CustomEvent('app:toggle-command-palette'));
       },
     },
   ];

@@ -249,6 +249,7 @@ export type TemplateCategory =
   | 'todo'
   | 'reading'
   | 'project'
+  | 'bookmark'
   | 'custom';
 
 /**

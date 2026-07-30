@@ -4,6 +4,8 @@ import { useStore } from '../lib/store';
 import { THEMES } from '../lib/theme';
 import { ImportExportDialog } from './ImportExportDialog';
 import { SharesManager } from './SharesManager';
+import { DiagnosticsPanel } from './DiagnosticsPanel';
+import { MigrationWizard } from './MigrationWizard';
 import { getConfig, saveConfig, loadConfig } from '../lib/config';
 import i18n from '../lib/i18n';
 
@@ -472,6 +474,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             )}
 
             {/* 关于 */}
+            <DiagnosticsPanel />
+            <div className="rounded-lg border border-surface-border p-3">
+              <MigrationWizard onClose={() => {}} />
+            </div>
             <div className="rounded-lg border border-surface-border p-3 text-xs text-surface-muted">
               <div>{t('settings.about')}: {t('settings.about_line')}</div>
               <div className="font-mono">

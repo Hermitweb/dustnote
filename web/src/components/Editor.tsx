@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
 import { encryptString, randomBytes, toBase64Url, wrapKey } from '@dustnote/shared';
@@ -7,6 +7,13 @@ import { getDeviceId } from '../lib/device';
 import { sanitizeHtml } from '../lib/sanitize-html';
 import { NoteHistoryDialog } from './NoteHistoryDialog';
 import { toast } from '../lib/toast';
+import {
+  isImageFile,
+  fileToImageDataUrl,
+  buildMarkdownImage,
+  insertAtCursor,
+} from '../lib/image-paste';
+import { VoiceInputButton } from './VoiceInputButton';
 
 export function Editor() {
   const { t } = useTranslation();
@@ -30,6 +37,8 @@ export function Editor() {
   const [showShare, setShowShare] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [imageProcessing, setImageProcessing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 把当前笔记另存为自定义模板（仅联机模式可用）
   const handleSaveAsTemplate = useCallback(() => {
@@ -47,6 +56,101 @@ export function Editor() {
       setContent(plain.content);
     }
   }, [plain]);
+
+  // 处理图片文件：压缩并插入到光标处（S-2 拖拽 / 粘贴图片）
+  const handleImages = useCallback(
+    async (files: File[]) => {
+      const imgs = files.filter(isImageFile);
+      if (imgs.length === 0) return false;
+      const textarea = textareaRef.current;
+      if (!textarea) return false;
+      setImageProcessing(true);
+      try {
+        for (const file of imgs) {
+          try {
+            const { dataUrl, alt } = await fileToImageDataUrl(file);
+            const md = buildMarkdownImage(dataUrl, alt);
+            const { value, selectionStart, selectionEnd } = insertAtCursor(
+              textarea,
+              md
+            );
+            setContent(value);
+            // 等 React 更新 textarea 后恢复光标
+            requestAnimationFrame(() => {
+              textarea.selectionStart = selectionStart;
+              textarea.selectionEnd = selectionEnd;
+            });
+          } catch (err) {
+            toast.error(
+              t('editor.image_insert_fail', { reason: (err as Error).message })
+            );
+          }
+        }
+        return true;
+      } finally {
+        setImageProcessing(false);
+      }
+    },
+    [t]
+  );
+
+  const onDrop = useCallback(
+    (e: React.DragEvent<HTMLTextAreaElement>) => {
+      const files = Array.from(e.dataTransfer.files);
+      if (files.some(isImageFile)) {
+        e.preventDefault();
+        void handleImages(files);
+      }
+    },
+    [handleImages]
+  );
+
+  const onPaste = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const files = Array.from(e.clipboardData.files);
+      if (files.some(isImageFile)) {
+        e.preventDefault();
+        void handleImages(files);
+      }
+    },
+    [handleImages]
+  );
+
+  // 在光标处插入文本（供语音输入复用）
+  const insertTextAtCursor = useCallback((text: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setContent((c) => c + text);
+      return;
+    }
+    const { value, selectionStart, selectionEnd } = insertAtCursor(textarea, text);
+    setContent(value);
+    requestAnimationFrame(() => {
+      textarea.selectionStart = selectionStart;
+      textarea.selectionEnd = selectionEnd;
+      textarea.focus();
+    });
+  }, []);
+
+  // B-9 剪贴板/URL 模板：读取剪贴板，识别 URL 则生成书签格式
+  const insertFromClipboard = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) {
+        toast.info(t('editor.clipboard_empty'));
+        return;
+      }
+      const isUrl = /^https?:\/\/\S+$/i.test(text.trim());
+      if (isUrl) {
+        insertTextAtCursor(`🔗 [${text.trim()}](${text.trim()})\n`);
+      } else {
+        insertTextAtCursor(text);
+      }
+      toast.success(t('editor.clipboard_inserted'));
+    } catch {
+      toast.error(t('editor.clipboard_read_fail'));
+    }
+  }, [insertTextAtCursor, t]);
 
   // 回收站视图强制只读预览
   useEffect(() => {
@@ -245,6 +349,22 @@ export function Editor() {
                   📋
                 </button>
               )}
+              {/* B-9 剪贴板/URL 插入 */}
+              <button
+                onClick={() => void insertFromClipboard()}
+                disabled={imageProcessing}
+                className="rounded p-1.5 text-xs text-surface-muted hover:bg-surface-bg disabled:opacity-50"
+                title={t('editor.insert_clipboard')}
+              >
+                📎
+              </button>
+              {/* B-8 语音输入 */}
+              <VoiceInputButton onInsert={insertTextAtCursor} />
+              {imageProcessing && (
+                <span className="text-xs text-surface-muted">
+                  {t('editor.image_processing')}
+                </span>
+              )}
               <button
                 onClick={() => {
                   if (confirm(t('editor.confirm_delete'))) {
@@ -275,8 +395,11 @@ export function Editor() {
       <div className="flex flex-1 overflow-hidden">
         {(mode === 'edit' || mode === 'split') && (
           <textarea
+            ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
+            onDrop={onDrop}
+            onPaste={onPaste}
             placeholder={t('editor.md_placeholder')}
             className={`flex-1 resize-none bg-surface-bg p-6 font-mono text-sm text-surface-fg placeholder-surface-muted focus:outline-none ${
               mode === 'split' ? 'border-r border-surface-border' : ''

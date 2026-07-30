@@ -6,15 +6,25 @@
  * - 联网或 WS 重连时逐条重放
  * - 409 冲突时丢弃该 op（服务端版本更新），由 loadAll() 拉取最新
  * - 队列持久化到 IndexedDB，刷新不丢
- *
- * 不做的事：
- * - 不做 CRDT/合并；同一笔记的多条 op 顺序重放即可
- * - 不做指数退避（用户可手动重试）
+ * - 指数退避重试：delay = min(30s, 1s * 2^attempt) + jitter，最高 8 次
  */
 
 import { del, get, set } from 'idb-keyval';
 
 const QUEUE_KEY = 'dustnote:offline-queue';
+
+/** 最大重试次数（总等待约 5 分钟） */
+export const MAX_RETRIES = 8;
+
+/**
+ * 指数退避延迟计算
+ * delay = min(30_000, 1000 * 2^attempt) + 随机抖动（0~500ms）
+ */
+export function getRetryDelay(attempt: number): number {
+  const base = Math.min(30_000, 1000 * 2 ** attempt);
+  const jitter = Math.floor(Math.random() * 500);
+  return base + jitter;
+}
 
 export type HttpMethod = 'POST' | 'PATCH' | 'DELETE';
 
@@ -90,7 +100,7 @@ export async function remove(id: string): Promise<void> {
 }
 
 /** 增加某 op 的重试计数；超过阈值则移除 */
-export async function bumpRetries(id: string, max = 5): Promise<void> {
+export async function bumpRetries(id: string, max = MAX_RETRIES): Promise<void> {
   const queue = await ensureLoaded();
   const op = queue.find((o) => o.id === id);
   if (!op) return;
@@ -100,6 +110,14 @@ export async function bumpRetries(id: string, max = 5): Promise<void> {
   } else {
     await persist();
   }
+}
+
+/** 获取某 op 的下次重试延迟（ms），用于 flushQueue 中的 setTimeout */
+export async function getRetryDelayForOp(id: string): Promise<number> {
+  const queue = await ensureLoaded();
+  const op = queue.find((o) => o.id === id);
+  if (!op) return 0;
+  return getRetryDelay(op.retries);
 }
 
 /** 清空整个队列 */

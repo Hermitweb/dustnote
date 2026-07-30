@@ -58,6 +58,14 @@ import type { QueuedOp } from './offline-queue';
 import { useModeStore } from './mode-store';
 import { createRepository } from './repository';
 import {
+  enableGraceUnlock,
+  consumeGraceUnlock,
+  peekGraceUnlock,
+  clearGraceUnlock,
+  isGraceUnlockEnabled,
+  getGraceUnlockMin,
+} from './grace-unlock';
+import {
   loadLocalAuthBlob,
   saveLocalAuthBlob,
   clearLocalAuthBlob,
@@ -219,6 +227,10 @@ interface StoreState {
   unlock: (password: string) => Promise<void>;
   recover: (recoveryCode: string, newPassword: string) => Promise<void>;
   lock: () => void;
+  /** 宽限期免密解锁：是否有有效的 grace 缓存 */
+  hasGraceUnlock: () => boolean;
+  /** 宽限期免密解锁：恢复 unlocked 状态，成功返回 true */
+  graceUnlock: () => boolean;
 
   // actions: auth（单机模式）
   /** 单机模式：检查本地鉴权状态 */
@@ -441,6 +453,8 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!repository || !masterKey) {
       throw new Error('切换模式前需先解锁');
     }
+    // 切换模式前清空宽限期缓存（masterKey 即将失效）
+    clearGraceUnlock();
     // 1. 导出当前模式的数据
     const backup = await repository.exportBackup();
     // 2. 更新 mode-store
@@ -693,8 +707,37 @@ export const useStore = create<StoreState>((set, get) => ({
 
   lock(): void {
     const k = get().masterKey;
+    // 启用宽限期时缓存 masterKey 副本（在 fill(0) 之前完成深拷贝）
+    if (k && isGraceUnlockEnabled()) {
+      enableGraceUnlock(k, get().wrappedMasterKey, getGraceUnlockMin());
+    }
     if (k) k.fill(0);
     set({ masterKey: null, selectedNoteId: null, notesPlain: new Map() });
+  },
+
+  /**
+   * 桌面端免密解锁宽限期（S-1 懒人化体验）
+   * - lock() 时缓存 masterKey 副本（仅内存，进程退出即丢失）
+   * - graceUnlock() 宽限期内一键恢复 unlocked
+   * - 用户可在设置中关闭（graceUnlockMin=0）
+   */
+  // -------- grace unlock --------
+
+  /** 检查是否有有效的宽限期免密解锁 */
+  hasGraceUnlock(): boolean {
+    return peekGraceUnlock();
+  },
+
+  /** 宽限期免密解锁：成功恢复 unlocked，失败返回 false */
+  graceUnlock(): boolean {
+    const cached = consumeGraceUnlock();
+    if (!cached) return false;
+    set({
+      masterKey: cached.masterKey,
+      wrappedMasterKey: cached.wrappedMasterKey,
+      authState: 'unlocked',
+    });
+    return true;
   },
 
   // -------- data --------
@@ -1510,6 +1553,8 @@ export const useStore = create<StoreState>((set, get) => ({
     // 单机模式：清除本地鉴权数据 + 锁定状态
     clearLocalAuthBlob();
     clearLockoutState();
+    // 清空宽限期缓存
+    clearGraceUnlock();
     set({ pendingCount: 0, localAuthBlob: null, lockoutState: INITIAL_LOCKOUT_STATE });
   },
 }));

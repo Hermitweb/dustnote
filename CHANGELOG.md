@@ -13,6 +13,45 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.3.0] - 2026-07-30
+
+### 新增 — 懒人化体验 & 异常自我修复
+
+本次发布以「极客用户 & 效率专家」视角，聚焦提升日常使用爽感、降低个人项目维护成本。所有建议已逐一实现并通过 typecheck / lint / 68 项测试验证。
+
+#### 1. 懒人化体验
+
+- **命令面板 Ctrl+K**（A-7）：[web/src/components/CommandPalette.tsx](./web/src/components/CommandPalette.tsx) 模糊搜索 + 键盘导航，一键触达新建/锁定/主题/模式等命令
+- **Quick Capture 快速捕获**（S-3）：`Ctrl+Shift+N` 唤起极简浮层，灵感即写即存，不干扰当前编辑
+- **编辑器拖拽 / 粘贴图片**（S-2）：[web/src/lib/image-paste.ts](./web/src/lib/image-paste.ts) canvas 压缩（长边 1600px、JPEG 0.82、透明 PNG 保留）内联为 data URL，sanitize-html 已放行
+- **语音输入**（B-8）：[web/src/components/VoiceInputButton.tsx](./web/src/components/VoiceInputButton.tsx) 基于 Web Speech API，实时听写插入光标处
+- **剪贴板 / URL 模板**（B-9）：编辑器 📎 按钮读取剪贴板，URL 自动转 Markdown 链接；新增 `tpl-bookmark` 书签预设模板
+- **桌面端免密解锁宽限期**（S-1）：[web/src/lib/grace-unlock.ts](./web/src/lib/grace-unlock.ts) 锁定后 30 分钟内可一键恢复（仅桌面端、仅内存、可关闭）
+
+#### 2. 数据主权与迁移
+
+- **环境迁移向导**（A-6）：[web/src/components/MigrationWizard.tsx](./web/src/components/MigrationWizard.tsx) 导出/导入 `dustnote-env.json`（主题、模式、服务器地址），换电脑/重装一键恢复
+- **每日静默自动备份**（S-4）：[web/src/lib/auto-backup.ts](./web/src/lib/auto-backup.ts) 滚动保留最近 N 份客户端数据快照
+- **服务端 SQLite 自动备份**（P0-3）：[server/src/scripts/backup.ts](./server/src/scripts/backup.ts) 在线 backup + 滚动清理（`BACKUP_DIR` / `BACKUP_RETENTION` 环境变量配置）
+
+#### 3. 异常自我修复
+
+- **离线队列指数退避重试**（P0-4）：[web/src/lib/offline-queue.ts](./web/src/lib/offline-queue.ts) `MAX_RETRIES=8`，`delay=min(30s, 1s·2^attempt)+jitter`，网络故障自动重放
+- **客户端诊断日志**（P0-2）：[web/src/lib/diagnostics.ts](./web/src/lib/diagnostics.ts) 环形缓冲 + 脱敏 + 一键导出，个人项目无外部监控也能取证
+- **Web ErrorBoundary**（P1-3）：[web/src/components/AppErrorBoundary.tsx](./web/src/components/AppErrorBoundary.tsx) 捕获渲染异常，展示用户错误码 + 诊断导出，杜绝白屏
+- **IndexedDB 容量监控 + 清理**（P0-1）：[web/src/components/DiagnosticsPanel.tsx](./web/src/components/DiagnosticsPanel.tsx) 存储用量进度条、阈值警告、一键清理离线队列/日志/旧备份
+
+#### 4. 轻量化与防坑
+
+- **CI bundle 体积监控**（P1-2）：[.github/workflows/ci.yml](./.github/workflows/ci.yml) 构建后检查 `web/dist` 体积，超 5MB 告警
+- **Docker arm64 多架构**（P2-1）：CI 支持 `linux/amd64,linux/arm64`，可部署树莓派等 ARM 设备
+- **.gitattributes 消除 CRLF**（P1-1）：统一 LF 行尾，Windows 本地 format:check 与 Linux CI 一致
+- **quick-crypto 体积标注**（P2-2）：[mobile/README.md](./mobile/README.md) 记录原生依赖体积取舍（8–12MB vs Argon2id 200ms 性能）
+
+### 移动端
+
+- 生物识别解锁 UI（A-5）：[mobile/src/screens/StandaloneUnlockScreen.tsx](./mobile/src/screens/StandaloneUnlockScreen.tsx) 已对接 keychain 缓存 masterKey，指纹/面容一键解锁
+
 ## [2.2.0] - 2026-07-30
 
 ### 新增 — 生产就绪度补强（GDPR + 设备管理 + 安全加固）
