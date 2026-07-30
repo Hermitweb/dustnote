@@ -13,6 +13,42 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.3.1] - 2026-07-30
+
+### 修复 — 生产级零故障加固（首席架构师 SOP 扫描）
+
+本次以「零故障生产级系统」为目标，对服务端事务一致性、并发竞态、数据可携带性、纵深防御进行地毯式扫描与静默修复。typecheck + lint 全绿，196 项测试通过（shared 57 + server 71 + web 68）。全端版本号同步至 2.3.1（含 7 个 package.json、tauri.conf.json、Cargo.toml、Android versionCode 11→12 / versionName、server env / update-manifest、mobile & miniprogram 源码内嵌 APP_VERSION）。
+
+#### 逻辑健壮性 — 事务回滚
+
+- **notes PATCH 缺事务**（P1）：历史快照插入 + 旧版本清理 + 主表更新改为单事务原子执行，避免「快照已写但笔记未更新」或「版本被清理但快照未插入」的不一致。见 [server/src/routes/notes.ts](./server/src/routes/notes.ts)
+- **notes restore 缺事务**（P1）：当前密文快照 + 历史密文覆盖改为事务原子化，避免恢复过程中断导致数据不一致
+- **shares create 缺事务**（P1）：分享写入 + 审计日志原子化，避免审计缺失或分享残留
+
+#### 逻辑健壮性 — 并发锁机制
+
+- **auth setup 竞态**（P1）：`loadUser()` 检查与用户写入移入同一事务，消除两个并发 setup 请求双双通过检查、双双插入的竞态。见 [server/src/routes/auth.ts](./server/src/routes/auth.ts)
+- **flushQueue 重入**（P1）：离线队列重放加模块级 `flushingRef` 守卫，串行化 online 事件 + 用户手动同步触发的并发重放，避免 peek 到同一批 op 重复执行导致笔记重复创建 / 版本冲突。见 [web/src/lib/store.ts](./web/src/lib/store.ts)
+- **编辑器并发保存**（P1）：autoSave 防抖与 Ctrl+S 立即保存加 `savingInFlight` 守卫，避免并发写同一笔记触发服务端 409 版本冲突丢失更新。见 [web/src/components/Editor.tsx](./web/src/components/Editor.tsx)
+
+#### 安全红线 — 数据可携带性
+
+- **account/export 漏导出笔记密文**（P1）：原查询只导出笔记元数据，与 GDPR Article 20「数据可携带权」及文档承诺矛盾。修复后补全 `ciphertext / key_version / folder_id / server_updated_at`，并新增 `shares`、`templates` 导出，实现完整数据迁移。见 [server/src/routes/account.ts](./server/src/routes/account.ts)
+- **account/export 误导出凭据哈希**（P2）：原 `SELECT *` 会把 `users.password_hash / master_salt / recovery_hash / recovery_salt` 与 `devices.refresh_token_hash` 一并导出。这些服务端凭据校验产物对迁移无价值（换服务器后重设密码即重新生成），却会在导出文件泄漏时构成离线爆破面。改为显式列：仅保留 `wrapped_master_key`（迁移后用主密码重新解开笔记的唯一凭证）等迁移必需字段，剔除全部哈希/盐。
+
+#### 安全红线 — 纵深防御
+
+- **devices UPDATE 缺 user_id**（P2）：吊销设备 UPDATE 语句补 `AND user_id = ?`，即便上层 SELECT 之外发生并发变更，也不会误改他用户设备。见 [server/src/routes/devices.ts](./server/src/routes/devices.ts)
+
+#### 扫描结论（已确认无问题项）
+
+- 加密参数：Argon2id m=64MB/t=3/p=4 与文档一致；AES-GCM-256 + AAD 绑定；masterKey 零化；常量时间比较 ✓
+- 入参校验：所有路由均 zod 校验；SQL 全部参数化 ✓
+- 越权访问：notes/folders/tags/shares/devices/account 均校验 `user_id` 归属 ✓
+- 速率限制：全局 600/min、auth 20/15min、公开分享 60/min ✓
+- 日志脱敏：无 password/token/masterKey 泄漏；错误响应生产环境脱敏 ✓
+- 乐观锁：笔记更新 / 恢复均校验 version 防并发覆盖 ✓
+
 ## [2.3.0] - 2026-07-30
 
 ### 新增 — 懒人化体验 & 异常自我修复

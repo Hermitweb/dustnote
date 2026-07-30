@@ -399,6 +399,9 @@ async function runOrEnqueue(
 
 // ========== Store 实现 ==========
 
+/** flushQueue 重入守卫（模块级，避免并发重放同一批离线操作） */
+const flushingRef = { inFlight: false };
+
 export const useStore = create<StoreState>((set, get) => ({
   // mode（v2.0.0）
   mode: useModeStore.getState().mode,
@@ -1500,49 +1503,57 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async flushQueue(): Promise<void> {
-    const ops = await peekAll();
-    if (ops.length === 0) return;
+    // 重入守卫：并发触发（online 事件 + 用户手动同步）会 peek 到同一批 op
+    // 并重复执行，导致笔记重复创建 / 版本冲突。此处串行化重放。
+    if (flushingRef.inFlight) return;
+    flushingRef.inFlight = true;
+    try {
+      const ops = await peekAll();
+      if (ops.length === 0) return;
 
-    let hadConflict = false;
-    for (const op of ops) {
-      try {
-        await replayOp(op);
-        await remove(op.id);
-      } catch (err) {
-        if (err instanceof ApiException) {
-          const status = err.err.status;
-          if (status === 409 || (status >= 400 && status < 500)) {
-            // 冲突或客户端错误：丢弃该 op，避免死循环
-            await remove(op.id);
-            hadConflict = true;
-          } else {
-            // 5xx：服务端可能恢复，保留并增加重试计数
-            await bumpRetries(op.id);
-          }
-        } else if (err instanceof TypeError) {
-          // 网络仍不可达：停止重放，保留 op
-          break;
-        } else {
-          // 未知错误：丢弃避免阻塞队列
+      let hadConflict = false;
+      for (const op of ops) {
+        try {
+          await replayOp(op);
           await remove(op.id);
+        } catch (err) {
+          if (err instanceof ApiException) {
+            const status = err.err.status;
+            if (status === 409 || (status >= 400 && status < 500)) {
+              // 冲突或客户端错误：丢弃该 op，避免死循环
+              await remove(op.id);
+              hadConflict = true;
+            } else {
+              // 5xx：服务端可能恢复，保留并增加重试计数
+              await bumpRetries(op.id);
+            }
+          } else if (err instanceof TypeError) {
+            // 网络仍不可达：停止重放，保留 op
+            break;
+          } else {
+            // 未知错误：丢弃避免阻塞队列
+            await remove(op.id);
+          }
         }
       }
-    }
 
-    await get().refreshPendingCount();
+      await get().refreshPendingCount();
 
-    // 冲突或全部成功后，拉取最新数据校正本地
-    if (hadConflict || ops.length > 0) {
-      try {
-        await get().loadAll();
-      } catch {
-        /* loadAll 内部已处理 */
+      // 冲突或全部成功后，拉取最新数据校正本地
+      if (hadConflict || ops.length > 0) {
+        try {
+          await get().loadAll();
+        } catch {
+          /* loadAll 内部已处理 */
+        }
       }
-    }
 
-    // 重放后若全部成功，标记为在线
-    if ((await queueSize()) === 0) {
-      set({ isOnline: true });
+      // 重放后若全部成功，标记为在线
+      if ((await queueSize()) === 0) {
+        set({ isOnline: true });
+      }
+    } finally {
+      flushingRef.inFlight = false;
     }
   },
 

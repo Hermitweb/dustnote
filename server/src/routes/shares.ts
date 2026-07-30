@@ -91,31 +91,34 @@ sharesRouter.post('/shares', async (req, res) => {
       ? new Date(Date.now() + parsed.data.expiresIn * 1000).toISOString()
       : null;
 
-    db.prepare(
+    // 事务：分享写入 + 审计日志原子化，避免审计缺失或分享残留
+    db.transaction(() => {
+      db.prepare(
+        `
+        INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key, password_hash, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `
-      INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key, password_hash, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `
-    ).run(
-      id,
-      note.id,
-      user.userId,
-      token,
-      JSON.stringify(parsed.data.ciphertext),
-      JSON.stringify(parsed.data.wrappedShareKey),
-      passwordHash,
-      expiresAt
-    );
+      ).run(
+        id,
+        note.id,
+        user.userId,
+        token,
+        JSON.stringify(parsed.data.ciphertext),
+        JSON.stringify(parsed.data.wrappedShareKey),
+        passwordHash,
+        expiresAt
+      );
 
-    // 审计：分享创建。带密码 / 过期时间写入 meta 便于事后排查
-    db.prepare(
-      'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
-    ).run(
-      user.userId,
-      user.deviceId,
-      'share_create',
-      JSON.stringify({ shareId: id, noteId: note.id, hasPassword: !!passwordHash, expiresAt })
-    );
+      // 审计：分享创建。带密码 / 过期时间写入 meta 便于事后排查
+      db.prepare(
+        'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
+      ).run(
+        user.userId,
+        user.deviceId,
+        'share_create',
+        JSON.stringify({ shareId: id, noteId: note.id, hasPassword: !!passwordHash, expiresAt })
+      );
+    })();
 
     logger.info({ userId: user.userId, shareId: id, hasPassword: !!passwordHash }, '分享已创建');
     broadcastShareChanged(user.userId, { id, op: 'create' });

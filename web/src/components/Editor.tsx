@@ -39,6 +39,9 @@ export function Editor() {
   const [saving, setSaving] = useState(false);
   const [imageProcessing, setImageProcessing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // 保存进行中守卫：防止 autoSave 防抖与 Ctrl+S 立即保存并发写同一笔记
+  // （并发会触发服务端 version_mismatch 409，导致后写者丢失更新）
+  const savingInFlight = useRef(false);
 
   // 把当前笔记另存为自定义模板（仅联机模式可用）
   const handleSaveAsTemplate = useCallback(() => {
@@ -159,9 +162,14 @@ export function Editor() {
 
   // 防抖自动保存（回收站笔记不自动保存）
   const autoSave = useCallback(() => {
+    if (savingInFlight.current) return;
     if (title !== plain?.title || content !== plain?.content) {
+      savingInFlight.current = true;
       setSaving(true);
-      void updateNote(note!.id, { title, content }).finally(() => setSaving(false));
+      void updateNote(note!.id, { title, content }).finally(() => {
+        savingInFlight.current = false;
+        setSaving(false);
+      });
     }
   }, [title, content, plain, note, updateNote]);
 
@@ -189,9 +197,14 @@ export function Editor() {
   // Ctrl+S 立即保存（绕过防抖，由 use-keyboard-shortcuts 派发 editor:save-now 事件）
   useEffect(() => {
     const saveNow = () => {
+      if (savingInFlight.current) return;
       if (note && plain && (title !== plain.title || content !== plain.content)) {
+        savingInFlight.current = true;
         setSaving(true);
-        void updateNote(note.id, { title, content }).finally(() => setSaving(false));
+        void updateNote(note.id, { title, content }).finally(() => {
+          savingInFlight.current = false;
+          setSaving(false);
+        });
       }
     };
     window.addEventListener('editor:save-now', saveNow);

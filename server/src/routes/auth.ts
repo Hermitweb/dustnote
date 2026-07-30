@@ -178,12 +178,6 @@ authRouter.post('/auth/setup', async (req, res) => {
   }
 
   const db = getDb();
-  if (loadUser()) {
-    res
-      .status(409)
-      .json({ error: 'already_initialized', message: '系统已初始化，请用 unlock 登录' });
-    return;
-  }
 
   // authKey 本身已是 32 字节高熵值，scrypt 只是防止库泄露后被直接拿去登录
   const [authHash, recoveryAuthHash] = await Promise.all([
@@ -194,7 +188,11 @@ authRouter.post('/auth/setup', async (req, res) => {
   const userId = randomUUID();
   const deviceId = client.deviceId;
 
-  db.transaction(() => {
+  // 事务：把「是否已初始化」检查与写入放在同一事务里，
+  // 消除两个并发 setup 请求同时通过检查、双双插入的竞态。
+  // better-sqlite3 事务在默认 journal_mode 下是串行化的。
+  const initialized = db.transaction(() => {
+    if (loadUser()) return false;
     db.prepare(
       `INSERT INTO users (
          id, pw_salt, rc_salt, auth_hash, recovery_auth_hash,
@@ -225,7 +223,15 @@ authRouter.post('/auth/setup', async (req, res) => {
     ).run(deviceId, userId, d.deviceName, client.platform || 'web', deviceId);
 
     db.prepare('INSERT INTO preferences (user_id) VALUES (?)').run(userId);
+    return true;
   })();
+
+  if (!initialized) {
+    res
+      .status(409)
+      .json({ error: 'already_initialized', message: '系统已初始化，请用 unlock 登录' });
+    return;
+  }
 
   logger.info({ userId, deviceId, platform: client.platform }, '新用户已创建');
   res.json(issueSession(res, userId, deviceId));

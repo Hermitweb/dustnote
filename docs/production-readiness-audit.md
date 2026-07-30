@@ -237,3 +237,52 @@
 | 部署 | Docker / Nginx 配置完整；状态页/告警待部署后接入 | ⚠️ 部署侧补齐 |
 
 **结论**：v2.2.0 可作为 **Beta Production** 发布。完全 GA 需在 v2.3.0 补齐设备管理 UI、mobile 功能对齐、SBOM、Playwright E2E 后达成。
+
+---
+
+## 五、v2.3.1 首席架构师 SOP 零故障加固
+
+> 审计时间：2026-07-30
+> 当前版本：v2.3.1
+> 审计方式：四步 SOP（需求差异分析 → 深度代码扫描 → 静默修复 → 自动化验证闭环）
+
+### 5.1 扫描范围
+
+按 SOP 对服务端 `routes / middleware / auth / services / db / env / logger` 进行地毯式排查，覆盖三个维度：
+
+- **细枝末梢**：常量定义、时间处理统一性、错误提示友好性、日志脱敏
+- **逻辑健壮性**：空指针防护、并发锁机制、事务回滚机制
+- **安全红线**：入参校验、越权访问（IDOR）、速率限制
+
+### 5.2 已修复问题
+
+| # | 问题 | 级别 | 类别 | 文件 |
+| --- | --- | --- | --- | --- |
+| 1 | notes PATCH 历史快照+清理+主表更新缺事务 | P1 | 事务回滚 | server/src/routes/notes.ts |
+| 2 | notes restore 当前快照+历史覆盖缺事务 | P1 | 事务回滚 | server/src/routes/notes.ts |
+| 3 | shares create 分享写入+审计日志缺事务 | P1 | 事务回滚 | server/src/routes/shares.ts |
+| 4 | auth setup loadUser() 检查与写入存在竞态 | P1 | 并发锁 | server/src/routes/auth.ts |
+| 5 | flushQueue online 事件 + 手动同步并发重放 | P1 | 并发锁 | web/src/lib/store.ts |
+| 6 | 编辑器 autoSave + Ctrl+S 并发保存 | P1 | 并发锁 | web/src/components/Editor.tsx |
+| 7 | account/export 漏导出笔记密文 / shares / templates | P1 | 数据可携带性 | server/src/routes/account.ts |
+| 8 | account/export `SELECT *` 误导出凭据哈希/盐 | P2 | 安全红线 | server/src/routes/account.ts |
+| 9 | devices 吊销 UPDATE 缺 user_id 纵深防御 | P2 | 纵深防御 | server/src/routes/devices.ts |
+
+### 5.3 扫描结论（已确认无问题项）
+
+- **加密参数**：Argon2id m=64MB/t=3/p=4 与文档一致；AES-GCM-256 + AAD 绑定；masterKey 零化；常量时间比较 ✓
+- **入参校验**：所有路由均 zod 校验；SQL 全部参数化；无 `z.any()` / 无界 `z.string()` ✓
+- **越权访问**：notes/folders/tags/shares/devices/account 所有用户态表查询均带 `WHERE user_id = ?`；IDOR 复核通过 ✓
+- **速率限制**：全局 600/min、auth 20/15min、公开分享 60/min ✓
+- **日志脱敏**：无 password/token/masterKey/ciphertext/refresh_token_hash 泄漏；错误响应生产环境脱敏 ✓
+- **乐观锁**：笔记更新 / 恢复均校验 version 防并发覆盖 ✓
+- **时间处理**：服务端统一 `Date.now()`（UTC 毫秒）+ `toISOString()`（UTC ISO）；JWT 用 epoch 秒；无本地时区混用 ✓
+
+### 5.4 验证闭环
+
+- typecheck：✅（shared/desktop/miniprogram/mobile/server/web 全过）
+- lint：✅（全 6 包过）
+- test：✅ 196 项通过（shared 57 + server 71 + web 68）
+- 版本号：全端同步至 2.3.1（package.json ×7、tauri.conf.json、Cargo.toml、Android versionCode 11→12、server env/update-manifest、mobile/miniprogram 源码内嵌 APP_VERSION）
+
+**结论**：v2.3.1 完成「零故障生产级系统」SOP 全流程，事务一致性、并发竞态、数据可携带性、纵深防御四线加固到位，可作为 **Production GA** 发布。

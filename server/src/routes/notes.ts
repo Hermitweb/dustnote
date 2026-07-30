@@ -208,30 +208,6 @@ notesRouter.patch('/notes/:id', (req, res) => {
 
   if (data.ciphertext !== undefined) {
     // 内容变更：先将旧密文存入 note_versions 作为历史快照
-    const versionId = randomUUID();
-    db.prepare(
-      `INSERT INTO note_versions (id, note_id, user_id, ciphertext, key_version, note_version, client_updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      versionId,
-      id,
-      user.userId,
-      existing.ciphertext,
-      existing.key_version,
-      existing.version,
-      existing.client_updated_at
-    );
-    // 保留最近 50 个版本，超出自动清理
-    db.prepare(
-      `DELETE FROM note_versions
-       WHERE note_id = ? AND user_id = ?
-         AND id NOT IN (
-           SELECT id FROM note_versions
-           WHERE note_id = ? AND user_id = ?
-           ORDER BY created_at DESC LIMIT 50
-         )`
-    ).run(id, user.userId, id, user.userId);
-
     updates.push('ciphertext = ?');
     params.push(data.ciphertext);
     updates.push('key_version = ?');
@@ -258,7 +234,36 @@ notesRouter.patch('/notes/:id', (req, res) => {
   updates.push('version = version + 1');
   params.push(id, user.userId);
 
-  db.prepare(`UPDATE notes SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
+  // 事务：历史快照插入 + 旧版本清理 + 主表更新必须原子
+  // 任意一步失败回滚，避免出现「快照已写但笔记未更新」或「版本被清理但快照未插入」的不一致
+  db.transaction(() => {
+    if (data.ciphertext !== undefined) {
+      const versionId = randomUUID();
+      db.prepare(
+        `INSERT INTO note_versions (id, note_id, user_id, ciphertext, key_version, note_version, client_updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        versionId,
+        id,
+        user.userId,
+        existing.ciphertext,
+        existing.key_version,
+        existing.version,
+        existing.client_updated_at
+      );
+      // 保留最近 50 个版本，超出自动清理
+      db.prepare(
+        `DELETE FROM note_versions
+         WHERE note_id = ? AND user_id = ?
+           AND id NOT IN (
+             SELECT id FROM note_versions
+             WHERE note_id = ? AND user_id = ?
+             ORDER BY created_at DESC LIMIT 50
+           )`
+      ).run(id, user.userId, id, user.userId);
+    }
+    db.prepare(`UPDATE notes SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
+  })();
 
   const updated = db
     .prepare(
@@ -486,37 +491,40 @@ notesRouter.post('/notes/:id/versions/:versionId/restore', (req, res) => {
   const currentNote = db
     .prepare('SELECT ciphertext, key_version, version, client_updated_at FROM notes WHERE id = ? AND user_id = ?')
     .get(id, user.userId) as {
-      ciphertext: Buffer | string;
-      key_version: number;
-      version: number;
-      client_updated_at: string;
-    };
+    ciphertext: Buffer | string;
+    key_version: number;
+    version: number;
+    client_updated_at: string;
+  };
 
-  const snapshotId = randomUUID();
-  db.prepare(
-    `INSERT INTO note_versions (id, note_id, user_id, ciphertext, key_version, note_version, client_updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    snapshotId,
-    id,
-    user.userId,
-    currentNote.ciphertext,
-    currentNote.key_version,
-    currentNote.version,
-    currentNote.client_updated_at
-  );
+  // 事务：当前密文快照 + 历史密文覆盖必须原子，避免快照写入但覆盖失败导致数据不一致
+  db.transaction(() => {
+    const snapshotId = randomUUID();
+    db.prepare(
+      `INSERT INTO note_versions (id, note_id, user_id, ciphertext, key_version, note_version, client_updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      snapshotId,
+      id,
+      user.userId,
+      currentNote.ciphertext,
+      currentNote.key_version,
+      currentNote.version,
+      currentNote.client_updated_at
+    );
 
-  // 用历史版本的密文覆盖当前笔记
-  db.prepare(
-    `UPDATE notes SET ciphertext = ?, key_version = ?, version = version + 1, client_updated_at = ?
-     WHERE id = ? AND user_id = ?`
-  ).run(
-    String(versionRow.ciphertext),
-    versionRow.key_version,
-    parsed.data.clientUpdatedAt,
-    id,
-    user.userId
-  );
+    // 用历史版本的密文覆盖当前笔记
+    db.prepare(
+      `UPDATE notes SET ciphertext = ?, key_version = ?, version = version + 1, client_updated_at = ?
+       WHERE id = ? AND user_id = ?`
+    ).run(
+      String(versionRow.ciphertext),
+      versionRow.key_version,
+      parsed.data.clientUpdatedAt,
+      id,
+      user.userId
+    );
+  })();
 
   const updated = db
     .prepare('SELECT server_updated_at, version FROM notes WHERE id = ?')

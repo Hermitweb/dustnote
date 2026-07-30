@@ -87,7 +87,11 @@ devicesRouter.delete('/devices/:id', (req, res) => {
 
   // 清空 refresh_token_hash，该设备将无法刷新 token
   // 不直接 DELETE 行：保留审计记录（last_active_at 等）
-  db.prepare(`UPDATE devices SET refresh_token_hash = NULL WHERE id = ?`).run(deviceId);
+  // WHERE 同时带 user_id 做纵深防御：即便上层 SELECT 之外有并发变更，也不会误改他用户设备
+  db.prepare(`UPDATE devices SET refresh_token_hash = NULL WHERE id = ? AND user_id = ?`).run(
+    deviceId,
+    user.userId,
+  );
   logger.info({ userId: user.userId, deviceId }, '设备已吊销');
   res.json({ ok: true });
 });

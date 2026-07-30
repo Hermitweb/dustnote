@@ -119,19 +119,27 @@ accountRouter.get('/account/export', (req, res) => {
   const userId = user.userId;
 
   const data = db.transaction(() => {
+    // 显式列：排除服务端凭据校验产物（password_hash / master_salt /
+    //   recovery_hash / recovery_salt），它们对迁移无价值，且一旦导出文件
+    //   泄漏会带来离线爆破风险。保留 wrapped_master_key —— 它含有用户
+    //   主密钥的密文，是迁移后用主密码重新解开笔记的唯一凭证。
     const userRow = db
-      .prepare<unknown[], Record<string, unknown>>(`SELECT * FROM users WHERE id = ?`)
+      .prepare<unknown[], Record<string, unknown>>(
+        `SELECT id, wrapped_master_key, kdf_version, kdf_params, recovery_code_set, created_at, updated_at FROM users WHERE id = ?`,
+      )
       .get(userId);
     if (!userRow) return null;
 
+    // 显式列：排除 refresh_token_hash（服务端会话密钥哈希，迁移无用，
+    //   泄漏有被离线爆破风险；新设备登录会重新生成）。
     const devices = db
       .prepare<unknown[], Record<string, unknown>[]>(
-        `SELECT * FROM devices WHERE user_id = ?`,
+        `SELECT id, user_id, name, platform, fingerprint, last_active_at, created_at FROM devices WHERE user_id = ?`,
       )
       .all(userId);
     const notes = db
       .prepare<unknown[], Record<string, unknown>[]>(
-        `SELECT id, user_id, is_pinned, is_favorite, deleted_at, version, client_updated_at, created_at, updated_at FROM notes WHERE user_id = ?`,
+        `SELECT id, user_id, ciphertext, key_version, is_pinned, is_favorite, deleted_at, version, folder_id, client_updated_at, server_updated_at, created_at, updated_at FROM notes WHERE user_id = ?`,
       )
       .all(userId);
     const folders = db
@@ -149,8 +157,18 @@ accountRouter.get('/account/export', (req, res) => {
         `SELECT * FROM preferences WHERE user_id = ?`,
       )
       .all(userId);
+    const shares = db
+      .prepare<unknown[], Record<string, unknown>[]>(
+        `SELECT id, note_id, token, ciphertext, wrapped_share_key, password_hash IS NOT NULL AS has_password, expires_at, view_count, revoked, created_at FROM shares WHERE user_id = ?`,
+      )
+      .all(userId);
+    const templates = db
+      .prepare<unknown[], Record<string, unknown>[]>(
+        `SELECT id, user_id, name, description, category, icon, content, is_preset, sort_order, created_at, updated_at FROM templates WHERE user_id = ?`,
+      )
+      .all(userId);
 
-    return { user: userRow, devices, notes, folders, tags, preferences };
+    return { user: userRow, devices, notes, folders, tags, preferences, shares, templates };
   })();
 
   if (!data) {
