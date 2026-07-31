@@ -12,7 +12,7 @@ env:
   PNPM_VERSION: '9.12.0'
   # Use the tag name when triggered by a tag; fall back to v2.3.2 for the
   # branch-triggered release.
-  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.4' }}
+  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.5' }}
 
 concurrency:
   group: release-${{ github.ref }}
@@ -161,7 +161,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.4' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.5' }}
         run: |
           $ver = $env:VPK_VERSION -replace '^v', ''
           $stagingPath = 'desktop/src-tauri/staging'
@@ -184,7 +184,7 @@ jobs:
         # macOS/Linux vpk pack 依赖 .app bundle 或额外运行时资源，硬件平台受限
         continue-on-error: ${{ matrix.os != 'windows-latest' }}
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.4' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.5' }}
         run: |
           ver="${VPK_VERSION#v}"
           vpk pack --packId DustNote --packVersion "$ver" --packDir staging --mainExe ${{ matrix.main_exe }} --channel ${{ matrix.channel }} --runtime ${{ matrix.runtime }} --icon icons/icon.ico
@@ -234,11 +234,15 @@ jobs:
       - name: Symlink react-native into mobile/node_modules (pnpm hoisted layout)
         run: |
           mkdir -p mobile/node_modules
-          # Link react itself first — some native modules resolve react relative
-          # to their own location and may not traverse up to workspace root in
-          # the hoisted layout, causing duplicate React instances and
-          # "Cannot read property 'useRef' of null" at render time.
-          if [ -e "node_modules/react" ] && [ ! -e "mobile/node_modules/react" ]; then
+          # 强制重建 react 符号链接 —— pnpm install 会在 mobile/node_modules/react
+          # 创建指向 .pnpm/react@x.y.z/node_modules/react 的 junction（pnpm store
+          # 副本），与根 node_modules/react（hoisted 物理目录）是两份不同副本。
+          # 若不覆盖，Metro 对原生模块做 hierarchical lookup 时会命中 store 副本，
+          # 与 App 代码解析到的 hoisted 副本构成双 React 实例 →
+          # "Cannot read property 'useRef' of null" 启动崩溃。
+          # 必须 rm -f 先删除 pnpm junction，再 ln -s 指向 root 的同一份 react。
+          if [ -e "node_modules/react" ]; then
+            rm -f "mobile/node_modules/react"
             ln -s "$(pwd)/node_modules/react" "mobile/node_modules/react"
           fi
           # Link ALL react-native* and @react-native* scoped packages from

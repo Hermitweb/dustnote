@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/web",
-  "version": "2.3.4",
+  "version": "2.3.5",
   "private": true,
   "description": "DustNote Web 客户端",
   "type": "module",

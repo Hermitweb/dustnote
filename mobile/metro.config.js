@@ -25,10 +25,37 @@ const config = {
     // subpath imports like @babel/runtime/helpers/interopRequireDefault.
     extraNodeModules: {
       '@dustnote/shared': path.resolve(sharedPkg, 'src'),
-      // 显式映射 react，确保 pnpm hoisted 布局下所有模块解析到同一份 React 实例。
-      // 若缺少此映射，某些原生模块（经 nodeModulesPaths 回退到 workspace root）
-      // 可能解析到不同的 react 副本，导致 "Cannot read property 'useRef' of null"。
       react: path.resolve(rootNodeModules, 'react'),
+    },
+    // 强制所有 react / react/* 导入解析到 workspace root 的同一份实例。
+    //
+    // 背景：pnpm hoisted 布局下 mobile/node_modules/react 是指向
+    // .pnpm/react@18.2.0/node_modules/react 的 junction，与根 node_modules/react
+    // （物理目录）是两份不同的物理副本。原生模块（react-native-*, @react-native-*
+    // 等）通过 hierarchical lookup 从自身目录向上查找时，会先命中
+    // mobile/node_modules/react（pnpm store 副本），而 App 代码经 extraNodeModules
+    // 解析到根 node_modules/react（hoisted 副本）→ bundle 内出现两份 React 实例 →
+    // ReactSharedInternals.Hook dispatcher 不匹配 → "Cannot read property 'useRef'
+    // of null" 启动崩溃。
+    //
+    // extraNodeModules 仅在默认解析失败时作为 fallback 触发，无法覆盖上述场景，
+    // 故必须用 resolveRequest 在解析器入口显式拦截 react 的所有导入（含 JSX transform
+    // 产生的 react/jsx-runtime、react/jsx-dev-runtime 子路径），统一重定向到 root。
+    resolveRequest(context, moduleName, platform) {
+      if (moduleName === 'react' || moduleName.startsWith('react/')) {
+        try {
+          return {
+            type: 'sourceFile',
+            filePath: require.resolve(moduleName, { paths: [rootNodeModules] }),
+          };
+        } catch {
+          // root node_modules 找不到 react（异常环境）时回退默认解析，
+          // 由 nodeModulesPaths + extraNodeModules 兜底。
+        }
+      }
+      // 非react模块：委托默认解析器（context.resolveRequest 指向内置解析器，
+      // 非 decltype 当前自定义函数，不会递归）。
+      return context.resolveRequest(context, moduleName, platform);
     },
   },
 };

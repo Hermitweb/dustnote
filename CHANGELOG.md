@@ -13,6 +13,51 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.3.5] - 2026-07-31
+
+### 修复 — 安卓启动崩溃 "Cannot read property 'useRef' of null"（P0 根因修复）
+
+v2.3.4 发布后用户仍反馈安卓启动即崩溃。经 CI 日志取证确认：v2.3.3/v2.3.4 的修复（polyfill require 化 + extraNodeModules 映射 + CI 条件符号链接）**均未触及根因**——双 React 物理实例依然存在。
+
+#### 根因分析
+
+pnpm `node-linker=hoisted` 布局下存在两份不同的 React 物理副本：
+
+1. **根 `node_modules/react`**：pnpm hoisted 的物理目录（react-native 等原生模块经 hierarchical lookup 解析到此）
+2. **`mobile/node_modules/react`**：pnpm 自动创建的 junction，指向 `.pnpm/react@18.2.0/node_modules/react`（pnpm virtual store 副本，App 代码经 `nodeModulesPaths` 优先解析到此）
+
+两份副本虽版本相同（18.2.0），但物理路径不同 → Metro bundle 内出现两份 `ReactSharedInternals` 实例 → 组件用 A 实例创建、渲染器用 B 实例调度 → hook dispatcher 为 null → `useRef`/`useState` 等 hook 调用抛 "Cannot read property 'useRef' of null"。
+
+**为什么之前的修复无效**：
+
+- `extraNodeModules: { react: ... }` 仅在默认解析失败时作为 fallback 触发；当 `mobile/node_modules/react` 已存在（pnpm junction）时，Metro 直接命中本地副本，extraNodeModules 根本不执行
+- CI `release.yml` 的 `if [ ! -e "mobile/node_modules/react" ]` 守卫——pnpm install 已创建 junction，守卫条件为假，符号链接步骤被跳过，pnpm store 副本残留
+- v2.3.4 CI 构建日志确认：symlink 步骤的 `if` 条件未通过，react 链接未创建 → APK 内双 React 实例 → 崩溃
+
+#### 修复方案（三层防御）
+
+1. **`mobile/metro.config.js` — resolveRequest 显式拦截（核心修复）**
+   在 resolver 入口添加自定义 `resolveRequest`，拦截所有 `react` 及 `react/*`（含 JSX transform 产生的 `react/jsx-runtime`、`react/jsx-dev-runtime`）导入，强制经 `require.resolve` 解析到 workspace root 的同一份实例。无论物理布局如何（junction 存在与否），均保证 bundle 内单一 React 实例。非 react 模块委托内置解析器（`context.resolveRequest`，非递归）。
+
+2. **`.github/workflows/release.yml` — 强制重建 react 符号链接**
+   移除 `[ ! -e ]` 守卫，改为 `rm -f` 先删除 pnpm 创建的 junction，再 `ln -s` 指向 root 的同一份 react。确保 CI 产物中 mobile 与 root 的 react 指向同一物理目录。
+
+3. **本地 stale junction 修复**
+   删除 `mobile/node_modules/react` 指向 pnpm store 的旧 junction，重建为指向 `node_modules/react`（root hoisted 副本），本地开发环境同样保证单一实例。
+
+#### ErrorBoundary 增强
+
+- 新增"显示详情"开关：可展开查看完整错误栈 + 组件栈（之前仅显示 4 行 error.message），便于无 adb 环境就地排查
+- 新增"退出应用"按钮（`BackHandler.exitApp`）：重新加载无效时的兜底退出
+- "复制日志"改为"输出日志"并明确提示通过 `adb logcat | grep DustNote` 查看（项目未链接 `@react-native-clipboard/clipboard`，无法真正写入剪贴板）
+
+### 涉及文件
+
+- `mobile/metro.config.js` — 新增 resolveRequest 强制 react 单实例解析
+- `.github/workflows/release.yml` — 强制重建 react 符号链接 + fallback 版本号 v2.3.5
+- `mobile/src/components/ErrorBoundary.tsx` — 显示详情/退出应用/输出日志增强
+- 全端版本号同步至 2.3.5（Android versionCode 16）
+
 ## [2.3.4] - 2026-07-31
 
 ### 修复 — 全端产物审计与加固
