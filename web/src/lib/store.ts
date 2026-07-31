@@ -1066,7 +1066,13 @@ export const useStore = create<StoreState>((set, get) => ({
         isFavorite: patch.isFavorite ?? note.isFavorite,
       });
       const newNotes = new Map(get().notes);
-      newNotes.set(id, { ...note, ciphertext: cipherJson, version });
+      newNotes.set(id, {
+        ...note,
+        ciphertext: cipherJson,
+        version,
+        isPinned: patch.isPinned ?? note.isPinned,
+        isFavorite: patch.isFavorite ?? note.isFavorite,
+      });
       const newPlain = new Map(get().notesPlain);
       newPlain.set(id, merged);
       set({ notes: newNotes, notesPlain: newPlain });
@@ -1085,7 +1091,12 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // 乐观更新：先写入本地 store，UI 立即反映
     const newNotes = new Map(get().notes);
-    newNotes.set(id, { ...note, ciphertext: cipherJson });
+    newNotes.set(id, {
+      ...note,
+      ciphertext: cipherJson,
+      isPinned: patch.isPinned ?? note.isPinned,
+      isFavorite: patch.isFavorite ?? note.isFavorite,
+    });
     const newPlain = new Map(get().notesPlain);
     newPlain.set(id, merged);
     set({ notes: newNotes, notesPlain: newPlain });

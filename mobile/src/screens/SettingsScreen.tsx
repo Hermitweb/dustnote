@@ -38,8 +38,10 @@ import { createRepository } from '../lib/repository';
 import { useColors, useThemeStore, type ThemeMode } from '../theme';
 import type { BackupPayload, AppMode } from '@dustnote/shared';
 import RNFS from 'react-native-fs';
+import { checkUpdateOnce, resetUpdateCache } from '../lib/use-update-check';
+import type { CheckUpdateResult } from '@dustnote/shared';
 
-const APP_VERSION = '2.3.5';
+const APP_VERSION = '2.3.6';
 const LANG_OPTIONS: Array<{ lang: AppLanguage; key: string }> = [
   { lang: 'zh-CN', key: 'settings.lang_zh' },
   { lang: 'en', key: 'settings.lang_en' },
@@ -78,7 +80,56 @@ export function SettingsScreen() {
   const [switchTarget, setSwitchTarget] = useState<AppMode | null>(null);
   const [switchServerUrl, setSwitchServerUrl] = useState('');
 
+  // 更新检查
+  const [updateChecking, setUpdateChecking] = useState(false);
+  const [updateResult, setUpdateResult] = useState<CheckUpdateResult | null>(null);
+
   const styles = makeStyles(colors);
+
+  // ========== 更新检查 ==========
+  const onCheckUpdate = async () => {
+    if (updateChecking) return;
+    setUpdateChecking(true);
+    setUpdateResult(null);
+    resetUpdateCache();
+    try {
+      const r = await checkUpdateOnce();
+      setUpdateResult(r);
+      if (r.status === 'force_update' && r.updateUrl) {
+        Alert.alert(
+          '发现新版本',
+          `当前版本已过期，请升级到最新版本。\n\n${r.message ?? ''}`,
+          [
+            { text: '稍后', style: 'cancel' },
+            { text: '去下载', onPress: () => void Share.share({ message: r.updateUrl! }) },
+          ]
+        );
+      } else if (r.status === 'ok' && r.manifest) {
+        const latest = r.manifest.latest.version;
+        if (latest !== APP_VERSION) {
+          Alert.alert(
+            '发现新版本',
+            `最新版本：v${latest}\n当前版本：v${APP_VERSION}\n\n是否前往下载？`,
+            [
+              { text: '稍后', style: 'cancel' },
+              {
+                text: '去下载',
+                onPress: () => {
+                  if (r.updateUrl) void Share.share({ message: r.updateUrl });
+                },
+              },
+            ]
+          );
+        } else {
+          Alert.alert('已是最新版本', `当前版本：v${APP_VERSION}`);
+        }
+      } else if (r.status === 'error') {
+        Alert.alert('检查更新失败', r.message ?? '未知错误');
+      }
+    } finally {
+      setUpdateChecking(false);
+    }
+  };
 
   // ========== 导出 ==========
   const onExport = async () => {
@@ -368,6 +419,23 @@ export function SettingsScreen() {
           detail={appMode === 'standalone' ? t('settings.mode_detail_standalone') : t('settings.mode_detail_online')}
           colors={colors}
         />
+        {/* 更新检查（仅联机模式可用） */}
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => void onCheckUpdate()}
+          disabled={updateChecking || appMode === 'standalone'}
+        >
+          <Text style={styles.rowLabel}>
+            {updateChecking ? '检查更新中…' : '🔍 检查更新'}
+          </Text>
+          {appMode === 'standalone' ? (
+            <Text style={styles.rowDetail}>单机模式不可用</Text>
+          ) : updateResult?.status === 'ok' && updateResult.manifest ? (
+            <Text style={styles.rowDetail}>最新 v{updateResult.manifest.latest.version}</Text>
+          ) : (
+            <Text style={styles.rowDetail}>›</Text>
+          )}
+        </TouchableOpacity>
       </Section>
 
       {/* 导入 Modal */}

@@ -163,12 +163,13 @@ export class RemoteRepository implements DataRepository {
 
   async emptyTrash(): Promise<void> {
     // 服务端无批量清空接口，逐条永久删除
+    // 硬约束：使用顺序删除（for...of）而非 Promise.all，避免请求风暴
     const r = await api.get<NotesResponse>('/notes?includeDeleted=1');
     const trashIds = r.notes.filter((n) => n.deletedAt !== null).map((n) => n.id);
     if (trashIds.length === 0) return;
-    await Promise.all(
-      trashIds.map((tid) => api.delete(`/notes/${tid}/permanent`))
-    );
+    for (const tid of trashIds) {
+      await api.delete(`/notes/${tid}/permanent`);
+    }
   }
 
   // ========== 文件夹 ==========

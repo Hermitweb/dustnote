@@ -66,7 +66,7 @@ import {
   initStandaloneSession,
 } from '../lib/standalone-session';
 
-const APP_VERSION = '2.3.5';
+const APP_VERSION = '2.3.6';
 
 // 设备 ID：首次生成后持久化到本地存储
 let deviceId = '';
@@ -404,6 +404,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
  * - H5：serverUrl 为 null 时走相对路径 /api/v1（devServer proxy）
  * - weapp：serverUrl 必须是完整 URL（如 http://192.168.x.x:3210/api/v1）
  * - 联机模式下用户在 mode-select 页输入 serverUrl
+ *
+ * 注意：weapp 未配置 serverUrl 时不再静默回退到 localhost（真机会因网络不通
+ * 导致请求长时间挂起，且错误信息不直观）。改为抛错，由调用方 try/catch
+ * 捕获并向用户给出可操作的提示。正常联机模式下此分支不应触发，因为
+ * mode-select 页选择联机模式时已强制写入 serverUrl。
  */
 export function getApi(): ApiClient {
   const { serverUrl } = useModeStore.getState();
@@ -413,8 +418,8 @@ export function getApi(): ApiClient {
   } else if (process.env.TARO_ENV === 'h5') {
     baseUrl = '/api/v1';
   } else {
-    // weapp 未配置 serverUrl：回退到 localhost（仅开发调试用）
-    baseUrl = 'http://localhost:3210/api/v1';
+    // weapp 未配置 serverUrl：抛错让上层 UI 友好提示
+    throw new Error('未配置服务器地址，请在设置中重新选择联机模式并填写服务器地址');
   }
   return new ApiClient({
     baseUrl,

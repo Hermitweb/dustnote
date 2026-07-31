@@ -54,12 +54,42 @@ export function StandaloneSetupScreen() {
       Alert.alert('错误', '两次密码不一致');
       return;
     }
+    // 诊断：检查 crypto.subtle 是否就绪（v2.3.5 新增）
+    // 如果 polyfill 加载失败，global.crypto.subtle 会是 undefined
+    if (typeof global.crypto === 'undefined' || !global.crypto.subtle) {
+      // @ts-ignore - 诊断全局变量
+      const st = globalThis.__QCRYPTO_STATUS || {};
+      Alert.alert(
+        '加密模块未就绪',
+        'crypto.subtle 不可用，无法进行加密操作。\n\n' +
+          '诊断信息：\n' +
+          `global.crypto: ${typeof global.crypto}\n` +
+          `crypto.subtle: ${global.crypto ? typeof global.crypto.subtle : 'N/A'}\n` +
+          `requireOk: ${st.requireOk}\n` +
+          `hasInstall: ${st.hasInstall}\n` +
+          `installOk: ${st.installOk}\n` +
+          `requireError: ${st.requireError ?? '无'}\n` +
+          `installError: ${st.installError ?? '无'}\n\n` +
+          '请重启应用；若仍失败请重新安装。'
+      );
+      return;
+    }
     setSubmitting(true);
+    // 让 UI 先渲染 "设置中..." 状态，避免 Argon2id 同步阻塞主线程时用户看不到反馈。
+    // Argon2id 在 @noble/hashes 中是纯 JS 同步实现，会阻塞 Hermes 主线程几秒，
+    // 必须先让 React 完成一次渲染，用户才知道按钮被触发了。
+    await new Promise((resolve) => setTimeout(resolve, 0));
     try {
+      console.log('[DustNote] setupStandalone start, pwd len=' + password.length);
+      const t0 = Date.now();
       const code = await setupStandalone(password);
+      console.log('[DustNote] setupStandalone done in ' + (Date.now() - t0) + 'ms');
       setRecoveryCode(code);
     } catch (err) {
-      Alert.alert('设置失败', (err as Error).message);
+      console.error('[DustNote] setupStandalone failed:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack ?? '' : '';
+      Alert.alert('设置失败', `${msg}\n\n${stack.slice(0, 500)}`);
     } finally {
       setSubmitting(false);
     }

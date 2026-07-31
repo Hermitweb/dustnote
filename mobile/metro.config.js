@@ -42,6 +42,29 @@ const config = {
     // 故必须用 resolveRequest 在解析器入口显式拦截 react 的所有导入（含 JSX transform
     // 产生的 react/jsx-runtime、react/jsx-dev-runtime 子路径），统一重定向到 root。
     resolveRequest(context, moduleName, platform) {
+      // 重定向 react-native-quick-base64 → 纯 JS base64-js
+      //
+      // 背景：react-native-quick-base64 是纯 TurboModule（package.json 无
+      // `react-native` 字段，android 仅有 codegen 生成的 TurboModule spec，
+      // 无传统 ReactPackage），在旧架构（newArchEnabled=false）下其 TurboModule
+      // (QuickBase64) 无法注册到 TurboModuleRegistry —— require 时抛
+      // "TurboModuleRegistry.getEnforcing: 'QuickBase64' could not be found"。
+      // @craftzdog/react-native-buffer 在 RN 环境强制 require 它，导致
+      // react-native-quick-crypto 整个模块加载失败，crypto.subtle 不可用。
+      //
+      // 修复：重定向到 base64-js（纯 JS 实现，react-native-buffer 在非 RN
+      // 环境的 fallback），功能等价，性能略低但避免崩溃。crypto.subtle 仍由
+      // react-native-quick-crypto 的原生 QuickCryptoModule（已 autolinked）提供。
+      if (moduleName === 'react-native-quick-base64') {
+        try {
+          return {
+            type: 'sourceFile',
+            filePath: require.resolve('base64-js', { paths: [rootNodeModules] }),
+          };
+        } catch {
+          // base64-js 找不到时回退默认解析（由 nodeModulesPaths 兜底）
+        }
+      }
       if (moduleName === 'react' || moduleName.startsWith('react/')) {
         try {
           return {

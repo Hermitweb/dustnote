@@ -2,14 +2,20 @@
  * 文件夹管理页
  *
  * 功能：
- * - 列出所有文件夹（GET /folders）
- * - 新建文件夹（POST /folders）
- * - 删除文件夹（DELETE /folders/:id）
+ * - 列出所有文件夹
+ * - 新建文件夹
+ * - 删除文件夹
+ *
+ * v2.0.0 双模式架构：通过 createRepository 工厂按模式分流
+ * - standalone → LocalRepository（AsyncStorage）
+ * - online     → RemoteRepository（封装 api）
+ *
+ * 不再直接调用 api.get/post，避免单机模式下因无服务端而崩溃
  *
  * 交互：顶部内联输入框新建；列表项右侧删除按钮 + Alert 二次确认
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,7 +26,8 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { api } from '../api';
+import { useModeStore } from '../lib/mode-store';
+import { createRepository } from '../lib/repository';
 import { useColors } from '../theme';
 
 interface Folder {
@@ -34,21 +41,37 @@ interface Folder {
 
 export function FoldersScreen() {
   const colors = useColors();
+  const mode = useModeStore((s) => s.mode);
+  const modeInitialized = useModeStore((s) => s.initialized);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [newName, setNewName] = useState('');
 
+  // 创建 Repository（按当前模式分流）
+  // mode 可能因 hydrated 延迟而短暂为 null，使用 ?? 'online' 兜底避免类型错误
+  const repo = useMemo(
+    () =>
+      createRepository({
+        mode: mode ?? 'online',
+        serverUrl: null,
+        accessToken: null,
+        deviceId: null,
+      }),
+    [mode]
+  );
+
   const load = useCallback(async () => {
+    if (!modeInitialized) return;
     setRefreshing(true);
     try {
-      const r = await api.get<{ folders: Folder[] }>('/folders');
-      setFolders(r.folders);
+      const snapshot = await repo.loadAll();
+      setFolders(snapshot.folders);
     } catch (err) {
       console.warn('加载文件夹失败', err);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [repo, modeInitialized]);
 
   useEffect(() => {
     void load();
@@ -58,11 +81,11 @@ export function FoldersScreen() {
     const name = newName.trim();
     if (!name) return;
     try {
-      const r = await api.post<{ id: string }>('/folders', { name });
+      const id = await repo.createFolder({ name });
       setFolders((prev) => [
         ...prev,
         {
-          id: r.id,
+          id,
           name,
           parentId: null,
           icon: null,
@@ -84,7 +107,7 @@ export function FoldersScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await api.delete(`/folders/${folder.id}`);
+            await repo.deleteFolder(folder.id);
             setFolders((prev) => prev.filter((f) => f.id !== folder.id));
           } catch (err) {
             Alert.alert('删除失败', err instanceof Error ? err.message : String(err));

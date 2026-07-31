@@ -9,6 +9,7 @@ import { useStore } from '../lib/store';
 import { useModeStore } from '../lib/mode-store';
 import { getDeviceId } from '../lib/device';
 import { toast } from '../lib/toast';
+import { ConfirmDialog } from './ConfirmDialog';
 
 /**
  * 构造绝对 API 基址。
@@ -45,6 +46,10 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  /** 单条吊销确认：存储待吊销的 shareId */
+  const [revokeTargetId, setRevokeTargetId] = useState<string | null>(null);
+  /** 批量吊销确认 */
+  const [showBatchRevokeConfirm, setShowBatchRevokeConfirm] = useState(false);
 
   const exitSelect = useCallback(() => {
     setSelecting(false);
@@ -109,7 +114,6 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   const revoke = async (id: string) => {
-    if (!confirm(t('shares.confirm_revoke_one'))) return;
     try {
       const token = useStore.getState().accessToken;
       const r = await fetch(`${apiBase()}/shares/${id}`, {
@@ -125,14 +129,13 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       await load();
     } catch (err) {
-      alert(t('shares.revoke_fail', { reason: (err as Error).message }));
+      toast.error(t('shares.revoke_fail', { reason: (err as Error).message }));
     }
   };
 
   const batchRevoke = async () => {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
-    if (!confirm(t('shares.confirm_revoke_batch', { count: ids.length }))) return;
     let ok = 0;
     for (const id of ids) {
       try {
@@ -328,7 +331,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                         </button>
                         {canAct && (
                           <button
-                            onClick={() => void revoke(s.id)}
+                            onClick={() => setRevokeTargetId(s.id)}
                             className="rounded bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:bg-red-900/30"
                             aria-label={t('shares.revoke')}
                           >
@@ -358,7 +361,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                 {hasAll ? t('shares.deselect_all') : t('shares.select_all')}
               </button>
               <button
-                onClick={batchRevoke}
+                onClick={() => setShowBatchRevokeConfirm(true)}
                 className="rounded bg-red-50 px-3 py-1 text-xs text-red-600 hover:bg-red-100 dark:bg-red-900/30"
               >
                 {t('shares.batch_revoke')}
@@ -376,6 +379,37 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
           </button>
         )}
       </div>
+
+      {revokeTargetId && (
+        <ConfirmDialog
+          title={t('shares.revoke')}
+          message={t('shares.confirm_revoke_one')}
+          variant="danger"
+          confirmLabel={t('shares.revoke')}
+          cancelLabel={t('common.cancel')}
+          onConfirm={() => {
+            const id = revokeTargetId;
+            setRevokeTargetId(null);
+            void revoke(id);
+          }}
+          onCancel={() => setRevokeTargetId(null)}
+        />
+      )}
+
+      {showBatchRevokeConfirm && (
+        <ConfirmDialog
+          title={t('shares.batch_revoke')}
+          message={t('shares.confirm_revoke_batch', { count: selectedIds.size })}
+          variant="danger"
+          confirmLabel={t('shares.batch_revoke')}
+          cancelLabel={t('common.cancel')}
+          onConfirm={() => {
+            setShowBatchRevokeConfirm(false);
+            void batchRevoke();
+          }}
+          onCancel={() => setShowBatchRevokeConfirm(false)}
+        />
+      )}
     </div>
   );
 }

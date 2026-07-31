@@ -74,6 +74,8 @@ export function NoteEditScreen() {
   const { noteId } = route.params;
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<NoteRow | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -106,13 +108,15 @@ export function NoteEditScreen() {
           try {
             const env = parseEnvelope(n.ciphertext);
             const json = await decryptString(masterKey, env.payload);
-            const pt = JSON.parse(json) as { title: string; content: string };
+            const pt = JSON.parse(json) as { title: string; content: string; tags?: string[] };
             setTitle(pt.title);
             setContent(pt.content);
+            setTags(Array.isArray(pt.tags) ? pt.tags : []);
             setDecryptFailed(false);
           } catch {
             setTitle('🔒 解密失败');
             setContent('');
+            setTags([]);
             setDecryptFailed(true);
           }
         }
@@ -129,7 +133,7 @@ export function NoteEditScreen() {
     if (decryptFailed) return;
     setSaving(true);
     try {
-      const json = JSON.stringify({ title, content, tags: [] });
+      const json = JSON.stringify({ title, content, tags });
       const payload = await encryptString(masterKey, json, 1);
       const env: NoteEnvelope = { v: 1, payload };
       const nextVersion = await repo.updateNote(noteId, {
@@ -146,7 +150,7 @@ export function NoteEditScreen() {
       setSaving(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [masterKey, note, noteId, title, content, decryptFailed, repo]);
+  }, [masterKey, note, noteId, title, content, tags, decryptFailed, repo]);
 
   useEffect(() => {
     const timer = setTimeout(() => void save(), 1500);
@@ -384,6 +388,54 @@ export function NoteEditScreen() {
           textAlignVertical="top"
           editable={!decryptFailed}
         />
+        {/* ========== 标签编辑 ========== */}
+        {!decryptFailed && (
+          <View style={styles.tagsContainer}>
+            <View style={styles.tagsRow}>
+              {tags.map((tag) => (
+                <View key={tag} style={styles.tagChip}>
+                  <Text style={styles.tagChipText}>#{tag}</Text>
+                  <TouchableOpacity
+                    onPress={() => setTags((prev) => prev.filter((x) => x !== tag))}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.tagChipClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+            <View style={styles.tagInputRow}>
+              <TextInput
+                style={styles.tagInput}
+                value={tagInput}
+                onChangeText={setTagInput}
+                placeholder="添加标签…"
+                placeholderTextColor={colors.muted}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  const v = tagInput.trim().replace(/^#/, '').trim();
+                  if (v && !tags.includes(v)) {
+                    setTags((prev) => [...prev, v]);
+                  }
+                  setTagInput('');
+                }}
+              />
+              <TouchableOpacity
+                style={[styles.tagAddBtn, !tagInput.trim() && { opacity: 0.5 }]}
+                disabled={!tagInput.trim()}
+                onPress={() => {
+                  const v = tagInput.trim().replace(/^#/, '').trim();
+                  if (v && !tags.includes(v)) {
+                    setTags((prev) => [...prev, v]);
+                  }
+                  setTagInput('');
+                }}
+              >
+                <Text style={styles.tagAddBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* ========== 模板选择 Modal ========== */}
@@ -497,6 +549,59 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       minHeight: 400,
       lineHeight: 24,
     },
+    // 标签编辑
+    tagsContainer: {
+      paddingHorizontal: 16,
+      paddingTop: 4,
+      paddingBottom: 24,
+      borderTopColor: c.border,
+      borderTopWidth: 1,
+      marginTop: 4,
+    },
+    tagsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 10,
+    },
+    tagChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.bg,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderWidth: 1,
+      borderColor: c.border,
+      gap: 6,
+    },
+    tagChipText: { fontSize: 13, color: c.mint600, fontWeight: '500' },
+    tagChipClose: { fontSize: 14, color: c.muted, fontWeight: '600' },
+    tagInputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    tagInput: {
+      flex: 1,
+      backgroundColor: c.bg,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontSize: 14,
+      color: c.fg,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    tagAddBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      backgroundColor: c.mint600,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    tagAddBtnText: { color: 'white', fontSize: 22, fontWeight: '300' },
     // Modal 通用样式
     modalContainer: { flex: 1, backgroundColor: c.bg, padding: 16 },
     modalHeader: {

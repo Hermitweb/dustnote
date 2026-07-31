@@ -58,6 +58,8 @@ export function StandaloneUnlockScreen() {
       return;
     }
     setSubmitting(true);
+    // 让 UI 先渲染 "解锁中..." 状态，避免 Argon2id 同步阻塞主线程时用户看不到反馈
+    await new Promise((resolve) => setTimeout(resolve, 0));
     try {
       await unlockStandalone(password);
       // store 切换到 unlocked 状态后，App.tsx 会自动路由到主界面

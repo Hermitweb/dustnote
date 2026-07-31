@@ -103,7 +103,11 @@ export function useUpdater(): {
     setState('checking');
     setError(null);
     try {
-      const r = await api.checkForUpdates();
+      // 超时保护：Tauri IPC 挂起时避免界面卡死（10s）
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('检查更新超时，请稍后重试')), 10_000)
+      );
+      const r = await Promise.race([api.checkForUpdates(), timeoutPromise]);
       setCurrentVersion(r.currentVersion);
       setTargetVersion(r.targetVersion);
       setState(r.updateAvailable ? 'available' : 'uptodate');

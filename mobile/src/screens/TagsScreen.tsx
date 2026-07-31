@@ -2,14 +2,20 @@
  * 标签管理页
  *
  * 功能：
- * - 列出所有标签（GET /tags）
- * - 删除标签（DELETE /tags/:id）
+ * - 列出所有标签
+ * - 删除标签
+ *
+ * v2.0.0 双模式架构：通过 createRepository 工厂按模式分流
+ * - standalone → LocalRepository（AsyncStorage）
+ * - online     → RemoteRepository（封装 api）
+ *
+ * 不再直接调用 api.get/delete，避免单机模式下因无服务端而崩溃
  *
  * 注意：标签由笔记内容中的 tags 数组聚合生成，客户端不直接「新建标签」，
  *       而是在编辑笔记时添加。本页主要用于查看和删除无用标签。
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,7 +25,8 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { api } from '../api';
+import { useModeStore } from '../lib/mode-store';
+import { createRepository } from '../lib/repository';
 import { useColors } from '../theme';
 
 interface Tag {
@@ -31,20 +38,35 @@ interface Tag {
 
 export function TagsScreen() {
   const colors = useColors();
+  const mode = useModeStore((s) => s.mode);
+  const modeInitialized = useModeStore((s) => s.initialized);
   const [tags, setTags] = useState<Tag[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
+  // 创建 Repository（按当前模式分流）
+  const repo = useMemo(
+    () =>
+      createRepository({
+        mode: mode ?? 'online',
+        serverUrl: null,
+        accessToken: null,
+        deviceId: null,
+      }),
+    [mode]
+  );
+
   const load = useCallback(async () => {
+    if (!modeInitialized) return;
     setRefreshing(true);
     try {
-      const r = await api.get<{ tags: Tag[] }>('/tags');
-      setTags(r.tags);
+      const snapshot = await repo.loadAll();
+      setTags(snapshot.tags);
     } catch (err) {
       console.warn('加载标签失败', err);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [repo, modeInitialized]);
 
   useEffect(() => {
     void load();
@@ -58,7 +80,7 @@ export function TagsScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await api.delete(`/tags/${tag.id}`);
+            await repo.deleteTag(tag.id);
             setTags((prev) => prev.filter((t) => t.id !== tag.id));
           } catch (err) {
             Alert.alert('删除失败', err instanceof Error ? err.message : String(err));

@@ -44,6 +44,7 @@ import {
   remainingLockoutMs,
   INITIAL_LOCKOUT_STATE,
   LOCAL_LOCKOUT_DURATION_MS,
+  KDF_PARAMS_MOBILE,
   type Ciphertext,
   type LocalAuthBlob,
   type LocalLockoutState,
@@ -343,7 +344,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   async setupStandalone(password: string): Promise<string> {
-    const result = await setupLocalAuth(password);
+    // 使用移动端降级 KDF 参数（8MB），避免 64MB Argon2id 阻塞 Hermes 主线程
+    const result = await setupLocalAuth(password, KDF_PARAMS_MOBILE);
     await saveLocalAuthBlob(result.blob);
     await clearLockoutState();
     // 缓存 masterKey 到 keychain（生物识别保护），便于后续指纹 / 面容解锁
@@ -370,7 +372,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       throw new Error(`账号已锁定，请 ${Math.ceil(remaining / 1000)} 秒后重试`);
     }
 
-    const result = await unlockLocalAuth(password, localAuthBlob);
+    const result = await unlockLocalAuth(password, localAuthBlob, KDF_PARAMS_MOBILE);
     if (!result.success) {
       const newState = recordFailedAttempt(lockoutState);
       await saveLockoutState(newState);
@@ -427,7 +429,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   async recoverStandalone(recoveryCode: string, newPassword: string): Promise<string> {
     const { localAuthBlob } = get();
     if (!localAuthBlob) throw new Error('未初始化');
-    const result = await recoverLocalAuth(recoveryCode, newPassword, localAuthBlob);
+    const result = await recoverLocalAuth(recoveryCode, newPassword, localAuthBlob, KDF_PARAMS_MOBILE);
     if (!result.success || !result.blob || !result.masterKey || !result.recoveryCode) {
       throw new Error('恢复码错误');
     }

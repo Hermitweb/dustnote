@@ -135,9 +135,12 @@ export class RemoteRepository implements DataRepository {
 
   async emptyTrash(): Promise<void> {
     // 服务端无批量清空接口，逐条永久删除
+    // 硬约束：使用顺序删除（for...of）而非 Promise.all，避免请求风暴
     const notes = await this.loadAll();
     const trashNotes = notes.notes.filter((n: NoteRow) => n.deletedAt);
-    await Promise.all(trashNotes.map((n: NoteRow) => this.api().delete(`/notes/${n.id}/permanent`)));
+    for (const n of trashNotes) {
+      await this.api().delete(`/notes/${n.id}/permanent`);
+    }
   }
 
   // ========== 文件夹 ==========

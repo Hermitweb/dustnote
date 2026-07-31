@@ -2,15 +2,21 @@
  * 回收站页
  *
  * 功能：
- * - 列出已软删的笔记（GET /notes?includeDeleted=1 → filter deletedAt）
- * - 恢复笔记（PATCH /notes/:id { deletedAt: null }）
- * - 永久删除（DELETE /notes/:id/permanent）
- * - 清空回收站（批量永久删除）
+ * - 列出已软删的笔记
+ * - 恢复笔记
+ * - 永久删除
+ * - 清空回收站（顺序删除，避免请求风暴）
+ *
+ * v2.0.0 双模式架构：通过 createRepository 工厂按模式分流
+ * - standalone → LocalRepository（AsyncStorage）
+ * - online     → RemoteRepository（封装 api）
+ *
+ * 不再直接调用 api.get/patch/delete，避免单机模式下因无服务端而崩溃
  *
  * 解密复用 NotesListScreen 的 envelope 解析逻辑
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,26 +26,16 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { decryptString, type Ciphertext } from '@dustnote/shared';
-import { api } from '../api';
+import { decryptString, type Ciphertext, type NoteRow } from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
+import { useModeStore } from '../lib/mode-store';
+import { createRepository } from '../lib/repository';
 import { useColors } from '../theme';
 
 interface NotePlaintext {
   title: string;
   content: string;
   tags: string[];
-}
-
-interface NoteRow {
-  id: string;
-  isPinned: number;
-  isFavorite: number;
-  deletedAt: string | null;
-  serverUpdatedAt: string;
-  ciphertext: string;
-  folderId: string | null;
-  version: number;
 }
 
 function parseEnvelope(raw: string): { v: number; payload: Ciphertext } {
@@ -62,14 +58,29 @@ async function decryptNote(masterKey: Uint8Array, ciphertext: string): Promise<N
 export function TrashScreen() {
   const colors = useColors();
   const masterKey = useAuthStore((s) => s.masterKey);
+  const mode = useModeStore((s) => s.mode);
+  const modeInitialized = useModeStore((s) => s.initialized);
   const [notes, setNotes] = useState<Array<NoteRow & { plain: NotePlaintext | null }>>([]);
   const [refreshing, setRefreshing] = useState(false);
 
+  // 创建 Repository（按当前模式分流）
+  const repo = useMemo(
+    () =>
+      createRepository({
+        mode: mode ?? 'online',
+        serverUrl: null,
+        accessToken: null,
+        deviceId: null,
+      }),
+    [mode]
+  );
+
   const load = useCallback(async () => {
+    if (!modeInitialized) return;
     setRefreshing(true);
     try {
-      const r = await api.get<{ notes: NoteRow[] }>('/notes?includeDeleted=1');
-      const deleted = r.notes.filter((n) => n.deletedAt);
+      const snapshot = await repo.loadAll();
+      const deleted = snapshot.notes.filter((n) => n.deletedAt);
       const withPlain: Array<NoteRow & { plain: NotePlaintext | null }> = [];
       for (const n of deleted) {
         let plain: NotePlaintext | null = null;
@@ -90,19 +101,15 @@ export function TrashScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [masterKey]);
+  }, [masterKey, repo, modeInitialized]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const handleRestore = async (id: string, version: number) => {
+  const handleRestore = async (id: string) => {
     try {
-      await api.patch(`/notes/${id}`, {
-        deletedAt: null,
-        clientUpdatedAt: new Date().toISOString(),
-        version,
-      });
+      await repo.restoreNote(id);
       setNotes((prev) => prev.filter((n) => n.id !== id));
     } catch (err) {
       Alert.alert('恢复失败', err instanceof Error ? err.message : String(err));
@@ -117,7 +124,7 @@ export function TrashScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await api.delete(`/notes/${id}/permanent`);
+            await repo.permanentDeleteNote(id);
             setNotes((prev) => prev.filter((n) => n.id !== id));
           } catch (err) {
             Alert.alert('删除失败', err instanceof Error ? err.message : String(err));
@@ -136,7 +143,8 @@ export function TrashScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await Promise.all(notes.map((n) => api.delete(`/notes/${n.id}/permanent`)));
+            // 委托给 repo.emptyTrash()（内部顺序删除，避免请求风暴）
+            await repo.emptyTrash();
             setNotes([]);
           } catch (err) {
             Alert.alert('清空失败', err instanceof Error ? err.message : String(err));
@@ -180,7 +188,7 @@ export function TrashScreen() {
             <View style={styles.actions}>
               <TouchableOpacity
                 style={styles.restoreBtn}
-                onPress={() => void handleRestore(item.id, item.version)}
+                onPress={() => void handleRestore(item.id)}
               >
                 <Text style={styles.restoreText}>↩ 恢复</Text>
               </TouchableOpacity>

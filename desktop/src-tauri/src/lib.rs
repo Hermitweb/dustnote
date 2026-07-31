@@ -231,12 +231,12 @@ pub fn run() {
             let file_quit_i = MenuItem::with_id(app, "file_quit", "退出 DustNote", true, Some("Ctrl+Q"))?;
             let file_menu = Submenu::with_items(app, "文件", true, &[&new_note_i, &file_quit_i])?;
 
-            let undo_i = PredefinedMenuItem::undo(app, None)?;
-            let redo_i = PredefinedMenuItem::redo(app, None)?;
-            let cut_i = PredefinedMenuItem::cut(app, None)?;
-            let copy_i = PredefinedMenuItem::copy(app, None)?;
-            let paste_i = PredefinedMenuItem::paste(app, None)?;
-            let select_all_i = PredefinedMenuItem::select_all(app, None)?;
+            let undo_i = PredefinedMenuItem::undo(app, Some("撤销"))?;
+            let redo_i = PredefinedMenuItem::redo(app, Some("重做"))?;
+            let cut_i = PredefinedMenuItem::cut(app, Some("剪切"))?;
+            let copy_i = PredefinedMenuItem::copy(app, Some("复制"))?;
+            let paste_i = PredefinedMenuItem::paste(app, Some("粘贴"))?;
+            let select_all_i = PredefinedMenuItem::select_all(app, Some("全选"))?;
             let edit_menu = Submenu::with_items(app, "编辑", true, &[
                 &undo_i, &redo_i, &cut_i, &copy_i, &paste_i, &select_all_i
             ])?;

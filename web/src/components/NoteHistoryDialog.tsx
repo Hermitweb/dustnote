@@ -14,6 +14,7 @@ import { decryptString, type NoteVersionMeta } from '@dustnote/shared';
 import { useStore } from '../lib/store';
 import { getDeviceId } from '../lib/device';
 import { sanitizeHtml } from '../lib/sanitize-html';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface NoteHistoryDialogProps {
   noteId: string;
@@ -34,6 +35,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
   const [restoring, setRestoring] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
 
   const fetchVersions = useCallback(async () => {
     setLoadingList(true);
@@ -112,7 +114,6 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
 
   const restore = useCallback(async () => {
     if (!selectedId) return;
-    if (!confirm(t('history.restore_confirm'))) return;
 
     setRestoring(true);
     setError(null);
@@ -239,7 +240,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
             {t('common.close')}
           </button>
           <button
-            onClick={() => void restore()}
+            onClick={() => setShowRestoreConfirm(true)}
             disabled={!selectedId || restoring}
             className="rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
           >
@@ -247,6 +248,21 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
           </button>
         </div>
       </div>
+
+      {showRestoreConfirm && (
+        <ConfirmDialog
+          title={t('history.restore')}
+          message={t('history.restore_confirm')}
+          variant="danger"
+          confirmLabel={t('common.confirm')}
+          cancelLabel={t('common.cancel')}
+          onConfirm={() => {
+            setShowRestoreConfirm(false);
+            void restore();
+          }}
+          onCancel={() => setShowRestoreConfirm(false)}
+        />
+      )}
     </div>
   );
 }

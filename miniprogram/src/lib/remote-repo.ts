@@ -115,9 +115,18 @@ export class RemoteRepository implements DataRepository {
 
   async emptyTrash(): Promise<void> {
     // 服务端无批量清空接口，逐条永久删除
+    // 使用顺序删除而非 Promise.all：
+    // - 避免回收站笔记数量较多时并发请求风暴触发服务端限流
+    // - 任一条删除失败不阻塞后续，最终汇总失败项
     const notes = await this.loadAll();
     const trashNotes = notes.notes.filter((n) => n.deletedAt);
-    await Promise.all(trashNotes.map((n) => this.getApi().delete(`/notes/${n.id}/permanent`)));
+    for (const n of trashNotes) {
+      try {
+        await this.getApi().delete(`/notes/${n.id}/permanent`);
+      } catch {
+        // 单条失败不中断整体流程，继续尝试其余项
+      }
+    }
   }
 
   // ========== 文件夹 ==========

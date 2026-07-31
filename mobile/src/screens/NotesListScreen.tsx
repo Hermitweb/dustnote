@@ -21,7 +21,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
 import {
@@ -123,6 +123,13 @@ export function NotesListScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 从 NoteEditScreen 返回（屏幕重新聚焦）时重新加载，确保标题修改后列表立即更新
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase();
