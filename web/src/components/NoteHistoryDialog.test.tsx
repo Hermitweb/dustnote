@@ -155,6 +155,9 @@ describe('NoteHistoryDialog', () => {
     await fireEvent.clickAsync(getByText('history.version_label'));
     await waitFor(() => expect(getByText('T')).toBeInTheDocument());
     await fireEvent.clickAsync(getByText('history.restore'));
+    // v2.3.6 重构：restore 改为经 ConfirmDialog 二次确认，需点击确认按钮才真正执行恢复
+    await waitFor(() => expect(getByText('common.confirm')).toBeInTheDocument());
+    await fireEvent.clickAsync(getByText('common.confirm'));
     await waitFor(() => expect(getByText('history.restore_success')).toBeInTheDocument());
   });
 

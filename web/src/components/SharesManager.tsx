@@ -81,6 +81,13 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
     setLoading(true);
     setError(null);
     try {
+      // 检查 serverUrl 是否已配置（Tauri 桌面端必须配置绝对地址，
+      // 否则 fetch 会命中 webview 资源返回 HTML 导致 JSON 解析失败）
+      const { serverUrl } = useModeStore.getState();
+      if (!serverUrl) {
+        setError(t('shares.error_no_server'));
+        return;
+      }
       const token = useStore.getState().accessToken;
       const r = await fetch(`${apiBase()}/shares`, {
         headers: {
@@ -92,13 +99,18 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
         },
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      // 检查响应类型，避免 HTML 被当作 JSON 解析（Tauri webview 对未知路径返回 index.html）
+      const contentType = r.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(t('shares.error_not_json'));
+      }
       setShares(((await r.json()) as { shares: Share[] }).shares);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();

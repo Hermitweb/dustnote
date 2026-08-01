@@ -30,6 +30,7 @@ import { useColors } from '../theme';
 export function StandaloneSetupScreen() {
   const colors = useColors();
   const setupStandalone = useAuthStore((s) => s.setupStandalone);
+  const confirmSetupComplete = useAuthStore((s) => s.confirmSetupComplete);
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -66,7 +67,6 @@ export function StandaloneSetupScreen() {
           `global.crypto: ${typeof global.crypto}\n` +
           `crypto.subtle: ${global.crypto ? typeof global.crypto.subtle : 'N/A'}\n` +
           `requireOk: ${st.requireOk}\n` +
-          `hasInstall: ${st.hasInstall}\n` +
           `installOk: ${st.installOk}\n` +
           `requireError: ${st.requireError ?? '无'}\n` +
           `installError: ${st.installError ?? '无'}\n\n` +
@@ -115,7 +115,8 @@ export function StandaloneSetupScreen() {
         <TouchableOpacity
           style={styles.button}
           onPress={() => {
-            /* store 已切换到 unlocked 状态，App.tsx 会自动路由到主界面 */
+            // setupStandalone 未设 authState='unlocked'，此处由用户确认后手动触发
+            confirmSetupComplete();
           }}
         >
           <Text style={styles.buttonText}>我已保存，继续</Text>

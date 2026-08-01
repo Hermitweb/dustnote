@@ -17,18 +17,21 @@ function getEnvOpt(key: string): string | undefined {
   return v !== undefined && v !== '' ? v : undefined;
 }
 
+/** 开发环境默认 JWT_SECRET（仅用于本地调试，生产环境禁止使用） */
+const DEFAULT_JWT_SECRET = 'dev-secret-change-me-do-not-use-in-production-32plus';
+
 export const config = {
   nodeEnv: getEnv('NODE_ENV', 'development'),
   port: Number.parseInt(getEnv('PORT', '3210'), 10),
   logLevel: getEnv('LOG_LEVEL', 'info'),
   dbPath: getEnv('DB_PATH', './data/dustnote.db'),
   webOrigin: getEnv('WEB_ORIGIN', 'http://localhost:5173'),
-  serverVersion: getEnv('SERVER_VERSION', '2.3.6'),
+  serverVersion: getEnv('SERVER_VERSION', '2.3.7'),
   minClientVersion: getEnv('MIN_CLIENT_VERSION', '2.0.2'),
-  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.3.6'),
+  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.3.7'),
   forceUpdateVersion: getEnvOpt('FORCE_UPDATE_VERSION') ?? null,
   eolDateForV0: getEnvOpt('EOL_DATE_FOR_V0'),
-  jwtSecret: getEnv('JWT_SECRET', 'dev-secret-change-me-do-not-use-in-production-32plus'),
+  jwtSecret: getEnv('JWT_SECRET', DEFAULT_JWT_SECRET),
   /**
    * JWT 非对称签名（EdDSA / Ed25519）密钥对。
    * 配置后优先使用 EdDSA 替代 HS256：
@@ -52,5 +55,19 @@ export const config = {
   /** 备份保留份数（默认 30 份，按日期滚动） */
   backupRetention: Number.parseInt(getEnv('BACKUP_RETENTION', '30'), 10),
 } as const;
+
+// 生产环境强制校验 JWT_SECRET：未设置 / 使用开发默认值 / 长度不足 → 拒绝启动。
+// 攻击者一旦拿到弱默认密钥即可离线伪造任意 access/refresh token，完全绕过鉴权。
+// 测试与开发环境不受此约束（NODE_ENV !== 'production' 时跳过）。
+if (config.nodeEnv === 'production') {
+  if (config.jwtSecret === DEFAULT_JWT_SECRET) {
+    throw new Error('生产环境必须设置 JWT_SECRET 环境变量（不允许使用开发默认值）');
+  }
+  if (config.jwtSecret.length < 32) {
+    throw new Error(
+      `生产环境 JWT_SECRET 长度不足（当前 ${config.jwtSecret.length} 字符，要求 ≥ 32）`,
+    );
+  }
+}
 
 export type AppConfig = typeof config;

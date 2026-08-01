@@ -213,7 +213,7 @@ function AppInner() {
             <Stack.Screen
               name="NotesList"
               component={NotesListScreen}
-              options={{ title: '🌿 DustNote' }}
+              options={{ title: '🌿 尘心笔记' }}
             />
             <Stack.Screen
               name="NoteEdit"
@@ -279,7 +279,7 @@ function AppInner() {
                   <Stack.Screen
                     name="StandaloneUnlock"
                     component={StandaloneUnlockScreen}
-                    options={{ title: 'DustNote', headerBackVisible: false }}
+                    options={{ title: '尘心笔记', headerBackVisible: false }}
                   />
                   <Stack.Screen
                     name="StandaloneRecover"
@@ -302,7 +302,7 @@ function AppInner() {
                 <Stack.Screen
                   name="Unlock"
                   component={UnlockScreen}
-                  options={{ title: 'DustNote', headerBackVisible: false }}
+                  options={{ title: '尘心笔记', headerBackVisible: false }}
                 />
               )}
             </>

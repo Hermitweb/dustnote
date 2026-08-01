@@ -169,8 +169,8 @@ export function useKeyboardShortcuts(authState: AuthState): void {
               document.documentElement.style.zoom = '1';
               break;
             case 'help_about':
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, no-undef
-              alert(`DustNote v${typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'}\n尘心笔记\n© 2026 DustNote Team`);
+              // 触发自定义事件，由 App.tsx 监听并打开样式化的 AboutDialog
+              window.dispatchEvent(new CustomEvent('app:about'));
               break;
             case 'help_check_update':
               window.dispatchEvent(new CustomEvent('app:open-settings'));

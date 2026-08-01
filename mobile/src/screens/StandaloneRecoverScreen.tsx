@@ -30,6 +30,7 @@ import { useColors } from '../theme';
 export function StandaloneRecoverScreen() {
   const colors = useColors();
   const recoverStandalone = useAuthStore((s) => s.recoverStandalone);
+  const confirmSetupComplete = useAuthStore((s) => s.confirmSetupComplete);
 
   const [recoveryCode, setRecoveryCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -80,7 +81,8 @@ export function StandaloneRecoverScreen() {
         <TouchableOpacity
           style={styles.button}
           onPress={() => {
-            /* store 已切换到 unlocked 状态，App.tsx 会自动路由到主界面 */
+            // recoverStandalone 未设 authState='unlocked'，此处由用户确认后手动触发
+            confirmSetupComplete();
           }}
         >
           <Text style={styles.buttonText}>我已保存，继续</Text>

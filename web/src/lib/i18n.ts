@@ -308,6 +308,8 @@ const resources = {
         revoke_fail: '吊销失败：{{reason}}',
         link_hint_secret: '密钥藏在 fragment 里',
         link_hint_placeholder: '密钥',
+        error_no_server: '未配置服务器地址。请在设置中切换到联机模式并填写服务器地址。',
+        error_not_json: '服务器返回了非 JSON 响应，请确认服务器地址正确且服务正在运行。',
       },
       admin: {
         title: '🛠️ 部署管理',
@@ -741,6 +743,8 @@ const resources = {
         revoke_fail: 'Revoke failed: {{reason}}',
         link_hint_secret: 'Key is in the fragment',
         link_hint_placeholder: 'key',
+        error_no_server: 'No server address configured. Switch to online mode in settings and enter the server URL.',
+        error_not_json: 'Server returned a non-JSON response. Verify the server URL is correct and the server is running.',
       },
       admin: {
         title: '🛠️ Deployment Admin',

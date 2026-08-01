@@ -152,6 +152,21 @@ export function createApp(): Application {
   app.use('/api/v1', templatesRouter);
   // 设备管理 + 账户管理（GDPR Article 17/20）
   app.use('/api/v1', devicesRouter);
+  // /account/export 是重 IO 全量导出，单独限流防滥用：每用户 5 分钟最多 3 次
+  // （允许失败重试与多设备，同时阻止脚本化拉取全量数据）。
+  // keyGenerator 用 userId（authMiddleware 已注入 req.user），单用户场景下
+  // 即便全部请求经 nginx 同一 IP 转发，也能按用户精确限流。
+  app.use(
+    '/api/v1/account/export',
+    rateLimit({
+      windowMs: 5 * 60_000,
+      limit: 3,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      keyGenerator: (req) => (req.user?.userId ?? req.ip) as string,
+      message: { error: 'too_many_exports', message: '导出过于频繁，请 5 分钟后再试' },
+    })
+  );
   app.use('/api/v1', accountRouter);
 
   // 404

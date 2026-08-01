@@ -267,7 +267,7 @@ describe('auth protocol v2 round-trip', () => {
 describe('production KDF parameters', () => {
   it('uses OWASP-recommended parameters', () => {
     // 上面的用例都跑弱参数，这里确保发布出去的仍是 OWASP 2024 推荐值
-    expect(KDF_PARAMS).toEqual({ m: 64 * 1024, t: 3, p: 4, dkLen: 32 });
+    expect(KDF_PARAMS).toEqual({ algorithm: 'argon2id', m: 64 * 1024, t: 3, p: 4, dkLen: 32 });
   });
 
   it('completes a full unlock round-trip at production strength', async () => {

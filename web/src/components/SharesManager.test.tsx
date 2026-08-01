@@ -45,6 +45,13 @@ vi.mock('react-i18next', () => {
 });
 
 vi.mock('../lib/store', () => ({ useStore: useStoreMock }));
+vi.mock('../lib/mode-store', () => ({
+  // loadShares 在 Tauri 桌面端会校验 serverUrl：未配置时提前返回 error_no_server。
+  // 测试环境提供绝对地址，让 fetch 走到 stub，覆盖 loading/empty/active 等正常路径。
+  useModeStore: {
+    getState: () => ({ serverUrl: 'http://localhost:3210' }),
+  },
+}));
 vi.mock('../lib/device', () => ({ getDeviceId: () => 'test-device-id' }));
 vi.mock('../lib/toast', () => ({
   toast: {
@@ -72,10 +79,21 @@ function makeShare(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 function fetchOk(body: unknown): Response {
-  return { ok: true, status: 200, json: async () => body } as unknown as Response;
+  return {
+    ok: true,
+    status: 200,
+    headers: { get: () => 'application/json' },
+    json: async () => body,
+  } as unknown as Response;
 }
 function fetchFail(status: number): Response {
-  return { ok: false, status, statusText: 'Bad', json: async () => ({}) } as unknown as Response;
+  return {
+    ok: false,
+    status,
+    statusText: 'Bad',
+    headers: { get: () => 'application/json' },
+    json: async () => ({}),
+  } as unknown as Response;
 }
 
 describe('SharesManager', () => {
@@ -164,10 +182,19 @@ describe('SharesManager', () => {
         return fetchOk({ shares: callCount === 1 ? sharesResp : [] });
       })
     );
-    const { getByText } = render(createElement(SharesManager, { onClose: () => {} }));
+    const { getByText, getAllByText } = render(createElement(SharesManager, { onClose: () => {} }));
     await waitFor(() => expect(getByText('shares.status_active')).toBeInTheDocument());
     const revokeBtn = getByText('shares.revoke');
     await fireEvent.clickAsync(revokeBtn);
+    // v2.3.6 重构：吊销改为经 ConfirmDialog 二次确认。
+    // 弹窗的 confirmLabel 也是 shares.revoke，故列表按钮与弹窗确认按钮同文本。
+    // 先等待弹窗独有文案 shares.confirm_revoke_one 出现（证弹窗已挂载），
+    // 再从所有 shares.revoke 按钮中取最后一个（弹窗在列表之后渲染）点击以真正执行吊销。
+    await waitFor(() => expect(getByText('shares.confirm_revoke_one')).toBeInTheDocument());
+    const revokeBtns = getAllByText('shares.revoke');
+    const confirmBtn = revokeBtns[revokeBtns.length - 1];
+    if (!confirmBtn) throw new Error('ConfirmDialog 确认按钮未渲染');
+    await fireEvent.clickAsync(confirmBtn);
     await waitFor(() => expect(getByText('shares.empty')).toBeInTheDocument());
   });
 

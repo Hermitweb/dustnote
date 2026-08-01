@@ -41,7 +41,7 @@ import RNFS from 'react-native-fs';
 import { checkUpdateOnce, resetUpdateCache } from '../lib/use-update-check';
 import type { CheckUpdateResult } from '@dustnote/shared';
 
-const APP_VERSION = '2.3.6';
+const APP_VERSION = '2.3.7';
 const LANG_OPTIONS: Array<{ lang: AppLanguage; key: string }> = [
   { lang: 'zh-CN', key: 'settings.lang_zh' },
   { lang: 'en', key: 'settings.lang_en' },

@@ -18,6 +18,7 @@
 
 import {
   createHmac,
+  createHash,
   randomBytes,
   timingSafeEqual,
   sign as cryptoSign,
@@ -124,6 +125,25 @@ export function issueAccessToken(userId: string, deviceId: string): string {
 
 export function issueRefreshToken(userId: string, deviceId: string): string {
   return issueToken(userId, deviceId, 'refresh', REFRESH_TTL_S);
+}
+
+/**
+ * 计算 refresh token 的 SHA-256 哈希（hex），用于持久化到 devices.refresh_token_hash。
+ *
+ * 设备吊销机制依赖此哈希：签发 refresh token 时写入其哈希；吊销时清空；
+ * /auth/refresh 时校验传入 token 的哈希是否等于库中存储值。
+ * 仅存哈希而非明文，库泄露后无法直接还原 refresh token。
+ */
+export function hashRefreshToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+/** 恒定时间比较两个 hex 哈希字符串（长度不等直接返回 false） */
+export function safeEqualHash(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a);
+  const bBuf = Buffer.from(b);
+  if (aBuf.length !== bBuf.length) return false;
+  return timingSafeEqual(aBuf, bBuf);
 }
 
 // ========== 验签 ==========

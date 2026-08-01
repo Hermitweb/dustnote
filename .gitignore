@@ -92,3 +92,6 @@ backups/
 # Generated docs
 .turbo/
 docs/_build/
+
+# Local APK/build audit artifacts (never commit binaries)
+_apk-audit/

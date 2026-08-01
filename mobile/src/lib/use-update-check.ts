@@ -14,7 +14,7 @@ import { checkForUpdate, type CheckUpdateResult } from '@dustnote/shared';
 import { getCurrentMode, resolveBaseUrl } from './mode-store';
 import { useAuthStore } from '../state/auth';
 
-const APP_VERSION = '2.3.6';
+const APP_VERSION = '2.3.7';
 const UPDATE_CHECK_TIMEOUT_MS = 10_000; // 10s 超时
 const MIN_INTERVAL_MS = 5_000; // 节流：5s 内不发重复请求
 

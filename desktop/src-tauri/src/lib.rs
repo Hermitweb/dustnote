@@ -228,7 +228,7 @@ pub fn run() {
         .setup(|app| {
             // 原生菜单栏
             let new_note_i = MenuItem::with_id(app, "file_new_note", "新建笔记", true, Some("Ctrl+N"))?;
-            let file_quit_i = MenuItem::with_id(app, "file_quit", "退出 DustNote", true, Some("Ctrl+Q"))?;
+            let file_quit_i = MenuItem::with_id(app, "file_quit", "退出 尘心笔记", true, Some("Ctrl+Q"))?;
             let file_menu = Submenu::with_items(app, "文件", true, &[&new_note_i, &file_quit_i])?;
 
             let undo_i = PredefinedMenuItem::undo(app, Some("撤销"))?;
@@ -250,7 +250,7 @@ pub fn run() {
                 &zoom_in_i, &zoom_out_i, &zoom_reset_i, &fullscreen_i, &sidebar_i
             ])?;
 
-            let about_i = MenuItem::with_id(app, "help_about", "关于 DustNote", true, None::<&str>)?;
+            let about_i = MenuItem::with_id(app, "help_about", "关于 尘心笔记", true, None::<&str>)?;
             let check_update_i = MenuItem::with_id(app, "help_check_update", "检查更新", true, None::<&str>)?;
             let help_menu = Submenu::with_items(app, "帮助", true, &[&about_i, &check_update_i])?;
 
@@ -283,7 +283,7 @@ pub fn run() {
             }
 
             // 系统托盘
-            let quit_i = MenuItem::with_id(app, "quit", "退出 DustNote", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "退出 尘心笔记", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
@@ -291,7 +291,7 @@ pub fn run() {
             //（如配置缺失或资源加载失败），用 unwrap() 会导致启动 panic。
             // 若图标存在则设置到托盘，否则仅打印警告，托盘仍可使用（显示系统默认图标）。
             let mut tray_builder = TrayIconBuilder::with_id("main")
-                .tooltip("DustNote")
+                .tooltip("尘心笔记")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {

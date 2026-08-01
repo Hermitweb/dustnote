@@ -13,6 +13,66 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.3.7] - 2026-08-01
+
+### 修复 — 首席架构师 SOP 零故障加固（服务端安全 + 设备吊销核心漏洞）
+
+以四步 SOP（需求差异分析 → 深度代码扫描 → 静默修复 → 自动化验证闭环）对全端代码进行地毯式排查。经逐行核实源码（修正扫描 Agent 关于 IDOR 的误报——notes/tags/folders/shares/templates/preferences 路由全程 `WHERE user_id = ?`，越权访问复核通过），确认真实可修复缺口全部集中在服务端，共修复 8 项。
+
+#### 安全红线（P0/P1）
+
+- **设备吊销失效核心漏洞修复（P1）**：`devices.refresh_token_hash` 列此前**从不被写入**，导致设备吊销（`DELETE /devices/:id` 清空 `refresh_token_hash`）形同空操作——被吊销设备的 refresh token 仍能正常续签 access token。修复：`issueSession` 签发 refresh token 时写入其 SHA-256 哈希；`/auth/refresh` 改为恒定时间校验传入 token 哈希与库中存储值一致，并轮换更新哈希。吊销（清空哈希）后 refresh 立即失效。
+- **JWT_SECRET 生产环境强制校验（P0）**：`server/src/env.ts` 此前对未设置 JWT_SECRET 静默回退开发默认值，生产环境若忘记配置即可被离线伪造任意 token。新增启动期校验：`NODE_ENV=production` 时，使用开发默认值或长度 < 32 直接拒绝启动。测试与开发环境不受影响。
+- **/account/export 单独限流（P1）**：全量导出是重 IO 操作，此前无独立限流。新增按用户维度的限流（5 分钟最多 3 次，允许失败重试与多设备，同时阻止脚本化拉取）。
+
+#### 数据可携带性（P0）
+
+- **导出补齐 note_versions + note_tags（P0）**：`GET /account/export` 此前遗漏笔记历史版本表与笔记-标签关联表，导出后客户端无法重建笔记历史与多对多标签关系。补齐两表导出（`note_tags` 无 user_id 列，通过 JOIN notes 限定到当前用户）。
+
+#### 纵深防御与细节（P2/P3）
+
+- **countUserData 表名白名单（P2）**：`server/src/routes/account.ts` 表名拼接改为编译期常量集合 + `Set.has` 二次校验，杜绝 SQL 注入风险（虽原值来自常量已安全，但显式白名单更规范）。
+- **logger 脱敏扩展（P2）**：`server/src/logger.ts` pino redact 路径补齐 `refresh_token_hash` / `masterKey` / `master_salt` / `pw_salt` / `rc_salt` / `auth_hash` / `recovery_hash` / `recovery_salt` / `password_hash` / `wrapped_master_key` / `shareKey` / `wrapped_share_key` / `secret` 及其通配形式。
+- **export 显式列替代 SELECT \*（P3）**：folders/tags/preferences 导出改为显式列，避免未来新增内部字段时意外泄漏。
+
+#### 细枝末梢核实结论（已确认无问题）
+
+- **越权访问（IDOR）**：所有用户态表查询均带 `WHERE user_id = ?`（notes/folders/tags/shares/templates/preferences/devices/account），复核通过。
+- **事务一致性**：notes PATCH 历史快照+清理+主表更新、notes restore、account delete/export、auth setup 均包裹 `db.transaction()`。
+- **乐观锁**：notes PATCH / restore 校验 version 防并发覆盖。
+- **入参校验**：所有路由均 zod 校验，无 `z.any()`；SQL 全部参数化。
+- **速率限制**：全局 600/min、auth 20/15min、公开分享 60/min、export 3/5min。
+- **CORS `!origin` 放行**：经分析为**有意设计**——微信小程序 `wx.request` 不发送 Origin 头，生产环境禁用会阻断小程序端。保留并已由现有注释说明（审计该项建议对本应用多端客户端不适用）。
+
+### 涉及文件
+
+- `server/src/env.ts` — JWT_SECRET 生产强制校验 + 版本号 2.3.7
+- `server/src/auth/jwt.ts` — 新增 `hashRefreshToken` / `safeEqualHash`
+- `server/src/routes/auth.ts` — issueSession 写入 refresh 哈希 + /auth/refresh 校验轮换
+- `server/src/routes/account.ts` — countUserData 白名单 + export 补 note_versions/note_tags + 显式列
+- `server/src/logger.ts` — 脱敏路径扩展
+- `server/src/app.ts` — /account/export 限流
+- 全端版本号同步至 2.3.7（package.json ×7、tauri.conf.json、Cargo.toml、Android versionCode 16→17 / versionName 2.3.5→2.3.7、server env/update-manifest、mobile/miniprogram 源码内嵌 APP_VERSION、release.yml）
+
+## [2.3.6] - 2026-07-31
+
+### 修复 — 跨平台三端 Bug 修复（安卓功能补全 + Windows 弹窗/菜单/更新 + 小程序白屏）
+
+- **安卓端功能补全**：文件夹创建/删除/回收站操作迁移到 `createRepository` 工厂；标签编辑 UI（chips + 输入框 + 添加按钮）并加载/保存 tags；`NotesListScreen` 增加 `useFocusEffect` 修复标题修改后列表不刷新；`emptyTrash` 改为 `for...of` 顺序删除避免请求风暴；`use-update-check.ts` 实现 10s 超时 + `SettingsScreen` "检查更新"入口。
+- **Windows 桌面端**：收藏/置顶图标点击无反应修复（`updateNote` 乐观更新补 `isPinned`/`isFavorite`）；检查更新超时卡死修复（updater 10s `Promise.race`）；编辑菜单英文改中文；原生 `confirm()`/`alert()` 替换为 `ConfirmDialog` + `toast.error()`。
+- **微信小程序**：`app.tsx` 注册 `Taro.onError`/`onUnhandledRejection`/`onPageNotFound` 全局错误兜底修复白屏；`getApi()` 在 serverUrl 未配置时显式抛错；`app.config.ts` 主包 8 页 + 6 分包 + `preloadRule`；`networkTimeout` 配置。
+- **桌面端恢复码流程修复**：`setup`/`setupStandalone`/`recoverStandalone` 不再自动设 `authState='unlocked'`，新增 `confirmSetupComplete()` 由用户确认已保存恢复码后再切 unlocked，避免恢复码界面被提前卸载。
+- **加密修复**：`shared/src/crypto.ts` HMAC-SHA256 移动端改用 `createHmac`（react-native-quick-crypto JSI），web/小程序回退 `subtle.sign`，处理 `react-native-buffer` 的 `byteOffset`。
+- **Android 平板适配**：`values-sw600dp`/`values-sw720dp` 尺寸资源 + `useResponsiveLayout` Hook。
+
+### 涉及文件
+
+- `mobile/src/screens/*.tsx`、`mobile/src/state/auth.ts`、`mobile/src/lib/use-update-check.ts`
+- `web/src/components/{AboutDialog,SharesManager}.tsx`、`web/src/lib/i18n.ts`、`web/src/lib/use-keyboard-shortcuts.ts`
+- `desktop/src-tauri/src/lib.rs`、`desktop/src-tauri/tauri.conf.json`
+- `miniprogram/src/app.tsx`、`miniprogram/src/app.config.ts`、`miniprogram/src/state/auth.ts`
+- `shared/src/crypto.ts`
+
 ## [2.3.5] - 2026-07-31
 
 ### 修复 — 安卓启动崩溃 "Cannot read property 'useRef' of null"（P0 根因修复）

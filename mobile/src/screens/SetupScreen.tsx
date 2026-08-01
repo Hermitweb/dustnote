@@ -21,6 +21,7 @@ export function SetupScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const setup = useAuthStore((s) => s.setup);
+  const confirmSetupComplete = useAuthStore((s) => s.confirmSetupComplete);
 
   const strength = (() => {
     if (password.length < 8) return { level: 0, text: '至少 8 位' };
@@ -62,7 +63,13 @@ export function SetupScreen() {
         <View style={styles.codeBox}>
           <Text style={styles.codeText}>{recoveryCode}</Text>
         </View>
-        <TouchableOpacity style={styles.button} onPress={() => setRecoveryCode(null)}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => {
+            // setup 未设 authState='unlocked'，此处由用户确认后手动触发
+            confirmSetupComplete();
+          }}
+        >
           <Text style={styles.buttonText}>我已保存，继续</Text>
         </TouchableOpacity>
       </View>

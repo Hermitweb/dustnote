@@ -111,6 +111,10 @@ interface AuthStoreState {
   init: () => Promise<void>;
   lock: () => void;
   setAccessToken: (token: string) => void;
+  /** setup / recover 完成后由用户确认已保存恢复码，再切到 unlocked 状态。
+   *  setup* / recoverStandalone 不再自动设 unlocked，否则 App.tsx 会立即路由到
+   *  主界面，导致恢复码界面被卸载、用户永远看不到恢复码。 */
+  confirmSetupComplete: () => void;
 
   // actions: 联机模式
   setup: (password: string) => Promise<string>;
@@ -215,6 +219,13 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     set({ accessToken: token });
   },
 
+  confirmSetupComplete() {
+    // setup* / recoverStandalone 已把 masterKey / blob 等写入 store，
+    // 但保留了 authState（uninitialized / needs_unlock）以便恢复码界面继续显示。
+    // 用户确认已保存恢复码后调用此方法，切到 unlocked 触发 App.tsx 路由到主界面。
+    set({ authState: 'unlocked' });
+  },
+
   // ========== 联机模式 actions ==========
 
   async setup(password: string): Promise<string> {
@@ -247,8 +258,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     await cacheMasterKeyForBiometric(masterKey);
 
     setAccessToken(r.accessToken);
+    // 注意：此处不设置 authState: 'unlocked'！
+    // setup 返回 recoveryCode 后 SetupScreen 需展示恢复码，
+    // 提前切 'unlocked' 会导致 App.tsx 立即路由到主界面，恢复码界面被卸载。
+    // 用户点击「我已保存」→ confirmSetupComplete() → authState='unlocked'。
     set({
-      authState: 'unlocked',
       accessToken: r.accessToken,
       masterKey,
       deviceId: r.deviceId,
@@ -354,11 +368,14 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     } catch {
       // keychain 不可用（如模拟器无生物识别）不阻塞流程
     }
+    // 注意：此处不设置 authState: 'unlocked'！
+    // setupStandalone 返回 recoveryCode 后 StandaloneSetupScreen 需展示恢复码，
+    // 提前切 'unlocked' 会导致 App.tsx 立即路由到主界面，恢复码界面被卸载。
+    // 用户点击「我已保存」→ confirmSetupComplete() → authState='unlocked'。
     set({
       localAuthBlob: result.blob,
       masterKey: result.masterKey,
       lockoutState: { ...INITIAL_LOCKOUT_STATE },
-      authState: 'unlocked',
       hasBiometricCache: true,
     });
     return result.recoveryCode;
@@ -441,11 +458,14 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     } catch {
       // keychain 不可用不阻塞流程
     }
+    // 注意：此处不设置 authState: 'unlocked'！
+    // recoverStandalone 返回新 recoveryCode 后 StandaloneRecoverScreen 需展示，
+    // 提前切 'unlocked' 会导致 App.tsx 立即路由到主界面，恢复码界面被卸载。
+    // 用户点击「我已保存」→ confirmSetupComplete() → authState='unlocked'。
     set({
       localAuthBlob: result.blob,
       masterKey: result.masterKey,
       lockoutState: { ...INITIAL_LOCKOUT_STATE },
-      authState: 'unlocked',
       hasBiometricCache: true,
     });
     return result.recoveryCode;

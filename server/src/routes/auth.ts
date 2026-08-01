@@ -25,7 +25,14 @@ import { logger } from '../logger.js';
 import { config } from '../env.js';
 import { KDF_PARAMS, type Ciphertext } from '@dustnote/shared';
 import { hashPassword, verifyPassword } from '../auth/password.js';
-import { issueAccessToken, issueRefreshToken, verifyToken, REFRESH_TTL } from '../auth/jwt.js';
+import {
+  issueAccessToken,
+  issueRefreshToken,
+  verifyToken,
+  hashRefreshToken,
+  safeEqualHash,
+  REFRESH_TTL,
+} from '../auth/jwt.js';
 import {
   isLocked,
   recordFailure,
@@ -123,7 +130,14 @@ function issueSession(
   deviceId: string
 ): { accessToken: string; userId: string; deviceId: string } {
   const access = issueAccessToken(userId, deviceId);
-  writeRefreshCookie(res, issueRefreshToken(userId, deviceId));
+  const refresh = issueRefreshToken(userId, deviceId);
+  // 持久化 refresh token 哈希到 devices.refresh_token_hash。
+  // 设备吊销（DELETE /devices/:id）会清空此列，使被吊销设备的 refresh token
+  // 无法再续签 access token——修复此前「refresh_token_hash 从不写入导致吊销形同空操作」的漏洞。
+  getDb()
+    .prepare('UPDATE devices SET refresh_token_hash = ? WHERE id = ? AND user_id = ?')
+    .run(hashRefreshToken(refresh), deviceId, userId);
+  writeRefreshCookie(res, refresh);
   return { accessToken: access, userId, deviceId };
 }
 
@@ -528,17 +542,28 @@ authRouter.post('/auth/refresh', (req, res) => {
     return;
   }
 
-  // 设备被移除后旧 refresh token 立即失效
-  const known = getDb()
-    .prepare('SELECT 1 FROM devices WHERE id = ? AND user_id = ?')
-    .get(payload.device, payload.sub);
-  if (!known) {
-    res.status(401).json({ error: 'device_revoked' });
+  // 设备被吊销后旧 refresh token 立即失效：
+  // 校验库中存储的 refresh_token_hash 与传入 token 的哈希是否一致（恒定时间比较）。
+  // 设备行被删除、或 refresh_token_hash 被清空（吊销）均拒绝续签 access token。
+  // 修复此前「仅校验设备行存在，而吊销不清行只清 hash，导致吊销后 refresh 仍可成功」的漏洞。
+  const row = getDb()
+    .prepare('SELECT refresh_token_hash FROM devices WHERE id = ? AND user_id = ?')
+    .get(payload.device, payload.sub) as { refresh_token_hash: string | null } | undefined;
+  if (
+    !row ||
+    !row.refresh_token_hash ||
+    !safeEqualHash(row.refresh_token_hash, hashRefreshToken(refresh))
+  ) {
+    res.status(401).json({ error: 'device_revoked', message: '设备已被吊销或 refresh token 已失效' });
     return;
   }
 
-  // 轮换 refresh token，缩短单个令牌被盗用的窗口
-  writeRefreshCookie(res, issueRefreshToken(payload.sub, payload.device));
+  // 轮换 refresh token：签发新令牌并更新其哈希，缩短单令牌被盗用的窗口
+  const newRefresh = issueRefreshToken(payload.sub, payload.device);
+  getDb()
+    .prepare('UPDATE devices SET refresh_token_hash = ? WHERE id = ? AND user_id = ?')
+    .run(hashRefreshToken(newRefresh), payload.device, payload.sub);
+  writeRefreshCookie(res, newRefresh);
   res.json({ accessToken: issueAccessToken(payload.sub, payload.device) });
 });
 
