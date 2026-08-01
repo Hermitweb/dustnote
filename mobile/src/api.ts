@@ -15,7 +15,7 @@ import { ApiClient, type ClientChannel, type ClientPlatform } from '@dustnote/sh
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { resolveBaseUrl } from './lib/mode-store';
 
-const APP_VERSION = '2.3.7';
+const APP_VERSION = '2.3.8';
 
 let deviceId: string | null = null;
 

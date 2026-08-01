@@ -200,21 +200,28 @@ export class RemoteRepository implements DataRepository {
 
   async importBackup(payload: BackupPayload): Promise<void> {
     // 联机模式：逐条创建笔记/文件夹/标签
-    for (const folder of payload.folders) {
+    // ?? [] 兜底：旧版导出可能缺字段，避免 for...of 抛 undefined
+    // 409=已存在则跳过；其他错误（4xx校验失败/5xx服务端错误/网络中断）必须抛出，
+    // 否则 switchMode 清空新数据后静默吞错会导致用户数据丢失且无感知
+    const isConflict = (e: unknown): boolean => {
+      const status = (e as { err?: { status?: number } })?.err?.status;
+      return status === 409;
+    };
+    for (const folder of payload.folders ?? []) {
       try {
         await this.createFolder({ name: folder.name, parentId: folder.parentId, icon: folder.icon });
-      } catch {
-        /* 已存在则跳过 */
+      } catch (err) {
+        if (!isConflict(err)) throw err;
       }
     }
-    for (const tag of payload.tags) {
+    for (const tag of payload.tags ?? []) {
       try {
         await this.createTag(tag.name, tag.color);
-      } catch {
-        /* 已存在则跳过 */
+      } catch (err) {
+        if (!isConflict(err)) throw err;
       }
     }
-    for (const note of payload.notes) {
+    for (const note of payload.notes ?? []) {
       try {
         await this.createNote({
           ciphertext: note.ciphertext,
@@ -223,8 +230,8 @@ export class RemoteRepository implements DataRepository {
           isFavorite: note.isFavorite,
           folderId: note.folderId,
         });
-      } catch {
-        /* 跳过失败项 */
+      } catch (err) {
+        if (!isConflict(err)) throw err;
       }
     }
     if (payload.preferences) {

@@ -17,7 +17,7 @@
  * 账号锁定：连续 6 次 authKey 错误 → 锁定 15 分钟（与 IP 限流互补）。
  */
 
-import { Router, type Request, type Response } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { getDb } from '../db.js';
@@ -44,6 +44,15 @@ import {
 import type { AuthUser } from '../middleware/auth.js';
 
 export const authRouter = Router();
+
+/**
+ * 包装 async 路由处理器，让 rejected promise 走 Express 错误处理中间件
+ * （app.ts 末尾的兜底 500 处理器），而非变成 unhandledRejection 打死进程。
+ * Express 4 原生不捕获 async handler 的 rejection。
+ */
+const asyncHandler = (fn: (req: Request, res: Response) => Promise<void>) =>
+  (req: Request, res: Response, next: NextFunction) =>
+    Promise.resolve(fn(req, res)).catch(next);
 
 // ========== 校验片段 ==========
 
@@ -178,7 +187,7 @@ const SetupSchema = z.object({
   deviceName: z.string().min(1).max(64).default('新设备'),
 });
 
-authRouter.post('/auth/setup', async (req, res) => {
+authRouter.post('/auth/setup', asyncHandler(async (req, res) => {
   const parsed = SetupSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });
@@ -249,7 +258,7 @@ authRouter.post('/auth/setup', async (req, res) => {
 
   logger.info({ userId, deviceId, platform: client.platform }, '新用户已创建');
   res.json(issueSession(res, userId, deviceId));
-});
+}));
 
 // ========== POST /auth/unlock ==========
 
@@ -258,7 +267,7 @@ const UnlockSchema = z.object({
   deviceName: z.string().min(1).max(64).optional(),
 });
 
-authRouter.post('/auth/unlock', async (req, res) => {
+authRouter.post('/auth/unlock', asyncHandler(async (req, res) => {
   const parsed = UnlockSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'invalid_body' });
@@ -338,7 +347,7 @@ authRouter.post('/auth/unlock', async (req, res) => {
     // 客户端用主密码 KEK 解封它，得到 masterKey
     wrappedMasterKey: JSON.parse(user.wrapped_master_key_pw) as Ciphertext,
   });
-});
+}));
 
 // ========== GET /auth/recovery-params ==========
 
@@ -361,7 +370,7 @@ const RecoverSchema = z.object({
   deviceName: z.string().min(1).max(64).optional(),
 });
 
-authRouter.post('/auth/recover', async (req, res) => {
+authRouter.post('/auth/recover', asyncHandler(async (req, res) => {
   const parsed = RecoverSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'invalid_body' });
@@ -446,7 +455,7 @@ authRouter.post('/auth/recover', async (req, res) => {
     // 客户端拿到后应立刻走 /auth/rewrap 设置新密码。
     wrappedMasterKey: JSON.parse(user.wrapped_master_key_rc) as Ciphertext,
   });
-});
+}));
 
 // ========== POST /auth/rewrap ==========
 //
@@ -472,7 +481,7 @@ const RewrapSchema = z
   })
   .refine((v) => v.password ?? v.recovery, { message: 'password 与 recovery 至少提供一个' });
 
-authRouter.post('/auth/rewrap', async (req, res) => {
+authRouter.post('/auth/rewrap', asyncHandler(async (req, res) => {
   const authed = req.user as AuthUser | undefined;
   if (!authed) {
     res.status(401).json({ error: 'unauthorized' });
@@ -526,7 +535,7 @@ authRouter.post('/auth/rewrap', async (req, res) => {
     '密钥包装已更新'
   );
   res.json({ ok: true });
-});
+}));
 
 // ========== POST /auth/refresh ==========
 

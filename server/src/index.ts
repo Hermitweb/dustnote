@@ -47,19 +47,38 @@ async function main(): Promise<void> {
     );
   });
 
-  // 6. 优雅关闭
-  const shutdown = async (signal: string) => {
-    logger.info({ signal }, '收到关闭信号，开始优雅退出');
-    httpServer.close();
-    stopTrashCleanup();
-    await closeWss();
-    closeDb();
-    logger.info('已关闭 HTTP/WS/DB');
-    process.exit(0);
+  // 6. 优雅关闭（重入守卫：信号 + 致命异常可能并发触发，避免重复关闭）
+  let shuttingDown = false;
+  const shutdown = async (reason: string, code = 0) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info({ reason }, '开始优雅退出');
+    try {
+      httpServer.close();
+      stopTrashCleanup();
+      await closeWss();
+      closeDb();
+      logger.info('已关闭 HTTP/WS/DB');
+    } catch (err) {
+      logger.error({ err }, '优雅退出过程中出错');
+    }
+    process.exit(code);
   };
 
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
   process.on('SIGINT', () => void shutdown('SIGINT'));
+  // 进程级兜底：漏网的同步异常/异步 rejection 若不接住，Node 15+ 默认
+  // --unhandled-rejections=throw 会打死进程，且不走优雅关闭流程，SQLite WAL
+  // 可能未正常 checkpoint、正在写的事务不保证回滚。这里接住后触发优雅关闭。
+  process.on('uncaughtException', (err) => {
+    logger.fatal({ err }, 'uncaughtException — 触发优雅关闭');
+    captureException(err);
+    void shutdown('uncaughtException', 1);
+  });
+  process.on('unhandledRejection', (reason) => {
+    logger.fatal({ reason }, 'unhandledRejection — 触发优雅关闭');
+    void shutdown('unhandledRejection', 1);
+  });
 }
 
 main().catch((err) => {

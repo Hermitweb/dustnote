@@ -26,6 +26,26 @@ import { templatesRouter } from './routes/templates.js';
 import { devicesRouter } from './routes/devices.js';
 import { accountRouter } from './routes/account.js';
 
+/**
+ * 脱敏 URL 中的敏感查询参数。
+ * pino-http 默认把 req.url 原样写入日志，而 /share/public/:token?password=<明文>
+ * 这类路径会让分享密码与 token 明文落盘到日志文件及反代 access log。
+ * 这里把 password / token 等敏感 query 值替换为 [REDACTED]，保留路径与无害参数。
+ */
+function redactSensitiveUrl(url: string | undefined): string {
+  if (!url) return '';
+  // 仅处理含 query string 的 URL
+  const qIdx = url.indexOf('?');
+  if (qIdx === -1) return url;
+  const path = url.slice(0, qIdx);
+  const query = url.slice(qIdx + 1);
+  const SENSITIVE_KEYS = /^(password|pwd|token|access_token|refresh_token|secret|key|auth)=/i;
+  const redacted = query
+    .split('&')
+    .map((kv) => (SENSITIVE_KEYS.test(kv) ? `${kv.slice(0, kv.indexOf('='))}=[REDACTED]` : kv))
+    .join('&');
+  return `${path}?${redacted}`;
+}
 export function createApp(): Application {
   const app = express();
 
@@ -78,6 +98,12 @@ export function createApp(): Application {
   app.use(
     pinoHttp({
       logger,
+      serializers: {
+        // 自定义 req 序列化：脱敏 URL 中的密码/token 等敏感查询参数，避免明文落盘日志
+        req(req) {
+          return { id: req.id, method: req.method, url: redactSensitiveUrl(req.url), remoteAddress: req.remoteAddress };
+        },
+      },
       customLogLevel: (_req, res, err) => {
         if (err || res.statusCode >= 500) return 'error';
         if (res.statusCode >= 400) return 'warn';
@@ -170,8 +196,8 @@ export function createApp(): Application {
   app.use('/api/v1', accountRouter);
 
   // 404
-  app.use((req, res) => {
-    res.status(404).json({ error: 'not_found', path: req.path });
+  app.use((_req, res) => {
+    res.status(404).json({ error: 'not_found' });
   });
 
   // Sentry 错误处理（必须在所有路由之后、自定义错误处理之前；未配置 DSN 时为 no-op）

@@ -13,6 +13,55 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.3.8] - 2026-08-01
+
+### 修复 — 首席架构师 SOP 零故障加固（跨端健壮性 + 安全 + 日志脱敏）
+
+延续 v2.3.7 的四步 SOP，本轮聚焦跨端代码健壮性、安全纵深与日志脱敏的补强。修复客户端与服务端共 17 个文件，覆盖 Web / Desktop / Mobile / Miniprogram / Server 全栈。
+
+#### 客户端健壮性（P1）
+
+- **小程序单机模式重定向死循环修复（P1）**：standalone-setup / standalone-unlock / standalone-recover 三个页面此前直接调用 shared 层 `setupLocalAuth` / `unlockLocalAuth` / `recoverLocalAuth`，仅写存储 + 发事件，**未更新 auth store 的 `authState`**。页面跳回首页时，index 页读取 `authState` 仍为 `needs_unlock`，触发重定向回 unlock 页 → 死循环。修复：三页改为调用 auth store 的 `setupStandalone` / `unlockStandalone` / `recoverStandalone` action，由 store 统一负责持久化 blob + 缓存 masterKey + 更新 `authState='unlocked'`。
+- **小程序单机模式 KDF 参数修复（P1）**：小程序 WebCrypto 不支持 Argon2id，单机模式鉴权应使用 PBKDF2（`KDF_PARAMS_MOBILE`）。此前部分路径未传入移动端 KDF 参数，导致解锁失败。修复：`setupStandalone` / `unlockStandalone` / `recoverStandalone` 全部显式传入 `KDF_PARAMS_MOBILE`。
+- **小程序 lock() 清理持久化 token（P1）**：lock() 此前未清除持久化的 access token，锁定后重启仍可能绕过解锁。修复：lock() 调用 `clearPersistedToken()`。
+- **移动端自动保存死循环修复（P1）**：NoteEditScreen 的 useEffect 将 `save` 函数放入依赖数组，每次 note 更新都重建 save → 重新触发 effect → 死循环。修复：用 `useRef` 持有最新 save 函数，effect 依赖仅保留 `title` / `content`。
+- **Web 键盘快捷键 Shift/Alt 修饰键修复（P1）**：`use-keyboard-shortcuts.ts` 此前只处理 Ctrl/Meta，导致 Ctrl+Shift+N（快速捕获）无法触发。修复：补全 Shift / Alt 修饰键识别。
+- **Web NoteHistoryDialog Tauri origin 修复（P1）**：桌面端 `location.host` 为 `tauri.localhost`，相对路径 API 请求异常。修复：使用 `apiBase()` 构造绝对路径。
+- **Web sync-ws URL 修复（P1）**：桌面端 WebSocket URL 使用 `location.host` 导致连接失败。修复：从 mode-store 读取 `serverUrl` 构造绝对 URL。
+- **Web store.ts lock 清理 token（P1）**：lock() 清空 `accessToken` 防止锁定后请求继续带 token。
+
+#### 服务端安全纵深（P1/P2）
+
+- **进程级优雅关闭（P1）**：`index.ts` 新增 `uncaughtException` / `unhandledRejection` 处理器，触发 `shutdown()` 优雅关闭（含 shutdown guard 防重复），避免异常时数据损坏。
+- **WebSocket DoS 防护（P1）**：`sync-ws.ts` 新增 `maxPayload`（64KB）、频道白名单校验（`ALLOWED_CHANNELS`）、单用户连接数限制（5）、消息速率限制（10/s）。
+- **日志 URL 敏感参数脱敏（P2）**：`app.ts` 新增 `redactSensitiveUrl()`，对 URL query 中的 `password` / `token` / `access_token` / `refresh_token` / `secret` / `key` / `auth` 参数值替换为 `[REDACTED]`。
+- **404 路径泄漏修复（P2）**：404 响应不再回显完整请求路径，改为通用提示。
+- **WebSocket 连接限流（P2）**：新增按 IP 的 WS 连接速率限制。
+- **GDPR 数据可携带性补齐（P0）**：`account.ts` 用户数据导出补齐 v2 加密列（`pw_salt` / `rc_salt` / `wrapped_master_key_pw` / `wrapped_master_key_rc`），确保导出后新实例可解密。
+- **分享吊销事务化（P1）**：`shares.ts` 吊销操作包裹事务 + 审计日志。
+- **笔记历史/版本端点 LIMIT（P2）**：`notes.ts` 历史与版本查询补 `LIMIT` 防 DoS。
+
+### 涉及文件
+
+- `miniprogram/src/state/auth.ts` — KDF_PARAMS_MOBILE + lock 清理 token
+- `miniprogram/src/pages/standalone-setup/index.tsx` — 改用 auth store action
+- `miniprogram/src/pages/standalone-unlock/index.tsx` — 改用 auth store action
+- `miniprogram/src/pages/standalone-recover/index.tsx` — 改用 auth store action
+- `mobile/src/screens/NoteEditScreen.tsx` — 自动保存 useRef 修复
+- `web/src/lib/use-keyboard-shortcuts.ts` — Shift/Alt 修饰键
+- `web/src/components/NoteHistoryDialog.tsx` — apiBase() 绝对路径
+- `web/src/lib/sync-ws.ts` — serverUrl 构造 WS URL
+- `web/src/lib/store.ts` — lock 清理 token
+- `web/src/lib/io-client.ts` / `web/src/lib/remote-repo.ts` — 配套调整
+- `server/src/index.ts` — 进程级优雅关闭
+- `server/src/app.ts` — URL 脱敏 + 404 修复 + WS 限流
+- `server/src/services/sync-ws.ts` — WS DoS 防护
+- `server/src/routes/account.ts` — GDPR 导出补齐
+- `server/src/routes/shares.ts` — 吊销事务化
+- `server/src/routes/notes.ts` — LIMIT 防 DoS
+- `server/src/middleware/version-check.ts` / `server/src/routes/auth.ts` / `server/src/routes/devices.ts` — 配套调整
+- 全端版本号同步至 2.3.8（package.json ×7、tauri.conf.json、Cargo.toml、Android versionName、server env/update-manifest、mobile/miniprogram 源码内嵌 APP_VERSION、release.yml、smoke-test.sh）
+
 ## [2.3.7] - 2026-08-01
 
 ### 修复 — 首席架构师 SOP 零故障加固（服务端安全 + 设备吊销核心漏洞）

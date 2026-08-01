@@ -114,6 +114,8 @@ export function useKeyboardShortcuts(authState: AuthState): void {
     const onKeyDown = (e: KeyboardEvent) => {
       const parts: string[] = [];
       if (e.ctrlKey || e.metaKey) parts.push('ctrl');
+      if (e.shiftKey) parts.push('shift');
+      if (e.altKey) parts.push('alt');
       parts.push(e.key.toLowerCase());
       const combo = parts.join('+');
 

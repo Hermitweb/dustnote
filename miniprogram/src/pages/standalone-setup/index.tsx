@@ -3,23 +3,21 @@
  *
  * 流程：
  * 1. 用户输入主密码（≥ 8 字符）+ 确认密码
- * 2. 调用 shared 的 setupLocalAuth 生成 LocalAuthBlob + masterKey + recoveryCode
- * 3. 将 blob 持久化到 Taro.setStorage（通过 local-auth-storage）
+ * 2. 调用 auth store 的 setupStandalone action（内部调用 shared.setupLocalAuth）
+ * 3. store action 负责：持久化 blob + 缓存 masterKey + 更新 authState='unlocked'
  * 4. 弹窗显示恢复码（用户必须抄写保存）
- * 5. 跳转到首页（masterKey 仅存内存，需通过全局状态或事件传递）
+ * 5. 跳转到首页（authState 已更新为 unlocked，不会触发重定向循环）
  *
  * 关键设计：
  * - masterKey 随机生成（不从密码派生），recover 后可保留 → 已有笔记不解密失效
  * - 恢复码仅在此页面显示一次，后续无法再次获取
- * - masterKey 通过 Taro 的事件系统或全局状态传递给首页（避免页面跳转丢失）
+ * - 必须通过 auth store action 更新状态，否则首页会因 authState 未更新而重定向回此页
  */
 
 import React, { useState } from 'react';
 import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import { setupLocalAuth, INITIAL_LOCKOUT_STATE } from '@dustnote/shared';
-import { saveLocalAuthBlobSync, saveLockoutStateSync } from '../../lib/local-auth-storage';
-import { publishMasterKey } from '../../lib/standalone-session';
+import { useAuthStore } from '../../state/auth';
 
 type Strength = { label: string; level: 'weak' | 'medium' | 'strong'; width: number };
 
@@ -34,6 +32,7 @@ export default function StandaloneSetup() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const setupStandalone = useAuthStore((s) => s.setupStandalone);
 
   const strength = evalStrength(password);
 
@@ -49,16 +48,9 @@ export default function StandaloneSetup() {
     setSubmitting(true);
     try {
       Taro.showLoading({ title: '设置中…' });
-      // 调用 shared 的 setupLocalAuth：生成 masterKey + blob + recoveryCode
-      const { blob, masterKey, recoveryCode } = await setupLocalAuth(password);
-      // 持久化 blob 到本地存储（同步写入，避免页面跳转时丢失）
-      saveLocalAuthBlobSync(blob);
-      // 重置锁定状态
-      saveLockoutStateSync({ ...INITIAL_LOCKOUT_STATE });
-      // 通过 session 模块缓存 masterKey（直接设置 + 发布事件，确保跨页面可用）
-      publishMasterKey(masterKey);
-      // 立即清空本地 masterKey 引用（session 模块已持有副本）
-      masterKey.fill(0);
+      // 通过 auth store action：生成 masterKey + blob + recoveryCode，
+      // 持久化 blob、缓存 masterKey、更新 authState='unlocked'
+      const recoveryCode = await setupStandalone(password);
       Taro.hideLoading();
 
       // 弹窗显示恢复码（用户必须保存）

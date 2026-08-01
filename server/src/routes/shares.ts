@@ -180,21 +180,26 @@ sharesRouter.delete('/shares/:id', (req, res) => {
     return;
   }
   const db = getDb();
-  const r = db
-    .prepare(
-      `
-    UPDATE shares SET revoked = 1 WHERE id = ? AND user_id = ?
-  `
-    )
-    .run(id, user.userId);
-  if (r.changes === 0) {
+  // 事务：吊销 + 审计日志原子化，避免磁盘满/DB锁超时导致吊销成功但无审计行
+  const result = db.transaction(() => {
+    const r = db
+      .prepare(
+        `
+      UPDATE shares SET revoked = 1 WHERE id = ? AND user_id = ?
+    `
+      )
+      .run(id, user.userId);
+    if (r.changes === 0) return { ok: false as const };
+    // 审计：分享吊销
+    db.prepare(
+      'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
+    ).run(user.userId, user.deviceId, 'share_revoke', JSON.stringify({ shareId: id }));
+    return { ok: true as const };
+  })();
+  if (!result.ok) {
     res.status(404).json({ error: 'not_found' });
     return;
   }
-  // 审计：分享吊销
-  db.prepare(
-    'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
-  ).run(user.userId, user.deviceId, 'share_revoke', JSON.stringify({ shareId: id }));
   broadcastShareChanged(user.userId, { id, op: 'revoke' });
   res.json({ ok: true });
 });

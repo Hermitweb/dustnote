@@ -65,6 +65,7 @@ notesRouter.get('/notes', (req, res) => {
       SELECT * FROM notes
       WHERE user_id = ? AND server_updated_at > ?
       ORDER BY server_updated_at DESC
+      LIMIT 1000
     `
       )
       .all(user.userId, since) as typeof rows;
@@ -367,7 +368,8 @@ notesRouter.get('/notes/:id/versions', (req, res) => {
       `SELECT id, note_version, key_version, client_updated_at, created_at
        FROM note_versions
        WHERE note_id = ? AND user_id = ?
-       ORDER BY created_at DESC`
+       ORDER BY created_at DESC
+       LIMIT 100`
     )
     .all(id, user.userId) as {
       id: string;

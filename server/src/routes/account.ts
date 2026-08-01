@@ -137,11 +137,11 @@ accountRouter.get('/account/export', (req, res) => {
   const data = db.transaction(() => {
     // 显式列：排除服务端凭据校验产物（password_hash / master_salt /
     //   recovery_hash / recovery_salt），它们对迁移无价值，且一旦导出文件
-    //   泄漏会带来离线爆破风险。保留 wrapped_master_key —— 它含有用户
+    //   泄漏会带来离线爆破风险。保留 wrapped_master_key(_pw/_rc) + pw_salt/rc_salt
     //   主密钥的密文，是迁移后用主密码重新解开笔记的唯一凭证。
     const userRow = db
       .prepare<unknown[], Record<string, unknown>>(
-        `SELECT id, wrapped_master_key, kdf_version, kdf_params, recovery_code_set, created_at, updated_at FROM users WHERE id = ?`,
+        `SELECT id, pw_salt, rc_salt, wrapped_master_key, wrapped_master_key_pw, wrapped_master_key_rc, kdf_version, kdf_params, recovery_code_set, created_at, updated_at FROM users WHERE id = ?`,
       )
       .get(userId);
     if (!userRow) return null;

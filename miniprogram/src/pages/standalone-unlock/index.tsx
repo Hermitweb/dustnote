@@ -4,12 +4,13 @@
  * 流程：
  * 1. 检查客户端锁定状态（连续失败 6 次锁定 15 分钟）
  * 2. 用户输入主密码
- * 3. 调用 shared 的 unlockLocalAuth 校验密码 + 解封 masterKey
- * 4. 成功：重置锁定状态，通过事件传递 masterKey 给首页，跳转
- * 5. 失败：记录失败次数，达到阈值后锁定
+ * 3. 调用 auth store 的 unlockStandalone action（内部调用 shared.unlockLocalAuth）
+ * 4. store action 负责：校验密码 + 解封 masterKey + 缓存 + 更新 authState='unlocked'
+ * 5. 成功：跳转首页（authState 已更新，不会触发重定向循环）
+ * 6. 失败：store action 抛错，页面记录失败次数并提示
  *
  * 关键设计：
- * - masterKey 通过 Taro.eventCenter 传递给首页（仅在内存中）
+ * - 必须通过 auth store action 更新状态，否则首页会因 authState 未更新而重定向回此页
  * - 锁定状态持久化到 Taro.setStorage（防重启绕过）
  * - 密码校验使用 Argon2id + constantTimeEqual，防时序攻击
  */
@@ -17,34 +18,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import {
-  unlockLocalAuth,
-  isLocked,
-  recordFailedAttempt,
-  recordSuccessfulAttempt,
-  remainingLockoutMs,
-  INITIAL_LOCKOUT_STATE,
-  type LocalLockoutState,
-} from '@dustnote/shared';
-import {
-  loadLocalAuthBlobSync,
-  loadLockoutStateSync,
-  saveLockoutStateSync,
-} from '../../lib/local-auth-storage';
-
-/** 将 masterKey 通过 Taro 事件传递给首页（base64 编码） */
-function publishMasterKey(masterKey: Uint8Array): void {
-  let s = '';
-  for (let i = 0; i < masterKey.length; i++) s += String.fromCharCode(masterKey[i]!);
-  const b64 = btoa(s);
-  Taro.eventCenter.trigger('standalone:masterKey', b64);
-}
+import { isLocked, remainingLockoutMs, INITIAL_LOCKOUT_STATE, type LocalLockoutState } from '@dustnote/shared';
+import { loadLockoutStateSync } from '../../lib/local-auth-storage';
+import { useAuthStore } from '../../state/auth';
 
 export default function StandaloneUnlock() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [lockout, setLockout] = useState<LocalLockoutState>(INITIAL_LOCKOUT_STATE);
   const [now, setNow] = useState(Date.now());
+  const unlockStandalone = useAuthStore((s) => s.unlockStandalone);
 
   // 启动时加载锁定状态
   useEffect(() => {
@@ -80,38 +63,15 @@ export default function StandaloneUnlock() {
     }
     setSubmitting(true);
     try {
-      const blob = loadLocalAuthBlobSync();
-      if (!blob) {
-        // 未设置主密码，跳转到 setup
-        Taro.reLaunch({ url: '/pages/standalone-setup/index' });
-        return;
-      }
-      const result = await unlockLocalAuth(password, blob);
-      if (result.success && result.masterKey) {
-        // 成功：重置锁定状态，传递 masterKey，跳转首页
-        const reset = recordSuccessfulAttempt();
-        saveLockoutStateSync(reset);
-        publishMasterKey(result.masterKey);
-        // 立即清空 masterKey 内存引用
-        result.masterKey.fill(0);
-        Taro.reLaunch({ url: '/pages/index/index' });
-      } else {
-        // 失败：记录失败次数，可能触发锁定
-        const next = recordFailedAttempt(lockout);
-        saveLockoutStateSync(next);
-        setLockout(next);
-        if (isLocked(next)) {
-          Taro.showToast({ title: '失败次数过多，已锁定 15 分钟', icon: 'none' });
-        } else {
-          const left = 6 - next.failedAttempts;
-          Taro.showToast({
-            title: `主密码错误，还可尝试 ${left} 次`,
-            icon: 'none',
-          });
-        }
-      }
+      // 通过 auth store action：校验密码 + 解封 masterKey + 缓存 + 更新 authState='unlocked'
+      // 失败时 action 会更新 lockoutState 并抛错
+      await unlockStandalone(password);
+      // 成功：authState 已更新为 unlocked，跳转首页不会触发重定向循环
+      Taro.reLaunch({ url: '/pages/index/index' });
     } catch (err) {
       const msg = err instanceof Error ? err.message : '解锁失败';
+      // action 内部已更新 store 的 lockoutState，这里同步刷新本地展示
+      setLockout(loadLockoutStateSync());
       Taro.showToast({ title: msg, icon: 'none' });
     } finally {
       setSubmitting(false);

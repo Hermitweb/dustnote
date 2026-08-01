@@ -92,6 +92,10 @@ devicesRouter.delete('/devices/:id', (req, res) => {
     deviceId,
     user.userId,
   );
+  // 审计：设备吊销（安全敏感操作，被盗号后自救的关键动作，取证需可追溯）
+  db.prepare(
+    'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
+  ).run(user.userId, user.deviceId, 'device_revoke', JSON.stringify({ revokedDeviceId: deviceId }));
   logger.info({ userId: user.userId, deviceId }, '设备已吊销');
   res.json({ ok: true });
 });
@@ -109,6 +113,15 @@ devicesRouter.delete('/devices', (req, res) => {
     )
     .run(user.userId, user.deviceId);
 
+  // 审计：批量吊销其他设备
+  db.prepare(
+    'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
+  ).run(
+    user.userId,
+    user.deviceId,
+    'device_revoke_others',
+    JSON.stringify({ revokedCount: result.changes }),
+  );
   logger.info(
     { userId: user.userId, revokedCount: result.changes },
     '批量吊销其他设备完成',

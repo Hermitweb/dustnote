@@ -3,27 +3,24 @@
  *
  * 流程：
  * 1. 用户输入恢复码（10 位 Crockford Base32）+ 新主密码（≥ 8 字符）+ 确认新密码
- * 2. 调用 shared 的 recoverLocalAuth 校验恢复码 + 解封原始 masterKey + 重新包装
- * 3. 成功：持久化新 blob，通过事件传递原始 masterKey 给首页，显示新恢复码
- * 4. 失败：提示恢复码错误
+ * 2. 调用 auth store 的 recoverStandalone action（内部调用 shared.recoverLocalAuth）
+ * 3. store action 负责：校验恢复码 + 解封原始 masterKey + 重新包装 + 持久化 + 更新 authState
+ * 4. 成功：显示新恢复码，跳转首页（authState 已更新，不会触发重定向循环）
+ * 5. 失败：提示恢复码错误
  *
  * 关键设计（与 setup 的差异）：
  * - masterKey 不变（保留 setup 时随机生成的原始 masterKey）
  * - 已有笔记可继续解密 ✅
  * - 旧恢复码失效，生成新恢复码
  * - 旧密码失效，使用新密码重新派生 passwordDerivedKey
+ * - 必须通过 auth store action 更新状态，否则首页会因 authState 未更新而重定向回此页
  */
 
 import React, { useState } from 'react';
 import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import { recoverLocalAuth, isValidRecoveryCode } from '@dustnote/shared';
-import {
-  loadLocalAuthBlobSync,
-  saveLocalAuthBlobSync,
-  saveLockoutStateSync,
-} from '../../lib/local-auth-storage';
-import { INITIAL_LOCKOUT_STATE } from '@dustnote/shared';
+import { isValidRecoveryCode } from '@dustnote/shared';
+import { useAuthStore } from '../../state/auth';
 
 type Strength = { label: string; level: 'weak' | 'medium' | 'strong'; width: number };
 
@@ -34,19 +31,12 @@ function evalStrength(p: string): Strength {
   return { label: '良好', level: 'medium', width: 80 };
 }
 
-/** 将 masterKey 通过 Taro 事件传递给首页（base64 编码） */
-function publishMasterKey(masterKey: Uint8Array): void {
-  let s = '';
-  for (let i = 0; i < masterKey.length; i++) s += String.fromCharCode(masterKey[i]!);
-  const b64 = btoa(s);
-  Taro.eventCenter.trigger('standalone:masterKey', b64);
-}
-
 export default function StandaloneRecover() {
   const [recoveryCode, setRecoveryCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const recoverStandalone = useAuthStore((s) => s.recoverStandalone);
 
   const strength = evalStrength(newPassword);
 
@@ -63,36 +53,20 @@ export default function StandaloneRecover() {
       Taro.showToast({ title: '两次密码不一致', icon: 'none' });
       return;
     }
-    const oldBlob = loadLocalAuthBlobSync();
-    if (!oldBlob) {
-      Taro.showToast({ title: '未找到本地鉴权数据', icon: 'none' });
-      return;
-    }
     setSubmitting(true);
     try {
       Taro.showLoading({ title: '恢复中…' });
-      const result = await recoverLocalAuth(recoveryCode, newPassword, oldBlob);
+      // 通过 auth store action：校验恢复码 + 解封 masterKey + 重新包装 + 持久化 + 更新 authState
+      const newRecoveryCode = await recoverStandalone(recoveryCode, newPassword);
       Taro.hideLoading();
-      if (result.success && result.blob && result.masterKey && result.recoveryCode) {
-        // 持久化新 blob
-        saveLocalAuthBlobSync(result.blob);
-        // 重置锁定状态
-        saveLockoutStateSync({ ...INITIAL_LOCKOUT_STATE });
-        // 通过事件传递原始 masterKey 给首页
-        publishMasterKey(result.masterKey);
-        // 立即清空 masterKey 内存引用
-        result.masterKey.fill(0);
-        // 弹窗显示新恢复码
-        Taro.showModal({
-          title: '恢复成功',
-          content: `已设置新主密码\n\n新恢复码：${result.recoveryCode}\n\n请抄写保存，旧恢复码已失效。`,
-          showCancel: false,
-          confirmText: '我已保存',
-          success: () => Taro.reLaunch({ url: '/pages/index/index' }),
-        });
-      } else {
-        Taro.showToast({ title: '恢复码错误', icon: 'none' });
-      }
+      // 弹窗显示新恢复码
+      Taro.showModal({
+        title: '恢复成功',
+        content: `已设置新主密码\n\n新恢复码：${newRecoveryCode}\n\n请抄写保存，旧恢复码已失效。`,
+        showCancel: false,
+        confirmText: '我已保存',
+        success: () => Taro.reLaunch({ url: '/pages/index/index' }),
+      });
     } catch (err) {
       Taro.hideLoading();
       const msg = err instanceof Error ? err.message : '恢复失败';

@@ -725,6 +725,7 @@ export const useStore = create<StoreState>((set, get) => ({
     // 但 masterKey 已清空，笔记无法解密 → 用户卡死在空白界面无法解锁
     set({
       masterKey: null,
+      accessToken: null,
       selectedNoteId: null,
       notesPlain: new Map(),
       authState: 'needs_unlock',

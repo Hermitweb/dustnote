@@ -13,8 +13,15 @@ import { marked } from 'marked';
 import { decryptString, type NoteVersionMeta } from '@dustnote/shared';
 import { useStore } from '../lib/store';
 import { getDeviceId } from '../lib/device';
+import { useModeStore } from '../lib/mode-store';
 import { sanitizeHtml } from '../lib/sanitize-html';
 import { ConfirmDialog } from './ConfirmDialog';
+
+/** 拼接绝对 API 地址（桌面端 webview origin 非服务器，必须用 serverUrl） */
+function apiBase(): string {
+  const { serverUrl } = useModeStore.getState();
+  return serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : '/api/v1';
+}
 
 interface NoteHistoryDialogProps {
   noteId: string;
@@ -42,7 +49,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
     setError(null);
     try {
       const { accessToken } = useStore.getState();
-      const r = await fetch(`/api/v1/notes/${noteId}/versions`, {
+      const r = await fetch(`/notes/${noteId}/versions`, {
         headers: {
           'X-Client-Platform': 'web',
           'X-Client-Version': __APP_VERSION__,
@@ -76,7 +83,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
         const { accessToken, masterKey } = useStore.getState();
         if (!masterKey) throw new Error('not_unlocked');
 
-        const r = await fetch(`/api/v1/notes/${noteId}/versions/${versionId}`, {
+        const r = await fetch(`/notes/${noteId}/versions/${versionId}`, {
           headers: {
             'X-Client-Platform': 'web',
             'X-Client-Version': __APP_VERSION__,
@@ -121,7 +128,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
     try {
       const { accessToken } = useStore.getState();
       const r = await fetch(
-        `/api/v1/notes/${noteId}/versions/${selectedId}/restore`,
+        `${apiBase()}/notes/${noteId}/versions/${selectedId}/restore`,
         {
           method: 'POST',
           headers: {

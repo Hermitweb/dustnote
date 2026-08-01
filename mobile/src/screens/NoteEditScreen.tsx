@@ -10,7 +10,7 @@
  * 后续可在接口补 getNote(id)，或联机模式直接 GET /notes/:id
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -152,10 +152,16 @@ export function NoteEditScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [masterKey, note, noteId, title, content, tags, decryptFailed, repo]);
 
+  // 用 ref 持有最新 save，从 useEffect deps 移除 save 本身。
+  // 否则 save 依赖 note，save 成功后 setNote 改变 note → save 重建 → effect 重跑 →
+  // 每 1.5s 永久循环（即使无输入），version 无限自增、AsyncStorage/网络风暴。
+  const saveRef = useRef(save);
+  saveRef.current = save;
+
   useEffect(() => {
-    const timer = setTimeout(() => void save(), 1500);
+    const timer = setTimeout(() => void saveRef.current(), 1500);
     return () => clearTimeout(timer);
-  }, [title, content, save]);
+  }, [title, content]);
 
   const onDelete = () => {
     Alert.alert('确认', '确定要删除这篇笔记吗？', [

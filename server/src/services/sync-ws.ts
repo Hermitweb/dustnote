@@ -23,16 +23,24 @@ interface AuthedSocket extends WebSocket {
   channels: Set<string>;
 }
 
+// DoS 防护常量
+const MAX_PAYLOAD_BYTES = 64 * 1024; // 单帧上限 64KB（ws 默认 100MB，可被单连接灌爆内存）
+const MAX_CHANNELS = 8; // 单连接最多订阅频道数
+const MAX_MSG_PER_SECOND = 10; // 单连接消息频率上限
+const ALLOWED_CHANNELS = new Set(['notes', 'shares', 'preferences']);
+const MAX_CONNECTIONS_PER_USER = 5; // 单用户同时活跃 WS 连接数
+
 const clientsByUser = new Map<string, Set<AuthedSocket>>();
 let wss: WebSocketServer | null = null;
 
 export function setupSyncWss(httpServer: import('node:http').Server): WebSocketServer {
   if (wss) return wss;
 
-  wss = new WebSocketServer({ noServer: true, path: '/api/v1/sync/ws' });
+  wss = new WebSocketServer({ noServer: true, path: '/api/v1/sync/ws', maxPayload: MAX_PAYLOAD_BYTES });
 
   httpServer.on('upgrade', (req, socket, head) => {
-    if (!req.url?.startsWith('/api/v1/sync/ws')) {
+    const reqPath = req.url?.split('?')[0];
+    if (reqPath !== '/api/v1/sync/ws') {
       socket.destroy();
       return;
     }
@@ -41,7 +49,7 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
     // 这里只接受 access token。原先的 Cookie dustnote_refresh 回落是死代码
     // （该 cookie 的 path 是 /api/v1/auth，浏览器根本不会发到 /api/v1/sync/ws），
     // 且会让 30 天有效的 refresh token 直接当长连接凭证用。
-    const url = new URL(req.url, 'http://localhost');
+    const url = new URL(req.url ?? '/', 'http://localhost');
     const token = url.searchParams.get('token');
     if (!token) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
@@ -69,6 +77,11 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
     logger.info({ userId: ws.userId, deviceId: ws.deviceId }, 'WS 连接已建立');
 
     let set = clientsByUser.get(ws.userId);
+    // 单用户连接数限制，防止单账号开大量连接做内存 DoS
+    if (set && set.size >= MAX_CONNECTIONS_PER_USER) {
+      ws.close(1008, 'too many connections');
+      return;
+    }
     if (!set) {
       set = new Set();
       clientsByUser.set(ws.userId, set);
@@ -79,13 +92,26 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
       ws.isAlive = true;
     });
 
+    // 简单令牌桶限流：每秒最多 MAX_MSG_PER_SECOND 条消息
+    let msgCount = 0;
+    let msgWindowStart = Date.now();
     ws.on('message', (raw) => {
+      const now = Date.now();
+      if (now - msgWindowStart >= 1000) { msgWindowStart = now; msgCount = 0; }
+      if (++msgCount > MAX_MSG_PER_SECOND) {
+        ws.close(1008, 'rate limit');
+        return;
+      }
       try {
         const msg = JSON.parse(raw.toString()) as { type: string; channels?: string[] };
         if (msg.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong', serverTime: new Date().toISOString() }));
         } else if (msg.type === 'subscribe' && Array.isArray(msg.channels)) {
-          msg.channels.forEach((c) => ws.channels.add(c));
+          for (const c of msg.channels) {
+            if (typeof c === 'string' && c.length <= 32 && ALLOWED_CHANNELS.has(c) && ws.channels.size < MAX_CHANNELS) {
+              ws.channels.add(c);
+            }
+          }
           ws.send(JSON.stringify({ type: 'subscribed', channels: Array.from(ws.channels) }));
         }
       } catch (err) {

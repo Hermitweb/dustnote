@@ -43,6 +43,7 @@ import {
   remainingLockoutMs,
   INITIAL_LOCKOUT_STATE,
   LOCAL_LOCKOUT_DURATION_MS,
+  KDF_PARAMS_MOBILE,
   type LocalAuthBlob,
   type LocalLockoutState,
 } from '@dustnote/shared';
@@ -66,7 +67,7 @@ import {
   initStandaloneSession,
 } from '../lib/standalone-session';
 
-const APP_VERSION = '2.3.7';
+const APP_VERSION = '2.3.8';
 
 // 设备 ID：首次生成后持久化到本地存储
 let deviceId = '';
@@ -221,6 +222,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const k = get().masterKey;
     if (k) k.fill(0);
     clearStandaloneMasterKey();
+    clearPersistedToken();
     set({
       authState: 'needs_unlock',
       masterKey: null,
@@ -325,7 +327,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   async setupStandalone(password: string): Promise<string> {
-    const result = await setupLocalAuth(password);
+    const result = await setupLocalAuth(password, KDF_PARAMS_MOBILE);
     saveLocalAuthBlobSync(result.blob);
     saveLockoutStateSync({ ...INITIAL_LOCKOUT_STATE });
     setStandaloneMasterKey(result.masterKey);
@@ -347,7 +349,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       throw new Error(`账号已锁定，请 ${Math.ceil(remaining / 1000)} 秒后重试`);
     }
 
-    const result = await unlockLocalAuth(password, blob);
+    const result = await unlockLocalAuth(password, blob, KDF_PARAMS_MOBILE);
     if (!result.success || !result.masterKey) {
       const newState = recordFailedAttempt(lockoutState);
       saveLockoutStateSync(newState);
@@ -375,7 +377,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const { localAuthBlob } = get();
     const blob = localAuthBlob ?? loadLocalAuthBlobSync();
     if (!blob) throw new Error('未初始化');
-    const result = await recoverLocalAuth(recoveryCode, newPassword, blob);
+    const result = await recoverLocalAuth(recoveryCode, newPassword, blob, KDF_PARAMS_MOBILE);
     if (!result.success || !result.blob || !result.masterKey || !result.recoveryCode) {
       throw new Error('恢复码错误');
     }
@@ -446,6 +448,14 @@ function readPersistedToken(): string | null {
     return Taro.getStorageSync(TOKEN_KEY) || null;
   } catch {
     return null;
+  }
+}
+
+function clearPersistedToken(): void {
+  try {
+    Taro.removeStorageSync(TOKEN_KEY);
+  } catch {
+    /* ignore */
   }
 }
 

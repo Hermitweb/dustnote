@@ -151,8 +151,11 @@ function markdownToHtml(md: string): string {
   // 粗体/斜体
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
-  // 链接
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  // 链接：仅允许安全协议，阻止 javascript:/data: 等 XSS 向量
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, text: string, url: string) => {
+    if (!/^(https?:|mailto:|tel:|#|\/)/i.test(url)) return m;
+    return `<a href="${url}">${text}</a>`;
+  });
   // 代码
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   // 引用

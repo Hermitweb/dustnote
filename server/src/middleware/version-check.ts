@@ -34,6 +34,7 @@ export function versionCheckMiddleware(req: Request, res: Response, next: NextFu
     p === '/auth/unlock' ||
     p === '/auth/refresh' ||
     p === '/auth/recover' ||
+    p === '/auth/recovery-params' ||
     p.startsWith('/share/public/')
   ) {
     return next();
