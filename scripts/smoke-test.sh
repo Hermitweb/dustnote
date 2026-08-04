@@ -11,9 +11,9 @@ pnpm --filter @dustnote/shared build
 pnpm --filter @dustnote/server build
 
 echo "▶ 启动 server"
-SERVER_VERSION="2.3.8"
+SERVER_VERSION="2.4.0"
 MIN_CLIENT_VERSION="2.0.2"
-RECOMMENDED_CLIENT_VERSION="2.3.8"
+RECOMMENDED_CLIENT_VERSION="2.4.0"
 FORCE_UPDATE_VERSION=""
 
 cd server
@@ -43,7 +43,7 @@ echo ""
 echo ""
 echo "===== 测试 2: update-manifest（合法客户端版本）====="
 curl -s -i \
-  -H "X-Client-Version: 2.3.8" \
+  -H "X-Client-Version: 2.4.0" \
   -H "X-Client-Platform: web" \
   -H "X-Client-Channel: stable" \
   -H "X-Client-Device-Id: 11111111-1111-4111-8111-111111111111" \
@@ -72,7 +72,7 @@ for i in {1..20}; do
 done
 
 curl -s -i \
-  -H "X-Client-Version: 2.3.8" \
+  -H "X-Client-Version: 2.4.0" \
   -H "X-Client-Platform: web" \
   -H "X-Client-Channel: stable" \
   -H "X-Client-Device-Id: 11111111-1111-4111-8111-111111111111" \

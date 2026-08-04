@@ -1,6 +1,6 @@
 # DustNote 安装与卸载指南
 
-> 版本：v2.3.8 | 更新日期：2026-08-04
+> 版本：v2.4.0 | 更新日期：2026-08-04
 
 本文档详细说明 DustNote 在各平台的安装、卸载和自动更新流程。
 
@@ -34,7 +34,7 @@ DustNote 在 Windows 上提供三种安装方式，按需选择：
 
 #### 方式一：MSI 安装包（推荐，默认 Program Files）
 
-1. 从 [GitHub Releases](https://github.com/Hermitweb/dustnote/releases) 下载 `DustNote_2.3.8_x64-setup.msi`
+1. 从 [GitHub Releases](https://github.com/Hermitweb/dustnote/releases) 下载 `DustNote_2.4.0_x64-setup.msi`
 2. 双击运行（会弹出 UAC 提权，因默认安装到系统目录）
 3. 安装程序自动完成以下操作：
    - 默认安装到 `C:\Program Files\DustNote\`（系统标准目录）
@@ -50,20 +50,20 @@ MSI 交互界面安装时，可在「安装文件夹」步骤修改目标目录�
 
 ```powershell
 # 静默安装到自定义目录（覆盖默认 Program Files\DustNote）
-msiexec /i DustNote_2.3.8_x64-setup.msi /qn VELOPACK_INSTALLDIR="D:\Apps\DustNote"
+msiexec /i DustNote_2.4.0_x64-setup.msi /qn VELOPACK_INSTALLDIR="D:\Apps\DustNote"
 ```
 
 ##### 静默安装（企业批量部署）
 
 ```powershell
 # 静默安装（无 UI，默认 Program Files\DustNote）
-msiexec /i DustNote_2.3.8_x64-setup.msi /qn
+msiexec /i DustNote_2.4.0_x64-setup.msi /qn
 
 # 静默安装 + 自定义路径
-msiexec /i DustNote_2.3.8_x64-setup.msi /qn VELOPACK_INSTALLDIR="D:\Apps\DustNote"
+msiexec /i DustNote_2.4.0_x64-setup.msi /qn VELOPACK_INSTALLDIR="D:\Apps\DustNote"
 
 # 静默安装 + 安装日志（便于审计与问题排查）
-msiexec /i DustNote_2.3.8_x64-setup.msi /qn /L*v "C:\Logs\dustnote-install.log"
+msiexec /i DustNote_2.4.0_x64-setup.msi /qn /L*v "C:\Logs\dustnote-install.log"
 ```
 
 > `msiexec` 常用参数：
@@ -75,26 +75,26 @@ msiexec /i DustNote_2.3.8_x64-setup.msi /qn /L*v "C:\Logs\dustnote-install.log"
 
 #### 方式二：一键 Setup.exe（无需管理员）
 
-1. 下载 `DustNote_2.3.8_x64-setup.exe`
+1. 下载 `DustNote_2.4.0_x64-setup.exe`
 2. 双击运行（无需 UAC 提权）
 3. 一键安装到 `%LocalAppData%\DustNote\`，自动创建快捷方式并注册到「应用和功能」（HKCU）
 
 ```powershell
 # 静默安装（无 UI）
-DustNote_2.3.8_x64-setup.exe --silent
+DustNote_2.4.0_x64-setup.exe --silent
 
 # 静默安装到指定目录（覆盖默认 %LocalAppData%\DustNote；装 Program Files 需管理员）
-DustNote_2.3.8_x64-setup.exe --silent --installto "C:\Program Files\DustNote"
+DustNote_2.4.0_x64-setup.exe --silent --installto "C:\Program Files\DustNote"
 
 # 启用安装日志
-DustNote_2.3.8_x64-setup.exe --silent --log "C:\Logs\dustnote-install.log"
+DustNote_2.4.0_x64-setup.exe --silent --log "C:\Logs\dustnote-install.log"
 ```
 
 > Velopack `Setup.exe` 参数：`--silent`/`-s`、`--installto <DIR>`/`-t`、`--log <FILE>`/`-l`、`--verbose`/`-v`
 
 #### 方式三：便携版
 
-1. 下载 `DustNote_2.3.8_x64-portable.zip`
+1. 下载 `DustNote_2.4.0_x64-portable.zip`
 2. 解压到任意目录
 3. 双击 `dustnote-desktop.exe` 运行
 4. 便携版不创建快捷方式、不注册到控制面板，适合 U 盘携带
@@ -116,7 +116,7 @@ DustNote_2.3.8_x64-setup.exe --silent --log "C:\Logs\dustnote-install.log"
 
 ```powershell
 # MSI 静默卸载（通过产品名，适合远程管理）
-msiexec /x DustNote_2.3.8_x64-setup.msi /qn
+msiexec /x DustNote_2.4.0_x64-setup.msi /qn
 
 # 或通过「应用和功能」中的产品 GUID（可用 wmic/PowerShell 查询 ProductCode）
 # Get-WmiObject Win32_Product -Filter "Name='DustNote'" | Select IdentifyingNumber
@@ -246,7 +246,7 @@ rm -rf ~/.local/share/dustnote/
 
 #### 方式一：直接安装 APK
 
-1. 下载 `DustNote_2.3.8_android.apk`
+1. 下载 `DustNote_2.4.0_android.apk`
 2. 在手机上打开 APK 文件
 3. 允许「安装未知来源应用」（首次需要）
 4. 按提示完成安装

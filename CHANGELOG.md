@@ -13,6 +13,53 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.4.0] - 2026-08-04
+
+### 新增 — 全端安装/卸载/部署流程规范化 + 品牌统一
+
+按各平台「安装、卸载、部署流程目标」对全端分发能力进行系统性补齐，统一项目品牌标识，并新增 Web PWA 与 Windows MSI 安装包。
+
+#### Web 端 PWA（新增）
+
+- **manifest.json + Service Worker**：Web 端正式支持 PWA 安装。`index.html` 链接 manifest 并在 HTTPS 环境注册 `sw.js`。
+- **离线能力**：SW 缓存策略为静态资源 stale-while-revalidate、API/导航 network-first，断网下仍可访问已缓存笔记。
+- **安装入口**：新增 `use-pwa-install.ts` hook 监听 `beforeinstallprompt`，设置对话框增加「📲 安装为桌面应用」按钮；已安装状态显示「✓ 已安装为独立应用」。
+
+#### Windows MSI 安装包（新增）
+
+- **默认 Program Files**：`release.yml` 新增独立 vpk pack 步骤生成 PerMachine MSI（`--msi --instLocation PerMachine`），默认安装到 `Program Files\DustNote`。vpk 内置 WiX 5，CI 无需单独安装。
+- **自定义安装路径**：MSI 交互 UI 可修改目录；静默部署通过 `msiexec /i X.msi /qn VELOPACK_INSTALLDIR="<DIR>"` 指定。
+- **不阻断发布**：MSI 步骤 `continue-on-error: true`，WiX/MSI 生成失败时一键 Setup.exe（PerUser，无需管理员）仍正常发布，二者共用同一 `Update.exe` 自动更新通道。
+- **静默部署**：`msiexec /i DustNote.msi /qn`（安装）/ `msiexec /x DustNote.msi /qn`（卸载），支持 `VELOPACK_INSTALLDIR` 与 `/L*v` 日志。
+
+#### Linux 桌面集成（新增）
+
+- **.desktop 文件 + 安装/卸载脚本**：新增 `desktop/linux/dustnote.desktop`、`install.sh`、`uninstall.sh`，支持用户级（`~/.local/share`，无需 sudo）与系统级（`/usr/share`，需 sudo）两种集成方式。
+- **release.yml 桌面集成包**：create-release 作业打包 `DustNote_<ver>_linux-desktop-integration.tar.gz`（.desktop + 图标 + 脚本），不依赖 Linux 二进制构建是否成功。
+
+#### 品牌统一（新增）
+
+- **全端统一 logo / 软件图标**：以「尘心笔记.webp」为源，通过 `scripts/generate-icons.py` 生成全平台图标（Desktop Tauri icon.png/ico/icns、Android ic_launcher、Web favicon/apple-touch-icon、Miniprogram logo）。
+- **UI logo 替换**：Web（7 文件含 App.tsx、Sidebar）、Mobile（6 文件含 UnlockScreen、App.tsx）、Miniprogram（5 页面）将 emoji 🌿 统一替换为图片元素；新增 `images.d.ts` 类型声明。
+
+#### Android 权限最小化
+
+- **移除未使用的 RECEIVE_BOOT_COMPLETED 权限**：项目无对应 BroadcastReceiver，声明违反最小权限原则。现有权限（INTERNET / ACCESS_NETWORK_STATE / USE_BIOMETRIC / USE_FINGERPRINT / READ_EXTERNAL_STORAGE(maxSdkVersion=32)）均有实际用途。
+
+#### 部署文档
+
+- **新增 [docs/installation-guide.md](./docs/installation-guide.md)**：覆盖 Windows（MSI/Setup.exe/便携版）、Linux（AppImage + 桌面集成）、macOS、Android、Web（PWA）全平台安装、卸载、静默部署、自动更新、数据存储位置与卸载后清理。
+
+### 涉及文件
+
+- `web/public/manifest.json`（新）、`web/public/sw.js`（新）、`web/index.html`、`web/src/lib/use-pwa-install.ts`（新）、`web/src/components/SettingsDialog.tsx`
+- `desktop/linux/dustnote.desktop`（新）、`desktop/linux/install.sh`（新）、`desktop/linux/uninstall.sh`（新）
+- `.github/workflows/release.yml` — vpk pack 拆分 Setup.exe + MSI、create-release 增加 .msi 与 linux-desktop-integration 资产、发布说明
+- `mobile/android/app/src/main/AndroidManifest.xml` — 移除 RECEIVE_BOOT_COMPLETED
+- `scripts/generate-icons.py` 与全端图标资源、UI logo 替换（63 文件）
+- `docs/installation-guide.md`（新）
+- 全端版本号同步至 2.4.0（package.json ×7、tauri.conf.json、Cargo.toml、Android versionCode 18/versionName、server env/update-manifest、mobile/miniprogram 源码内嵌 APP_VERSION、release.yml、smoke-test.sh、sw.js）
+
 ## [2.3.8] - 2026-08-01
 
 ### 修复 — 首席架构师 SOP 零故障加固（跨端健壮性 + 安全 + 日志脱敏）

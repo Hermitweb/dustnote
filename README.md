@@ -2,7 +2,7 @@
 
 > 🌿 极简 · 清新 · 跨端 · 安全——一款 E2EE 端到端加密的个人笔记系统
 
-![Status](https://img.shields.io/badge/status-v2.0.0-blue)
+![Status](https://img.shields.io/badge/status-v2.4.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Node](https://img.shields.io/badge/node-20%2B-blue)
 ![E2EE](https://img.shields.io/badge/encryption-AES--256--GCM-purple)
@@ -20,8 +20,9 @@
 - 📁 **文件夹 + 标签**——自由组织笔记结构
 - ✅ **多选批量操作**——长按选择多条笔记，一键移动/置顶/收藏/删除
 - 🔄 **实时同步**——WebSocket 推送，1 秒内同步到所有在线设备（联机模式）
-- 📱 **跨平台**——Web / 桌面 (Windows/macOS/Linux) / Android / iOS / 微信小程序
+- 📱 **跨平台**——Web（支持 PWA 安装） / 桌面 (Windows/macOS/Linux) / Android / iOS / 微信小程序
 - 🐳 **一键部署**——Docker Compose，5 分钟上线（自托管服务器）
+- 🔄 **自动更新**——桌面端 Velopack 增量更新；Windows 提供 MSI（默认 Program Files，支持自定义路径与静默部署）
 
 ## 双模式架构（v2.0.0 新增）
 
@@ -48,8 +49,8 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 
 | 平台               | 状态 | 构建方式                 | 分发                  |
 | ------------------ | ---- | ------------------------ | --------------------- |
-| **Web**            | ✅   | Vite                     | 静态文件 / Docker     |
-| **桌面** (Tauri 2) | ✅   | `pnpm build:desktop`     | .msi/.dmg/.deb 安装包 |
+| **Web**（PWA）     | ✅   | Vite                     | 静态文件 / Docker / PWA 安装 |
+| **桌面** (Tauri 2) | ✅   | `pnpm build:desktop`     | Windows MSI + Setup.exe / Linux 桌面集成包 |
 | **微信小程序**     | ✅   | `pnpm build:miniprogram` | 微信审核上传          |
 | **H5 移动版**      | ✅   | `pnpm build:h5`          | 静态文件部署          |
 | **Android**        | ✅   | `pnpm build:android`     | APK 分发              |
@@ -247,6 +248,7 @@ pnpm docker:up          # Docker 部署
 ### 用户与运维文档
 
 - [用户使用手册](./docs/user-guide.md)
+- [安装与卸载指南](./docs/installation-guide.md)（v2.4.0 新增，覆盖全平台安装/卸载/静默部署/自动更新）
 - [常见问题 FAQ](./docs/faq.md)
 - [自托管指南](./docs/self-hosting.md)
 - [兼容性矩阵](./docs/compatibility-matrix.md)
@@ -264,7 +266,7 @@ pnpm docker:up          # Docker 部署
 
 ### 更新日志
 
-- [CHANGELOG.md](./CHANGELOG.md) — v2.0.0 单机/联机双模式架构
+- [CHANGELOG.md](./CHANGELOG.md) — v2.4.0 全端安装/卸载/部署规范化 + 品牌统一；v2.0.0 单机/联机双模式架构
 
 ## 开发
 
