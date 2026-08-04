@@ -11,7 +11,9 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native';
+import logoImage from '../assets/logo.png';
 import { useAuthStore } from '../state/auth';
 import { theme } from '../theme';
 
@@ -78,7 +80,7 @@ export function SetupScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.emoji}>🌿</Text>
+      <Image source={logoImage} style={styles.logo} />
       <Text style={styles.title}>创建主密码</Text>
       <Text style={styles.subtitle}>主密码是您访问笔记的唯一凭据。我们无法找回，请妥善保管。</Text>
 
@@ -124,6 +126,7 @@ export function SetupScreen() {
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 24, justifyContent: 'center', backgroundColor: theme.bgLight },
   emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
+  logo: { width: 64, height: 64, alignSelf: 'center', marginBottom: 16 },
   title: {
     fontSize: 24,
     fontWeight: '700',

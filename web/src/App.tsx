@@ -189,7 +189,7 @@ function App() {
     return (
       <div className="flex h-full items-center justify-center bg-surface-bg text-surface-muted">
         <div className="text-center">
-          <div className="mb-2 text-3xl">🌿</div>
+          <div className="mb-2 text-3xl"><img src="/logo.png" alt="DustNote" className="mx-auto h-10 w-10" /></div>
           <div className="text-sm">加载中...</div>
         </div>
       </div>

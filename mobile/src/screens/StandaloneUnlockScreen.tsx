@@ -15,7 +15,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
+import logoImage from '../assets/logo.png';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import ReactNativeBiometrics from 'react-native-biometrics';
@@ -99,7 +100,7 @@ export function StandaloneUnlockScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.emoji}>🌿</Text>
+      <Image source={logoImage} style={styles.logo} />
       <Text style={styles.title}>DustNote（单机）</Text>
       <Text style={styles.subtitle}>
         {isLocked
@@ -153,6 +154,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: c.bg },
     emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
+    logo: { width: 64, height: 64, alignSelf: 'center', marginBottom: 16 },
     title: {
       fontSize: 28,
       fontWeight: '700',

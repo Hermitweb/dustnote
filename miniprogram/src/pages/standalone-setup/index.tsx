@@ -15,7 +15,8 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, Input } from '@tarojs/components';
+import { View, Text, Input, Image } from '@tarojs/components';
+import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
 import { useAuthStore } from '../../state/auth';
 
@@ -72,9 +73,7 @@ export default function StandaloneSetup() {
 
   return (
     <View className="setup-container">
-      <Text className="hero-logo" style={{ textAlign: 'center' }}>
-        🌿
-      </Text>
+      <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px', textAlign: 'center' }} />
       <Text className="hero-title text-center">设置主密码（单机模式）</Text>
       <Text className="hero-subtitle mb-l text-center">
         主密码本地验证 · 数据存储在本机 · 无需服务器

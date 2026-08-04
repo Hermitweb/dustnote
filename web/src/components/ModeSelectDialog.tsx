@@ -73,8 +73,8 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
       <div className="w-full max-w-2xl rounded-2xl border border-surface-border bg-surface-card p-8 shadow-2xl">
         {/* 标题 */}
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-mint-100 text-3xl dark:bg-mint-900/30">
-            🌿
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-mint-100 dark:bg-mint-900/30">
+            <img src="/logo.png" alt="" className="h-10 w-10" />
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('mode_select.title')}</h1>
           <p className="mt-2 text-sm text-surface-muted">{t('mode_select.subtitle')}</p>

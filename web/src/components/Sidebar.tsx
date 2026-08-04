@@ -232,8 +232,8 @@ export function Sidebar() {
       {/* 顶栏 */}
       <div className="border-b border-surface-border p-4">
         <div className="mb-3 flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-mint-100 text-mint-600 dark:bg-mint-900/30">
-            🌿
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-mint-100 dark:bg-mint-900/30">
+            <img src="/logo.png" alt="" className="h-6 w-6" />
           </div>
           <h1 className="flex-1 text-base font-bold text-surface-fg">{t('app.name')}</h1>
           {/* 离线徽章：断网或有待同步操作时显示 */}

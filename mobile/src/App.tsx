@@ -213,7 +213,7 @@ function AppInner() {
             <Stack.Screen
               name="NotesList"
               component={NotesListScreen}
-              options={{ title: '🌿 尘心笔记' }}
+              options={{ title: '尘心笔记' }}
             />
             <Stack.Screen
               name="NoteEdit"

@@ -14,7 +14,8 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, Input } from '@tarojs/components';
+import { View, Text, ScrollView, Input, Image } from '@tarojs/components';
+import logoUrl from '../../assets/logo.png';
 import Taro, { useDidShow } from '@tarojs/taro';
 import {
   getApi,
@@ -336,7 +337,7 @@ export default function Index() {
   if (mode === 'online' && authState === 'uninitialized') {
     return (
       <View className="hero">
-        <Text className="hero-logo">🌿</Text>
+        <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
         <Text className="hero-title">欢迎使用 DustNote</Text>
         <Text className="hero-subtitle">端到端加密 · 私密笔记</Text>
         <View
@@ -367,7 +368,7 @@ export default function Index() {
     };
     return (
       <View className="hero">
-        <Text className="hero-logo">🌿</Text>
+        <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
         <Text className="hero-title">DustNote</Text>
         <Text className="hero-subtitle mb-l">输入主密码解锁</Text>
         <Input
@@ -404,7 +405,7 @@ export default function Index() {
           </>
         ) : (
           <>
-            <Text className="topbar-title">🌿 DustNote</Text>
+            <Text className="topbar-title">DustNote</Text>
             <View className="topbar-actions">
               <Text
                 className="icon-btn"

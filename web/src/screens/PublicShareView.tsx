@@ -197,7 +197,7 @@ export function PublicShareView({ token }: { token: string }) {
       <div className="mx-auto max-w-3xl px-6 py-12">
         {/* 头部 */}
         <div className="mb-6 flex items-center gap-2 text-sm text-slate-500">
-          <span>🌿</span>
+          <img src="/logo.png" alt="" className="inline-block h-4 w-4 align-middle" />
           <span>{t('public_share.badge')}</span>
           {state.hasPassword && (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">

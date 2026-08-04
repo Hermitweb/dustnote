@@ -16,7 +16,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, Input } from '@tarojs/components';
+import { View, Text, Input, Image } from '@tarojs/components';
+import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
 import { isLocked, remainingLockoutMs, INITIAL_LOCKOUT_STATE, type LocalLockoutState } from '@dustnote/shared';
 import { loadLockoutStateSync } from '../../lib/local-auth-storage';
@@ -80,7 +81,7 @@ export default function StandaloneUnlock() {
 
   return (
     <View className="hero">
-      <Text className="hero-logo">🌿</Text>
+      <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
       <Text className="hero-title text-mint">DustNote</Text>
       <Text className="hero-subtitle mb-l">单机模式 · 输入主密码解锁</Text>
 

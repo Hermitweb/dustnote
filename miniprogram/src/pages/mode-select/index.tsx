@@ -11,7 +11,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, Input } from '@tarojs/components';
+import { View, Text, Input, Image } from '@tarojs/components';
+import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
 import { useModeStore } from '../../lib/mode-store';
 import { hasLocalAuthSync } from '../../lib/local-auth-storage';
@@ -172,7 +173,7 @@ export default function ModeSelect() {
 
   return (
     <View className="hero">
-      <Text className="hero-logo">🌿</Text>
+      <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
       <Text className="hero-title">欢迎使用 DustNote</Text>
       <Text className="hero-subtitle">端到端加密 · 单机/联机双模式</Text>
 

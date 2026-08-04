@@ -23,7 +23,9 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native';
+import logoImage from '../assets/logo.png';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
 
@@ -127,7 +129,7 @@ export function StandaloneSetupScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.emoji}>🌿</Text>
+      <Image source={logoImage} style={styles.logo} />
       <Text style={styles.title}>创建主密码（单机模式）</Text>
       <Text style={styles.subtitle}>
         主密码用于加密本地存储的所有笔记。我们无法找回，请妥善保管。
@@ -183,6 +185,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       backgroundColor: c.bg,
     },
     emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
+    logo: { width: 64, height: 64, alignSelf: 'center', marginBottom: 16 },
     title: {
       fontSize: 24,
       fontWeight: '700',

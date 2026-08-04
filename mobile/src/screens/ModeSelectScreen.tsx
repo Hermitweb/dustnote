@@ -23,7 +23,9 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
+import logoImage from '../assets/logo.png';
 import { useTranslation } from 'react-i18next';
 import { useModeStore } from '../lib/mode-store';
 import { useColors } from '../theme';
@@ -91,7 +93,7 @@ export function ModeSelectScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.emoji}>🌿</Text>
+      <Image source={logoImage} style={styles.logo} />
       <Text style={styles.title}>{t('mode_select.welcome')}</Text>
       <Text style={styles.subtitle}>{t('mode_select.subtitle')}</Text>
 
@@ -172,6 +174,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       backgroundColor: c.bg,
     },
     emoji: { fontSize: 56, textAlign: 'center', marginTop: 32, marginBottom: 12 },
+    logo: { width: 56, height: 56, alignSelf: 'center', marginTop: 32, marginBottom: 12 },
     title: {
       fontSize: 24,
       fontWeight: '700',

@@ -3,7 +3,8 @@
  * 接入 E2EE：调用 store.unlock 完成密码校验 + masterKey 重新派生
  */
 import React, { useState } from 'react';
-import { View, Text, Input } from '@tarojs/components';
+import { View, Text, Input, Image } from '@tarojs/components';
+import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
 import { useAuthStore } from '../../state/auth';
 
@@ -32,7 +33,7 @@ export default function Unlock() {
 
   return (
     <View className="hero">
-      <Text className="hero-logo">🌿</Text>
+      <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
       <Text className="hero-title text-mint">DustNote</Text>
       <Text className="hero-subtitle mb-l">输入主密码解锁</Text>
 

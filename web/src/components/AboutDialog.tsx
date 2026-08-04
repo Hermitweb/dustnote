@@ -36,8 +36,8 @@ export function AboutDialog({ onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-mint-100 text-3xl dark:bg-mint-900/30">
-            🌿
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-mint-100 dark:bg-mint-900/30">
+            <img src="/logo.png" alt="" className="h-10 w-10" />
           </div>
           <h2 id="about-dialog-title" className="text-lg font-bold text-surface-fg">
             {t('app.name')}
