@@ -24,42 +24,80 @@
 
 ### 安装
 
-#### 方式一：安装版（推荐）
+DustNote 在 Windows 上提供三种安装方式，按需选择：
 
-1. 从 [GitHub Releases](https://github.com/Hermitweb/dustnote/releases) 下载 `DustNote_2.3.8_x64-setup.exe`
-2. 双击运行安装程序
+| 方式 | 安装位置 | 管理员权限 | 适用场景 |
+|------|---------|-----------|---------|
+| MSI 安装包（推荐） | `Program Files\DustNote` | 需要 | 默认系统目录、企业批量部署、需自定义路径 |
+| 一键 Setup.exe | `%LocalAppData%\DustNote` | 不需要 | 无 UAC 权限、个人快速安装 |
+| 便携版 | 任意目录 | 不需要 | U 盘携带、免安装 |
+
+#### 方式一：MSI 安装包（推荐，默认 Program Files）
+
+1. 从 [GitHub Releases](https://github.com/Hermitweb/dustnote/releases) 下载 `DustNote_2.3.8_x64-setup.msi`
+2. 双击运行（会弹出 UAC 提权，因默认安装到系统目录）
 3. 安装程序自动完成以下操作：
-   - 安装到 `%LocalAppData%\DustNote\`（不写入系统目录，无需管理员权限）
-   - 创建开始菜单快捷方式
-   - 注册到「控制面板 → 程序和功能」（可从此卸载）
+   - 默认安装到 `C:\Program Files\DustNote\`（系统标准目录）
+   - 创建桌面与开始菜单快捷方式
+   - 注册到「设置 → 应用 → 已安装的应用」（HKLM，可从此卸载）
    - 注册 Velopack 自动更新服务
 
-#### 方式二：便携版
+##### 自定义安装路径
+
+MSI 交互界面安装时，可在「安装文件夹」步骤修改目标目录。
+
+静默安装时通过 `VELOPACK_INSTALLDIR` 属性指定自定义路径：
+
+```powershell
+# 静默安装到自定义目录（覆盖默认 Program Files\DustNote）
+msiexec /i DustNote_2.3.8_x64-setup.msi /qn VELOPACK_INSTALLDIR="D:\Apps\DustNote"
+```
+
+##### 静默安装（企业批量部署）
+
+```powershell
+# 静默安装（无 UI，默认 Program Files\DustNote）
+msiexec /i DustNote_2.3.8_x64-setup.msi /qn
+
+# 静默安装 + 自定义路径
+msiexec /i DustNote_2.3.8_x64-setup.msi /qn VELOPACK_INSTALLDIR="D:\Apps\DustNote"
+
+# 静默安装 + 安装日志（便于审计与问题排查）
+msiexec /i DustNote_2.3.8_x64-setup.msi /qn /L*v "C:\Logs\dustnote-install.log"
+```
+
+> `msiexec` 常用参数：
+> - `/i <msi>`：安装
+> - `/qn`：完全静默（无 UI）；`/qb`：仅显示进度条
+> - `/L*v <log>`：输出详细安装日志
+> - `VELOPACK_INSTALLDIR="<DIR>"`：自定义安装目录（优先级高于默认路径）
+> - `ALLUSERS=1`：强制 PerMachine 安装
+
+#### 方式二：一键 Setup.exe（无需管理员）
+
+1. 下载 `DustNote_2.3.8_x64-setup.exe`
+2. 双击运行（无需 UAC 提权）
+3. 一键安装到 `%LocalAppData%\DustNote\`，自动创建快捷方式并注册到「应用和功能」（HKCU）
+
+```powershell
+# 静默安装（无 UI）
+DustNote_2.3.8_x64-setup.exe --silent
+
+# 静默安装到指定目录（覆盖默认 %LocalAppData%\DustNote；装 Program Files 需管理员）
+DustNote_2.3.8_x64-setup.exe --silent --installto "C:\Program Files\DustNote"
+
+# 启用安装日志
+DustNote_2.3.8_x64-setup.exe --silent --log "C:\Logs\dustnote-install.log"
+```
+
+> Velopack `Setup.exe` 参数：`--silent`/`-s`、`--installto <DIR>`/`-t`、`--log <FILE>`/`-l`、`--verbose`/`-v`
+
+#### 方式三：便携版
 
 1. 下载 `DustNote_2.3.8_x64-portable.zip`
 2. 解压到任意目录
 3. 双击 `dustnote-desktop.exe` 运行
 4. 便携版不创建快捷方式、不注册到控制面板，适合 U 盘携带
-
-#### 静默安装（企业批量部署）
-
-```powershell
-# 静默安装（无 UI，自动应答所有提示）
-DustNote_2.3.8_x64-setup.exe --silent
-
-# 静默安装到指定目录（覆盖默认 %LocalAppData%\DustNote）
-# 注意：安装到 Program Files 等系统目录需要管理员权限
-DustNote_2.3.8_x64-setup.exe --silent --installto "C:\Program Files\DustNote"
-
-# 启用安装日志（便于问题排查）
-DustNote_2.3.8_x64-setup.exe --silent --log "C:\Logs\dustnote-install.log"
-```
-
-> Velopack `Setup.exe` 支持的参数：
-> - `--silent` / `-s`：隐藏所有对话框，自动应答
-> - `--installto <DIR>` / `-t`：自定义安装目录
-> - `--log <FILE>` / `-l`：输出安装日志
-> - `--verbose` / `-v`：控制台打印调试信息
 
 ### 卸载
 
@@ -67,7 +105,7 @@ DustNote_2.3.8_x64-setup.exe --silent --log "C:\Logs\dustnote-install.log"
 
 1. 打开「设置 → 应用 → 已安装的应用」
 2. 搜索 DustNote
-3. 点击「卸载」
+3. 点击「卸载」（MSI 安装走 Windows Installer，Setup.exe 安装走 Velopack）
 
 #### 方式二：开始菜单
 
@@ -77,7 +115,13 @@ DustNote_2.3.8_x64-setup.exe --silent --log "C:\Logs\dustnote-install.log"
 #### 方式三：静默卸载
 
 ```powershell
-# 通过 Velopack 静默卸载（移除快捷方式、文件、注册表项）
+# MSI 静默卸载（通过产品名，适合远程管理）
+msiexec /x DustNote_2.3.8_x64-setup.msi /qn
+
+# 或通过「应用和功能」中的产品 GUID（可用 wmic/PowerShell 查询 ProductCode）
+# Get-WmiObject Win32_Product -Filter "Name='DustNote'" | Select IdentifyingNumber
+
+# Setup.exe 安装的通过 Velopack 静默卸载（移除快捷方式、文件、注册表项）
 "%LocalAppData%\DustNote\current\Update.exe" uninstall --silent
 
 # 启用卸载日志（便于审计与问题排查）
@@ -86,13 +130,19 @@ DustNote_2.3.8_x64-setup.exe --silent --log "C:\Logs\dustnote-install.log"
 
 ### 卸载后清理
 
-Velopack `Update.exe uninstall` 会删除（"Remove all app shortcuts, files, and registry entries"）：
+**MSI 卸载**（Windows Installer）会删除：
+- ✅ 程序文件（`C:\Program Files\DustNote\`）
+- ✅ 桌面与开始菜单快捷方式
+- ✅ HKLM 注册表卸载条目
+- ✅ 自动更新服务（Update.exe）
+
+**Setup.exe 卸载**（Velopack `Update.exe uninstall`）会删除：
 - ✅ 程序文件（`%LocalAppData%\DustNote\`）
 - ✅ 桌面与开始菜单快捷方式
-- ✅ 注册表卸载条目（HKCU「应用和功能」）
+- ✅ HKCU 注册表卸载条目
 - ✅ 自动更新服务（Update.exe 自身）
 
-需要手动清理（按需）：
+两种方式均需手动清理（按需）：
 - 用户数据：`%AppData%\DustNote\`（IndexedDB、本地密钥）
 - 系统托盘设置：Windows 通知中心缓存
 

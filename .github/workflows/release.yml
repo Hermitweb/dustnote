@@ -178,18 +178,18 @@ jobs:
           name: desktop-portable-win
           path: desktop/src-tauri/DustNote_*_x64-portable.zip
           if-no-files-found: ignore
-      - name: Pack with Velopack
+      - name: Pack with Velopack (Setup.exe + nupkg + RELEASES)
         working-directory: desktop/src-tauri
         shell: bash
         # macOS/Linux vpk pack 依赖 .app bundle 或额外运行时资源，硬件平台受限
         continue-on-error: ${{ matrix.os != 'windows-latest' }}
         env:
           VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.8' }}
-        # Velopack Windows 一键安装默认行为（无需额外参数）：
-        #   - 安装位置：%LocalAppData%\DustNote（PerUser，无需管理员权限）
-        #   - 快捷方式：--shortcuts 默认为 "Desktop,StartMenuRoot"（桌面 + 开始菜单）
+        # 一键 Setup.exe（PerUser，无需管理员）：
+        #   - 安装位置：%LocalAppData%\DustNote
+        #   - 快捷方式：--shortcuts 默认 "Desktop,StartMenuRoot"（桌面 + 开始菜单）
         #   - 控制面板注册：自动写入「应用和功能」卸载条目（HKCU）
-        #   - 自动更新：Update.exe + RELEASES 索引
+        #   - 自动更新：Update.exe + RELEASES 索引 + full.nupkg + delta.nupkg
         # 静默安装：Setup.exe --silent
         # 静默卸载：%LocalAppData%\DustNote\current\Update.exe uninstall --silent
         # --packTitle 控制「应用和功能」显示名与快捷方式名
@@ -199,6 +199,31 @@ jobs:
             --mainExe ${{ matrix.main_exe }} --channel ${{ matrix.channel }} \
             --runtime ${{ matrix.runtime }} --icon icons/icon.ico \
             --packTitle "DustNote" --packAuthors "DustNote Team"
+      - name: Pack MSI installer (Program Files default, custom path)
+        # 生成 PerMachine MSI：默认安装到 Program Files\DustNote（需管理员），
+        # MSI 交互 UI 与 VELOPACK_INSTALLDIR 属性均支持自定义安装路径。
+        # 单独成步且 continue-on-error：若 WiX/MSI 生成失败，上方 Setup.exe 仍正常发布，
+        # 不阻断 Release。MSI 与 Setup.exe 共用同一 Update.exe 自动更新机制。
+        if: matrix.os == 'windows-latest'
+        working-directory: desktop/src-tauri
+        shell: bash
+        continue-on-error: true
+        env:
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.8' }}
+        # --msi               生成 .msi（vpk 内置 WiX 5，无需单独安装）
+        # --instLocation PerMachine  默认 Program Files\{publisher}\{packTitle}（HKLM，需提权）
+        # --noInst --noPortable      跳过 Setup.exe / 便携包（已在上方生成），仅产出 MSI
+        # --delta None               跳过 delta 生成（已在上方生成），避免重复下载旧版
+        # 静默安装：msiexec /i DustNote.msi /qn
+        # 自定义路径：msiexec /i DustNote.msi /qn VELOPACK_INSTALLDIR="D:\Apps\DustNote"
+        run: |
+          ver="${VPK_VERSION#v}"
+          vpk pack --packId DustNote --packVersion "$ver" --packDir staging \
+            --mainExe ${{ matrix.main_exe }} --channel ${{ matrix.channel }} \
+            --runtime ${{ matrix.runtime }} --icon icons/icon.ico \
+            --packTitle "DustNote" --packAuthors "DustNote Team" \
+            --msi --instLocation PerMachine --noInst --noPortable --delta None \
+            -o Releases
       - name: List Velopack outputs
         if: always()
         shell: bash
@@ -502,6 +527,18 @@ jobs:
             cp "$win_setup_src" "release-assets/DustNote_${DUSTNOTE_VERSION}_x64-setup.exe"
           fi
 
+          # 重命名 Windows MSI → DustNote_<version>_x64-setup.msi
+          # MSI 由独立 vpk pack 步骤生成（--msi --instLocation PerMachine），
+          # 默认安装到 Program Files\DustNote，支持自定义路径。
+          # 该步骤 continue-on-error，MSI 可能缺失（WiX/MSI 生成失败时不阻断 Release）。
+          win_msi_src="$(ls artifacts/desktop-velopack-win/*.msi 2>/dev/null | head -n1 || true)"
+          if [ -n "$win_msi_src" ] && [ -f "$win_msi_src" ]; then
+            cp "$win_msi_src" "release-assets/DustNote_${DUSTNOTE_VERSION}_x64-setup.msi"
+            echo "✓ Windows MSI installer found: $(basename "$win_msi_src")"
+          else
+            echo "::warning::Windows MSI not generated (WiX/MSI step failed or skipped) — Setup.exe still available"
+          fi
+
           # 重命名 Android APK → DustNote_<version>_android.apk
           if [ -f artifacts/android-apk/app-release.apk ]; then
             cp artifacts/android-apk/app-release.apk "release-assets/DustNote_${DUSTNOTE_VERSION}_android.apk"
@@ -546,7 +583,13 @@ jobs:
             适用于终端用户的各平台安装包，下载对应平台版本安装即可。
 
             ### Windows
-            - **安装版（推荐）**: [DustNote_${{ steps.meta.outputs.version }}_x64-setup.exe](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_x64-setup.exe)
+            - **MSI 安装包（推荐，默认 Program Files）**: [DustNote_${{ steps.meta.outputs.version }}_x64-setup.msi](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_x64-setup.msi)
+              - 默认安装到 `Program Files\DustNote`（需管理员权限），MSI 交互界面可自定义安装路径
+              - 支持静默部署：`msiexec /i DustNote.msi /qn`，自定义路径：`msiexec /i DustNote.msi /qn VELOPACK_INSTALLDIR="D:\Apps\DustNote"`
+              - 内置 Velopack 自动更新，与 Setup.exe 共用同一更新通道
+              - 若本 Release 缺少 MSI（WiX 生成失败），请改用下方 Setup.exe
+            - **一键安装版（无需管理员）**: [DustNote_${{ steps.meta.outputs.version }}_x64-setup.exe](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_x64-setup.exe)
+              - 安装到 `%LocalAppData%\DustNote`，无需管理员权限，适合无 UAC 权限环境
               - 内置 Velopack 自动更新，启动后自动检查新版本并增量下载
             - **便携版**: [DustNote_${{ steps.meta.outputs.version }}_x64-portable.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_x64-portable.zip)
               - 解压后直接运行 `dustnote-desktop.exe`，无自动更新
