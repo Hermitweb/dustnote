@@ -12,7 +12,7 @@ env:
   PNPM_VERSION: '9.12.0'
   # Use the tag name when triggered by a tag; fall back to v2.3.2 for the
   # branch-triggered release.
-  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.4.1' }}
+  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.4.2' }}
 
 concurrency:
   group: release-${{ github.ref }}

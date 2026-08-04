@@ -50,6 +50,9 @@ mod velopack_impl {
     use tauri::{AppHandle, Emitter};
     use velopack::{sources::GithubSource, UpdateCheck, UpdateManager};
 
+    /// GitHub API 端点 — 获取最新 release 信息
+    const GITHUB_API_RELEASES: &str = "https://api.github.com/repos/Hermitweb/dustnote/releases/latest";
+
     /// 构造 UpdateManager（dev 期未安装时返回 NotInstalled 错误）
     fn build_manager() -> Result<UpdateManager, velopack::Error> {
         let source = GithubSource::new(GITHUB_REPO_URL, None, false);
@@ -69,36 +72,161 @@ mod velopack_impl {
         }
     }
 
+    /// 自动检测本地代理（Clash 7890 / SOCKS 1080 / HTTP 8080）
+    ///
+    /// 部分用户网络环境无法直连 github.com（GFW / 企业防火墙等），
+    /// 但本机可能运行了代理软件。此函数尝试 TCP 连接常见代理端口，
+    /// 若可达则返回代理 URL。
+    fn detect_local_proxy() -> Option<String> {
+        // 优先尊重已设置的 env var
+        if let Ok(proxy) = std::env::var("HTTPS_PROXY").or_else(|_| std::env::var("HTTP_PROXY")) {
+            if !proxy.is_empty() {
+                return Some(proxy);
+            }
+        }
+        // 尝试常见本地代理端口（300ms 超时，最多 ~1s）
+        for port in [7890, 1080, 8080] {
+            let addr: std::net::SocketAddr = match format!("127.0.0.1:{}", port).parse() {
+                Ok(a) => a,
+                Err(_) => continue,
+            };
+            if std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(300))
+                .is_ok()
+            {
+                return Some(format!("http://127.0.0.1:{}", port));
+            }
+        }
+        None
+    }
+
+    /// 为 Velopack 内部的 reqwest 客户端设置代理 env var
+    ///
+    /// Velopack 的 download_updates / apply_updates 也会发起网络请求，
+    /// 需要通过 env var 让其走代理。
+    fn set_proxy_env(proxy: &str) {
+        // SAFETY: env var 写入非线程安全，但此处仅在 spawn_blocking 线程内执行，
+        // 且在 Velopack 构造 HTTP client 之前调用。Rust 1.85+ 要求 unsafe。
+        unsafe {
+            std::env::set_var("HTTPS_PROXY", proxy);
+            std::env::set_var("HTTP_PROXY", proxy);
+        }
+    }
+
+    /// 通过 GitHub API 检查最新 release 版本号
+    ///
+    /// 使用 reqwest blocking 客户端，支持代理 + 5s 超时。
+    /// 相比 Velopack 内置的 check_for_updates，此方法可显式配置代理，
+    /// 避免在无代理环境下长时间卡住。
+    fn fetch_latest_version(proxy: Option<&str>) -> Result<String, UpdaterError> {
+        let mut builder = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .user_agent("DustNote-Updater");
+
+        if let Some(p) = proxy {
+            builder = builder
+                .proxy(reqwest::Proxy::all(p).map_err(|e| UpdaterError {
+                    kind: "Network",
+                    message: format!("代理配置错误: {}", e),
+                })?);
+        }
+
+        let client = builder.build().map_err(|e| UpdaterError {
+            kind: "Network",
+            message: format!("HTTP 客户端初始化失败: {}", e),
+        })?;
+
+        let resp = client
+            .get(GITHUB_API_RELEASES)
+            .send()
+            .map_err(|e| UpdaterError {
+                kind: "Network",
+                message: format!("无法连接 GitHub: {}", e),
+            })?;
+
+        if !resp.status().is_success() {
+            return Err(UpdaterError {
+                kind: "Network",
+                message: format!("GitHub API 返回错误: HTTP {}", resp.status()),
+            });
+        }
+
+        let json: serde_json::Value = resp.json().map_err(|e| UpdaterError {
+            kind: "Network",
+            message: format!("解析 GitHub 响应失败: {}", e),
+        })?;
+
+        let tag = json["tag_name"].as_str().ok_or_else(|| UpdaterError {
+            kind: "Network",
+            message: "GitHub 响应中缺少 tag_name".into(),
+        })?;
+
+        // "v2.4.1" → "2.4.1"
+        Ok(tag.strip_prefix('v').unwrap_or(tag).to_string())
+    }
+
+    /// 简单语义版本比较：latest > current 时返回 true
+    fn is_newer_version(latest: &str, current: &str) -> bool {
+        let parse = |s: &str| -> Vec<u32> {
+            s.split('.').filter_map(|p| p.parse().ok()).collect()
+        };
+        let l = parse(latest);
+        let c = parse(current);
+        for i in 0..l.len().max(c.len()) {
+            let lv = *l.get(i).unwrap_or(&0);
+            let cv = *c.get(i).unwrap_or(&0);
+            if lv > cv {
+                return true;
+            }
+            if lv < cv {
+                return false;
+            }
+        }
+        false
+    }
+
     /// 检查是否有可用更新（不下载）
     ///
-    /// 必须为 async：velopack 的 `check_for_updates()` 会同步发起网络请求，
-    /// 若直接在 Tauri 命令线程执行会阻塞运行时，导致 UI 卡死。这里用
-    /// `spawn_blocking` 把阻塞调用移到独立线程，并加 8s 超时兜底，
-    /// 超时则返回 "Network" 错误，前端据此提示用户检查网络。
+    /// 实现策略：
+    /// 1. 自动检测本地代理（Clash 7890 等），设置 HTTPS_PROXY env var
+    /// 2. 使用 reqwest 直接查询 GitHub API（5s 超时 + 代理支持）
+    /// 3. 与 Velopack 当前版本比较
+    /// 4. 外层 8s tokio 超时兜底
+    ///
+    /// 相比原来的 Velopack check_for_updates，此方案：
+    /// - 支持代理自动检测（解决 GFW 环境下直连超时问题）
+    /// - 超时时间更可控（reqwest 5s + tokio 8s 双保险）
+    /// - 错误信息更精确（区分代理/连接/API 错误）
     #[tauri::command]
     pub async fn vp_check_for_updates() -> Result<UpdateCheckResult, UpdaterError> {
         let timeout_dur = tokio::time::Duration::from_secs(8);
-        // 所有 velopack 调用（build_manager + check_for_updates）都在阻塞线程内完成，
-        // 仅把可序列化的结果传回，避免非 Send 类型跨 await 边界。
         let inner = tokio::time::timeout(timeout_dur, async {
             tokio::task::spawn_blocking(move || {
+                // 1. 检测代理并设置 env var（Velopack download 也会用到）
+                let proxy = detect_local_proxy();
+                if let Some(ref p) = proxy {
+                    set_proxy_env(p);
+                }
+
+                // 2. 获取当前版本（dev 期未安装时返回 NotInstalled）
                 let mgr = build_manager().map_err(map_err)?;
                 let current = mgr.get_current_version_as_string();
-                match mgr.check_for_updates() {
-                    Ok(UpdateCheck::UpdateAvailable(info)) => Ok(UpdateCheckResult {
-                        update_available: true,
-                        target_version: Some(info.TargetFullRelease.Version.clone()),
-                        current_version: current,
-                        is_downgrade: info.IsDowngrade,
-                    }),
-                    Ok(_) => Ok(UpdateCheckResult {
-                        update_available: false,
-                        target_version: None,
-                        current_version: current,
-                        is_downgrade: false,
-                    }),
-                    Err(e) => Err(map_err(e)),
-                }
+
+                // 3. 通过 GitHub API 查询最新版本
+                let latest = fetch_latest_version(proxy.as_deref())?;
+
+                // 4. 比较版本
+                let update_available = is_newer_version(&latest, &current);
+
+                Ok(UpdateCheckResult {
+                    update_available,
+                    target_version: if update_available {
+                        Some(latest)
+                    } else {
+                        None
+                    },
+                    current_version: current,
+                    is_downgrade: false,
+                })
             })
             .await
             .map_err(|e| UpdaterError {
@@ -111,7 +239,7 @@ mod velopack_impl {
             Ok(result) => result,
             Err(_) => Err(UpdaterError {
                 kind: "Network",
-                message: "检查更新超时，请检查网络连接".into(),
+                message: "检查更新超时，请检查网络或代理设置".into(),
             }),
         }
     }
@@ -119,6 +247,12 @@ mod velopack_impl {
     /// 下载更新；进度通过 event `vp://download-progress` 推送
     #[tauri::command]
     pub fn vp_download_updates(app: AppHandle) -> Result<bool, UpdaterError> {
+        // 确保 Velopack 内部 HTTP 客户端走代理（与 check 阶段一致）
+        let proxy = detect_local_proxy();
+        if let Some(ref p) = proxy {
+            set_proxy_env(p);
+        }
+
         let mgr = build_manager().map_err(map_err)?;
         let check = mgr.check_for_updates().map_err(map_err)?;
         let info = match check {
