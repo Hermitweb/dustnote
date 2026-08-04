@@ -31,6 +31,7 @@ import { ToastContainer } from './components/ToastContainer';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { QuickCapture } from './components/QuickCapture';
 import { AboutDialog } from './components/AboutDialog';
+import { Logo } from './components/Logo';
 
 type StandaloneView = 'setup' | 'unlock' | 'recover';
 
@@ -189,7 +190,7 @@ function App() {
     return (
       <div className="flex h-full items-center justify-center bg-surface-bg text-surface-muted">
         <div className="text-center">
-          <div className="mb-2 text-3xl"><img src="/logo.png" alt="DustNote" className="mx-auto h-10 w-10" /></div>
+          <div className="mb-2 text-3xl"><Logo className="mx-auto h-10 w-10" /></div>
           <div className="text-sm">加载中...</div>
         </div>
       </div>

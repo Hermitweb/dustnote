@@ -1,12 +1,19 @@
 /**
  * 导入 / 导出 对话框
  * - 导入：.txt / .md / .docx（mammoth 动态加载）
- * - 导出：当前笔记 → .md / .html / .json / .pdf
+ * - 导出当前笔记：.md / .html / .json / .pdf
+ * - 全量备份：所有笔记 + 文件夹 + 标签 → 单个 .json
+ * - 批量打包导出：所有笔记 → 各自 .md 文件 → ZIP 压缩包
+ *
+ * 桌面端（Tauri）使用原生保存对话框，用户可选择保存位置并看到保存路径；
+ * Web 端使用浏览器下载，提示文件已下载到默认下载目录。
  */
 
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import JSZip from 'jszip';
 import { useStore } from '../lib/store';
+import { isTauri } from '../lib/platform';
 import {
   parseNoteFile,
   exportAsMarkdown,
@@ -18,6 +25,34 @@ import {
 } from '../lib/io-client';
 
 type Mode = 'main' | 'importing' | 'exporting';
+
+/**
+ * 保存 Blob 到文件
+ *
+ * Tauri 环境：调用原生保存对话框（__dustnoteSaveFile），用户选择保存位置，
+ *   返回保存路径（用户取消时返回 null）。
+ * Web 环境：触发浏览器下载，返回 undefined（浏览器决定保存位置）。
+ *
+ * 返回值：
+ * - string — Tauri 下用户选择的保存路径
+ * - null — Tauri 下用户取消了保存
+ * - undefined — Web 下已触发浏览器下载
+ */
+async function saveBlob(blob: Blob, filename: string): Promise<string | null | undefined> {
+  const saveFn = (
+    window as unknown as {
+      __dustnoteSaveFile?: (filename: string, content: Uint8Array) => Promise<string | null>;
+    }
+  ).__dustnoteSaveFile;
+
+  if (isTauri() && saveFn) {
+    const arrayBuffer = await blob.arrayBuffer();
+    return saveFn(filename, new Uint8Array(arrayBuffer));
+  }
+  // Web：浏览器下载
+  downloadBlob(blob, filename);
+  return undefined;
+}
 
 export function ImportExportDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -78,9 +113,31 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
     const date = new Date().toISOString().slice(0, 10);
     const safeTitle = (plain.title || 'note').replace(/[\\/:*?"<>|]/g, '-');
     if (fmt === 'md') {
-      downloadBlob(exportAsMarkdown(plain.title, plain.content), `${safeTitle}-${date}.md`);
+      const blob = exportAsMarkdown(plain.title, plain.content);
+      const filename = `${safeTitle}-${date}.md`;
+      const savedPath = await saveBlob(blob, filename);
+      setStatus(
+        savedPath
+          ? t('import_export.saved_to', { path: savedPath })
+          : savedPath === null
+            ? t('import_export.save_cancelled')
+            : t('import_export.exported', { name: filename }) +
+              ' · ' +
+              t('import_export.download_hint')
+      );
     } else if (fmt === 'html') {
-      downloadBlob(exportAsHtml(plain.title, plain.content), `${safeTitle}-${date}.html`);
+      const blob = exportAsHtml(plain.title, plain.content);
+      const filename = `${safeTitle}-${date}.html`;
+      const savedPath = await saveBlob(blob, filename);
+      setStatus(
+        savedPath
+          ? t('import_export.saved_to', { path: savedPath })
+          : savedPath === null
+            ? t('import_export.save_cancelled')
+            : t('import_export.exported', { name: filename }) +
+              ' · ' +
+              t('import_export.download_hint')
+      );
     } else if (fmt === 'pdf') {
       setMode('exporting');
       setStatus(t('import_export.opening_print'));
@@ -94,16 +151,23 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       }
       setMode('main');
     } else {
-      downloadBlob(
-        exportAsJson({
-          format: 'dustnote.v1',
-          exportedAt: new Date().toISOString(),
-          note: { title: plain.title, content: plain.content, tags: plain.tags },
-        }),
-        `${safeTitle}-${date}.json`
+      const blob = exportAsJson({
+        format: 'dustnote.v1',
+        exportedAt: new Date().toISOString(),
+        note: { title: plain.title, content: plain.content, tags: plain.tags },
+      });
+      const filename = `${safeTitle}-${date}.json`;
+      const savedPath = await saveBlob(blob, filename);
+      setStatus(
+        savedPath
+          ? t('import_export.saved_to', { path: savedPath })
+          : savedPath === null
+            ? t('import_export.save_cancelled')
+            : t('import_export.exported', { name: filename }) +
+              ' · ' +
+              t('import_export.download_hint')
       );
     }
-    setStatus(t('import_export.exported', { name: `${safeTitle}-${date}.${fmt}` }));
   };
 
   const handleExportAll = async () => {
@@ -130,10 +194,79 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         tags: state.tags,
       };
       const date = new Date().toISOString().slice(0, 10);
-      downloadBlob(exportAsJson(payload), `dustnote-backup-${date}.json`);
-      setStatus(t('import_export.backup_done', { count: notes.length }));
+      const filename = `dustnote-backup-${date}.json`;
+      const blob = exportAsJson(payload);
+      const savedPath = await saveBlob(blob, filename);
+      if (savedPath) {
+        setStatus(t('import_export.saved_to', { path: savedPath }));
+      } else if (savedPath === null) {
+        setStatus(t('import_export.save_cancelled'));
+      } else {
+        setStatus(
+          t('import_export.backup_done', { count: notes.length }) +
+            ' · ' +
+            t('import_export.download_hint')
+        );
+      }
     } catch (err) {
       setError(t('import_export.backup_fail', { reason: (err as Error).message }));
+    } finally {
+      setMode('main');
+    }
+  };
+
+  /** 批量打包导出：每篇笔记导出为独立 .md 文件，打包为 ZIP */
+  const handleExportZip = async () => {
+    setMode('exporting');
+    try {
+      const state = useStore.getState();
+      const entries = Array.from(state.notesPlain.entries()).filter(
+        ([id]) => !state.notes.get(id)?.deletedAt
+      );
+      setStatus(t('import_export.zip_start', { count: entries.length }));
+
+      const zip = new JSZip();
+      const usedNames = new Set<string>();
+
+      for (const [, pt] of entries) {
+        const safeTitle = (pt.title || 'untitled').replace(/[\\/:*?"<>|]/g, '-').slice(0, 60);
+        // 避免同名文件冲突：若已存在则追加序号
+        let filename = `${safeTitle}.md`;
+        let n = 2;
+        while (usedNames.has(filename)) {
+          filename = `${safeTitle}-${n}.md`;
+          n++;
+        }
+        usedNames.add(filename);
+
+        const md = pt.content.startsWith('#') ? pt.content : `# ${pt.title}\n\n${pt.content}`;
+        // 添加 UTF-8 BOM 确保 Windows 记事本兼容
+        const mdWithBom = '\uFEFF' + md;
+        zip.file(filename, mdWithBom);
+      }
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const date = new Date().toISOString().slice(0, 10);
+      const filename = `dustnote-notes-${date}.zip`;
+      const savedPath = await saveBlob(blob, filename);
+
+      if (savedPath) {
+        setStatus(
+          t('import_export.zip_done', { count: entries.length }) +
+            ' · ' +
+            t('import_export.saved_to', { path: savedPath })
+        );
+      } else if (savedPath === null) {
+        setStatus(t('import_export.save_cancelled'));
+      } else {
+        setStatus(
+          t('import_export.zip_done', { count: entries.length }) +
+            ' · ' +
+            t('import_export.download_hint')
+        );
+      }
+    } catch (err) {
+      setError(t('import_export.zip_fail', { reason: (err as Error).message }));
     } finally {
       setMode('main');
     }
@@ -230,13 +363,32 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
               disabled={mode !== 'main'}
               className="w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
             >
-              {mode === 'exporting' ? status || t('import_export.backing') : t('import_export.backup_btn')}
+              {mode === 'exporting' && status?.includes(t('import_export.backup_start').split('…')[0] ?? '')
+                ? status
+                : t('import_export.backup_btn')}
+            </button>
+          </div>
+
+          {/* 批量打包导出 */}
+          <div className="rounded-lg border border-surface-border p-3">
+            <h3 className="mb-2 text-sm font-semibold text-surface-fg">
+              {t('import_export.zip_title')}
+            </h3>
+            <p className="mb-2 text-xs text-surface-muted">{t('import_export.zip_hint')}</p>
+            <button
+              onClick={() => void handleExportZip()}
+              disabled={mode !== 'main'}
+              className="w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
+            >
+              {mode === 'exporting' && status?.includes(t('import_export.zip_start').split('…')[0] ?? '')
+                ? t('import_export.zipping')
+                : t('import_export.zip_btn')}
             </button>
           </div>
 
           {(status || error) && (
             <div
-              className={`rounded p-2 text-xs ${error ? 'bg-red-50 text-red-600 dark:bg-red-900/30' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30'}`}
+              className={`break-all rounded p-2 text-xs ${error ? 'bg-red-50 text-red-600 dark:bg-red-900/30' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30'}`}
             >
               {error ?? status}
             </div>

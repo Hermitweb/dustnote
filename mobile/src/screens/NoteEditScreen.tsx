@@ -41,6 +41,7 @@ import {
   type Ciphertext,
   type NoteRow,
   type NoteVersionMeta,
+  type Folder,
 } from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
@@ -87,6 +88,10 @@ export function NoteEditScreen() {
   const [showHistory, setShowHistory] = useState(false);
   const [versions, setVersions] = useState<NoteVersionMeta[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  // 移动到文件夹 Modal
+  const [showFolders, setShowFolders] = useState(false);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [foldersLoading, setFoldersLoading] = useState(false);
 
   // 创建 Repository（按当前模式分流）
   const repo = useMemo(
@@ -325,6 +330,41 @@ export function NoteEditScreen() {
     [masterKey, noteId, note, t]
   );
 
+  // ========== 移动到文件夹 ==========
+  const onLoadFolders = useCallback(async () => {
+    setShowFolders(true);
+    setFoldersLoading(true);
+    try {
+      const snapshot = await repo.loadAll();
+      setFolders(snapshot.folders ?? []);
+    } catch (err) {
+      Alert.alert(t('folders.move_failed'), (err as Error).message);
+      setShowFolders(false);
+    } finally {
+      setFoldersLoading(false);
+    }
+  }, [repo, t]);
+
+  const onMoveToFolder = useCallback(
+    async (folderId: string | null) => {
+      if (!note) return;
+      try {
+        await repo.moveNote(noteId, folderId);
+        // 更新本地 note 状态（version 由后端/local-repo 递增）
+        setNote({ ...note, folderId, version: note.version + 1 });
+        setShowFolders(false);
+        const folderName =
+          folderId === null
+            ? t('folders.move_none')
+            : folders.find((f) => f.id === folderId)?.name ?? '';
+        Alert.alert(t('folders.move_success'), folderName);
+      } catch (err) {
+        Alert.alert(t('folders.move_failed'), (err as Error).message);
+      }
+    },
+    [note, noteId, repo, folders, t]
+  );
+
   const styles = makeStyles(colors);
 
   if (loadError) {
@@ -356,6 +396,12 @@ export function NoteEditScreen() {
           {!decryptFailed && (
             <TouchableOpacity onPress={() => setShowTemplates(true)} disabled={saving}>
               <Text style={styles.toolbarBtn}>{t('editor.templates')}</Text>
+            </TouchableOpacity>
+          )}
+          {/* 移动到文件夹（单机/联机均可用） */}
+          {!decryptFailed && (
+            <TouchableOpacity onPress={() => void onLoadFolders()} disabled={saving}>
+              <Text style={styles.toolbarBtn}>{t('editor.move')}</Text>
             </TouchableOpacity>
           )}
           {/* 历史版本（联机模式才可用） */}
@@ -513,6 +559,57 @@ export function NoteEditScreen() {
                   <Text style={styles.restoreBtn}>{t('history.restore')}</Text>
                 </TouchableOpacity>
               )}
+            />
+          )}
+        </View>
+      </Modal>
+
+      {/* ========== 移动到文件夹 Modal ========== */}
+      <Modal visible={showFolders} animationType="slide" transparent={false}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t('folders.move_title')}</Text>
+            <TouchableOpacity onPress={() => setShowFolders(false)}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          {foldersLoading ? (
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color={colors.mint600} />
+              <Text style={{ marginTop: 12, color: colors.muted }}>
+                {t('folders.move_loading')}
+              </Text>
+            </View>
+          ) : folders.length === 0 ? (
+            <View style={styles.center}>
+              <Text style={{ fontSize: 40, marginBottom: 8 }}>📁</Text>
+              <Text style={{ color: colors.muted }}>{t('folders.move_empty')}</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={[{ id: '__none__', name: t('folders.move_none'), parentId: null, icon: null, sortOrder: 0, createdAt: '' } as Folder, ...folders]}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => {
+                const isNone = item.id === '__none__';
+                const targetId = isNone ? null : item.id;
+                const active = note?.folderId === targetId || (note?.folderId == null && isNone);
+                return (
+                  <TouchableOpacity
+                    style={[styles.templateRow, active && { backgroundColor: colors.accentSoft }]}
+                    onPress={() => void onMoveToFolder(targetId)}
+                  >
+                    <Text style={styles.templateIcon}>{isNone ? '📂' : '📁'}</Text>
+                    <View style={styles.templateInfo}>
+                      <Text style={styles.templateName}>{item.name}</Text>
+                    </View>
+                    {active && (
+                      <Text style={[styles.restoreBtn, { color: colors.accent }]}>
+                        {t('folders.move_current')}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
             />
           )}
         </View>

@@ -2,17 +2,17 @@
  * 标签管理页
  *
  * 功能：
- * - 列出所有标签
- * - 删除标签
+ * - 从笔记内容中聚合标签（解密每条笔记的 tags 数组，统计数量）
+ * - 删除标签：从所有包含该标签的笔记中移除（解密→过滤→重新加密→更新）
  *
  * v2.0.0 双模式架构：通过 createRepository 工厂按模式分流
  * - standalone → LocalRepository（AsyncStorage）
  * - online     → RemoteRepository（封装 api）
  *
- * 不再直接调用 api.get/delete，避免单机模式下因无服务端而崩溃
+ * 标签由笔记内容中的 tags 数组聚合生成，客户端不直接「新建标签」，
+ * 而是在编辑笔记时添加。本页主要用于查看和删除无用标签。
  *
- * 注意：标签由笔记内容中的 tags 数组聚合生成，客户端不直接「新建标签」，
- *       而是在编辑笔记时添加。本页主要用于查看和删除无用标签。
+ * 注：聚合需要 masterKey 解密笔记；未解锁时不显示标签。
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -24,10 +24,18 @@ import {
   StyleSheet,
   RefreshControl,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
 import { useColors } from '../theme';
+import { useAuthStore } from '../state/auth';
+import {
+  decryptString,
+  encryptString,
+  type Ciphertext,
+  type NoteRow,
+} from '@dustnote/shared';
 
 interface Tag {
   id: string;
@@ -36,12 +44,31 @@ interface Tag {
   count: number;
 }
 
+interface NoteEnvelope {
+  v: number;
+  payload: Ciphertext;
+}
+
+/** 解析密文信封：兼容新格式 { v, payload } 与旧格式（直接是 Ciphertext） */
+function parseEnvelope(raw: string): NoteEnvelope {
+  const parsed = JSON.parse(raw) as unknown;
+  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
+    return parsed as NoteEnvelope;
+  }
+  if (typeof parsed === 'object' && parsed !== null && 'c' in parsed && 'n' in parsed) {
+    return { v: 1, payload: parsed as Ciphertext };
+  }
+  throw new Error('invalid envelope');
+}
+
 export function TagsScreen() {
   const colors = useColors();
   const mode = useModeStore((s) => s.mode);
   const modeInitialized = useModeStore((s) => s.initialized);
+  const masterKey = useAuthStore((s) => s.masterKey);
   const [tags, setTags] = useState<Tag[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   // 创建 Repository（按当前模式分流）
   const repo = useMemo(
@@ -56,17 +83,41 @@ export function TagsScreen() {
   );
 
   const load = useCallback(async () => {
-    if (!modeInitialized) return;
+    if (!modeInitialized || !masterKey) return;
     setRefreshing(true);
     try {
       const snapshot = await repo.loadAll();
-      setTags(snapshot.tags);
+      const activeNotes = snapshot.notes.filter((n) => !n.deletedAt);
+      // 客户端解密每条笔记，聚合 tags
+      const tagMap = new Map<string, Tag>();
+      for (const note of activeNotes) {
+        try {
+          const env = parseEnvelope(note.ciphertext);
+          const json = await decryptString(masterKey, env.payload);
+          const pt = JSON.parse(json) as { tags?: string[] };
+          if (Array.isArray(pt.tags)) {
+            for (const tagName of pt.tags) {
+              const name = String(tagName);
+              const existing = tagMap.get(name);
+              if (existing) {
+                existing.count += 1;
+              } else {
+                tagMap.set(name, { id: `local-${name}`, name, color: null, count: 1 });
+              }
+            }
+          }
+        } catch {
+          // 解密失败的笔记跳过（不影响其他笔记的标签聚合）
+        }
+      }
+      // 按数量降序排列
+      setTags(Array.from(tagMap.values()).sort((a, b) => b.count - a.count));
     } catch (err) {
       console.warn('加载标签失败', err);
     } finally {
       setRefreshing(false);
     }
-  }, [repo, modeInitialized]);
+  }, [repo, modeInitialized, masterKey]);
 
   useEffect(() => {
     void load();
@@ -79,11 +130,46 @@ export function TagsScreen() {
         text: '删除',
         style: 'destructive',
         onPress: async () => {
+          if (!masterKey) return;
+          setBusy(true);
           try {
-            await repo.deleteTag(tag.id);
+            const snapshot = await repo.loadAll();
+            const targets = snapshot.notes.filter(
+              (n) => !n.deletedAt && n.id !== tag.id
+            );
+            let changed = 0;
+            for (const note of targets) {
+              try {
+                const env = parseEnvelope(note.ciphertext);
+                const json = await decryptString(masterKey, env.payload);
+                const pt = JSON.parse(json) as {
+                  title: string;
+                  content: string;
+                  tags?: string[];
+                };
+                if (!Array.isArray(pt.tags) || !pt.tags.includes(tag.name)) continue;
+                const nextTags = pt.tags.filter((x) => x !== tag.name);
+                const nextJson = JSON.stringify({ ...pt, tags: nextTags });
+                const payload = await encryptString(masterKey, nextJson, 1);
+                const env2: NoteEnvelope = { v: 1, payload };
+                await repo.updateNote(note.id, {
+                  ciphertext: JSON.stringify(env2),
+                  keyVersion: 1,
+                  isPinned: !!note.isPinned,
+                  isFavorite: !!note.isFavorite,
+                  version: note.version,
+                });
+                changed++;
+              } catch {
+                // 单条笔记处理失败跳过，继续处理其他
+              }
+            }
             setTags((prev) => prev.filter((t) => t.id !== tag.id));
+            Alert.alert('已删除', `已从 ${changed} 条笔记中移除「#${tag.name}」`);
           } catch (err) {
             Alert.alert('删除失败', err instanceof Error ? err.message : String(err));
+          } finally {
+            setBusy(false);
           }
         },
       },
@@ -91,6 +177,15 @@ export function TagsScreen() {
   };
 
   const styles = makeStyles(colors);
+
+  if (!masterKey) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.mint600} />
+        <Text style={{ marginTop: 12, color: colors.muted }}>请先解锁</Text>
+      </View>
+    );
+  }
 
   return (
     <FlatList
@@ -116,6 +211,7 @@ export function TagsScreen() {
           <TouchableOpacity
             style={styles.deleteBtn}
             onPress={() => handleDelete(item)}
+            disabled={busy}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Text style={styles.deleteText}>🗑️</Text>
@@ -131,6 +227,7 @@ export function TagsScreen() {
 function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.bg },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     row: {
       flexDirection: 'row',
       alignItems: 'center',

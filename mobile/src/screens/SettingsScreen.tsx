@@ -25,7 +25,6 @@ import {
   TextInput,
   ActivityIndicator,
   Share,
-  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -35,9 +34,10 @@ import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { useLanguageStore, type AppLanguage } from '../lib/i18n';
 import { createRepository } from '../lib/repository';
-import { useColors, useThemeStore, type ThemeMode } from '../theme';
+import { useColors, useThemeStore, type ThemeMode, THEMES, type ThemeId } from '../theme';
 import type { BackupPayload, AppMode } from '@dustnote/shared';
 import RNFS from 'react-native-fs';
+import RNShare from 'react-native-share';
 import { checkUpdateOnce, resetUpdateCache } from '../lib/use-update-check';
 import type { CheckUpdateResult } from '@dustnote/shared';
 
@@ -54,6 +54,8 @@ export function SettingsScreen() {
   const lock = useAuthStore((s) => s.lock);
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
+  const themeId = useThemeStore((s) => s.themeId);
+  const setThemeId = useThemeStore((s) => s.setThemeId);
   const language = useLanguageStore((s) => s.language);
   const setLanguage = useLanguageStore((s) => s.setLanguage);
 
@@ -132,6 +134,9 @@ export function SettingsScreen() {
   };
 
   // ========== 导出 ==========
+  // 使用 react-native-share 分享真实 JSON 文件。
+  // 注意：RN 内置 Share.share 在 Android 上只支持文本（message），无法分享文件，
+  // 会导致生成只含无关文字的 TXT。RNShare 通过 FileProvider 分享 cache 目录下的文件。
   const onExport = async () => {
     if (!masterKey) {
       Alert.alert('提示', '请先解锁');
@@ -149,21 +154,26 @@ export function SettingsScreen() {
       const json = JSON.stringify(payload, null, 2);
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const filename = `dustnote-backup-${ts}.json`;
-      // 写入文档目录
-      const dir = RNFS.DocumentDirectoryPath;
+      // 写入缓存目录（RNShare 的 FileProvider 仅暴露 cache-path 与 Download/）
+      const dir = RNFS.CachesDirectoryPath || RNFS.DocumentDirectoryPath;
       const path = `${dir}/${filename}`;
       await RNFS.writeFile(path, json, 'utf8');
-      // 通过 RN Share 分享文件（RN 内置 Share.share，第三方库 Share.open 不可用）
-      const shareUrl = Platform.OS === 'android' ? `file://${path}` : path;
+      // 通过 react-native-share 打开分享面板，分享真实 .json 文件
       try {
-        await Share.share({
-          url: shareUrl,
+        await RNShare.open({
           title: 'DustNote 备份',
-          message: `DustNote 数据备份 ${ts}`,
+          subject: `DustNote 数据备份 ${ts}`,
+          url: `file://${path}`,
+          type: 'application/json',
+          filename,
+          failOnCancel: false,
         });
-      } catch {
-        // 用户取消分享时，文件已写入文档目录
-        Alert.alert('已导出', `备份文件已保存到：\n${path}\n\n可通过文件管理器查看。`);
+      } catch (shareErr) {
+        // 分享失败（非取消）：文件仍在缓存目录，提示用户
+        Alert.alert(
+          '已生成备份',
+          `备份文件已生成：\n${filename}\n\n请通过分享菜单保存到云盘或本地。`
+        );
       }
     } catch (err) {
       Alert.alert('导出失败', (err as Error).message);
@@ -316,6 +326,33 @@ export function SettingsScreen() {
   return (
     <ScrollView style={styles.container}>
       <Section title={t('settings.appearance')} colors={colors}>
+        {/* 主题选择：6 主题（与 Web 端一致） */}
+        <View style={styles.themeGrid}>
+          {THEMES.map((opt) => {
+            const active = themeId === opt.id;
+            return (
+              <TouchableOpacity
+                key={opt.id}
+                style={[
+                  styles.themeChip,
+                  active && {
+                    backgroundColor: colors.accentSoft,
+                    borderColor: colors.accent,
+                  },
+                ]}
+                onPress={() => setThemeId(opt.id as ThemeId)}
+              >
+                <Text style={styles.themeEmoji}>{opt.emoji}</Text>
+                <Text
+                  style={[styles.themeChipText, active && { color: colors.accent, fontWeight: '700' }]}
+                >
+                  {opt.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {/* 模式：light / dark / auto */}
         <View style={styles.modeRow}>
           {MODE_OPTIONS.map((opt) => {
             const active = mode === opt.mode;
@@ -611,6 +648,8 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       flexWrap: 'wrap',
       gap: 8,
       padding: 14,
+      borderTopColor: c.border,
+      borderTopWidth: 1,
     },
     modeChip: {
       paddingHorizontal: 14,
@@ -621,6 +660,27 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       backgroundColor: c.bg,
     },
     modeChipText: { fontSize: 13, color: c.fg },
+    // 主题选择网格（2 列）
+    themeGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      padding: 14,
+    },
+    themeChip: {
+      width: '47%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.bg,
+      gap: 8,
+    },
+    themeEmoji: { fontSize: 20 },
+    themeChipText: { fontSize: 13, color: c.fg, flexShrink: 1 },
     modeHint: {
       fontSize: 12,
       color: c.muted,

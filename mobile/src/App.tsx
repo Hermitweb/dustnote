@@ -37,7 +37,7 @@ import { FoldersScreen } from './screens/FoldersScreen';
 import { TagsScreen } from './screens/TagsScreen';
 import { TrashScreen } from './screens/TrashScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { theme, useIsDark } from './theme';
+import { useIsDark, useColors } from './theme';
 
 export type RootStackParamList = {
   ModeSelect: undefined;
@@ -66,6 +66,7 @@ export default function App() {
 
 function AppInner() {
   const isDark = useIsDark();
+  const colors = useColors();
   const { t } = useTranslation();
   const authState = useAuthStore((s) => s.authState);
   const init = useAuthStore((s) => s.init);
@@ -114,17 +115,17 @@ function AppInner() {
     }
   }, [hydrated, modeInitialized, mode, init]);
 
-  const bgColor = isDark ? theme.bgDark : theme.bgLight;
-  const cardColor = isDark ? theme.cardDark : theme.cardLight;
-  const fgColor = isDark ? theme.fgDark : theme.fgLight;
-  const borderColor = isDark ? theme.borderDark : theme.borderLight;
+  const bgColor = colors.bg;
+  const cardColor = colors.card;
+  const fgColor = colors.fg;
+  const borderColor = colors.border;
 
   // 1. 模式状态未加载完成：显示加载页
   if (!hydrated) {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={theme.mint600} />
+          <ActivityIndicator size="large" color={colors.mint600} />
           <Text style={{ marginTop: 12, color: fgColor, fontSize: 14 }}>{t('app.loading')}</Text>
         </View>
       </SafeAreaProvider>
@@ -143,12 +144,12 @@ function AppInner() {
           theme={{
             dark: isDark,
             colors: {
-              primary: theme.mint600,
+              primary: colors.mint600,
               background: bgColor,
               card: cardColor,
               text: fgColor,
               border: borderColor,
-              notification: theme.mint500,
+              notification: colors.mint500,
             },
           }}
         >
@@ -156,7 +157,7 @@ function AppInner() {
             screenOptions={{
               headerStyle: { backgroundColor: cardColor },
               headerTitleStyle: { color: fgColor, fontWeight: '700' },
-              headerTintColor: theme.mint600,
+              headerTintColor: colors.mint600,
             }}
           >
             <Stack.Screen
@@ -175,7 +176,7 @@ function AppInner() {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={theme.mint600} />
+          <ActivityIndicator size="large" color={colors.mint600} />
           <Text style={{ marginTop: 12, color: fgColor, fontSize: 14 }}>{t('app.checking_auth')}</Text>
         </View>
       </SafeAreaProvider>
@@ -194,12 +195,12 @@ function AppInner() {
           theme={{
             dark: isDark,
             colors: {
-              primary: theme.mint600,
+              primary: colors.mint600,
               background: bgColor,
               card: cardColor,
               text: fgColor,
               border: borderColor,
-              notification: theme.mint500,
+              notification: colors.mint500,
             },
           }}
         >
@@ -207,7 +208,7 @@ function AppInner() {
             screenOptions={{
               headerStyle: { backgroundColor: cardColor },
               headerTitleStyle: { color: fgColor, fontWeight: '700' },
-              headerTintColor: theme.mint600,
+              headerTintColor: colors.mint600,
             }}
           >
             <Stack.Screen
@@ -249,12 +250,12 @@ function AppInner() {
         theme={{
           dark: isDark,
           colors: {
-            primary: theme.mint600,
+            primary: colors.mint600,
             background: bgColor,
             card: cardColor,
             text: fgColor,
             border: borderColor,
-            notification: theme.mint500,
+            notification: colors.mint500,
           },
         }}
       >
@@ -262,7 +263,7 @@ function AppInner() {
           screenOptions={{
             headerStyle: { backgroundColor: cardColor },
             headerTitleStyle: { color: fgColor, fontWeight: '700' },
-            headerTintColor: theme.mint600,
+            headerTintColor: colors.mint600,
           }}
         >
           {mode === 'standalone' ? (

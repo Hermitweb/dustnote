@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { useModeStore } from '../lib/mode-store';
 import { ApiClient } from '@dustnote/shared';
 import { getDeviceId } from '../lib/device';
+import { Logo } from './Logo';
 
 interface ModeSelectDialogProps {
   /** 关闭回调（设置中切换模式时使用；首次启动时不传） */
@@ -74,7 +75,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
         {/* 标题 */}
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-mint-100 dark:bg-mint-900/30">
-            <img src="/logo.png" alt="" className="h-10 w-10" />
+            <Logo className="h-10 w-10" alt="" />
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('mode_select.title')}</h1>
           <p className="mt-2 text-sm text-surface-muted">{t('mode_select.subtitle')}</p>

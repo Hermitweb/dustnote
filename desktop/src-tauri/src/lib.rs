@@ -70,26 +70,49 @@ mod velopack_impl {
     }
 
     /// 检查是否有可用更新（不下载）
+    ///
+    /// 必须为 async：velopack 的 `check_for_updates()` 会同步发起网络请求，
+    /// 若直接在 Tauri 命令线程执行会阻塞运行时，导致 UI 卡死。这里用
+    /// `spawn_blocking` 把阻塞调用移到独立线程，并加 8s 超时兜底，
+    /// 超时则返回 "Network" 错误，前端据此提示用户检查网络。
     #[tauri::command]
-    pub fn vp_check_for_updates() -> Result<UpdateCheckResult, UpdaterError> {
-        let mgr = build_manager().map_err(map_err)?;
-        let current = mgr.get_current_version_as_string();
-        match mgr.check_for_updates() {
-            Ok(UpdateCheck::UpdateAvailable(info)) => {
-                Ok(UpdateCheckResult {
-                    update_available: true,
-                    target_version: Some(info.TargetFullRelease.Version.clone()),
-                    current_version: current,
-                    is_downgrade: info.IsDowngrade,
-                })
-            }
-            Ok(_) => Ok(UpdateCheckResult {
-                update_available: false,
-                target_version: None,
-                current_version: current,
-                is_downgrade: false,
+    pub async fn vp_check_for_updates() -> Result<UpdateCheckResult, UpdaterError> {
+        let timeout_dur = tokio::time::Duration::from_secs(8);
+        // 所有 velopack 调用（build_manager + check_for_updates）都在阻塞线程内完成，
+        // 仅把可序列化的结果传回，避免非 Send 类型跨 await 边界。
+        let inner = tokio::time::timeout(timeout_dur, async {
+            tokio::task::spawn_blocking(move || {
+                let mgr = build_manager().map_err(map_err)?;
+                let current = mgr.get_current_version_as_string();
+                match mgr.check_for_updates() {
+                    Ok(UpdateCheck::UpdateAvailable(info)) => Ok(UpdateCheckResult {
+                        update_available: true,
+                        target_version: Some(info.TargetFullRelease.Version.clone()),
+                        current_version: current,
+                        is_downgrade: info.IsDowngrade,
+                    }),
+                    Ok(_) => Ok(UpdateCheckResult {
+                        update_available: false,
+                        target_version: None,
+                        current_version: current,
+                        is_downgrade: false,
+                    }),
+                    Err(e) => Err(map_err(e)),
+                }
+            })
+            .await
+            .map_err(|e| UpdaterError {
+                kind: "Unknown",
+                message: format!("update check task failed: {}", e),
+            })?
+        })
+        .await;
+        match inner {
+            Ok(result) => result,
+            Err(_) => Err(UpdaterError {
+                kind: "Network",
+                message: "检查更新超时，请检查网络连接".into(),
             }),
-            Err(e) => Err(map_err(e)),
         }
     }
 
@@ -202,6 +225,58 @@ fn show_main_window(app: tauri::AppHandle) {
     }
 }
 
+/// 弹出原生保存对话框，将内容写入用户选择的路径
+///
+/// 供前端导出备份/批量导出使用：避免 fs 插件 scope 配置的复杂性，
+/// 直接在 Rust 侧完成「对话框 + 写文件」全流程。
+///
+/// 返回值：
+/// - `Some(path)` — 用户选择了路径并写入成功
+/// - `None` — 用户取消了保存对话框
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[tauri::command]
+async fn save_file_dialog(
+    app: tauri::AppHandle,
+    filename: String,
+    content: Vec<u8>,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        let path = app_clone
+            .dialog()
+            .file()
+            .add_filter("DustNote", &["json", "zip", "md", "html"])
+            .set_file_name(&filename)
+            .blocking_save_file();
+
+        match path {
+            Some(file_path) => {
+                // FilePath → PathBuf：dialog 插件返回 FilePath 枚举（Path 或 Url 变体），
+                // 需调用 into_path() 转换为 PathBuf 才能传给 std::fs::write
+                let path = file_path.into_path().map_err(|e| e.to_string())?;
+                let path_str = path.to_string_lossy().into_owned();
+                std::fs::write(&path, &content).map_err(|e| e.to_string())?;
+                Ok(Some(path_str))
+            }
+            None => Ok(None),
+        }
+    })
+    .await
+    .map_err(|e| format!("save dialog task failed: {}", e))?
+}
+
+#[cfg(any(target_os = "android", target_os = "ios"))]
+#[tauri::command]
+async fn save_file_dialog(
+    _app: tauri::AppHandle,
+    _filename: String,
+    _content: Vec<u8>,
+) -> Result<Option<String>, String> {
+    Err("save dialog not supported on mobile".into())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default();
@@ -225,6 +300,9 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             // 原生菜单栏
             let new_note_i = MenuItem::with_id(app, "file_new_note", "新建笔记", true, Some("Ctrl+N"))?;
@@ -404,6 +482,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             show_main_window,
+            save_file_dialog,
             vp_check_for_updates,
             vp_download_updates,
             vp_apply_and_restart,

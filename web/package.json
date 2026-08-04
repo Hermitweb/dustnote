@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/web",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "private": true,
   "description": "DustNote Web 客户端",
   "type": "module",
@@ -19,6 +19,7 @@
     "i18next": "^23.11.5",
     "idb-keyval": "^6.2.1",
     "jspdf": "^2.5.2",
+    "jszip": "^3.10.1",
     "mammoth": "^1.12.0",
     "marked": "^13.0.2",
     "react": "^18.3.1",

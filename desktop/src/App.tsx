@@ -23,6 +23,35 @@ import { registerUpdaterApi } from './lib/updater';
 // 直接复用 web 端 App 组件（vite + tsc 通过相对路径解析）
 import WebApp from '../../web/src/App';
 
+/**
+ * 注册桌面端原生能力到 window，供共享的 web 组件（AboutDialog、ImportExportDialog 等）调用。
+ *
+ * 这些 API 仅在 Tauri 环境下注册，web 端运行时 window 上不存在对应字段，
+ * 组件内通过 `isTauri() && window.__dustnoteXxx` 判断后调用。
+ */
+function registerDesktopApis() {
+  // 1. 打开外部 URL（GitHub 链接等）：使用 opener 插件调用系统默认浏览器
+  void import('@tauri-apps/plugin-opener').then(({ openUrl }) => {
+    (window as unknown as { __dustnoteOpenUrl: (url: string) => Promise<void> }).__dustnoteOpenUrl = (
+      url: string
+    ) => openUrl(url);
+  });
+
+  // 2. 原生保存对话框 + 写文件：供导出备份/批量导出使用
+  void import('@tauri-apps/api/core').then(({ invoke }) => {
+    (window as unknown as {
+      __dustnoteSaveFile: (filename: string, content: Uint8Array) => Promise<string | null>;
+    }).__dustnoteSaveFile = async (filename: string, content: Uint8Array) => {
+      // Uint8Array → Vec<u8>：Tauri invoke 要求 plain object，先转 Array
+      const result = await invoke<string | null>('save_file_dialog', {
+        filename,
+        content: Array.from(content),
+      });
+      return result;
+    };
+  });
+}
+
 export function App() {
   useEffect(() => {
     if (isTauri()) {
@@ -34,6 +63,9 @@ export function App() {
 
       // 注册 Velopack 更新 API（供 web SettingsDialog 在 Tauri 环境下调用）
       registerUpdaterApi();
+
+      // 注册桌面端原生能力（openUrl、saveFile），供共享 web 组件调用
+      registerDesktopApis();
 
       // 设置窗口标题（与 web 端 index.html 的 title 对齐）
       void import('@tauri-apps/api/window')

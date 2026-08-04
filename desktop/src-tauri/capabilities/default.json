@@ -23,6 +23,8 @@
     "notification:default",
     "store:default",
     "os:default",
-    "global-shortcut:default"
+    "global-shortcut:default",
+    "opener:default",
+    "dialog:default"
   ]
 }
