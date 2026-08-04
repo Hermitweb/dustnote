@@ -593,7 +593,7 @@ jobs:
 
             ### Windows
             - **MSI 安装包（推荐，默认 Program Files）**: [DustNote_${{ steps.meta.outputs.version }}_x64-setup.msi](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_x64-setup.msi)
-              - 默认安装到 `Program Files\DustNote`（需管理员权限），MSI 交互界面可自定义安装路径
+              - 默认安装到 `Program Files\DustNote`（需管理员权限），MSI 不提供 GUI 路径选择页面，自定义路径需用命令行 `VELOPACK_INSTALLDIR`
               - 支持静默部署：`msiexec /i DustNote.msi /qn`，自定义路径：`msiexec /i DustNote.msi /qn VELOPACK_INSTALLDIR="D:\Apps\DustNote"`
               - 内置 Velopack 自动更新，与 Setup.exe 共用同一更新通道
               - 若本 Release 缺少 MSI（WiX 生成失败），请改用下方 Setup.exe
