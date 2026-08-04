@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=DustNote
+Name[zh_CN]=尘心笔记
+GenericName=Note Taking
+GenericName[zh_CN]=笔记
+Comment=End-to-end encrypted private note system
+Comment[zh_CN]=端到端加密的私密笔记系统
+Exec=dustnote-desktop %U
+Icon=dustnote
+Type=Application
+Categories=Office;Utility;TextEditor;Security;
+Terminal=false
+StartupNotify=true
+StartupWMClass=dustnote-desktop
+Keywords=note;notes;encrypt;markdown;privacy;
+Keywords[zh_CN]=笔记;加密;马克顿;隐私;

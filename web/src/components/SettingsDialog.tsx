@@ -8,6 +8,7 @@ import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { MigrationWizard } from './MigrationWizard';
 import { getConfig, saveConfig, loadConfig } from '../lib/config';
 import i18n from '../lib/i18n';
+import { usePwaInstall } from '../lib/use-pwa-install';
 
 /** 检测是否运行在 Tauri 桌面环境 */
 function isTauri(): boolean {
@@ -74,6 +75,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
   const [showImportExport, setShowImportExport] = useState(false);
   const [showShares, setShowShares] = useState(false);
+  const pwaInstall = usePwaInstall();
 
   // 服务器地址配置
   const [apiBase, setApiBase] = useState(getConfig().apiBase);
@@ -484,6 +486,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 {t('settings.version')}: {__APP_VERSION__}
               </div>
               <div className="mt-1">{t('settings.tech_stack')}</div>
+              {pwaInstall.canInstall && (
+                <button
+                  className="mt-2 rounded-md bg-mint-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-mint-600"
+                  onClick={() => void pwaInstall.install()}
+                >
+                  📲 安装为桌面应用
+                </button>
+              )}
+              {pwaInstall.installed && (
+                <div className="mt-2 text-mint-600 dark:text-mint-400">
+                  ✓ 已安装为独立应用
+                </div>
+              )}
             </div>
           </div>
         </div>

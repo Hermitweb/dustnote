@@ -185,9 +185,20 @@ jobs:
         continue-on-error: ${{ matrix.os != 'windows-latest' }}
         env:
           VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.3.8' }}
+        # Velopack Windows 一键安装默认行为（无需额外参数）：
+        #   - 安装位置：%LocalAppData%\DustNote（PerUser，无需管理员权限）
+        #   - 快捷方式：--shortcuts 默认为 "Desktop,StartMenuRoot"（桌面 + 开始菜单）
+        #   - 控制面板注册：自动写入「应用和功能」卸载条目（HKCU）
+        #   - 自动更新：Update.exe + RELEASES 索引
+        # 静默安装：Setup.exe --silent
+        # 静默卸载：%LocalAppData%\DustNote\current\Update.exe uninstall --silent
+        # --packTitle 控制「应用和功能」显示名与快捷方式名
         run: |
           ver="${VPK_VERSION#v}"
-          vpk pack --packId DustNote --packVersion "$ver" --packDir staging --mainExe ${{ matrix.main_exe }} --channel ${{ matrix.channel }} --runtime ${{ matrix.runtime }} --icon icons/icon.ico
+          vpk pack --packId DustNote --packVersion "$ver" --packDir staging \
+            --mainExe ${{ matrix.main_exe }} --channel ${{ matrix.channel }} \
+            --runtime ${{ matrix.runtime }} --icon icons/icon.ico \
+            --packTitle "DustNote" --packAuthors "DustNote Team"
       - name: List Velopack outputs
         if: always()
         shell: bash
@@ -496,6 +507,25 @@ jobs:
             cp artifacts/android-apk/app-release.apk "release-assets/DustNote_${DUSTNOTE_VERSION}_android.apk"
           fi
 
+          # ---- Linux 桌面集成包（.desktop + 图标 + 安装/卸载脚本）----
+          # 不依赖 Linux 二进制构建是否成功，确保用户始终能获取桌面集成文件。
+          # 将 AppImage 与本包配合使用即可让 DustNote 出现在系统应用菜单。
+          linux_integ_dir="$(mktemp -d)"
+          mkdir -p "$linux_integ_dir"
+          cp desktop/linux/dustnote.desktop "$linux_integ_dir/"
+          cp desktop/linux/install.sh "$linux_integ_dir/"
+          cp desktop/linux/uninstall.sh "$linux_integ_dir/"
+          # 选用 256x256 量级图标；源仓库提供 128x128.png 与 512x512 的 icon.png
+          if [ -f desktop/src-tauri/icons/128x128.png ]; then
+            cp desktop/src-tauri/icons/128x128.png "$linux_integ_dir/dustnote.png"
+          elif [ -f desktop/src-tauri/icons/icon.png ]; then
+            cp desktop/src-tauri/icons/icon.png "$linux_integ_dir/dustnote.png"
+          fi
+          chmod +x "$linux_integ_dir/install.sh" "$linux_integ_dir/uninstall.sh"
+          tar -czf "release-assets/DustNote_${DUSTNOTE_VERSION}_linux-desktop-integration.tar.gz" \
+            -C "$linux_integ_dir" .
+          rm -rf "$linux_integ_dir"
+
           echo "=== Final release assets ==="
           ls -la release-assets/
       - name: Create Release
@@ -527,6 +557,10 @@ jobs:
 
             ### Linux（实验性）
             - 桌面打包步骤 `continue-on-error: true`，资产可能缺失
+            - **桌面集成包**: [DustNote_${{ steps.meta.outputs.version }}_linux-desktop-integration.tar.gz](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_linux-desktop-integration.tar.gz)
+              - 包含 `.desktop` 文件、图标与安装/卸载脚本，用于将 AppImage 集成到系统应用菜单
+              - 用法：解压后运行 `./install.sh`（用户级，无需 sudo）或 `./install.sh --system`（系统级）
+              - 卸载：`./uninstall.sh`（加 `--purge` 同时清除用户数据）
             - 推荐使用 Web 版或 Docker 自托管部署
 
             ### Android
