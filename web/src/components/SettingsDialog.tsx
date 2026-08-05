@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
 import { THEMES } from '../lib/theme';
@@ -9,6 +9,29 @@ import { MigrationWizard } from './MigrationWizard';
 import { getConfig, saveConfig, loadConfig } from '../lib/config';
 import i18n from '../lib/i18n';
 import { usePwaInstall } from '../lib/use-pwa-install';
+import { toast } from '../lib/toast';
+import { ConfirmDialog } from './ConfirmDialog';
+import { getDeviceId } from '../lib/device';
+import { useModeStore } from '../lib/mode-store';
+import type { AppMode } from '@dustnote/shared';
+
+/** 构造绝对 API 基址（Tauri 桌面端必须用绝对地址，详见 SharesManager 注释） */
+function settingsApiBase(): string {
+  const { serverUrl } = useModeStore.getState();
+  return serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : '/api/v1';
+}
+
+/** 设备列表项（对应服务端 GET /devices 返回结构） */
+interface DeviceItem {
+  id: string;
+  name: string;
+  platform: string;
+  fingerprintSuffix: string;
+  isCurrent: boolean;
+  hasRefreshToken: boolean;
+  lastActiveAt: string;
+  createdAt: string;
+}
 
 /** 检测是否运行在 Tauri 桌面环境 */
 function isTauri(): boolean {
@@ -73,8 +96,27 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setMode = useStore((s) => s.setMode);
   const setLanguage = useStore((s) => s.setLanguage);
   const setPreferences = useStore((s) => s.setPreferences);
+  const changePassword = useStore((s) => s.changePassword);
+  const switchMode = useStore((s) => s.switchMode);
 
   const [showImportExport, setShowImportExport] = useState(false);
+  // 设备管理（联机模式）
+  const appMode = useStore((s) => s.mode);
+  const [devices, setDevices] = useState<DeviceItem[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [devicesError, setDevicesError] = useState<string | null>(null);
+  const [kickTargetId, setKickTargetId] = useState<string | null>(null);
+  // 修改主密码
+  const [curPw, setCurPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // 单机/联机模式切换
+  const [switchServerUrl, setSwitchServerUrl] = useState('');
+  const [switchBusy, setSwitchBusy] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
+  const [switchConfirm, setSwitchConfirm] = useState<AppMode | null>(null);
   const [showShares, setShowShares] = useState(false);
   const pwaInstall = usePwaInstall();
 
@@ -107,6 +149,100 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       .then(setAutostartEnabled)
       .catch(() => undefined);
   }, [desktopEnv]);
+
+  // ========== 设备管理 ==========
+  const loadDevices = useCallback(async () => {
+    if (appMode !== 'online') return;
+    setDevicesLoading(true);
+    setDevicesError(null);
+    try {
+      const token = useStore.getState().accessToken;
+      const r = await fetch(`${settingsApiBase()}/devices`, {
+        headers: {
+          'X-Client-Version': __APP_VERSION__,
+          'X-Client-Platform': 'web',
+          'X-Client-Channel': 'stable',
+          'X-Client-Device-Id': getDeviceId(),
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = (await r.json()) as { devices: DeviceItem[] };
+      setDevices(data.devices);
+    } catch (err) {
+      setDevicesError((err as Error).message);
+    } finally {
+      setDevicesLoading(false);
+    }
+  }, [appMode]);
+
+  useEffect(() => {
+    void loadDevices();
+  }, [loadDevices]);
+
+  const kickDevice = async (id: string) => {
+    try {
+      const token = useStore.getState().accessToken;
+      const r = await fetch(`${settingsApiBase()}/devices/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'X-Client-Version': __APP_VERSION__,
+          'X-Client-Platform': 'web',
+          'X-Client-Channel': 'stable',
+          'X-Client-Device-Id': getDeviceId(),
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setDevices((prev) => prev.filter((d) => d.id !== id));
+      toast.success(t('settings.device_kicked'));
+    } catch (err) {
+      toast.error(t('settings.device_kick_fail', { reason: (err as Error).message }));
+    }
+  };
+
+  // ========== 修改主密码 ==========
+  const handleChangePassword = async () => {
+    setPwMsg(null);
+    if (newPw.length < 8) {
+      setPwMsg({ ok: false, text: t('auth.too_weak') });
+      return;
+    }
+    if (newPw !== confirmPw) {
+      setPwMsg({ ok: false, text: t('settings.password_mismatch') });
+      return;
+    }
+    setPwBusy(true);
+    try {
+      await changePassword(curPw, newPw);
+      setPwMsg({ ok: true, text: t('settings.password_changed') });
+      setCurPw('');
+      setNewPw('');
+      setConfirmPw('');
+    } catch (err) {
+      setPwMsg({
+        ok: false,
+        text: t('settings.password_change_fail', { reason: (err as Error).message }),
+      });
+    } finally {
+      setPwBusy(false);
+    }
+  };
+
+  // ========== 单机/联机模式切换（switchMode 内部已带失败回滚） ==========
+  const handleSwitchMode = async (target: AppMode) => {
+    setSwitchConfirm(null);
+    setSwitchBusy(true);
+    setSwitchError(null);
+    try {
+      await switchMode(target, target === 'online' ? switchServerUrl.trim() || null : null);
+      toast.success(t('settings.mode_switch_success'));
+    } catch (err) {
+      setSwitchError((err as Error).message);
+    } finally {
+      setSwitchBusy(false);
+    }
+  };
 
   async function toggleAutostart(next: boolean): Promise<void> {
     const api = getAutostartApi();
@@ -302,6 +438,191 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* 字体 */}
+            <div>
+              <label className="mb-2 block text-xs font-semibold text-surface-muted">
+                {t('settings.font')}
+              </label>
+              <div className="flex gap-2">
+                {(['system', 'manrope', 'lxgw'] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setPreferences({ font: f })}
+                    className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
+                      prefs.font === f
+                        ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/30 text-surface-fg'
+                        : 'border-surface-border text-surface-fg hover:bg-surface-bg'
+                    }`}
+                  >
+                    {f === 'system'
+                      ? t('settings.font_system')
+                      : f === 'manrope'
+                        ? 'Manrope'
+                        : t('settings.font_lxgw')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 行高密度 */}
+            <div>
+              <label className="mb-2 block text-xs font-semibold text-surface-muted">
+                {t('settings.density')}
+              </label>
+              <div className="flex gap-2">
+                {(['comfortable', 'standard', 'compact'] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setPreferences({ density: d })}
+                    className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
+                      prefs.density === d
+                        ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/30 text-surface-fg'
+                        : 'border-surface-border text-surface-fg hover:bg-surface-bg'
+                    }`}
+                  >
+                    {d === 'comfortable'
+                      ? t('settings.density_comfortable')
+                      : d === 'standard'
+                        ? t('settings.density_standard')
+                        : t('settings.density_compact')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 修改主密码 */}
+            <div>
+              <label className="mb-2 block text-xs font-semibold text-surface-muted">
+                {t('settings.change_password')}
+              </label>
+              <div className="space-y-2">
+                <input
+                  type="password"
+                  value={curPw}
+                  onChange={(e) => setCurPw(e.target.value)}
+                  placeholder={t('settings.cur_password')}
+                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm"
+                />
+                <input
+                  type="password"
+                  value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                  placeholder={t('settings.new_password')}
+                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm"
+                />
+                <input
+                  type="password"
+                  value={confirmPw}
+                  onChange={(e) => setConfirmPw(e.target.value)}
+                  placeholder={t('settings.confirm_password')}
+                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm"
+                />
+                {pwMsg && (
+                  <p
+                    className={`text-xs ${pwMsg.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
+                  >
+                    {pwMsg.text}
+                  </p>
+                )}
+                <button
+                  onClick={() => void handleChangePassword()}
+                  disabled={pwBusy}
+                  className="w-full rounded-lg bg-mint-600 px-3 py-2 text-sm font-medium text-white hover:bg-mint-700 disabled:opacity-50"
+                >
+                  {pwBusy ? t('common.loading') : t('settings.change_password_btn')}
+                </button>
+              </div>
+            </div>
+
+            {/* 设备管理（仅联机模式） */}
+            {appMode === 'online' && (
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-surface-muted">
+                  {t('settings.devices')}
+                </label>
+                <div className="space-y-2 rounded-lg border-2 border-surface-border p-3">
+                  {devicesLoading && (
+                    <p className="text-xs text-surface-muted">{t('shares.loading')}</p>
+                  )}
+                  {devicesError && (
+                    <p className="text-xs text-red-600">
+                      {t('settings.devices_load_fail', { reason: devicesError })}
+                    </p>
+                  )}
+                  {!devicesLoading && !devicesError && devices.length === 0 && (
+                    <p className="text-xs text-surface-muted">{t('settings.devices_empty')}</p>
+                  )}
+                  {devices.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-surface-border bg-surface-bg p-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-sm text-surface-fg">
+                          <span className="truncate">{d.name}</span>
+                          {d.isCurrent && (
+                            <span className="rounded-full bg-mint-100 px-1.5 py-0.5 text-[10px] text-mint-700 dark:bg-mint-900/30 dark:text-mint-300">
+                              {t('settings.device_current')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-surface-muted">
+                          {d.platform} ·{' '}
+                          {t('settings.device_last_active', {
+                            time: new Date(d.lastActiveAt).toLocaleString('zh-CN'),
+                          })}
+                        </div>
+                      </div>
+                      {!d.isCurrent && (
+                        <button
+                          onClick={() => setKickTargetId(d.id)}
+                          className="flex-shrink-0 rounded bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:bg-red-900/30"
+                        >
+                          {t('settings.device_kick')}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 单机/联机模式切换 */}
+            <div>
+              <label className="mb-2 block text-xs font-semibold text-surface-muted">
+                {t('settings.switch_mode_title')}
+              </label>
+              <p className="mb-2 text-xs text-surface-muted">
+                {t('settings.current_mode')}:{' '}
+                {appMode === 'standalone'
+                  ? t('settings.app_mode_standalone')
+                  : t('settings.app_mode_online')}
+              </p>
+              {appMode === 'online' && (
+                <input
+                  value={switchServerUrl}
+                  onChange={(e) => setSwitchServerUrl(e.target.value)}
+                  placeholder={t('settings.server_url_placeholder')}
+                  className="mb-2 w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm"
+                />
+              )}
+              <button
+                onClick={() => setSwitchConfirm(appMode === 'standalone' ? 'online' : 'standalone')}
+                disabled={switchBusy}
+                className="w-full rounded-lg bg-mint-600 px-3 py-2 text-sm font-medium text-white hover:bg-mint-700 disabled:opacity-50"
+              >
+                {appMode === 'standalone'
+                  ? t('settings.switch_to_online')
+                  : t('settings.switch_to_standalone')}
+              </button>
+              <p className="mt-1 text-xs text-surface-muted">{t('settings.switch_mode_hint')}</p>
+              {switchError && (
+                <p className="mt-1 text-xs text-red-600">
+                  {t('settings.mode_switch_fail', { reason: switchError })}
+                </p>
+              )}
             </div>
 
             {/* 自动锁屏（空闲 N 分钟自动锁定，§1.5 默认 15） */}
@@ -526,6 +847,37 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       </div>
+
+      {kickTargetId && (
+        <ConfirmDialog
+          title={t('settings.device_kick')}
+          message={t('settings.device_kick_confirm', {
+            name: devices.find((d) => d.id === kickTargetId)?.name ?? '',
+          })}
+          confirmLabel={t('settings.device_kick')}
+          variant="danger"
+          onConfirm={() => {
+            const id = kickTargetId;
+            setKickTargetId(null);
+            void kickDevice(id);
+          }}
+          onCancel={() => setKickTargetId(null)}
+        />
+      )}
+
+      {switchConfirm && (
+        <ConfirmDialog
+          title={t('settings.switch_mode_title')}
+          message={
+            switchConfirm === 'online'
+              ? t('settings.confirm_switch_to_online')
+              : t('settings.confirm_switch_to_standalone')
+          }
+          confirmLabel={t('settings.migrate_data')}
+          onConfirm={() => void handleSwitchMode(switchConfirm)}
+          onCancel={() => setSwitchConfirm(null)}
+        />
+      )}
 
       {showImportExport && <ImportExportDialog onClose={() => setShowImportExport(false)} />}
       {showShares && <SharesManager onClose={() => setShowShares(false)} />}

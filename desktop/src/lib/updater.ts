@@ -96,9 +96,11 @@ export function useUpdater(): {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const api = getUpdaterApi();
+  // 注意：API 在 App.tsx 的注册 effect 中才挂到 window（__DUSTNOTE_UPDATER__），
+  // render 期取到的一律为 null，故不在 render 期缓存，统一在函数内延迟解析。
 
   async function check(): Promise<void> {
+    const api = getUpdaterApi();
     if (!api) return;
     setState('checking');
     setError(null);
@@ -124,6 +126,7 @@ export function useUpdater(): {
   }
 
   async function download(): Promise<void> {
+    const api = getUpdaterApi();
     if (!api) return;
     setState('downloading');
     setProgress(0);
@@ -140,6 +143,7 @@ export function useUpdater(): {
   }
 
   async function applyAndRestart(): Promise<void> {
+    const api = getUpdaterApi();
     if (!api) return;
     try {
       await api.applyAndRestart();
@@ -151,6 +155,7 @@ export function useUpdater(): {
 
   // 桌面端启动时静默检查 + 检查是否有待应用更新
   useEffect(() => {
+    const api = getUpdaterApi();
     if (!api) return;
     void (async () => {
       try {

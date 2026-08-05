@@ -17,9 +17,7 @@ import Taro from '@tarojs/taro';
 import { useModeStore } from '../../lib/mode-store';
 import { hasLocalAuthSync } from '../../lib/local-auth-storage';
 import { ApiClient } from '@dustnote/shared';
-
-// 与 package.json 同步（全端版本统一，见 release 流程）
-const APP_VERSION = '2.4.4';
+import { APP_VERSION } from '../../state/auth';
 
 /**
  * 检测当前运行时是否提供完整的 WebCrypto subtle API

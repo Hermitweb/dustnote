@@ -11,6 +11,7 @@ import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
 import { getCurrentMode } from '../../lib/mode-store';
+import Markdown from '../../lib/markdown';
 
 /**
  * 解析 API base：
@@ -154,7 +155,7 @@ export default function Share() {
       <Text className="text-xs text-muted">🌿 DustNote 分享</Text>
       <Text className="text-lg fw-bold mt-m mb-l">{title}</Text>
       <View className="share-content">
-        <Text style={{ whiteSpace: 'pre-wrap' }}>{content}</Text>
+        <Markdown content={content} />
       </View>
       <View className="text-center text-xs text-muted mt-l">
         <Text>由 DustNote 分享</Text>

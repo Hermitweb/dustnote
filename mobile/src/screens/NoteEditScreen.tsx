@@ -47,6 +47,8 @@ import {
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
+import { MarkdownView } from '../components/MarkdownView';
+import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../lib/offline-queue';
 import { useColors } from '../theme';
 
 interface NoteEnvelope {
@@ -93,6 +95,10 @@ export function NoteEditScreen() {
   const [showFolders, setShowFolders] = useState(false);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [foldersLoading, setFoldersLoading] = useState(false);
+  // Markdown 预览（v2.4.4）
+  const [preview, setPreview] = useState(false);
+  // 离线入队标记（保存失败且网络不可用）
+  const [offlineQueued, setOfflineQueued] = useState(false);
 
   // 创建 Repository（按当前模式分流）
   const repo = useMemo(
@@ -156,13 +162,36 @@ export function NoteEditScreen() {
         version: note.version,
       });
       setNote({ ...note, version: nextVersion });
+      setOfflineQueued(false);
+      // 网络恢复：顺手重放离线队列中的未同步修改
+      if (mode === 'online') void flushOfflineQueue();
     } catch (err) {
-      Alert.alert('保存失败', (err as Error).message);
+      // 联机模式网络不可用：入队待同步，不再直接弹错误（v2.4.4 离线队列简化版）
+      if (mode === 'online' && isNetworkError(err)) {
+        try {
+          const json = JSON.stringify({ title, content, tags });
+          const payload = await encryptString(masterKey, json, 1);
+          const env: NoteEnvelope = { v: 1, payload };
+          await enqueueOffline('PATCH', `/notes/${noteId}`, {
+            ciphertext: JSON.stringify(env),
+            keyVersion: 1,
+            isPinned: !!note.isPinned,
+            isFavorite: !!note.isFavorite,
+            version: note.version,
+            clientUpdatedAt: new Date().toISOString(),
+          });
+          setOfflineQueued(true);
+        } catch {
+          Alert.alert('保存失败', (err as Error).message);
+        }
+      } else {
+        Alert.alert('保存失败', (err as Error).message);
+      }
     } finally {
       setSaving(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [masterKey, note, noteId, title, content, tags, decryptFailed, repo]);
+  }, [masterKey, note, noteId, title, content, tags, decryptFailed, repo, mode]);
 
   // 用 ref 持有最新 save，从 useEffect deps 移除 save 本身。
   // 否则 save 依赖 note，save 成功后 setNote 改变 note → save 重建 → effect 重跑 →
@@ -436,13 +465,21 @@ export function NoteEditScreen() {
           <Text style={styles.toolbarBtn}>{t('editor.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.toolbarStatus}>
-          {decryptFailed
-            ? t('editor.status_decrypt_failed')
-            : saving
-              ? t('editor.status_saving')
-              : t('editor.status_saved')}
+          {offlineQueued
+            ? t('editor.offline_queued')
+            : decryptFailed
+              ? t('editor.status_decrypt_failed')
+              : saving
+                ? t('editor.status_saving')
+                : t('editor.status_saved')}
         </Text>
         <View style={{ flexDirection: 'row' }}>
+          {/* 预览 / 编辑切换（v2.4.4 Markdown 预览） */}
+          {!decryptFailed && (
+            <TouchableOpacity onPress={() => setPreview((v) => !v)} disabled={saving}>
+              <Text style={styles.toolbarBtn}>{preview ? t('editor.edit') : t('editor.preview')}</Text>
+            </TouchableOpacity>
+          )}
           {/* 模板选择（简化版：仅预设模板，单机/联机均可用） */}
           {!decryptFailed && (
             <TouchableOpacity onPress={() => setShowTemplates(true)} disabled={saving}>
@@ -492,71 +529,78 @@ export function NoteEditScreen() {
       </View>
 
       <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
-        <TextInput
-          style={styles.title}
-          value={title}
-          onChangeText={setTitle}
-          placeholder={t('editor.title_placeholder')}
-          placeholderTextColor={colors.muted}
-          editable={!decryptFailed}
-        />
-        <TextInput
-          style={styles.content}
-          value={content}
-          onChangeText={setContent}
-          placeholder={t('editor.content_placeholder')}
-          placeholderTextColor={colors.muted}
-          multiline
-          textAlignVertical="top"
-          editable={!decryptFailed}
-        />
-        {/* ========== 标签编辑 ========== */}
-        {!decryptFailed && (
-          <View style={styles.tagsContainer}>
-            <View style={styles.tagsRow}>
-              {tags.map((tag) => (
-                <View key={tag} style={styles.tagChip}>
-                  <Text style={styles.tagChipText}>#{tag}</Text>
+        {preview ? (
+          // Markdown 预览（只读，v2.4.4）
+          <MarkdownView title={title} content={content} colors={colors} />
+        ) : (
+          <>
+            <TextInput
+              style={styles.title}
+              value={title}
+              onChangeText={setTitle}
+              placeholder={t('editor.title_placeholder')}
+              placeholderTextColor={colors.muted}
+              editable={!decryptFailed}
+            />
+            <TextInput
+              style={styles.content}
+              value={content}
+              onChangeText={setContent}
+              placeholder={t('editor.content_placeholder')}
+              placeholderTextColor={colors.muted}
+              multiline
+              textAlignVertical="top"
+              editable={!decryptFailed}
+            />
+            {/* ========== 标签编辑 ========== */}
+            {!decryptFailed && (
+              <View style={styles.tagsContainer}>
+                <View style={styles.tagsRow}>
+                  {tags.map((tag) => (
+                    <View key={tag} style={styles.tagChip}>
+                      <Text style={styles.tagChipText}>#{tag}</Text>
+                      <TouchableOpacity
+                        onPress={() => setTags((prev) => prev.filter((x) => x !== tag))}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Text style={styles.tagChipClose}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.tagInputRow}>
+                  <TextInput
+                    style={styles.tagInput}
+                    value={tagInput}
+                    onChangeText={setTagInput}
+                    placeholder="添加标签…"
+                    placeholderTextColor={colors.muted}
+                    returnKeyType="done"
+                    onSubmitEditing={() => {
+                      const v = tagInput.trim().replace(/^#/, '').trim();
+                      if (v && !tags.includes(v)) {
+                        setTags((prev) => [...prev, v]);
+                      }
+                      setTagInput('');
+                    }}
+                  />
                   <TouchableOpacity
-                    onPress={() => setTags((prev) => prev.filter((x) => x !== tag))}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={[styles.tagAddBtn, !tagInput.trim() && { opacity: 0.5 }]}
+                    disabled={!tagInput.trim()}
+                    onPress={() => {
+                      const v = tagInput.trim().replace(/^#/, '').trim();
+                      if (v && !tags.includes(v)) {
+                        setTags((prev) => [...prev, v]);
+                      }
+                      setTagInput('');
+                    }}
                   >
-                    <Text style={styles.tagChipClose}>✕</Text>
+                    <Text style={styles.tagAddBtnText}>+</Text>
                   </TouchableOpacity>
                 </View>
-              ))}
-            </View>
-            <View style={styles.tagInputRow}>
-              <TextInput
-                style={styles.tagInput}
-                value={tagInput}
-                onChangeText={setTagInput}
-                placeholder="添加标签…"
-                placeholderTextColor={colors.muted}
-                returnKeyType="done"
-                onSubmitEditing={() => {
-                  const v = tagInput.trim().replace(/^#/, '').trim();
-                  if (v && !tags.includes(v)) {
-                    setTags((prev) => [...prev, v]);
-                  }
-                  setTagInput('');
-                }}
-              />
-              <TouchableOpacity
-                style={[styles.tagAddBtn, !tagInput.trim() && { opacity: 0.5 }]}
-                disabled={!tagInput.trim()}
-                onPress={() => {
-                  const v = tagInput.trim().replace(/^#/, '').trim();
-                  if (v && !tags.includes(v)) {
-                    setTags((prev) => [...prev, v]);
-                  }
-                  setTagInput('');
-                }}
-              >
-                <Text style={styles.tagAddBtnText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
 

@@ -6,7 +6,7 @@
  * 实现：CSS 变量驱动 + data-theme / data-mode 切换
  */
 
-import type { ThemeId, Mode } from './store';
+import type { ThemeId, Mode, Preferences } from './store';
 
 export const THEMES: { id: ThemeId; name: string; emoji: string }[] = [
   { id: 'mint-dawn', name: '尘心晨光', emoji: '🌿' },
@@ -162,6 +162,30 @@ export function applyTheme(theme: ThemeId, mode: Mode): void {
   for (const [k, v] of Object.entries(t)) {
     root.style.setProperty(k, v);
   }
+}
+
+// ========== 排版（字体 / 行高密度）==========
+
+const FONT_FAMILIES: Record<Preferences['font'], string> = {
+  system: `system-ui, -apple-system, 'Noto Sans SC', 'Segoe UI', sans-serif`,
+  manrope: `'Manrope', 'Noto Sans SC', system-ui, -apple-system, sans-serif`,
+  lxgw: `'LXGW WenKai', 'Noto Sans SC', system-ui, serif`,
+};
+
+const LINE_HEIGHTS: Record<Preferences['density'], string> = {
+  comfortable: '1.85',
+  standard: '1.6',
+  compact: '1.35',
+};
+
+/** 应用字体与行高密度：写入 CSS 变量 --mn-font / --mn-line-height，由 index.css 消费 */
+export function applyTypography(
+  font: Preferences['font'],
+  density: Preferences['density']
+): void {
+  const root = document.documentElement;
+  root.style.setProperty('--mn-font', FONT_FAMILIES[font]);
+  root.style.setProperty('--mn-line-height', LINE_HEIGHTS[density]);
 }
 
 export function watchSystemTheme(theme: ThemeId, mode: Mode): () => void {

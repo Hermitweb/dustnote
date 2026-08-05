@@ -60,19 +60,22 @@ else
 fi
 
 # 定位可执行文件
+# 注意：CI（release.yml）目前仅产出裸二进制 dustnote-desktop（不产出 AppImage/.deb），
+# 本脚本即针对该形态；AppImage 打包为 v1.1 规划项，产出后另行接入。
 if [[ -z "$BIN_PATH" ]]; then
   # 优先使用 PATH 中的 dustnote-desktop
   if command -v dustnote-desktop >/dev/null 2>&1; then
     BIN_PATH="$(command -v dustnote-desktop)"
   elif [[ -x "/opt/dustnote/dustnote-desktop" ]]; then
     BIN_PATH="/opt/dustnote/dustnote-desktop"
-  elif [[ -x "$HOME/Applications/DustNote.AppImage" ]]; then
-    BIN_PATH="$HOME/Applications/DustNote.AppImage"
+  elif [[ -x "$HOME/Applications/dustnote-desktop" ]]; then
+    BIN_PATH="$HOME/Applications/dustnote-desktop"
   else
     echo "⚠ 未找到 dustnote-desktop 可执行文件。" >&2
-    echo "  请通过 --bin 参数指定，或将 AppImage 移动到以下任一位置：" >&2
+    echo "  CI 目前仅产出裸二进制（AppImage/.deb 暂未产出，见 README「打包产物」），" >&2
+    echo "  请通过 --bin 参数指定，或将其移动到以下任一位置：" >&2
     echo "    /opt/dustnote/dustnote-desktop" >&2
-    echo "    \$HOME/Applications/DustNote.AppImage" >&2
+    echo "    \$HOME/Applications/dustnote-desktop" >&2
     echo "  或将其加入 PATH。" >&2
     exit 1
   fi

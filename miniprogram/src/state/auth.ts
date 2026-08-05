@@ -48,6 +48,7 @@ import {
   type LocalLockoutState,
 } from '@dustnote/shared';
 import { useModeStore } from '../lib/mode-store';
+import { taroFetch } from '../lib/taro-fetch';
 import {
   loadLocalAuthBlob,
   loadLocalAuthBlobSync,
@@ -174,6 +175,9 @@ interface AuthStoreState {
   recoverStandalone: (recoveryCode: string, newPassword: string) => Promise<string>;
   /** 单机模式：获取剩余锁定时间（ms） */
   getRemainingLockoutMs: () => number;
+
+  /** 修改主密码（standalone 本地重包装 / online rewrap），masterKey 不变，已有笔记可继续解密 */
+  changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthStoreState>((set, get) => ({
@@ -400,6 +404,58 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   getRemainingLockoutMs(): number {
     return remainingLockoutMs(get().lockoutState);
   },
+
+  // ========== 修改主密码 ==========
+
+  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+    if (newPassword.length < 8) throw new Error('新密码至少 8 位');
+    const mode = useModeStore.getState().mode;
+
+    // 单机模式：本地校验旧密码后，用新密码 KEK 重新包装同一把 masterKey
+    if (mode === 'standalone') {
+      const { localAuthBlob } = get();
+      const blob = localAuthBlob ?? loadLocalAuthBlobSync();
+      if (!blob) throw new Error('未初始化');
+      const verify = await unlockLocalAuth(oldPassword, blob, KDF_PARAMS_MOBILE);
+      if (!verify.success || !verify.masterKey) throw new Error('当前密码错误');
+      // §17.4.1：优先使用 blob 记录的实际 KDF 参数
+      const usedParams = blob.kdfParams ?? KDF_PARAMS_MOBILE;
+      const newPwSalt = randomBytes(16);
+      const { kek, authKey } = await deriveSecrets(newPassword, newPwSalt, usedParams);
+      const passwordWrappedMasterKey = await wrapKey(kek, verify.masterKey);
+      const newBlob: LocalAuthBlob = {
+        ...blob,
+        pwSalt: toBase64(newPwSalt),
+        passwordHash: toBase64(authKey),
+        passwordWrappedMasterKey: JSON.stringify(passwordWrappedMasterKey),
+        createdAt: new Date().toISOString(),
+      };
+      saveLocalAuthBlobSync(newBlob);
+      saveLockoutStateSync({ ...INITIAL_LOCKOUT_STATE });
+      setStandaloneMasterKey(verify.masterKey);
+      set({
+        localAuthBlob: newBlob,
+        masterKey: verify.masterKey,
+        lockoutState: { ...INITIAL_LOCKOUT_STATE },
+      });
+      return;
+    }
+
+    // 联机模式：rewrap（已解锁时 masterKey 在内存中，服务端只收到新包装的密文）
+    const masterKey = get().masterKey;
+    if (!masterKey) throw new Error('请先解锁');
+    const newPwSalt = randomBytes(16);
+    const pw = await deriveSecrets(newPassword, newPwSalt);
+    const wrappedMasterKey = await wrapKey(pw.kek, masterKey);
+    await getApi().post('/auth/rewrap', {
+      password: {
+        authKey: toBase64(pw.authKey),
+        salt: toBase64(newPwSalt),
+        wrappedMasterKey,
+      },
+    });
+    set({ pwSalt: toBase64(newPwSalt) });
+  },
 }));
 
 // ========== API 客户端工厂 ==========
@@ -434,6 +490,8 @@ export function getApi(): ApiClient {
     channel: 'stable',
     deviceId,
     accessToken: useAuthStore.getState().accessToken ?? undefined,
+    // weapp 无 fetch，必须走 Taro.request 适配器（tech-architecture.md §6）
+    fetch: process.env.TARO_ENV === 'weapp' ? taroFetch : undefined,
   });
 }
 

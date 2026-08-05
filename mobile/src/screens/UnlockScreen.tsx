@@ -11,6 +11,9 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
 import logoImage from '../assets/logo.png';
 import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../App';
 import ReactNativeBiometrics from 'react-native-biometrics';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
@@ -20,6 +23,7 @@ const rnb = new ReactNativeBiometrics();
 export function UnlockScreen() {
   const colors = useColors();
   const { t } = useTranslation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const unlock = useAuthStore((s) => s.unlock);
@@ -94,6 +98,14 @@ export function UnlockScreen() {
           <Text style={styles.bioButtonText}>{t('auth.unlock_biometric')}</Text>
         </TouchableOpacity>
       )}
+
+      {/* 忘记密码：用恢复码找回 */}
+      <TouchableOpacity
+        style={styles.recoverButton}
+        onPress={() => navigation.navigate('OnlineRecover')}
+      >
+        <Text style={styles.recoverButtonText}>{t('auth.recover_forgot')}</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -132,5 +144,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
     bioButton: { marginTop: 16, padding: 12, alignItems: 'center' },
     bioButtonText: { color: c.mint600, fontSize: 14 },
+    recoverButton: { marginTop: 8, padding: 12, alignItems: 'center' },
+    recoverButtonText: { color: c.muted, fontSize: 13, textDecorationLine: 'underline' },
   });
 }

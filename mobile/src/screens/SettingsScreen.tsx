@@ -35,7 +35,7 @@ import { useModeStore } from '../lib/mode-store';
 import { useLanguageStore, type AppLanguage } from '../lib/i18n';
 import { createRepository } from '../lib/repository';
 import { useColors, useThemeStore, type ThemeMode, THEMES, type ThemeId } from '../theme';
-import type { BackupPayload, AppMode } from '@dustnote/shared';
+import type { BackupPayload, AppMode, Preferences } from '@dustnote/shared';
 import {
   decryptString,
   encryptString,
@@ -45,6 +45,8 @@ import RNFS from 'react-native-fs';
 import RNShare from 'react-native-share';
 import DocumentPicker from 'react-native-document-picker';
 import { checkUpdateOnce, resetUpdateCache } from '../lib/use-update-check';
+import { savePendingMigration, clearPendingMigration } from '../lib/migration';
+import { clearLocalAuthBlob, clearLockoutState } from '../lib/local-auth-storage';
 import type { CheckUpdateResult } from '@dustnote/shared';
 
 const APP_VERSION = '2.4.4';
@@ -91,6 +93,13 @@ export function SettingsScreen() {
   // 更新检查
   const [updateChecking, setUpdateChecking] = useState(false);
   const [updateResult, setUpdateResult] = useState<CheckUpdateResult | null>(null);
+
+  // 修改主密码 Modal
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
 
   const styles = makeStyles(colors);
 
@@ -458,6 +467,14 @@ export function SettingsScreen() {
   };
 
   // ========== 模式切换 ==========
+  // v2.4.4 修复「迁移后密文不可解密」：
+  // 旧流程在 importBackup 后 lock() 清空 masterKey，新模式 setup/unlock 生成新 masterKey，
+  // 导入的密文绑定旧 masterKey → 全部 🔒 解密失败。
+  // 新流程（延迟迁移，DM-7 原子化）：
+  // 1. 导出备份 → 把旧 masterKey 副本放入内存 pending + 备份持久化到 AsyncStorage
+  // 2. 切换模式 + lock()（所有可能失败的步骤都发生在切换之前 → 失败可回滚到原模式）
+  // 3. 新模式 setup / unlock / recover 成功后（auth store 内）自动导入待迁移数据，
+  //    并用新模式 masterKey 重加密 —— 迁移后所有笔记可正常解密，不出现「🔒 解密失败」。
   const onSwitchModeConfirm = async () => {
     if (!masterKey) {
       Alert.alert('提示', '请先解锁');
@@ -477,7 +494,7 @@ export function SettingsScreen() {
     }
     setBusy(true);
     try {
-      // 1. 导出当前模式数据
+      // 1. 导出当前模式数据（失败则中止，未做任何变更）
       const oldRepo = createRepository({
         mode: appMode,
         serverUrl: useModeStore.getState().serverUrl,
@@ -486,7 +503,11 @@ export function SettingsScreen() {
       });
       const backup = await oldRepo.exportBackup();
 
-      // 2. 更新模式状态
+      // 2. 保留旧 masterKey（内存副本，lock() 不清除它）+ 备份持久化（失败则中止）
+      useAuthStore.getState().setPendingMasterKey(masterKey);
+      await savePendingMigration(backup, useAuthStore.getState().userId);
+
+      // 3. 更新模式状态（此后不可回退，但所有可能失败的步骤都已过去）
       setAppMode(switchTarget);
       if (switchTarget === 'online') {
         setServerUrl(switchServerUrl.trim());
@@ -495,46 +516,118 @@ export function SettingsScreen() {
       }
       initialize();
 
-      // 3. 初始化新模式 Repository
-      const newRepo = createRepository({
-        mode: switchTarget,
-        serverUrl: useModeStore.getState().serverUrl,
-        accessToken: useAuthStore.getState().accessToken,
-        deviceId: useAuthStore.getState().deviceId,
-      });
+      setShowSwitchMode(false);
+      setSwitchTarget(null);
+      setSwitchServerUrl('');
 
-      // 4. 清空新模式业务数据 + 导入备份
-      await newRepo.clearBusinessData();
-      await newRepo.importBackup(backup);
+      // 4. 锁定并重新探测目标模式的鉴权状态（App.tsx 据此自动路由到 Setup / Unlock）
+      lock();
+      void useAuthStore.getState().init();
 
       Alert.alert(
         '切换成功',
-        `已切换到${switchTarget === 'online' ? '联机' : '单机'}模式，数据已迁移。${
-          switchTarget === 'online' ? '\n请重新登录以连接服务器。' : ''
-        }`,
-        [
-          {
-            text: '确定',
-            onPress: () => {
-              setShowSwitchMode(false);
-              setSwitchTarget(null);
-              setSwitchServerUrl('');
-              // 切换模式后需要重新走鉴权流程
-              lock();
-              if (switchTarget === 'online') {
-                navigation.reset({ index: 0, routes: [{ name: 'Unlock' }] });
-              } else {
-                navigation.reset({ index: 0, routes: [{ name: 'StandaloneUnlock' as never }] });
-              }
-            },
-          },
-        ]
+        `已切换到${switchTarget === 'online' ? '联机' : '单机'}模式。\n\n数据将在解锁 / 设置主密码后自动迁移（笔记、文件夹、标签、偏好）。`,
+        [{ text: '确定' }]
       );
     } catch (err) {
+      // 失败：模式未变更，数据未受影响（DM-7 原子化回滚）
       Alert.alert('切换失败', (err as Error).message);
     } finally {
       setBusy(false);
     }
+  };
+
+  // ========== 修改主密码 ==========
+  const onChangePasswordSubmit = async () => {
+    if (!pwCurrent.trim() || !pwNew.trim()) {
+      Alert.alert('提示', '请输入当前密码和新密码');
+      return;
+    }
+    if (pwNew.length < 8) {
+      Alert.alert('提示', '新密码至少 8 位');
+      return;
+    }
+    if (pwNew !== pwConfirm) {
+      Alert.alert('提示', '两次输入的新密码不一致');
+      return;
+    }
+    setPwBusy(true);
+    try {
+      const auth = useAuthStore.getState();
+      if (appMode === 'online') {
+        await auth.changePassword(pwCurrent, pwNew);
+        Alert.alert('修改成功', '主密码已更新，历史笔记不受影响。');
+      } else {
+        const newCode = await auth.changePasswordStandalone(pwCurrent, pwNew);
+        Alert.alert(
+          '修改成功',
+          `主密码已更新，历史笔记不受影响。\n\n⚠️ 新恢复码（请妥善保存，旧恢复码已失效）：\n\n${newCode}`
+        );
+      }
+      setShowChangePassword(false);
+      setPwCurrent('');
+      setPwNew('');
+      setPwConfirm('');
+    } catch (err) {
+      Alert.alert('修改失败', (err as Error).message);
+    } finally {
+      setPwBusy(false);
+    }
+  };
+
+  // ========== 清空数据 ==========
+  const onClearData = () => {
+    Alert.alert('清空数据', '将删除全部笔记、文件夹、标签和偏好设置，且不可恢复。确定继续？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '清空',
+        style: 'destructive',
+        onPress: async () => {
+          setBusy(true);
+          try {
+            const repo = createRepository({
+              mode: appMode,
+              serverUrl: useModeStore.getState().serverUrl,
+              accessToken: useAuthStore.getState().accessToken,
+              deviceId: useAuthStore.getState().deviceId,
+            });
+            if (appMode === 'online') {
+              // 服务端无批量清空接口，逐条永久删除 + 重置偏好
+              const snapshot = await repo.loadAll();
+              for (const n of snapshot.notes) {
+                await repo.permanentDeleteNote(n.id);
+              }
+              const defaultPrefs: Preferences = {
+                theme: 'mint-dawn',
+                mode: 'auto',
+                font: 'system',
+                density: 'standard',
+                autoLock: 15,
+                language: 'zh-CN',
+              };
+              await repo.setPreferences(defaultPrefs).catch(() => undefined);
+              Alert.alert('已清空', '所有笔记已删除');
+            } else {
+              await repo.clearBusinessData();
+              // 单机模式：一并清空本地鉴权，回到首次设置
+              await clearLocalAuthBlob();
+              await clearLockoutState();
+              await clearPendingMigration();
+              lock();
+              useAuthStore.setState({ pendingMasterKey: null, authState: 'uninitialized' });
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'StandaloneSetup' as never }],
+              });
+            }
+          } catch (err) {
+            Alert.alert('清空失败', (err as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -656,6 +749,24 @@ export function SettingsScreen() {
       </Section>
 
       <Section title={t('settings.account_section')} colors={colors}>
+        <Row
+          label="🔑 修改主密码"
+          onPress={() => {
+            setPwCurrent('');
+            setPwNew('');
+            setPwConfirm('');
+            setShowChangePassword(true);
+          }}
+          colors={colors}
+        />
+        {appMode === 'online' && (
+          <Row
+            label={t('settings.shares')}
+            onPress={() => navigation.navigate('Shares')}
+            colors={colors}
+          />
+        )}
+        <Row label="🧹 清空数据" onPress={onClearData} colors={colors} />
         <Row
           label={t('settings.lock')}
           onPress={() => {
@@ -793,6 +904,58 @@ export function SettingsScreen() {
               <ActivityIndicator color="white" />
             ) : (
               <Text style={styles.modalButtonText}>迁移数据并切换</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* 修改主密码 Modal */}
+      <Modal visible={showChangePassword} animationType="slide" transparent={false}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>修改主密码</Text>
+            <TouchableOpacity onPress={() => setShowChangePassword(false)}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.modalHint}>
+            {appMode === 'online'
+              ? '修改后仅密码包装变更，masterKey 与所有笔记密文不变，历史笔记照常可读。'
+              : '修改后 masterKey 与所有笔记密文不变；将生成新恢复码，旧恢复码失效。'}
+          </Text>
+          <TextInput
+            style={styles.pwInput}
+            placeholder="当前主密码"
+            secureTextEntry
+            value={pwCurrent}
+            onChangeText={setPwCurrent}
+            placeholderTextColor={colors.muted}
+          />
+          <TextInput
+            style={styles.pwInput}
+            placeholder="新主密码（至少 8 位）"
+            secureTextEntry
+            value={pwNew}
+            onChangeText={setPwNew}
+            placeholderTextColor={colors.muted}
+          />
+          <TextInput
+            style={styles.pwInput}
+            placeholder="再次输入新主密码"
+            secureTextEntry
+            value={pwConfirm}
+            onChangeText={setPwConfirm}
+            placeholderTextColor={colors.muted}
+          />
+          <TouchableOpacity
+            style={[styles.modalButton, pwBusy && { opacity: 0.5 }]}
+            disabled={pwBusy}
+            onPress={onChangePasswordSubmit}
+          >
+            {pwBusy ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.modalButtonText}>确认修改</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -980,6 +1143,16 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       fontSize: 14,
       fontWeight: '600',
       color: c.fg,
+    },
+    pwInput: {
+      backgroundColor: c.card,
+      borderColor: c.border,
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 14,
+      fontSize: 15,
+      color: c.fg,
+      marginBottom: 12,
     },
   });
 }

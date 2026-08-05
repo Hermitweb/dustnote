@@ -11,6 +11,9 @@
   --mn-card: 255 255 255;
   --mn-accent: 22 163 74;
   --mn-accent-soft: 220 252 231;
+  /* 排版变量：由 theme.ts 的 applyTypography 按 preferences.font/density 运行时注入 */
+  --mn-font: 'Manrope', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  --mn-line-height: 1.6;
 }
 
 [data-mode='dark'] {
@@ -29,7 +32,7 @@ body,
 }
 
 body {
-  font-family: 'Manrope', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  font-family: var(--mn-font);
   background-color: rgb(var(--mn-bg));
   color: rgb(var(--mn-fg));
   transition: background-color 250ms ease, color 250ms ease;
@@ -55,7 +58,7 @@ body {
 
 /* Markdown 渲染样式 */
 .prose {
-  line-height: 1.7;
+  line-height: var(--mn-line-height, 1.7);
 }
 .prose h1, .prose h2, .prose h3, .prose h4 {
   font-weight: 700;
@@ -95,6 +98,12 @@ body {
 }
 
 /* 搜索高亮：客户端全文搜索 v2 命中 token 的 <mark> 标签 */
+/* 编辑器输入区：字体与行高跟随 preferences.font / preferences.density */
+.editor-textarea {
+  font-family: var(--mn-font);
+  line-height: var(--mn-line-height, 1.6);
+}
+
 mark {
   background: rgb(var(--mn-accent) / 0.25);
   color: inherit;

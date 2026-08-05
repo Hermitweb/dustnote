@@ -36,6 +36,8 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { FoldersScreen } from './screens/FoldersScreen';
 import { TagsScreen } from './screens/TagsScreen';
 import { TrashScreen } from './screens/TrashScreen';
+import { SharesScreen } from './screens/SharesScreen';
+import { OnlineRecoverScreen } from './screens/OnlineRecoverScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useIsDark, useColors } from './theme';
 
@@ -56,12 +58,14 @@ export type RootStackParamList = {
   StandaloneSetup: undefined;
   StandaloneUnlock: undefined;
   StandaloneRecover: undefined;
+  OnlineRecover: undefined;
   NotesList: undefined;
   NoteEdit: { noteId: string };
   Settings: undefined;
   Folders: undefined;
   Tags: undefined;
   Trash: undefined;
+  Shares: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -243,6 +247,11 @@ function AppInner() {
             />
             <Stack.Screen name="Tags" component={TagsScreen} options={{ title: t('app.tags_title') }} />
             <Stack.Screen name="Trash" component={TrashScreen} options={{ title: t('app.trash_title') }} />
+            <Stack.Screen
+              name="Shares"
+              component={SharesScreen}
+              options={{ title: '分享管理' }}
+            />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>
@@ -316,6 +325,11 @@ function AppInner() {
                   options={{ title: '尘心笔记', headerBackVisible: false }}
                 />
               )}
+              <Stack.Screen
+                name="OnlineRecover"
+                component={OnlineRecoverScreen}
+                options={{ title: t('app.recover_title') }}
+              />
             </>
           )}
         </Stack.Navigator>

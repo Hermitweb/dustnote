@@ -20,6 +20,7 @@ import {
   RefreshControl,
   TextInput,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -30,10 +31,12 @@ import {
   noteAad,
   type Ciphertext,
   type NoteRow,
+  type Folder,
 } from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
+import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../lib/offline-queue';
 import { useColors } from '../theme';
 import { useResponsiveLayout } from '../lib/useResponsiveLayout';
 
@@ -91,6 +94,11 @@ export function NotesListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // 筛选 / 排序（v2.4.4 新增）
+  const [tab, setTab] = useState<'all' | 'fav'>('all');
+  const [folderFilter, setFolderFilter] = useState<string>('all'); // 'all' | 'none' | folderId
+  const [sortBy, setSortBy] = useState<'time' | 'title' | 'words'>('time');
+  const [folders, setFolders] = useState<Folder[]>([]);
 
   // 创建 Repository（按当前模式分流）
   // mode 可能因 hydrated 延迟而短暂为 null，使用 ?? 'online' 兜底避免类型错误
@@ -123,13 +131,18 @@ export function NotesListScreen() {
         withPlain.push({ ...n, plain });
       }
       setNotes(withPlain);
+      setFolders(snapshot.folders ?? []);
+      // 网络已恢复（loadAll 成功）：重放离线队列中的未同步修改
+      if (mode === 'online') {
+        void flushOfflineQueue();
+      }
     } catch (err) {
       console.warn('加载失败', err);
       setError(`加载失败：${(err as Error).message}。下拉可重试。`);
     } finally {
       setRefreshing(false);
     }
-  }, [masterKey, repo, modeInitialized]);
+  }, [masterKey, repo, modeInitialized, mode]);
 
   useEffect(() => {
     void load();
@@ -146,6 +159,12 @@ export function NotesListScreen() {
     const keyword = search.trim().toLowerCase();
     return notes
       .filter((n) => !n.deletedAt)
+      .filter((n) => (tab === 'fav' ? !!n.isFavorite : true))
+      .filter((n) => {
+        if (folderFilter === 'all') return true;
+        if (folderFilter === 'none') return n.folderId == null;
+        return n.folderId === folderFilter;
+      })
       .filter((n) => {
         if (!keyword) return true;
         // 搜索标题 + 内容 + 标签（解密后的明文）
@@ -155,10 +174,17 @@ export function NotesListScreen() {
         return title.includes(keyword) || content.includes(keyword) || tags.includes(keyword);
       })
       .sort((a, b) => {
+        // 置顶优先（所有排序方式都保持）
         if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+        if (sortBy === 'title') {
+          return (a.plain?.title ?? '').localeCompare(b.plain?.title ?? '', 'zh-CN');
+        }
+        if (sortBy === 'words') {
+          return (b.plain?.content?.length ?? 0) - (a.plain?.content?.length ?? 0);
+        }
         return b.serverUpdatedAt.localeCompare(a.serverUpdatedAt);
       });
-  }, [notes, search]);
+  }, [notes, search, tab, folderFilter, sortBy]);
 
   const styles = makeStyles(colors, layout);
 
@@ -185,6 +211,31 @@ export function NotesListScreen() {
         <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.iconButton}>
           <Text style={styles.iconText}>⚙️</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* 筛选 / 排序栏（v2.4.4 新增） */}
+      <View style={styles.filterBar}>
+        <View style={styles.chipRow}>
+          <FilterChip label="全部" active={tab === 'all'} onPress={() => setTab('all')} colors={colors} />
+          <FilterChip label="⭐ 收藏" active={tab === 'fav'} onPress={() => setTab('fav')} colors={colors} />
+          <View style={{ flex: 1 }} />
+          <FilterChip label="⏱ 时间" active={sortBy === 'time'} onPress={() => setSortBy('time')} colors={colors} />
+          <FilterChip label="🔤 标题" active={sortBy === 'title'} onPress={() => setSortBy('title')} colors={colors} />
+          <FilterChip label="🔢 字数" active={sortBy === 'words'} onPress={() => setSortBy('words')} colors={colors} />
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderRow}>
+          <FilterChip label="📂 全部文件夹" active={folderFilter === 'all'} onPress={() => setFolderFilter('all')} colors={colors} />
+          <FilterChip label="📄 未分类" active={folderFilter === 'none'} onPress={() => setFolderFilter('none')} colors={colors} />
+          {folders.map((f) => (
+            <FilterChip
+              key={f.id}
+              label={`📁 ${f.name}`}
+              active={folderFilter === f.id}
+              onPress={() => setFolderFilter(f.id)}
+              colors={colors}
+            />
+          ))}
+        </ScrollView>
       </View>
 
       {/* 笔记列表 */}
@@ -251,8 +302,27 @@ export function NotesListScreen() {
             });
             await load();
           } catch (err) {
-            console.warn('创建失败', err);
-            Alert.alert('创建失败', (err as Error).message);
+            // 联机模式网络不可用：入队待同步（离线队列简化版）
+            if (mode === 'online' && isNetworkError(err)) {
+              try {
+                const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
+                const ciphertext = await packEnvelope(masterKey, empty);
+                await enqueueOffline('POST', '/notes', {
+                  ciphertext,
+                  keyVersion: 1,
+                  isPinned: false,
+                  isFavorite: false,
+                  clientUpdatedAt: new Date().toISOString(),
+                  folderId: null,
+                });
+                Alert.alert('已离线', '笔记已加入离线队列，联网后自动同步。');
+              } catch {
+                Alert.alert('创建失败', (err as Error).message);
+              }
+            } else {
+              console.warn('创建失败', err);
+              Alert.alert('创建失败', (err as Error).message);
+            }
           }
         }}
       >
@@ -286,6 +356,30 @@ function makeStyles(
     },
     iconButton: { paddingHorizontal: 8, justifyContent: 'center' },
     iconText: { fontSize: 20 },
+    filterBar: {
+      paddingTop: 8,
+      paddingBottom: 4,
+      backgroundColor: c.card,
+      borderBottomColor: c.border,
+      borderBottomWidth: 1,
+    },
+    chipRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, marginBottom: 6 },
+    folderRow: { paddingHorizontal: 12, marginBottom: 6 },
+    chip: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.bg,
+      marginRight: 6,
+    },
+    chipActive: {
+      backgroundColor: c.mint600,
+      borderColor: c.mint600,
+    },
+    chipText: { fontSize: 12, color: c.fg },
+    chipTextActive: { color: 'white', fontWeight: '600' },
     card: {
       backgroundColor: c.card,
       marginHorizontal: l.isTablet ? 16 : 12,
@@ -324,4 +418,27 @@ function makeStyles(
     },
     fabText: { color: 'white', fontSize: 28, fontWeight: '300' },
   });
+}
+
+/** 筛选 / 排序小标签 */
+function FilterChip({
+  label,
+  active,
+  onPress,
+  colors,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  colors: ReturnType<typeof useColors>;
+}) {
+  const styles = makeStyles(colors, useResponsiveLayout());
+  return (
+    <TouchableOpacity
+      style={[styles.chip, active && styles.chipActive]}
+      onPress={onPress}
+    >
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
 }

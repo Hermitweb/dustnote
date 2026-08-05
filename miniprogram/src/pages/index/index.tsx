@@ -56,6 +56,9 @@ export default function Index() {
   const modeInitialized = useModeStore((s) => s.initialized);
   const [notes, setNotes] = useState<Note[]>([]);
   const [titles, setTitles] = useState<Record<string, string>>({});
+  // 解密后的标签索引（与 titles 同源，仅用于客户端搜索过滤）
+  const [tagsMap, setTagsMap] = useState<Record<string, string[]>>({});
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -98,18 +101,24 @@ export default function Index() {
       setFolders(snapshot.folders as Folder[]);
       if (masterKey) {
         const t: Record<string, string> = {};
+        const tg: Record<string, string[]> = {};
         for (const n of snapshot.notes) {
           if (n.deletedAt) continue;
           try {
             const e = parseEnvelope(n.ciphertext);
-            t[n.id] = (
-              await decryptNote(masterKey, e, noteAad(n.id, useAuthStore.getState().userId ?? ''))
-            ).title;
+            const pt = await decryptNote(
+              masterKey,
+              e,
+              noteAad(n.id, useAuthStore.getState().userId ?? '')
+            );
+            t[n.id] = pt.title;
+            tg[n.id] = pt.tags ?? [];
           } catch {
             t[n.id] = '🔒 解密失败';
           }
         }
         setTitles(t);
+        setTagsMap(tg);
       }
     } catch {
       Taro.showToast({ title: '加载失败', icon: 'none' });
@@ -128,6 +137,12 @@ export default function Index() {
       }
       if (viewMode === 'favorite') return n.isFavorite && !n.deletedAt;
       return !!n.deletedAt;
+    })
+    .filter((n) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return true;
+      if ((titles[n.id] || '').toLowerCase().includes(q)) return true;
+      return (tagsMap[n.id] || []).some((tag) => tag.toLowerCase().includes(q));
     })
     .sort((a, b) =>
       viewMode === 'trash'
@@ -423,6 +438,22 @@ export default function Index() {
           </>
         )}
       </View>
+
+      {!selecting && (
+        <View className="search-box">
+          <Input
+            className="search-input"
+            placeholder="搜索标题 / 标签"
+            value={searchQuery}
+            onInput={(e) => setSearchQuery((e.detail as { value: string }).value)}
+          />
+          {searchQuery ? (
+            <Text className="search-clear" onClick={() => setSearchQuery('')}>
+              ✕
+            </Text>
+          ) : null}
+        </View>
+      )}
 
       {!selecting && viewMode === 'all' && folders.length > 0 && (
         <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useStore } from './lib/store';
 import type { ThemeId, Mode } from './lib/store';
 import { useModeStore } from './lib/mode-store';
-import { applyTheme, watchSystemTheme, THEMES } from './lib/theme';
+import { applyTheme, watchSystemTheme, applyTypography, THEMES } from './lib/theme';
 import { useUpdateCheck } from './lib/use-update-check';
 import { ForceUpdateOverlay } from './components/ForceUpdateOverlay';
 import { UpdateBanner } from './components/UpdateBanner';
@@ -144,12 +144,13 @@ function App() {
     installOnlineListener();
   }, [checkStatus, loadAll, modeInitialized, initRepository]);
 
-  // 应用主题
+  // 应用主题 + 排版（字体 / 行高密度）
   useEffect(() => {
     applyTheme(preferences.theme, preferences.mode);
+    applyTypography(preferences.font, preferences.density);
     const cleanup = watchSystemTheme(preferences.theme, preferences.mode);
     return cleanup;
-  }, [preferences.theme, preferences.mode]);
+  }, [preferences.theme, preferences.mode, preferences.font, preferences.density]);
 
   // 解锁后加载数据 + 启动 WS + 刷新待同步计数
   useEffect(() => {

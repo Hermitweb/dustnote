@@ -44,7 +44,7 @@ import {
   type LocalLockoutState,
 } from '@dustnote/shared';
 import { getDeviceId } from './device';
-import { applyTheme } from './theme';
+import { applyTheme, applyTypography } from './theme';
 import i18n, { LANGUAGE_STORAGE_KEY } from './i18n';
 import {
   cacheNotes as cacheNotesRaw,
@@ -201,6 +201,8 @@ interface StoreState {
   templates: Template[];
   selectedNoteId: string | null;
   selectedFolderId: string | null;
+  /** 当前选中的标签（侧栏按标签过滤笔记列表） */
+  selectedTagId: string | null;
   /** 当前侧栏视图（全部/收藏/回收站） */
   viewMode: ViewMode;
 
@@ -229,6 +231,8 @@ interface StoreState {
   setup: (password: string) => Promise<string>; // 返回 recoveryCode
   unlock: (password: string) => Promise<void>;
   recover: (recoveryCode: string, newPassword: string) => Promise<void>;
+  /** 修改主密码：校验当前密码后重新包装 masterKey（单机/联机分派） */
+  changePassword: (masterPassword: string, newPassword: string) => Promise<void>;
   lock: () => void;
   /** 宽限期免密解锁：是否有有效的 grace 缓存 */
   hasGraceUnlock: () => boolean;
@@ -261,6 +265,8 @@ interface StoreState {
   deleteNote: (id: string) => Promise<void>;
   selectNote: (id: string | null) => void;
   selectFolder: (id: string | null) => void;
+  /** 按标签过滤笔记列表（null = 清除标签过滤） */
+  selectTag: (id: string | null) => void;
   setViewMode: (mode: ViewMode) => void;
   /** 切换侧边栏显隐（Ctrl+B） */
   toggleSidebar: () => void;
@@ -268,6 +274,10 @@ interface StoreState {
   focusSearch: () => void;
   createFolder: (name: string) => Promise<string>;
   deleteFolder: (id: string) => Promise<void>;
+  /** 新建标签（名称重复时返回已有标签 id），color 形如 #rrggbb */
+  createTag: (name: string, color?: string | null) => Promise<string>;
+  /** 删除标签（不影响笔记明文中的标签名引用） */
+  deleteTag: (id: string) => Promise<void>;
   /** 永久删除笔记（不可恢复） */
   permanentDeleteNote: (id: string) => Promise<void>;
   /** 清空回收站：永久删除所有已软删的笔记 */
@@ -457,6 +467,7 @@ export const useStore = create<StoreState>((set, get) => ({
   templates: PRESET_TEMPLATES,
   selectedNoteId: null,
   selectedFolderId: null,
+  selectedTagId: null,
   viewMode: 'all',
 
   // UI 临时状态
@@ -488,26 +499,56 @@ export const useStore = create<StoreState>((set, get) => ({
     }
     // 切换模式前清空宽限期缓存（masterKey 即将失效）
     clearGraceUnlock();
-    // 1. 导出当前模式的数据
-    const backup = await repository.exportBackup();
-    // 2. 更新 mode-store
-    useModeStore.getState().setMode(target);
-    if (serverUrl !== null) {
-      useModeStore.getState().setServerUrl(serverUrl);
+    // 备份当前 store 与 mode-store 状态：迁移失败时回滚，避免数据丢失且无感知
+    const prevMode = useModeStore.getState().mode;
+    const prevServerUrl = useModeStore.getState().serverUrl;
+    const prevStore = {
+      mode: get().mode,
+      repository: get().repository,
+      notes: get().notes,
+      notesPlain: get().notesPlain,
+      folders: get().folders,
+      tags: get().tags,
+      selectedTagId: get().selectedTagId,
+    };
+    try {
+      // 1. 导出当前模式的数据
+      const backup = await repository.exportBackup();
+      // 2. 更新 mode-store
+      useModeStore.getState().setMode(target);
+      if (serverUrl !== null) {
+        useModeStore.getState().setServerUrl(serverUrl);
+      }
+      // 3. 初始化新 Repository
+      const newRepo = createRepository(
+        { mode: target, serverUrl: useModeStore.getState().serverUrl },
+        () => get().accessToken
+      );
+      // 4. 清空新模式的业务数据（避免重复）
+      await newRepo.clearBusinessData();
+      // 5. 导入备份数据
+      await newRepo.importBackup(backup);
+      // 6. 更新 store
+      set({ mode: target, repository: newRepo });
+      // 7. 重新加载数据
+      await get().loadAll();
+    } catch (err) {
+      // 失败回滚：恢复原模式与 mode-store 状态，并还原内存中的数据
+      useModeStore.getState().setMode(prevMode);
+      if (prevServerUrl !== null || serverUrl !== null) {
+        useModeStore.getState().setServerUrl(prevServerUrl);
+      }
+      set({
+        mode: prevStore.mode,
+        repository: prevStore.repository,
+        notes: prevStore.notes,
+        notesPlain: prevStore.notesPlain,
+        folders: prevStore.folders,
+        tags: prevStore.tags,
+        selectedTagId: prevStore.selectedTagId,
+      });
+      throw err;
     }
-    // 3. 初始化新 Repository
-    const newRepo = createRepository(
-      { mode: target, serverUrl: useModeStore.getState().serverUrl },
-      () => get().accessToken
-    );
-    // 4. 清空新模式的业务数据（避免重复）
-    await newRepo.clearBusinessData();
-    // 5. 导入备份数据
-    await newRepo.importBackup(backup);
-    // 6. 更新 store
-    set({ mode: target, repository: newRepo });
-    // 7. 重新加载数据
-    await get().loadAll();
   },
 
   // -------- standalone auth --------
@@ -741,6 +782,78 @@ export const useStore = create<StoreState>((set, get) => ({
       wrappedMasterKey: wrappedPw,
       authState: 'unlocked',
     });
+  },
+
+  // 修改主密码：校验当前密码后，用新密码重新包装 masterKey（masterKey 本身不变）
+  async changePassword(masterPassword: string, newPassword: string): Promise<void> {
+    if (newPassword.length < 8) throw new Error('新主密码至少 8 个字符');
+    const { mode } = get();
+
+    // ---- 单机模式：本地校验当前密码 + 重新包装 ----
+    if (mode === 'standalone') {
+      const { localAuthBlob, lockoutState } = get();
+      if (!localAuthBlob) throw new Error('未初始化');
+      if (isLocked(lockoutState)) {
+        const rem = remainingLockoutMs(lockoutState);
+        throw new Error(`账号已锁定，请 ${Math.ceil(rem / 1000)} 秒后重试`);
+      }
+      const result = await unlockLocalAuth(masterPassword, localAuthBlob);
+      if (!result.success || !result.masterKey) {
+        const newState = recordFailedAttempt(lockoutState);
+        saveLockoutState(newState);
+        set({ lockoutState: newState });
+        if (isLocked(newState)) {
+          throw new Error(`密码错误次数过多，账号已锁定 ${LOCAL_LOCKOUT_DURATION_MS / 60000} 分钟`);
+        }
+        throw new Error('当前密码错误');
+      }
+      // 新密码派生 KEK + authKey，重新包装同一把 masterKey
+      const newPwSalt = randomBytes(16);
+      const { kek: newKek, authKey: newAuthKey } = await deriveSecrets(newPassword, newPwSalt);
+      const newWrapped = await wrapKey(newKek, result.masterKey);
+      const newBlob: LocalAuthBlob = {
+        ...localAuthBlob,
+        pwSalt: toBase64(newPwSalt),
+        passwordHash: toBase64(newAuthKey),
+        passwordWrappedMasterKey: JSON.stringify(newWrapped),
+      };
+      saveLocalAuthBlob(newBlob);
+      clearLockoutState();
+      set({ localAuthBlob: newBlob, lockoutState: INITIAL_LOCKOUT_STATE });
+      return;
+    }
+
+    // ---- 联机模式：/auth/unlock 校验当前密码 → /auth/rewrap 换包装 ----
+    let salt = get().serverSalt;
+    if (!salt) {
+      const status = await api().get<{ initialized: boolean; pwSalt: string | null }>('/auth/status');
+      salt = status.pwSalt;
+      if (!salt) throw new Error('系统未初始化');
+    }
+    const pw = await deriveSecrets(masterPassword, fromBase64(salt));
+    const r = await api().post<{
+      accessToken: string;
+      userId: string;
+      wrappedMasterKey: Ciphertext;
+    }>('/auth/unlock', {
+      authKey: toBase64(pw.authKey),
+      deviceName: 'Web 浏览器',
+    });
+    // 解封 masterKey 即验证当前密码正确；masterKey 本身不变
+    const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
+    const newPwSalt = randomBytes(16);
+    const npw = await deriveSecrets(newPassword, newPwSalt);
+    const wrappedPw = await wrapKey(npw.kek, masterKey);
+    // 先落 token，rewrap 是需要鉴权的接口（api() 从 store 读 accessToken）
+    set({ accessToken: r.accessToken });
+    await api().post('/auth/rewrap', {
+      password: {
+        authKey: toBase64(npw.authKey),
+        salt: toBase64(newPwSalt),
+        wrappedMasterKey: wrappedPw,
+      },
+    });
+    set({ serverSalt: toBase64(newPwSalt), wrappedMasterKey: wrappedPw });
   },
 
   lock(): void {
@@ -1274,10 +1387,13 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ selectedNoteId: id });
   },
   selectFolder(id: string | null): void {
-    set({ selectedFolderId: id, viewMode: 'all' });
+    set({ selectedFolderId: id, selectedTagId: null, viewMode: 'all' });
+  },
+  selectTag(id: string | null): void {
+    set({ selectedTagId: id, selectedFolderId: null, viewMode: 'all', selectedNoteId: null });
   },
   setViewMode(mode: ViewMode): void {
-    set({ viewMode: mode, selectedFolderId: null, selectedNoteId: null });
+    set({ viewMode: mode, selectedFolderId: null, selectedTagId: null, selectedNoteId: null });
   },
   toggleSidebar(): void {
     set((s) => ({ sidebarHidden: !s.sidebarHidden }));
@@ -1548,6 +1664,32 @@ export const useStore = create<StoreState>((set, get) => ({
     void cacheFolders(get().folders).catch(() => undefined);
   },
 
+  // -------- 标签 --------
+
+  async createTag(name: string, color: string | null = null): Promise<string> {
+    const { repository } = get();
+    if (!repository) throw new Error('未初始化');
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error('标签名不能为空');
+    // 按名称（忽略大小写）去重：已存在则直接返回，避免重复创建
+    const existing = get().tags.find((t) => t.name.toLowerCase() === trimmed.toLowerCase());
+    if (existing) return existing.id;
+    const id = await repository.createTag(trimmed, color);
+    const tag: Tag = { id, name: trimmed, color, count: 0 };
+    set({ tags: [...get().tags, tag] });
+    return id;
+  },
+
+  async deleteTag(id: string): Promise<void> {
+    const { repository } = get();
+    if (!repository) throw new Error('未初始化');
+    const tag = get().tags.find((t) => t.id === id);
+    if (!tag) return;
+    await repository.deleteTag(id);
+    set({ tags: get().tags.filter((t) => t.id !== id) });
+    if (get().selectedTagId === id) set({ selectedTagId: null });
+  },
+
   // -------- prefs --------
 
   setPreferences(p: Partial<Preferences>): void {
@@ -1556,6 +1698,10 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ preferences: next });
     if (p.theme) applyTheme(p.theme, next.mode);
     if (p.mode) applyTheme(next.theme, p.mode);
+    // 字体 / 行高密度：通过 CSS 变量立即生效
+    if (p.font || p.density) {
+      applyTypography(p.font ?? next.font, p.density ?? next.density);
+    }
     if (p.language) {
       // 同步 dustnote_language localStorage key：i18n.ts 初始化时从此读取默认语言，
       // 若不更新则刷新页面后语言会回退到默认 'zh-CN'，用户设置的语言不生效。

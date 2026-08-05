@@ -19,7 +19,8 @@
 import { useEffect } from 'react';
 import { isTauri } from './lib/tauri';
 import { registerAutostartApi } from './lib/autostart';
-import { registerUpdaterApi } from './lib/updater';
+import { registerUpdaterApi, useUpdater } from './lib/updater';
+import { notifyUpdateAvailable } from './lib/notifications';
 // 直接复用 web 端 App 组件（vite + tsc 通过相对路径解析）
 import WebApp from '../../web/src/App';
 import { useStore } from '../../web/src/lib/store';
@@ -96,6 +97,20 @@ export function App() {
       document.documentElement.dataset.platform = 'web';
     }
   }, []);
+
+  // 桌面端更新检查状态机（启动时静默检查一次；独立于设置页内手动检查）。
+  // 必须在上方注册 effect 之后调用：React 按声明顺序执行 effect，
+  // useUpdater 内部的启动静默检查需要 window.__DUSTNOTE_UPDATER__ 已注册。
+  const updater = useUpdater();
+
+  // 更新可用系统通知：订阅 useUpdater 状态，检查发现有新版本（available）时
+  // 发送「DustNote 有新版本」通知（设置页内手动检查走 SettingsDialog 自有状态，不触发）。
+  useEffect(() => {
+    if (!isTauri()) return;
+    if (updater.state === 'available' && updater.targetVersion) {
+      void notifyUpdateAvailable(updater.targetVersion);
+    }
+  }, [updater.state, updater.targetVersion]);
 
   // 托盘 tooltip 显示待同步数量（roadmap M4「托盘显示已同步 N 条」）：
   // 订阅 web store 的 pendingCount 变化，实时刷新托盘 tooltip。

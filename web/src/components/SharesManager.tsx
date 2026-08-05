@@ -343,6 +343,15 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                         </button>
                         {canAct && (
                           <button
+                            onClick={() => toast.info(t('shares.adjust_expiry_unsupported'))}
+                            className="rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs text-surface-muted hover:bg-surface-card"
+                            aria-label={t('shares.adjust_expiry')}
+                          >
+                            {t('shares.adjust_expiry')}
+                          </button>
+                        )}
+                        {canAct && (
+                          <button
                             onClick={() => setRevokeTargetId(s.id)}
                             className="rounded bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:bg-red-900/30"
                             aria-label={t('shares.revoke')}

@@ -11,8 +11,9 @@ export function isTauri(): boolean {
 }
 
 export function getApiBase(): string {
-  // v1 桌面端使用本地服务：打包时内置 server.exe
-  // 开发期通过 vite proxy 转发到 localhost:3210
+  // 桌面端联机模式：连接用户在模式设置中配置的 serverUrl（见 web/src/lib/mode-store.ts），
+  // 此处返回开发期默认地址（vite dev proxy 转发到 localhost:3210）。
+  // 注意：v1 桌面端不内置 server.exe——内置本地 server 为 v1.1 规划项。
   if (isTauri()) {
     return 'http://localhost:3210/api/v1';
   }

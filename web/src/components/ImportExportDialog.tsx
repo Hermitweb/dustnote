@@ -60,42 +60,109 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  // 导入增强：拖拽 / 预览 / 冲突策略
+  const [dragOver, setDragOver] = useState(false);
+  const [preview, setPreview] = useState<
+    { key: string; name: string; title: string; content: string; tags: string[]; included: boolean }[]
+  >([]);
+  const [conflictStrategy, setConflictStrategy] = useState<'merge' | 'overwrite' | 'skip'>('merge');
 
-  const handleImport = async (files: FileList) => {
-    setMode('importing');
+  // 解析文件并加入预览列表（不立即导入）
+  const prepareImport = async (files: FileList | File[]) => {
     setError(null);
-    setStatus(t('import_export.start_import', { count: files.length }));
-    let ok = 0;
-    let fail = 0;
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i];
+    const arr = Array.from(files);
+    const added: typeof preview = [];
+    for (let i = 0; i < arr.length; i++) {
+      const f = arr[i];
       if (!f) continue;
-      setStatus(t('import_export.parsing', { i: i + 1, total: files.length, name: f.name }));
       try {
-        const fmt = detectFormat(f.name);
-        if (fmt === 'unknown') {
+        if (detectFormat(f.name) === 'unknown') {
           setStatus(
-            t('import_export.skip_unsupported', { i: i + 1, total: files.length, name: f.name })
+            t('import_export.skip_unsupported', { i: i + 1, total: arr.length, name: f.name })
           );
-          fail++;
           continue;
         }
         // .docx 由 parseNoteFile 内部动态加载 mammoth 解析
         const pt = await parseNoteFile(f);
-        await useStore.getState().createNote(null);
-        const selectedId = useStore.getState().selectedNoteId;
-        if (selectedId) {
-          await useStore
-            .getState()
-            .updateNote(selectedId, { title: pt.title, content: pt.content, tags: pt.tags });
-        }
-        ok++;
+        added.push({
+          key: `${f.name}-${i}-${Date.now()}`,
+          name: f.name,
+          title: pt.title,
+          content: pt.content,
+          tags: pt.tags,
+          included: true,
+        });
       } catch (err) {
         setError(t('import_export.import_fail', { name: f.name, reason: (err as Error).message }));
+      }
+    }
+    setPreview((prev) => [...prev, ...added]);
+    if (added.length > 0) {
+      setStatus(t('import_export.preview_ready', { count: added.length }));
+    }
+  };
+
+  // 按标题匹配已存在的笔记（用于冲突策略）
+  const findExistingByTitle = (title: string): string | null => {
+    const state = useStore.getState();
+    for (const [id, pt] of state.notesPlain) {
+      if (state.notes.get(id)?.deletedAt) continue;
+      if (pt.title === title) return id;
+    }
+    return null;
+  };
+
+  // 执行导入（含冲突策略：合并 / 覆盖 / 跳过）
+  const doImport = async () => {
+    const items = preview.filter((p) => p.included);
+    if (items.length === 0) return;
+    setMode('importing');
+    setError(null);
+    let ok = 0;
+    let fail = 0;
+    let skipped = 0;
+    const state = useStore.getState();
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]!;
+      setStatus(t('import_export.parsing', { i: i + 1, total: items.length, name: item.name }));
+      try {
+        const existingId = findExistingByTitle(item.title);
+        if (existingId && conflictStrategy === 'skip') {
+          skipped++;
+          continue;
+        }
+        if (existingId && conflictStrategy === 'merge') {
+          const existing = state.notesPlain.get(existingId);
+          if (existing) {
+            const mergedTags = Array.from(new Set([...existing.tags, ...item.tags]));
+            await state.updateNote(existingId, {
+              title: existing.title,
+              content: existing.content ? `${existing.content}\n\n${item.content}` : item.content,
+              tags: mergedTags,
+            });
+            ok++;
+            continue;
+          }
+        }
+        if (existingId && conflictStrategy === 'overwrite') {
+          await state.updateNote(existingId, {
+            title: item.title,
+            content: item.content,
+            tags: item.tags,
+          });
+          ok++;
+          continue;
+        }
+        const id = await state.createNote(null);
+        await state.updateNote(id, { title: item.title, content: item.content, tags: item.tags });
+        ok++;
+      } catch (err) {
+        setError(t('import_export.import_fail', { name: item.name, reason: (err as Error).message }));
         fail++;
       }
     }
-    setStatus(t('import_export.done', { ok, fail }));
+    setPreview([]);
+    setStatus(t('import_export.done_strategy', { ok, fail, skipped }));
     setMode('main');
   };
 
@@ -289,7 +356,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="space-y-4">
-          {/* 导入 */}
+          {/* 导入：拖拽 / 预览 / 冲突策略 */}
           <div className="rounded-lg border border-surface-border p-3">
             <h3 className="mb-2 text-sm font-semibold text-surface-fg">
               {t('import_export.import_title')}
@@ -302,16 +369,104 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
               multiple
               className="hidden"
               onChange={(e) => {
-                if (e.target.files) void handleImport(e.target.files);
+                if (e.target.files) void prepareImport(e.target.files);
+                e.target.value = '';
               }}
             />
-            <button
-              onClick={() => fileInput.current?.click()}
-              disabled={mode !== 'main'}
-              className="w-full rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                if (e.dataTransfer.files.length > 0) void prepareImport(e.dataTransfer.files);
+              }}
+              className={`rounded-lg border-2 border-dashed p-4 text-center text-xs transition-colors ${
+                dragOver
+                  ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/30'
+                  : 'border-surface-border text-surface-muted'
+              }`}
             >
-              {mode === 'importing' ? status || t('import_export.importing') : t('import_export.import_btn')}
-            </button>
+              <button
+                onClick={() => fileInput.current?.click()}
+                disabled={mode !== 'main'}
+                className="rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
+              >
+                {mode === 'importing' ? status || t('import_export.importing') : t('import_export.import_btn')}
+              </button>
+              <p className="mt-2">{t('import_export.drag_hint')}</p>
+            </div>
+
+            {preview.length > 0 && mode === 'main' && (
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-surface-fg">
+                    {t('import_export.preview_title')} ({preview.filter((p) => p.included).length})
+                  </span>
+                  <button
+                    onClick={() => setPreview([])}
+                    className="text-xs text-surface-muted underline hover:text-surface-fg"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                </div>
+                <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-surface-border p-1">
+                  {preview.map((p) => (
+                    <label
+                      key={p.key}
+                      className="flex items-start gap-2 rounded px-2 py-1 text-xs hover:bg-surface-bg"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={p.included}
+                        onChange={(e) =>
+                          setPreview((prev) =>
+                            prev.map((x) =>
+                              x.key === p.key ? { ...x, included: e.target.checked } : x
+                            )
+                          )
+                        }
+                        className="mt-0.5"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-surface-fg">{p.title}</span>
+                        <span className="block truncate text-surface-muted">
+                          {p.content.slice(0, 60) || '—'}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-surface-muted">
+                    {t('import_export.conflict_strategy')}:
+                  </span>
+                  <select
+                    value={conflictStrategy}
+                    onChange={(e) =>
+                      setConflictStrategy(e.target.value as 'merge' | 'overwrite' | 'skip')
+                    }
+                    className="rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs text-surface-fg focus:outline-none"
+                  >
+                    <option value="merge">{t('import_export.conflict_merge')}</option>
+                    <option value="overwrite">{t('import_export.conflict_overwrite')}</option>
+                    <option value="skip">{t('import_export.conflict_skip')}</option>
+                  </select>
+                </div>
+                <p className="text-xs text-surface-muted">{t('import_export.conflict_hint')}</p>
+                <button
+                  onClick={() => void doImport()}
+                  className="w-full rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700"
+                >
+                  {t('import_export.start_import_btn', {
+                    count: preview.filter((p) => p.included).length,
+                  })}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 导出当前笔记 */}

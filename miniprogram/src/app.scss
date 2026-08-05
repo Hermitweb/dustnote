@@ -828,3 +828,197 @@ html[data-mode="dark"] .mint-btn-danger {
 html[data-mode="dark"] .fab {
   background: linear-gradient(135deg, #4fb783, #3d9068);
 }
+
+/* ========== 主页搜索框 ========== */
+.search-box {
+  position: relative;
+  padding: 16rpx 24rpx;
+  background: var(--bg-elevated);
+  border-bottom: 1rpx solid var(--border);
+  display: flex;
+  align-items: center;
+}
+.search-input {
+  flex: 1;
+  background: var(--bg-sunken);
+  border: 1rpx solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 14rpx 28rpx;
+  font-size: 26rpx;
+  color: var(--fg);
+  box-sizing: border-box;
+  caret-color: var(--primary-strong);
+}
+.search-clear {
+  position: absolute;
+  right: 40rpx;
+  padding: 8rpx;
+  color: var(--fg-muted);
+  font-size: 24rpx;
+}
+
+/* ========== 编辑页标签编辑 ========== */
+.tag-editor {
+  margin: 12rpx 0 4rpx;
+}
+.tag-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-bottom: 12rpx;
+}
+.tag-pill-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 6rpx 14rpx;
+}
+.tag-pill-x {
+  color: var(--primary-deep);
+  font-weight: 700;
+  padding: 2rpx;
+  opacity: 0.7;
+}
+.tag-input-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.tag-input {
+  flex: 1;
+  padding: 14rpx 20rpx;
+  font-size: 26rpx;
+}
+
+/* ========== Markdown 渲染 ========== */
+.md {
+  font-size: 28rpx;
+  line-height: 1.8;
+  color: var(--fg);
+  word-break: break-word;
+}
+.md-p {
+  display: block;
+  margin-bottom: 16rpx;
+}
+.md-h1, .md-h2, .md-h3, .md-h4, .md-h5, .md-h6 {
+  display: block;
+  font-weight: 800;
+  color: var(--fg);
+  margin: 24rpx 0 12rpx;
+}
+.md-h1 { font-size: 40rpx; }
+.md-h2 { font-size: 34rpx; }
+.md-h3 { font-size: 30rpx; }
+.md-h4 { font-size: 28rpx; }
+.md-h5 { font-size: 26rpx; }
+.md-h6 { font-size: 24rpx; color: var(--fg-secondary); }
+.md-strong { font-weight: 700; }
+.md-em { font-style: italic; }
+.md-code-inline {
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+  background: var(--bg-sunken);
+  border: 1rpx solid var(--border);
+  border-radius: 6rpx;
+  padding: 2rpx 8rpx;
+  font-size: 24rpx;
+  color: var(--primary-deep);
+}
+.md-pre {
+  background: var(--bg-sunken);
+  border: 1rpx solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 20rpx 24rpx;
+  margin: 16rpx 0;
+  overflow-x: auto;
+}
+.md-code {
+  display: block;
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.md-link {
+  color: var(--primary-deep);
+  text-decoration: underline;
+}
+.md-quote {
+  border-left: 6rpx solid var(--primary-strong);
+  background: var(--primary-soft);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 12rpx 20rpx;
+  margin: 16rpx 0;
+  color: var(--fg-secondary);
+}
+.md-ul, .md-ol {
+  margin: 8rpx 0 16rpx;
+}
+.md-li {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  margin-bottom: 6rpx;
+}
+.md-li-marker {
+  flex-shrink: 0;
+  width: 36rpx;
+  text-align: right;
+  margin-right: 10rpx;
+  color: var(--primary-strong);
+  font-weight: 600;
+}
+.md-li-body { flex: 1; }
+.md-hr {
+  height: 2rpx;
+  background: var(--border-strong);
+  margin: 24rpx 0;
+  border-radius: 1rpx;
+}
+.md-preview {
+  padding: 8rpx 4rpx 40rpx;
+}
+
+/* ========== 弹窗（分享创建 / 修改密码） ========== */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx;
+}
+.modal-card {
+  width: 100%;
+  max-width: 620rpx;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  padding: 36rpx 32rpx;
+  box-shadow: var(--shadow-lg);
+}
+.modal-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 800;
+  margin-bottom: 24rpx;
+  color: var(--fg);
+}
+.expiry-chip {
+  padding: 12rpx 22rpx;
+  background: var(--bg-sunken);
+  border: 1rpx solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: 24rpx;
+  color: var(--fg-secondary);
+  font-weight: 500;
+}
+.expiry-chip-active {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  border-color: var(--primary);
+  font-weight: 700;
+}

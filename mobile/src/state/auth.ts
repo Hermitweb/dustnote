@@ -25,6 +25,7 @@
  */
 
 import { create } from 'zustand';
+import { Alert } from 'react-native';
 import {
   deriveSecrets,
   generateMasterKey,
@@ -45,6 +46,7 @@ import {
   INITIAL_LOCKOUT_STATE,
   LOCAL_LOCKOUT_DURATION_MS,
   KDF_PARAMS_MOBILE,
+  KDF_VERSION,
   type Ciphertext,
   type LocalAuthBlob,
   type LocalLockoutState,
@@ -60,6 +62,11 @@ import {
   saveLockoutState,
   clearLockoutState,
 } from '../lib/local-auth-storage';
+import {
+  consumePendingMigration,
+  loadPendingMigration,
+  persistWrappedOldMasterKey,
+} from '../lib/migration';
 
 export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked';
 
@@ -137,6 +144,20 @@ interface AuthStoreState {
   recoverStandalone: (recoveryCode: string, newPassword: string) => Promise<string>;
   /** 单机模式：获取剩余锁定时间（ms） */
   getRemainingLockoutMs: () => number;
+
+  // ========== 模式切换迁移 ==========
+  /** 模式迁移时保留的旧 masterKey（内存副本，lock() 不清除；迁移导入完成后清零） */
+  pendingMasterKey: Uint8Array | null;
+  /** 设置待迁移的旧 masterKey（内部拷贝，避免 lock() 清零影响） */
+  setPendingMasterKey: (key: Uint8Array | null) => void;
+
+  // ========== 账户操作 ==========
+  /** 联机模式：修改主密码（验证当前密码 → 派生新 KEK → rewrap） */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  /** 单机模式：修改主密码；返回新恢复码 */
+  changePasswordStandalone: (currentPassword: string, newPassword: string) => Promise<string>;
+  /** 联机模式：恢复码重置密码（masterKey 不变，随后用新密码 rewrap） */
+  recoverOnline: (recoveryCode: string, newPassword: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthStoreState>((set, get) => ({
@@ -149,6 +170,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   hasBiometricCache: false,
   localAuthBlob: null,
   lockoutState: { ...INITIAL_LOCKOUT_STATE },
+  pendingMasterKey: null,
 
   // ========== 通用 actions ==========
 
@@ -278,6 +300,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     });
     // 持久化 userId（生物识别解锁时恢复，用于笔记 AAD 绑定）
     void AsyncStorage.setItem(USER_ID_KEY, r.userId).catch(() => undefined);
+    // 模式迁移：新模式 setup 成功后自动导入待迁移数据
+    await runPendingMigration();
     return recoveryCode;
   },
 
@@ -316,6 +340,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     });
     // 持久化 userId（生物识别解锁时恢复，用于笔记 AAD 绑定）
     void AsyncStorage.setItem(USER_ID_KEY, r.userId).catch(() => undefined);
+    // 模式迁移：新模式解锁成功后自动导入待迁移数据
+    await runPendingMigration();
   },
 
   async unlockWithBiometric(): Promise<boolean> {
@@ -337,6 +363,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       userId,
       hasBiometricCache: true,
     });
+    void runPendingMigration();
     return true;
   },
 
@@ -392,6 +419,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       lockoutState: { ...INITIAL_LOCKOUT_STATE },
       hasBiometricCache: true,
     });
+    // 模式迁移：新模式下首次设置成功后自动导入待迁移数据
+    await runPendingMigration();
     return result.recoveryCode;
   },
 
@@ -436,6 +465,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       authState: 'unlocked',
       hasBiometricCache: true,
     });
+    // 模式迁移：新模式解锁成功后自动导入待迁移数据
+    await runPendingMigration();
   },
 
   async unlockStandaloneWithBiometric(): Promise<boolean> {
@@ -458,6 +489,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       authState: 'unlocked',
       hasBiometricCache: true,
     });
+    void runPendingMigration();
     return true;
   },
 
@@ -494,4 +526,218 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   getRemainingLockoutMs(): number {
     return remainingLockoutMs(get().lockoutState);
   },
+
+  // ========== 模式切换迁移 ==========
+
+  setPendingMasterKey(key: Uint8Array | null): void {
+    // 拷贝一份：调用方传入的是 store 中正被使用的 masterKey，随后 lock() 会将其清零
+    set({ pendingMasterKey: key ? new Uint8Array(key) : null });
+  },
+
+  // ========== 账户操作 ==========
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    if (newPassword.length < 8) throw new Error('新主密码至少 8 字符');
+    // 1. 用当前密码 unlock 验证身份 + 取回服务端 wrapped masterKey（同时刷新会话）
+    let salt = get().pwSalt;
+    if (!salt) {
+      const status = await api.get<{ pwSalt: string | null }>('/auth/status');
+      salt = status.pwSalt;
+      if (!salt) throw new Error('系统未初始化');
+    }
+    const pw = await deriveSecrets(currentPassword, fromBase64(salt));
+    const r = await api.post<{
+      accessToken: string;
+      userId: string;
+      deviceId: string;
+      wrappedMasterKey: Ciphertext;
+    }>('/auth/unlock', { authKey: toBase64(pw.authKey), deviceName: 'Android 客户端' });
+    const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
+
+    // 2. 新密码派生新 KEK，重新包装同一把 masterKey（masterKey 不变，笔记照常可解）
+    const newPwSalt = randomBytes(16);
+    const np = await deriveSecrets(newPassword, newPwSalt);
+    const wrappedPw = await wrapKey(np.kek, masterKey);
+
+    // 3. 上传新包装（rewrap 需要鉴权，先落 token）
+    setAccessToken(r.accessToken);
+    await api.post('/auth/rewrap', {
+      password: {
+        authKey: toBase64(np.authKey),
+        salt: toBase64(newPwSalt),
+        wrappedMasterKey: wrappedPw,
+      },
+    });
+
+    // 4. 更新本地状态 + keychain 缓存
+    await cacheMasterKeyForBiometric(masterKey);
+    set({
+      accessToken: r.accessToken,
+      masterKey,
+      deviceId: r.deviceId,
+      pwSalt: toBase64(newPwSalt),
+      userId: r.userId,
+    });
+    void AsyncStorage.setItem(USER_ID_KEY, r.userId).catch(() => undefined);
+  },
+
+  async changePasswordStandalone(currentPassword: string, newPassword: string): Promise<string> {
+    if (newPassword.length < 8) throw new Error('新主密码至少 8 字符');
+    const { localAuthBlob, lockoutState } = get();
+    const blob = localAuthBlob ?? (await loadLocalAuthBlob());
+    if (!blob) throw new Error('未初始化');
+    if (isLocked(lockoutState)) {
+      const remaining = remainingLockoutMs(lockoutState);
+      throw new Error('账号已锁定，请 ' + Math.ceil(remaining / 1000) + ' 秒后重试');
+    }
+    const result = await unlockLocalAuth(currentPassword, blob, KDF_PARAMS_MOBILE);
+    if (!result.success || !result.masterKey) {
+      throw new Error('当前密码错误');
+    }
+    // 用同一把 masterKey + 新密码重新包装（新恢复码随之生成，旧恢复码失效）
+    const newAuth = await buildLocalAuthBlobForMasterKey(result.masterKey, newPassword);
+    await saveLocalAuthBlob(newAuth.blob);
+    await clearLockoutState();
+    try {
+      await cacheMasterKeyForBiometric(result.masterKey);
+    } catch {
+      // keychain 不可用不阻塞流程
+    }
+    set({
+      localAuthBlob: newAuth.blob,
+      lockoutState: { ...INITIAL_LOCKOUT_STATE },
+    });
+    return newAuth.recoveryCode;
+  },
+
+  async recoverOnline(recoveryCode: string, newPassword: string): Promise<void> {
+    if (newPassword.length < 8) throw new Error('新主密码至少 8 字符');
+    // v2：先取恢复码派生所需的 rc_salt（盐不是秘密，无需鉴权）
+    const { rcSalt } = await api.get<{ rcSalt: string }>('/auth/recovery-params');
+    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), fromBase64(rcSalt));
+
+    const r = await api.post<{
+      accessToken: string;
+      userId: string;
+      deviceId: string;
+      wrappedMasterKey: Ciphertext;
+    }>('/auth/recover', {
+      recoveryAuthKey: toBase64(rc.authKey),
+      deviceName: 'Android 客户端（恢复）',
+    });
+
+    // 关键：解封出来的是原来那把 masterKey，历史笔记照常能解开
+    const masterKey = await unwrapKey(rc.kek, r.wrappedMasterKey);
+
+    // 拿回 masterKey 后立刻用新密码重新包装（masterKey 本身不变）
+    const newPwSalt = randomBytes(16);
+    const pw = await deriveSecrets(newPassword, newPwSalt);
+    const wrappedPw = await wrapKey(pw.kek, masterKey);
+
+    // 先落 token，rewrap 是需要鉴权的接口
+    setAccessToken(r.accessToken);
+    await api.post('/auth/rewrap', {
+      password: {
+        authKey: toBase64(pw.authKey),
+        salt: toBase64(newPwSalt),
+        wrappedMasterKey: wrappedPw,
+      },
+    });
+
+    await cacheMasterKeyForBiometric(masterKey);
+    set({
+      authState: 'unlocked',
+      accessToken: r.accessToken,
+      masterKey,
+      deviceId: r.deviceId,
+      pwSalt: toBase64(newPwSalt),
+      userId: r.userId,
+      hasBiometricCache: true,
+    });
+    void AsyncStorage.setItem(USER_ID_KEY, r.userId).catch(() => undefined);
+    // 恢复也可能作为模式迁移的完成路径（standalone→online 已有账户），一并消费
+    await runPendingMigration();
+  },
 }));
+
+// ========== 模式迁移 / 改密辅助 ==========
+
+/**
+ * 为指定 masterKey 构造单机模式 LocalAuthBlob（修改主密码 / 模式迁移复用）。
+ * masterKey 保持不变的场景，用新密码 + 新恢复码重新包装同一把 masterKey。
+ */
+async function buildLocalAuthBlobForMasterKey(
+  masterKey: Uint8Array,
+  password: string
+): Promise<{ blob: LocalAuthBlob; recoveryCode: string }> {
+  const pwSalt = randomBytes(16);
+  const rcSalt = randomBytes(16);
+
+  const pw = await deriveSecrets(password, pwSalt, KDF_PARAMS_MOBILE);
+  const passwordWrappedMasterKey = await wrapKey(pw.kek, masterKey);
+
+  const recoveryCode = generateRecoveryCode();
+  const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), rcSalt, KDF_PARAMS_MOBILE);
+  const wrappedMasterKey = await wrapKey(rc.kek, masterKey);
+
+  const blob: LocalAuthBlob = {
+    pwSalt: toBase64(pwSalt),
+    rcSalt: toBase64(rcSalt),
+    passwordHash: toBase64(pw.authKey),
+    passwordWrappedMasterKey: JSON.stringify(passwordWrappedMasterKey),
+    wrappedMasterKey: JSON.stringify(wrappedMasterKey),
+    recoveryHash: toBase64(rc.authKey),
+    kdfVersion: KDF_VERSION,
+    kdfParams: {
+      m: KDF_PARAMS_MOBILE.m,
+      t: KDF_PARAMS_MOBILE.t,
+      p: KDF_PARAMS_MOBILE.p,
+      dkLen: KDF_PARAMS_MOBILE.dkLen,
+    },
+    createdAt: new Date().toISOString(),
+  };
+  return { blob, recoveryCode };
+}
+
+/**
+ * 消费模式切换遗留的待迁移数据（新模式 setup / unlock / recover 成功后调用）。
+ * 无待迁移数据时快速返回；导入成功后清零 pending masterKey。
+ */
+async function runPendingMigration(): Promise<void> {
+  const { masterKey, pendingMasterKey } = useAuthStore.getState();
+  if (!masterKey) return;
+  const slot = await loadPendingMigration();
+  if (!slot) return;
+
+  // 内存中没有旧 masterKey 时，尝试从 slot 解封（上次导入失败已持久化包装）
+  let oldKey: Uint8Array | null = pendingMasterKey;
+  if (!oldKey && slot.wrappedOldMasterKey) {
+    try {
+      oldKey = await unwrapKey(masterKey, slot.wrappedOldMasterKey);
+    } catch {
+      oldKey = null;
+    }
+  }
+  if (!oldKey) return; // 无旧 key，无法解密备份，等待下次解锁重试
+
+  // 先把旧 masterKey 用当前 masterKey 包装持久化：即使导入中途 App 被杀，重启后仍可重试
+  await persistWrappedOldMasterKey(slot, masterKey, oldKey).catch(() => undefined);
+
+  try {
+    const res = await consumePendingMigration(masterKey, oldKey);
+    if (res) {
+      const msg =
+        res.failed > 0
+          ? '已迁移 ' + res.imported + ' 条笔记，' + res.failed + ' 条因解密失败跳过。'
+          : '已迁移 ' + res.imported + ' 条笔记。';
+      Alert.alert('数据迁移完成', msg);
+      const k = useAuthStore.getState().pendingMasterKey;
+      if (k) k.fill(0);
+      useAuthStore.setState({ pendingMasterKey: null });
+    }
+  } catch (err) {
+    // 网络等失败：wrappedOldMasterKey 已持久化，下次解锁自动重试
+    console.warn('[auth] 待迁移数据导入失败，将在下次解锁时重试', err);
+    Alert.alert('数据迁移', '迁移未完成（' + (err as Error).message + '），将在下次解锁时自动重试。');
+  }
+}

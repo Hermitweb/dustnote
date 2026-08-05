@@ -29,6 +29,7 @@ export function Editor() {
   const note = useStore((s) => (selectedId ? s.notes.get(selectedId) : null));
   const plain = useStore((s) => (selectedId ? s.notesPlain.get(selectedId) : null));
   const folders = useStore((s) => s.folders);
+  const tags = useStore((s) => s.tags);
   const updateNote = useStore((s) => s.updateNote);
   const deleteNote = useStore((s) => s.deleteNote);
   const viewMode = useStore((s) => s.viewMode);
@@ -46,6 +47,9 @@ export function Editor() {
   const [showHistory, setShowHistory] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showPermDeleteConfirm, setShowPermDeleteConfirm] = useState(false);
+  // 标签编辑器：显示/隐藏标签选择器、新建标签名
+  const [showTagPicker, setShowTagPicker] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
   const [saving, setSaving] = useState(false);
   const [imageProcessing, setImageProcessing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -170,6 +174,106 @@ export function Editor() {
     }
   }, [insertTextAtCursor, t]);
 
+  // ========== Markdown 格式辅助（格式工具栏） ==========
+  // 在 textarea 光标处包裹选区；无选区时插入占位文本
+  const wrapSelection = useCallback(
+    (before: string, after: string, placeholder = '') => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const { selectionStart, selectionEnd } = textarea;
+      const sel = content.slice(selectionStart, selectionEnd);
+      const insert = sel ? `${before}${sel}${after}` : `${before}${placeholder}${after}`;
+      const next = content.slice(0, selectionStart) + insert + content.slice(selectionEnd);
+      setContent(next);
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.selectionStart = selectionStart + before.length;
+        textarea.selectionEnd =
+          selectionStart + before.length + (sel ? sel.length : placeholder.length);
+      });
+    },
+    [content]
+  );
+
+  // 在当前行首插入前缀（列表 / 引用）
+  const insertLinePrefix = useCallback(
+    (prefix: string) => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const { selectionStart, selectionEnd } = textarea;
+      const lineStart = content.lastIndexOf('\n', selectionStart - 1) + 1;
+      const lineEnd = content.indexOf('\n', selectionEnd);
+      const end = lineEnd === -1 ? content.length : lineEnd;
+      const next = content.slice(0, lineStart) + prefix + content.slice(lineStart, end) + content.slice(end);
+      setContent(next);
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.selectionStart = selectionStart + prefix.length;
+        textarea.selectionEnd = selectionEnd + prefix.length;
+      });
+    },
+    [content]
+  );
+
+  // 在光标处插入整块（代码块等）
+  const insertBlock = useCallback(
+    (prefix: string, suffix = '\n') => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const { selectionStart, selectionEnd } = textarea;
+      const text = prefix + suffix;
+      const next = content.slice(0, selectionStart) + text + content.slice(selectionEnd);
+      setContent(next);
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.selectionStart = selectionStart + prefix.length;
+        textarea.selectionEnd = selectionStart + prefix.length;
+      });
+    },
+    [content]
+  );
+
+  // ========== 标签编辑 ==========
+  const tagColorOf = useCallback(
+    (tagName: string) =>
+      tags.find((t) => t.name.toLowerCase() === tagName.toLowerCase())?.color ?? '#94a3b8',
+    [tags]
+  );
+
+  // 从笔记移除标签
+  const removeTag = useCallback(
+    (tagName: string) => {
+      if (!plain) return;
+      void updateNote(note!.id, { tags: plain.tags.filter((tg) => tg !== tagName) });
+    },
+    [plain, note, updateNote]
+  );
+
+  // 给笔记添加标签：先确保标签存在（不存在则创建），再更新笔记明文 tags
+  const addTag = useCallback(
+    (tagName: string) => {
+      if (!plain) return;
+      const name = tagName.trim();
+      if (!name) return;
+      if (plain.tags.some((tg) => tg.toLowerCase() === name.toLowerCase())) {
+        setShowTagPicker(false);
+        setNewTagName('');
+        return;
+      }
+      const next = [...plain.tags, name];
+      void useStore
+        .getState()
+        .createTag(name)
+        .catch(() => undefined)
+        .then(() => {
+          void updateNote(note!.id, { tags: next });
+          setShowTagPicker(false);
+          setNewTagName('');
+        });
+    },
+    [plain, note, updateNote]
+  );
+
   // 回收站视图强制只读预览
   useEffect(() => {
     if (viewMode === 'trash' && mode !== 'preview') setMode('preview');
@@ -273,6 +377,18 @@ export function Editor() {
         >
           {t('editor.view_preview')}
         </button>
+
+        {/* Markdown 格式工具栏（回收站只读时禁用） */}
+        {viewMode !== 'trash' && (
+          <div className="ml-2 flex items-center gap-0.5 border-l border-surface-border pl-2">
+            <FmtBtn label="B" title={t('editor.format_bold')} disabled={mode === 'preview'} onClick={() => wrapSelection('**', '**', t('editor.fmt_bold_text'))} />
+            <FmtBtn label="I" title={t('editor.format_italic')} disabled={mode === 'preview'} onClick={() => wrapSelection('*', '*', t('editor.fmt_italic_text'))} />
+            <FmtBtn label="🔗" title={t('editor.format_link')} disabled={mode === 'preview'} onClick={() => wrapSelection('[', '](url)', t('editor.fmt_link_text'))} />
+            <FmtBtn label="•" title={t('editor.format_list')} disabled={mode === 'preview'} onClick={() => insertLinePrefix('- ')} />
+            <FmtBtn label="❝" title={t('editor.format_quote')} disabled={mode === 'preview'} onClick={() => insertLinePrefix('> ')} />
+            <FmtBtn label="</>" title={t('editor.format_code')} disabled={mode === 'preview'} onClick={() => insertBlock('```\n', '\n```\n')} />
+          </div>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           {viewMode === 'trash' ? (
@@ -421,6 +537,93 @@ export function Editor() {
           placeholder={t('editor.placeholder')}
           className="w-full bg-transparent text-2xl font-bold text-surface-fg placeholder-surface-muted focus:outline-none"
         />
+        {/* 标签编辑：chips + 添加/新建 */}
+        {viewMode !== 'trash' && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {plain.tags.map((tagName) => (
+              <span
+                key={tagName}
+                className="inline-flex items-center gap-1 rounded-full bg-mint-100 px-2 py-0.5 text-xs text-mint-700 dark:bg-mint-900/30 dark:text-mint-300"
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: tagColorOf(tagName) }}
+                />
+                {tagName}
+                <button
+                  onClick={() => removeTag(tagName)}
+                  className="ml-0.5 text-mint-700/70 hover:text-mint-900 dark:hover:text-mint-100"
+                  title={t('editor.tag_remove')}
+                  aria-label={`${t('editor.tag_remove')}: ${tagName}`}
+                  type="button"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+            <div className="relative">
+              <button
+                onClick={() => setShowTagPicker((v) => !v)}
+                className="inline-flex items-center gap-1 rounded-full border border-dashed border-surface-border px-2 py-0.5 text-xs text-surface-muted hover:bg-surface-bg"
+                type="button"
+              >
+                + {t('editor.add_tag')}
+              </button>
+              {showTagPicker && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowTagPicker(false)} />
+                  <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-lg border border-surface-border bg-surface-card py-1 shadow-lg">
+                    <div className="flex items-center gap-1 border-b border-surface-border px-2 py-1">
+                      <input
+                        value={newTagName}
+                        onChange={(e) => setNewTagName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newTagName.trim()) {
+                            void addTag(newTagName);
+                          }
+                        }}
+                        placeholder={t('editor.new_tag')}
+                        className="flex-1 bg-transparent px-1 py-0.5 text-xs text-surface-fg placeholder-surface-muted focus:outline-none"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => {
+                          if (newTagName.trim()) void addTag(newTagName);
+                        }}
+                        className="text-xs text-mint-600 hover:text-mint-700"
+                        type="button"
+                      >
+                        ✓
+                      </button>
+                    </div>
+                    {tags.filter((tag) => !plain.tags.includes(tag.name)).length === 0 ? (
+                      <p className="px-3 py-1.5 text-xs text-surface-muted">
+                        {t('sidebar.tags_empty')}
+                      </p>
+                    ) : (
+                      tags
+                        .filter((tag) => !plain.tags.includes(tag.name))
+                        .map((tag) => (
+                          <button
+                            key={tag.id}
+                            onClick={() => void addTag(tag.name)}
+                            className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs text-surface-fg hover:bg-surface-bg"
+                            type="button"
+                          >
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: tag.color ?? '#94a3b8' }}
+                            />
+                            {tag.name}
+                          </button>
+                        ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 内容 */}
@@ -433,7 +636,7 @@ export function Editor() {
             onDrop={onDrop}
             onPaste={onPaste}
             placeholder={t('editor.md_placeholder')}
-            className={`flex-1 resize-none bg-surface-bg p-6 font-mono text-sm text-surface-fg placeholder-surface-muted focus:outline-none ${
+            className={`editor-textarea flex-1 resize-none bg-surface-bg p-6 text-sm text-surface-fg placeholder-surface-muted focus:outline-none ${
               mode === 'split' ? 'border-r border-surface-border' : ''
             }`}
           />
@@ -499,6 +702,30 @@ export function Editor() {
   );
 }
 
+function FmtBtn({
+  label,
+  title,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  title: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded px-1.5 py-1 text-xs font-semibold text-surface-muted hover:bg-surface-bg hover:text-surface-fg disabled:cursor-not-allowed disabled:opacity-40"
+      title={title}
+      type="button"
+    >
+      {label}
+    </button>
+  );
+}
+
 function ShareDialog({
   noteId,
   title,
@@ -512,7 +739,8 @@ function ShareDialog({
 }) {
   const { t } = useTranslation();
   const [password, setPassword] = useState('');
-  const [expiresHours, setExpiresHours] = useState('');
+  // 有效期预设：1 天 / 7 天 / 30 天 / 永久（undefined）
+  const [expiresSec, setExpiresSec] = useState<number | undefined>(undefined);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -535,12 +763,7 @@ function ShareDialog({
       // 用 masterKey 包装一份，好让主人换设备后还能还原出完整链接
       const wrappedShareKey = await wrapKey(masterKey, shareKey);
 
-      // 有效期校验：必须是有限正整数，非法值（NaN/负数/超大）直接拒绝提交
-      const expiresHoursNum = expiresHours ? Number(expiresHours) : undefined;
-      if (expiresHours && (!Number.isFinite(expiresHoursNum) || expiresHoursNum! <= 0 || expiresHoursNum! > 365 * 24)) {
-        toast.error(t('editor.share_invalid_expiry'));
-        return;
-      }
+      // 有效期来自预设（1/7/30 天或永久），值固定合法，无需额外校验
       const r = await fetch(`${shareApiBase()}/shares`, {
         method: 'POST',
         headers: {
@@ -556,7 +779,7 @@ function ShareDialog({
           ciphertext,
           wrappedShareKey,
           password: password || undefined,
-          expiresIn: expiresHoursNum ? expiresHoursNum * 3600 : undefined,
+          expiresIn: expiresSec,
         }),
       });
       const data = (await r.json()) as { token: string; error?: string; message?: string };
@@ -569,7 +792,7 @@ function ShareDialog({
     } finally {
       setSubmitting(false);
     }
-  }, [noteId, password, expiresHours, title, content, t]);
+  }, [noteId, password, expiresSec, title, content, t]);
 
   return (
     <div
@@ -600,13 +823,29 @@ function ShareDialog({
               <label className="mb-1 block text-xs font-medium text-surface-fg">
                 {t('editor.share_expires')}
               </label>
-              <input
-                type="number"
-                value={expiresHours}
-                onChange={(e) => setExpiresHours(e.target.value)}
-                placeholder="72"
-                className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm"
-              />
+              <div className="grid grid-cols-4 gap-2">
+                {(
+                  [
+                    { label: t('editor.share_expiry_1d'), value: 86400 },
+                    { label: t('editor.share_expiry_7d'), value: 7 * 86400 },
+                    { label: t('editor.share_expiry_30d'), value: 30 * 86400 },
+                    { label: t('editor.share_expiry_forever'), value: undefined },
+                  ] as { label: string; value: number | undefined }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.label}
+                    onClick={() => setExpiresSec(opt.value)}
+                    className={`rounded-lg border-2 px-2 py-1.5 text-xs transition-colors ${
+                      expiresSec === opt.value
+                        ? 'border-mint-500 bg-mint-50 text-surface-fg dark:bg-mint-900/30'
+                        : 'border-surface-border text-surface-fg hover:bg-surface-bg'
+                    }`}
+                    type="button"
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="flex gap-2 pt-2">
               <button

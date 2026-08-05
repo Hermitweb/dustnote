@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useStore } from '../lib/store';
+import { useStore, type Tag } from '../lib/store';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { TemplatePicker } from './TemplatePicker';
 import { SearchIndex, highlightMatches, type SearchHit } from '../lib/search';
@@ -14,12 +14,16 @@ export function Sidebar() {
   const notes = useStore((s) => s.notes);
   const notesPlain = useStore((s) => s.notesPlain);
   const selectedFolderId = useStore((s) => s.selectedFolderId);
+  const selectedTagId = useStore((s) => s.selectedTagId);
   const selectedNoteId = useStore((s) => s.selectedNoteId);
   const viewMode = useStore((s) => s.viewMode);
   const isOnline = useStore((s) => s.isOnline);
   const pendingCount = useStore((s) => s.pendingCount);
 
   const selectFolder = useStore((s) => s.selectFolder);
+  const selectTag = useStore((s) => s.selectTag);
+  const createTag = useStore((s) => s.createTag);
+  const deleteTag = useStore((s) => s.deleteTag);
   const createFolder = useStore((s) => s.createFolder);
   const createNote = useStore((s) => s.createNote);
   const selectNote = useStore((s) => s.selectNote);
@@ -41,6 +45,16 @@ export function Sidebar() {
   const [batchConfirmMsg, setBatchConfirmMsg] = useState('');
   const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
   const [permDeleteNoteId, setPermDeleteNoteId] = useState<string | null>(null);
+  // 标签面板：展开 / 新建 / 清理未使用
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [showNewTag, setShowNewTag] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState('#4FB783');
+  const [cleanupTagIds, setCleanupTagIds] = useState<string[] | null>(null);
+  // 批量打标签弹窗
+  const [showBatchTagDialog, setShowBatchTagDialog] = useState(false);
+  // 笔记列表排序：updated（置顶+更新时间，默认）/ title / words
+  const [sortKey, setSortKey] = useState<'updated' | 'title' | 'words'>('updated');
   // 搜索：E2EE 下服务端无法检索密文，必须在客户端对解密后的 notesPlain 做匹配。
   // 大小写不敏感、子串匹配 title/content/tags。空字符串 = 不过滤。
   const [searchQuery, setSearchQuery] = useState('');
@@ -186,8 +200,27 @@ export function Sidebar() {
     setSearchHits(searchResult.hitsMap);
   }, [searchResult]);
 
+  // 当前选中的标签对象（用于过滤与标题显示）
+  const selectedTag = tags.find((t) => t.id === selectedTagId) ?? null;
+  // 标签使用计数：以笔记明文（解密后）为准，客户端改标签后计数即时准确
+  const tagCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const [id, pt] of notesPlain) {
+      if (notes.get(id)?.deletedAt) continue;
+      for (const tagName of pt.tags) {
+        const key = tagName.toLowerCase();
+        m.set(key, (m.get(key) ?? 0) + 1);
+      }
+    }
+    return m;
+  }, [notes, notesPlain]);
+
   const visibleNotes = useMemo(() => {
-    // 有搜索词：按相关性得分排序，并按当前视图/文件夹过滤
+    // 按当前选中标签过滤（匹配笔记明文中的标签名）
+    const byTag = (id: string) =>
+      !selectedTag || (notesPlain.get(id)?.tags ?? []).includes(selectedTag.name);
+
+    // 有搜索词：按相关性得分排序，并按当前视图/文件夹/标签过滤
     if (searchResult.orderedHits) {
       const noteMap = notes;
       return searchResult.orderedHits
@@ -199,22 +232,55 @@ export function Sidebar() {
           return !n.deletedAt;
         })
         .filter((n) => (selectedFolderId ? n.folderId === selectedFolderId : true))
+        .filter((n) => byTag(n.id))
         .filter((n) => notesPlain.has(n.id));
     }
 
-    // 无搜索词：按置顶 + 更新时间排序
+    // 无搜索词：置顶优先 + 按所选排序键排序
     const list = Array.from(notes.values())
       .filter((n) => {
         if (viewMode === 'trash') return !!n.deletedAt;
         if (viewMode === 'favorites') return !n.deletedAt && n.isFavorite;
         return !n.deletedAt;
       })
-      .filter((n) => (selectedFolderId ? n.folderId === selectedFolderId : true));
+      .filter((n) => (selectedFolderId ? n.folderId === selectedFolderId : true))
+      .filter((n) => byTag(n.id));
     return list.sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      if (sortKey === 'title') {
+        const at = notesPlain.get(a.id)?.title ?? '';
+        const bt = notesPlain.get(b.id)?.title ?? '';
+        return at.localeCompare(bt, 'zh-CN');
+      }
+      if (sortKey === 'words') {
+        const aw = (notesPlain.get(a.id)?.content ?? '').length;
+        const bw = (notesPlain.get(b.id)?.content ?? '').length;
+        return bw - aw;
+      }
       return b.serverUpdatedAt.localeCompare(a.serverUpdatedAt);
     });
-  }, [notes, viewMode, selectedFolderId, notesPlain, searchResult]);
+  }, [notes, viewMode, selectedFolderId, selectedTag, notesPlain, searchResult, sortKey]);
+
+  // 批量打标签：给选中的笔记追加标签名（去重后写入明文 tags）
+  const batchTag = async (tag: Tag) => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    let ok = 0;
+    for (const id of ids) {
+      const pt = notesPlain.get(id);
+      if (!pt) continue;
+      if (pt.tags.some((tg) => tg.toLowerCase() === tag.name.toLowerCase())) continue;
+      try {
+        await updateNote(id, { tags: [...pt.tags, tag.name] });
+        ok++;
+      } catch {
+        /* skip */
+      }
+    }
+    exitSelect();
+    setShowBatchTagDialog(false);
+    toast.success(t('sidebar.batch_tag_done', { count: ok }));
+  };
 
   const trashCount = Array.from(notes.values()).filter((n) => n.deletedAt).length;
   const isTrash = viewMode === 'trash';
@@ -422,34 +488,165 @@ export function Sidebar() {
           </div>
         )}
 
-        {/* 标签 */}
-        {viewMode !== 'trash' && tags.length > 0 && (
+        {/* 标签：导航项 + 可展开面板（点击过滤、新建、清理未使用） */}
+        {viewMode !== 'trash' && (
           <div className="mt-4">
-            <div className="mb-1 px-2 text-xs font-semibold text-surface-muted">
-              {t('sidebar.tags')}
-            </div>
-            {tags.slice(0, 8).map((tag) => (
-              <div
-                key={tag.id}
-                className="flex items-center justify-between rounded px-2 py-1 text-sm text-surface-fg hover:bg-surface-bg"
+            <div className="mb-1 flex items-center justify-between px-2 text-xs font-semibold text-surface-muted">
+              <button
+                onClick={() => setTagsExpanded((v) => !v)}
+                className="flex flex-1 items-center gap-1 text-left text-xs font-semibold text-surface-muted hover:text-surface-fg"
               >
-                <span># {tag.name}</span>
-                <span className="text-xs text-surface-muted">{tag.count}</span>
-              </div>
-            ))}
+                <span className={`inline-block transition-transform ${tagsExpanded ? 'rotate-90' : ''}`}>▶</span>
+                <span>{t('sidebar.tags')}</span>
+              </button>
+              <button
+                onClick={() => setShowNewTag((v) => !v)}
+                className="text-mint-600 hover:text-mint-700"
+                title={t('sidebar.tag_create')}
+              >
+                {t('sidebar.add_tag')}
+              </button>
+            </div>
+            {tagsExpanded && (
+              <>
+                {showNewTag && (
+                  <div className="mb-2 flex flex-col gap-1 rounded border border-surface-border p-2">
+                    <input
+                      value={newTagName}
+                      onChange={(e) => setNewTagName(e.target.value)}
+                      autoFocus
+                      placeholder={t('sidebar.tag_name_placeholder')}
+                      className="rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newTagName.trim()) {
+                          void createTag(newTagName.trim(), newTagColor)
+                            .then((id) => {
+                              setNewTagName('');
+                              setShowNewTag(false);
+                              selectTag(id);
+                            })
+                            .catch((err: Error) => toast.error(err.message));
+                        }
+                        if (e.key === 'Escape') {
+                          setShowNewTag(false);
+                          setNewTagName('');
+                        }
+                      }}
+                    />
+                    <div className="flex items-center gap-1">
+                      {TAG_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => setNewTagColor(c)}
+                          className={`h-4 w-4 rounded-full border-2 ${newTagColor === c ? 'border-surface-fg' : 'border-transparent'}`}
+                          style={{ backgroundColor: c }}
+                          aria-label={c}
+                          type="button"
+                        />
+                      ))}
+                      <button
+                        onClick={() => {
+                          if (newTagName.trim()) {
+                            void createTag(newTagName.trim(), newTagColor)
+                              .then((id) => {
+                                setNewTagName('');
+                                setShowNewTag(false);
+                                selectTag(id);
+                              })
+                              .catch((err: Error) => toast.error(err.message));
+                          }
+                        }}
+                        className="ml-auto rounded bg-mint-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-mint-700"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowNewTag(false);
+                          setNewTagName('');
+                        }}
+                        className="rounded border border-surface-border px-2 py-0.5 text-xs text-surface-muted hover:bg-surface-bg"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {tags.length === 0 ? (
+                  <p className="px-2 text-xs text-surface-muted">{t('sidebar.tags_empty')}</p>
+                ) : (
+                  <>
+                    {tags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => selectTag(tag.id)}
+                        className={`flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm transition-colors ${
+                          selectedTagId === tag.id
+                            ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
+                            : 'text-surface-fg hover:bg-surface-bg'
+                        }`}
+                        title={t('sidebar.tag_filter', { name: tag.name })}
+                      >
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span
+                            className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                            style={{ backgroundColor: tag.color ?? '#94a3b8' }}
+                          />
+                          <span className="truncate">{tag.name}</span>
+                        </span>
+                        <span className="text-xs text-surface-muted">
+                          {tagCounts.get(tag.name.toLowerCase()) ?? 0}
+                        </span>
+                      </button>
+                    ))}
+                    <div className="mt-1 px-2">
+                      <button
+                        onClick={() => {
+                          const unused = tags
+                            .filter((tg) => (tagCounts.get(tg.name.toLowerCase()) ?? 0) === 0)
+                            .map((tg) => tg.id);
+                          if (unused.length === 0) {
+                            toast.info(t('sidebar.tag_cleanup_empty'));
+                            return;
+                          }
+                          setCleanupTagIds(unused);
+                        }}
+                        className="text-xs text-surface-muted underline hover:text-surface-fg"
+                      >
+                        {t('sidebar.tag_cleanup')}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </div>
         )}
 
         {/* 笔记列表 */}
         <div className="mt-4">
-          <div className="mb-1 flex items-center justify-between px-2">
+          <div className="mb-1 flex items-center justify-between gap-2 px-2">
             <span className="text-xs font-semibold text-surface-muted">
-              {isTrash
-                ? `${t('sidebar.trash')} (${visibleNotes.length})`
-                : viewMode === 'favorites'
-                  ? `${t('sidebar.favorites')} (${visibleNotes.length})`
-                  : `${t('sidebar.all')} (${visibleNotes.length})`}
+              {selectedTag
+                ? `${t('sidebar.tags')}: ${selectedTag.name} (${visibleNotes.length})`
+                : isTrash
+                  ? `${t('sidebar.trash')} (${visibleNotes.length})`
+                  : viewMode === 'favorites'
+                    ? `${t('sidebar.favorites')} (${visibleNotes.length})`
+                    : `${t('sidebar.all')} (${visibleNotes.length})`}
             </span>
+            {!isTrash && visibleNotes.length > 0 && (
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as 'updated' | 'title' | 'words')}
+                className="rounded border border-surface-border bg-surface-bg px-1 py-0.5 text-xs text-surface-fg focus:outline-none"
+                title={t('sidebar.sort_label')}
+              >
+                <option value="updated">{t('sidebar.sort_updated')}</option>
+                <option value="title">{t('sidebar.sort_title')}</option>
+                <option value="words">{t('sidebar.sort_words')}</option>
+              </select>
+            )}
             {visibleNotes.length > 0 && (
               <button
                 onClick={() => {
@@ -564,6 +761,10 @@ export function Sidebar() {
                   label={t('sidebar.batch.move')}
                   onClick={() => setShowMoveDialog(true)}
                 />
+                <BatchBtn
+                  label={t('sidebar.batch.tag')}
+                  onClick={() => setShowBatchTagDialog(true)}
+                />
                 <BatchBtn label={t('sidebar.batch.pin')} onClick={() => batchAction('pin')} />
                 <BatchBtn label={t('sidebar.batch.unpin')} onClick={() => batchAction('unpin')} />
                 <BatchBtn label={t('sidebar.batch.fav')} onClick={() => batchAction('fav')} />
@@ -645,6 +846,84 @@ export function Sidebar() {
         </div>
       )}
 
+      {/* 批量打标签弹窗 */}
+      {showBatchTagDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+          onClick={() => setShowBatchTagDialog(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-surface-card p-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-3 text-sm font-semibold text-surface-fg">
+              {t('sidebar.batch.tag')} ({selCount})
+            </h3>
+            <div className="max-h-60 space-y-1 overflow-y-auto">
+              {tags.length === 0 && (
+                <p className="px-1 py-2 text-xs text-surface-muted">{t('sidebar.tags_empty')}</p>
+              )}
+              {tags.map((tag) => {
+                const allHas = Array.from(selectedIds).every(
+                  (id) => notesPlain.get(id)?.tags.includes(tag.name) ?? false
+                );
+                return (
+                  <button
+                    key={tag.id}
+                    onClick={() => void batchTag(tag)}
+                    className={`flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg ${
+                      allHas ? 'bg-mint-50 dark:bg-mint-900/20' : ''
+                    }`}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                      style={{ backgroundColor: tag.color ?? '#94a3b8' }}
+                    />
+                    <span className="flex-1 truncate">{tag.name}</span>
+                    {allHas && <span className="text-xs text-mint-600">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setShowBatchTagDialog(false)}
+              className="mt-3 w-full rounded-lg border border-surface-border px-3 py-2 text-xs text-surface-muted hover:bg-surface-bg"
+            >
+              {t('common.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 清理未使用标签确认弹窗 */}
+      {cleanupTagIds && (
+        <ConfirmDialog
+          title={t('sidebar.tag_cleanup')}
+          message={t('sidebar.confirm_cleanup_tags', { count: cleanupTagIds.length })}
+          confirmLabel={t('sidebar.tag_cleanup')}
+          variant="danger"
+          onConfirm={() => {
+            const ids = cleanupTagIds;
+            setCleanupTagIds(null);
+            void (async () => {
+              let ok = 0;
+              for (const id of ids) {
+                try {
+                  await deleteTag(id);
+                  ok++;
+                } catch {
+                  /* skip */
+                }
+              }
+              toast.success(t('sidebar.tag_cleanup_done', { count: ok }));
+            })();
+          }}
+          onCancel={() => setCleanupTagIds(null)}
+        />
+      )}
+
       {/* 批量删除/永久删除确认弹窗（替代原生 confirm()） */}
       {pendingBatchAction && (
         <ConfirmDialog
@@ -695,6 +974,8 @@ export function Sidebar() {
     </>
   );
 }
+
+const TAG_COLORS = ['#4FB783', '#60a5fa', '#f59e0b', '#f472b6', '#a78bfa', '#ef4444', '#94a3b8'];
 
 function NavItem({
   label,
