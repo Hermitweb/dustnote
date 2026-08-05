@@ -1,16 +1,17 @@
 /**
  * IndexedDB 缓存层（基于 idb-keyval）
  *
- * 用于 Offline-first：缓存解密后的明文笔记、文件夹、标签，
- * 刷新页面或断网时仍能立即渲染 UI。
+ * 用于 Offline-first：缓存笔记、文件夹、标签，刷新页面或断网时仍能立即渲染 UI。
  *
- * 注意：
- * - 明文笔记缓存在浏览器本地 IndexedDB，相当于"已解锁"状态的副本。
- *   lock() 时不主动清空（保留便利性），logout 时 clearCache()。
- * - Map 需转为 [k,v][] 数组才能 JSON 序列化。
+ * 安全（security.md §3.4：Web IndexedDB 用 masterKey 派生 localDEK 加密）：
+ * - 密文行（notes）本身是密文，可直接缓存；
+ * - 明文（notesPlain）必须用 localDEK（由 masterKey 经 HKDF 派生）加密后落盘，
+ *   调用方在解锁后传入 localKey；无密钥时不落明文。
+ * - lock() 时调用 clearPlainCache() 清掉明文缓存，仅保留密文行加速下次解锁加载。
  */
 
 import { get, set, del } from 'idb-keyval';
+import { encryptString, decryptString, isCiphertext, type Ciphertext } from '@dustnote/shared';
 import type { Folder, NotePlaintext, NoteRow, Tag } from './store';
 
 const KEYS = {
@@ -22,28 +23,53 @@ const KEYS = {
 
 // ========== 笔记（密文行 + 明文） ==========
 
+/**
+ * 缓存笔记。密文行直接存储；明文仅在提供 localKey 时加密存储，
+ * 无 localKey 时清除旧明文缓存（不落明文）。
+ */
 export async function cacheNotes(
   notes: Map<string, NoteRow>,
-  plain: Map<string, NotePlaintext>
+  plain: Map<string, NotePlaintext>,
+  localKey?: Uint8Array
 ): Promise<void> {
-  // Map → [k,v][] 以便序列化；并行写入两条 key
-  await Promise.all([
-    set(KEYS.notes, Array.from(notes.entries())),
-    set(KEYS.notesPlain, Array.from(plain.entries())),
-  ]);
+  const writes: Promise<unknown>[] = [set(KEYS.notes, Array.from(notes.entries()))];
+  if (localKey) {
+    const json = JSON.stringify(Array.from(plain.entries()));
+    const blob = await encryptString(localKey, json, 1);
+    writes.push(set(KEYS.notesPlain, blob));
+  } else {
+    writes.push(del(KEYS.notesPlain));
+  }
+  await Promise.all(writes);
 }
 
-export async function loadCachedNotes(): Promise<{
+/**
+ * 读取缓存。明文缓存是 localDEK 加密的 Ciphertext，需 localKey 解密；
+ * 无密钥或解密失败（密钥不匹配 / 旧明文格式）时返回空明文（不降级为明文泄露）。
+ */
+export async function loadCachedNotes(
+  localKey?: Uint8Array
+): Promise<{
   notes: Map<string, NoteRow>;
   plain: Map<string, NotePlaintext>;
 }> {
-  const [notesArr, plainArr] = await Promise.all([
+  const [notesArr, plainBlob] = await Promise.all([
     get<[string, NoteRow][]>(KEYS.notes),
-    get<[string, NotePlaintext][]>(KEYS.notesPlain),
+    get<Ciphertext | [string, NotePlaintext][]>(KEYS.notesPlain),
   ]);
+  let plain: Map<string, NotePlaintext> = new Map();
+  if (localKey && plainBlob && isCiphertext(plainBlob)) {
+    try {
+      const json = await decryptString(localKey, plainBlob);
+      plain = new Map(JSON.parse(json) as [string, NotePlaintext][]);
+    } catch {
+      // 密钥不匹配或数据损坏：放弃明文缓存（安全优先，绝不降级为明文）
+      plain = new Map();
+    }
+  }
   return {
     notes: notesArr ? new Map(notesArr) : new Map(),
-    plain: plainArr ? new Map(plainArr) : new Map(),
+    plain,
   };
 }
 
@@ -73,6 +99,11 @@ export async function loadCachedTags(): Promise<Tag[]> {
 
 export async function clearCache(): Promise<void> {
   await Promise.all([del(KEYS.notes), del(KEYS.notesPlain), del(KEYS.folders), del(KEYS.tags)]);
+}
+
+/** 锁定/登出时清掉明文缓存（保留密文行，加速下次解锁加载） */
+export async function clearPlainCache(): Promise<void> {
+  await del(KEYS.notesPlain);
 }
 
 // ========== 容量监控（P0-1 防坑：IndexedDB 无限增长会导致 QuotaExceededError） ==========

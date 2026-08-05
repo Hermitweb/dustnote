@@ -10,6 +10,7 @@ import { getDb } from '../db.js';
 import { logger } from '../logger.js';
 import type { AuthUser } from '../middleware/auth.js';
 import { broadcastNoteChanged } from '../services/sync-ws.js';
+import { ipHash } from '../auth/ip-hash.js';
 
 export const notesRouter = Router();
 
@@ -22,6 +23,8 @@ const IsoTimestampSchema = z.string().regex(
 );
 
 const CreateNoteSchema = z.object({
+  /** 客户端预生成的笔记 ID（用于密文 AAD 绑定 noteId||userId，§2.2）；缺省由服务端生成 */
+  id: z.string().uuid().optional(),
   /** 密文 blob JSON 字符串（客户端用 masterKey 加密后的明文） */
   ciphertext: z.string().max(MAX_CIPHERTEXT_LENGTH),
   /** key version */
@@ -122,7 +125,7 @@ notesRouter.post('/notes', (req, res) => {
     return;
   }
   const { ciphertext, keyVersion, isPinned, isFavorite, clientUpdatedAt, folderId } = parsed.data;
-  const id = randomUUID();
+  const id = parsed.data.id ?? randomUUID();
 
   const db = getDb();
   db.prepare(
@@ -359,8 +362,14 @@ notesRouter.delete('/notes/:id/permanent', (req, res) => {
   }
   // 审计：笔记永久删除（不可恢复，留痕用于事故排查）
   db.prepare(
-    'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
-  ).run(user.userId, user.deviceId, 'note_permanent_delete', JSON.stringify({ noteId: id }));
+    'INSERT INTO audit_log (user_id, device_id, event, ip_hash, meta) VALUES (?, ?, ?, ?, ?)'
+  ).run(
+    user.userId,
+    user.deviceId,
+    'note_permanent_delete',
+    ipHash(req),
+    JSON.stringify({ noteId: id })
+  );
   broadcastNoteChanged(user.userId, { id, op: 'permanent_delete' });
   res.json({ ok: true });
 });

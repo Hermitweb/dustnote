@@ -9,6 +9,7 @@ import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { useAuthStore, decryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
+import { noteAad } from '@dustnote/shared';
 
 interface Note {
   id: string;
@@ -39,7 +40,9 @@ export default function Trash() {
         for (const n of deleted) {
           try {
             const e = parseEnvelope(n.ciphertext);
-            t[n.id] = (await decryptNote(masterKey, e)).title;
+            t[n.id] = (
+              await decryptNote(masterKey, e, noteAad(n.id, useAuthStore.getState().userId ?? ''))
+            ).title;
           } catch {
             t[n.id] = '🔒 解密失败';
           }

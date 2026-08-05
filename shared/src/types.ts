@@ -226,6 +226,8 @@ export interface LocalAuthBlob {
   wrappedMasterKey: string;
   /** KDF 版本（v2 = 2；v1 旧数据 = 1，无法解锁需重新 setup） */
   kdfVersion: number;
+  /** KDF 参数（m/t/p/dkLen，§17.4.1）；旧 blob 无此字段，按 KDF_PARAMS 默认处理 */
+  kdfParams?: { m: number; t: number; p: number; dkLen: number };
   /** 创建时间 ISO */
   createdAt: string;
 }

@@ -27,6 +27,8 @@ import {
   fromBase64,
   toBase64,
   randomBytes,
+  hkdf,
+  noteAad,
   setupLocalAuth,
   unlockLocalAuth,
   recoverLocalAuth,
@@ -45,13 +47,14 @@ import { getDeviceId } from './device';
 import { applyTheme } from './theme';
 import i18n, { LANGUAGE_STORAGE_KEY } from './i18n';
 import {
-  cacheNotes,
+  cacheNotes as cacheNotesRaw,
   cacheFolders,
   cacheTags,
   loadCachedNotes,
   loadCachedFolders,
   loadCachedTags,
   clearCache,
+  clearPlainCache,
 } from './db';
 import { enqueue, peekAll, remove, bumpRetries, getRetryDelayForOp, size as queueSize } from './offline-queue';
 import type { QueuedOp } from './offline-queue';
@@ -328,17 +331,26 @@ const ENVELOPE_VERSION = 1;
 
 async function encryptNote(
   key: Uint8Array,
-  pt: NotePlaintext
+  pt: NotePlaintext,
+  aad?: Uint8Array
 ): Promise<{ envelope: NoteCipherEnvelope; json: string }> {
   const json = JSON.stringify(pt);
-  const blob = await encryptString(key, json, 1);
+  // AAD 绑定 noteId||userId（§2.2）：防重排攻击；模板/旧数据不传（密文保持 a=0 向后兼容）
+  const blob = await encryptString(key, json, 1, aad);
   const envelope: NoteCipherEnvelope = { v: ENVELOPE_VERSION, payload: blob };
   return { envelope, json: JSON.stringify(envelope) };
 }
 
-async function decryptNote(key: Uint8Array, envelope: NoteCipherEnvelope): Promise<NotePlaintext> {
+async function decryptNote(
+  key: Uint8Array,
+  envelope: NoteCipherEnvelope,
+  aad?: Uint8Array
+): Promise<NotePlaintext> {
   if (envelope.v !== ENVELOPE_VERSION) throw new Error(`envelope version mismatch: ${envelope.v}`);
-  const json = await decryptString(key, envelope.payload);
+  // 历史密文（a=0）无 AAD 绑定，解密时不传；新密文（a=1）必须传相同 AAD
+  const needsAad = envelope.payload.a === 1;
+  if (needsAad && !aad) throw new Error('decryptNote: 此密文绑定了 AAD，但解密时未提供 AAD');
+  const json = await decryptString(key, envelope.payload, needsAad ? aad : undefined);
   return JSON.parse(json) as NotePlaintext;
 }
 
@@ -401,6 +413,24 @@ async function runOrEnqueue(
 
 /** flushQueue 重入守卫（模块级，避免并发重放同一批离线操作） */
 const flushingRef = { inFlight: false };
+
+/**
+ * 本地明文缓存加密（security.md §3.4）：
+ * 缓存明文前先用 masterKey 经 HKDF 派生 localDEK（32B）加密落盘；
+ * 未解锁（无 masterKey）时不落明文。lock() 会清掉明文缓存。
+ */
+const LOCAL_DEK_INFO = 'dustnote-local-dek-v1';
+async function deriveLocalKey(mk: Uint8Array | null): Promise<Uint8Array | null> {
+  if (!mk) return null;
+  return hkdf(mk, new Uint8Array(0), LOCAL_DEK_INFO, 32);
+}
+async function cacheNotesLocal(
+  notes: Map<string, NoteRow>,
+  plain: Map<string, NotePlaintext>
+): Promise<void> {
+  const localKey = (await deriveLocalKey(useStore.getState().masterKey)) ?? undefined;
+  return cacheNotesRaw(notes, plain, localKey);
+}
 
 export const useStore = create<StoreState>((set, get) => ({
   // mode（v2.0.0）
@@ -729,6 +759,8 @@ export const useStore = create<StoreState>((set, get) => ({
       notesPlain: new Map(),
       authState: 'needs_unlock',
     });
+    // 安全（§3.4）：锁定时清掉 IndexedDB 明文缓存，避免解锁态副本长期落盘
+    void clearPlainCache().catch(() => undefined);
   },
 
   /**
@@ -807,7 +839,7 @@ export const useStore = create<StoreState>((set, get) => ({
         for (const n of snapshot.notes) {
           try {
             const envelope = parseEnvelope(n.ciphertext);
-            const pt = await decryptNote(masterKey, envelope);
+            const pt = await decryptNote(masterKey, envelope, noteAad(n.id, get().userId ?? ''));
             plain.set(n.id, pt);
           } catch {
             plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
@@ -823,8 +855,10 @@ export const useStore = create<StoreState>((set, get) => ({
     // 联机模式：Offline-first，先用 IndexedDB 缓存填充 store，UI 立即可见；
     // 同时发起网络请求拉取最新数据。失败时保留缓存（不抛错）。
     try {
+      // 明文缓存已用 localDEK 加密，解锁后才有 masterKey 可解密
+      const localKey = (await deriveLocalKey(get().masterKey)) ?? undefined;
       const [cachedNotes, cachedFolders, cachedTags] = await Promise.all([
-        loadCachedNotes(),
+        loadCachedNotes(localKey),
         loadCachedFolders(),
         loadCachedTags(),
       ]);
@@ -862,7 +896,7 @@ export const useStore = create<StoreState>((set, get) => ({
         for (const n of notesRes.notes) {
           try {
             const envelope = parseEnvelope(n.ciphertext);
-            const pt = await decryptNote(masterKey, envelope);
+            const pt = await decryptNote(masterKey, envelope, noteAad(n.id, get().userId ?? ''));
             plain.set(n.id, pt);
           } catch {
             plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
@@ -872,7 +906,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
         // 网络成功后刷新缓存（明文 + 密文）
         try {
-          await cacheNotes(get().notes, plain);
+          await cacheNotesLocal(get().notes, plain);
           await cacheFolders(foldersRes.folders);
           await cacheTags(tagsRes.tags);
         } catch {
@@ -895,13 +929,20 @@ export const useStore = create<StoreState>((set, get) => ({
     const masterKey = get().masterKey;
     if (!masterKey) throw new Error('未解锁');
 
+    // 客户端预生成 id：作为 AAD（noteId||userId）绑定密文（§2.2），防重排
+    const noteId = crypto.randomUUID();
     const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
-    const { json: cipherJson } = await encryptNote(masterKey, empty);
+    const { json: cipherJson } = await encryptNote(
+      masterKey,
+      empty,
+      noteAad(noteId, get().userId ?? '')
+    );
 
     // 单机模式：直接写入 LocalRepository
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
       const id = await repository.createNote({
+        id: noteId,
         ciphertext: cipherJson,
         keyVersion: 1,
         isPinned: false,
@@ -931,6 +972,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // 联机模式：API + 离线队列
     const r = await api().post<{ id: string; serverUpdatedAt: string; version: number }>('/notes', {
+      id: noteId,
       ciphertext: cipherJson,
       keyVersion: 1,
       isPinned: false,
@@ -986,12 +1028,19 @@ export const useStore = create<StoreState>((set, get) => ({
     const title = firstLine.replace(/^#+\s*/, '') || tpl.name;
 
     const plain: NotePlaintext = { title, content: plainContent, tags: [] };
-    const { json: cipherJson } = await encryptNote(masterKey, plain);
+    // 客户端预生成 id：作为 AAD 绑定密文（§2.2）
+    const noteId = crypto.randomUUID();
+    const { json: cipherJson } = await encryptNote(
+      masterKey,
+      plain,
+      noteAad(noteId, get().userId ?? '')
+    );
 
     // 单机模式
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
       const id = await repository.createNote({
+        id: noteId,
         ciphertext: cipherJson,
         keyVersion: 1,
         isPinned: false,
@@ -1021,6 +1070,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // 联机模式
     const r = await api().post<{ id: string; serverUpdatedAt: string; version: number }>('/notes', {
+      id: noteId,
       ciphertext: cipherJson,
       keyVersion: 1,
       isPinned: false,
@@ -1073,7 +1123,7 @@ export const useStore = create<StoreState>((set, get) => ({
       content: patch.content ?? current?.content ?? '',
       tags: patch.tags ?? current?.tags ?? [],
     };
-    const { json: cipherJson } = await encryptNote(masterKey, merged);
+    const { json: cipherJson } = await encryptNote(masterKey, merged, noteAad(id, get().userId ?? ''));
 
     // 单机模式：直接更新 LocalRepository
     const { mode, repository } = get();
@@ -1142,7 +1192,7 @@ export const useStore = create<StoreState>((set, get) => ({
       set({ isOnline: false });
     }
     // 缓存刷新（异步，不阻塞）
-    void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
   },
 
   async moveNote(id: string, folderId: string | null): Promise<void> {
@@ -1188,7 +1238,7 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     );
     if (!ok) set({ isOnline: false });
-    void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
   },
 
   async deleteNote(id: string): Promise<void> {
@@ -1217,7 +1267,7 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     );
     if (!ok) set({ isOnline: false });
-    void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
   },
 
   selectNote(id: string | null): void {
@@ -1273,7 +1323,7 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     );
     if (!ok) set({ isOnline: false });
-    void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
   },
   async emptyTrash(): Promise<void> {
     const trashIds = Array.from(get().notes.values())
@@ -1323,7 +1373,7 @@ export const useStore = create<StoreState>((set, get) => ({
       set({ isOnline: false });
       await get().refreshPendingCount();
     }
-    void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
   },
   async restoreNote(id: string): Promise<void> {
     const note = get().notes.get(id);
@@ -1363,7 +1413,7 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     );
     if (!ok) set({ isOnline: false });
-    void cacheNotes(get().notes, get().notesPlain).catch(() => undefined);
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
   },
 
   // -------- templates（v2.1.0）--------

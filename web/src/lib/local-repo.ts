@@ -63,7 +63,8 @@ export class LocalRepository implements DataRepository {
 
   async createNote(input: CreateNoteInput): Promise<string> {
     const notes = (await get<NoteRow[]>(KEYS.notes)) ?? [];
-    const id = generateId();
+    // 客户端可能预生成 id（作为密文 AAD 绑定，§2.2），缺省由仓库生成
+    const id = input.id ?? generateId();
     const now = new Date().toISOString();
     const note: NoteRow = {
       id,

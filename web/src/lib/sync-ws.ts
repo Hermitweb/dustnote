@@ -10,6 +10,10 @@ import { useModeStore } from './mode-store';
 const APP_VERSION = __APP_VERSION__;
 let ws: WebSocket | null = null;
 let reconnectTimer: number | null = null;
+// 断线重连指数退避（§5.4）：5s → 10s → 20s → 40s → 60s 封顶，成功连接后重置
+let reconnectAttempts = 0;
+const RECONNECT_BASE_MS = 5_000;
+const RECONNECT_MAX_MS = 60_000;
 // 广播防抖：多端并发编辑时每条消息都触发全量 loadAll 会形成请求风暴，
 // 合并 300ms 窗口内的 note_changed / share_changed 再拉取一次
 let loadDebounceTimer: number | null = null;
@@ -59,6 +63,8 @@ export function startSyncWs(): void {
   }
 
   ws.addEventListener('open', () => {
+    // 连接成功：重置指数退避计数
+    reconnectAttempts = 0;
     // 连接已恢复：先重放离线队列，再订阅 + 拉取最新
     void useStore
       .getState()
@@ -104,10 +110,12 @@ export function startSyncWs(): void {
 
 function scheduleReconnect(): void {
   if (reconnectTimer) return;
+  const delay = Math.min(RECONNECT_BASE_MS * 2 ** reconnectAttempts, RECONNECT_MAX_MS);
+  reconnectAttempts += 1;
   reconnectTimer = window.setTimeout(() => {
     reconnectTimer = null;
     if (getAccessToken()) startSyncWs();
-  }, 5_000);
+  }, delay);
 }
 
 export function stopSyncWs(): void {

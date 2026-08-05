@@ -129,6 +129,8 @@ export async function setupLocalAuth(
     wrappedMasterKey: JSON.stringify(wrappedMasterKey),
     recoveryHash,
     kdfVersion: KDF_VERSION,
+    // §17.4.1：记录实际 KDF 参数，解锁时按 blob 存储的参数派生（支持未来参数演进）
+    kdfParams: { m: params.m, t: params.t, p: params.p, dkLen: params.dkLen },
     createdAt: new Date().toISOString(),
   };
 
@@ -172,11 +174,13 @@ export async function unlockLocalAuth(
     throw new LegacyAuthBlobError();
   }
 
+  // §17.4.1：优先使用 blob 记录的实际 KDF 参数（支持未来参数演进）
+  const usedParams = blob.kdfParams ?? params;
   const pwSalt = fromBase64(blob.pwSalt);
   const { kek: passwordKek, authKey: passwordAuthKey } = await deriveSecrets(
     password,
     pwSalt,
-    params
+    usedParams
   );
 
   if (!constantTimeEqual(passwordAuthKey, fromBase64(blob.passwordHash))) {
@@ -244,11 +248,13 @@ export async function recoverLocalAuth(
     return { success: false, blob: null, masterKey: null, recoveryCode: null };
   }
 
+  // §17.4.1：优先使用旧 blob 记录的实际 KDF 参数
+  const usedParams = oldBlob.kdfParams ?? params;
   const rcSalt = fromBase64(oldBlob.rcSalt);
   const { kek: recoveryKek, authKey: recoveryAuthKey } = await deriveSecrets(
     normalizedCode,
     rcSalt,
-    params
+    usedParams
   );
 
   if (!constantTimeEqual(recoveryAuthKey, fromBase64(oldBlob.recoveryHash))) {
@@ -281,7 +287,7 @@ export async function recoverLocalAuth(
   const newWrappedMasterKey = await wrapKey(newRecoveryKek, originalMasterKey);
   const newRecoveryHash = toBase64(newRecoveryAuthKey);
 
-  // 5. 构造新 blob
+  // 5. 构造新 blob（沿用当前 KDF 参数）
   const newBlob: LocalAuthBlob = {
     pwSalt: toBase64(newPwSalt),
     rcSalt: toBase64(newRcSalt),
@@ -290,6 +296,7 @@ export async function recoverLocalAuth(
     wrappedMasterKey: JSON.stringify(newWrappedMasterKey),
     recoveryHash: newRecoveryHash,
     kdfVersion: KDF_VERSION,
+    kdfParams: { m: params.m, t: params.t, p: params.p, dkLen: params.dkLen },
     createdAt: new Date().toISOString(),
   };
 

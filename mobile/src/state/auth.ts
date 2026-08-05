@@ -65,6 +65,7 @@ export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked
 
 const MASTER_KEYCHAIN_SERVICE = 'dustnote.master';
 const ACCESS_TOKEN_KEY = 'dustnote_access_token';
+const USER_ID_KEY = 'dustnote_user_id';
 
 /** 将 masterKey 以生物识别访问控制写入 keychain
  *
@@ -98,6 +99,8 @@ interface AuthStoreState {
   deviceId: string | null;
   /** 服务端下发的 pwSalt（base64），派生 KEK 用 */
   pwSalt: string | null;
+  /** 用户 ID（用于笔记密文 AAD 绑定 noteId||userId，§2.2；单机模式为 null） */
+  userId: string | null;
   /** keychain 中是否有缓存的 masterKey（可用于生物识别） */
   hasBiometricCache: boolean;
 
@@ -142,6 +145,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   masterKey: null,
   deviceId: null,
   pwSalt: null,
+  userId: null,
   hasBiometricCache: false,
   localAuthBlob: null,
   lockoutState: { ...INITIAL_LOCKOUT_STATE },
@@ -209,9 +213,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     set({
       authState: 'needs_unlock',
       masterKey: null,
+      userId: null,
       // 单机模式锁定时也清空内存中的 blob（保留持久化层），下次重新从存储加载
       localAuthBlob: null,
     });
+    void AsyncStorage.removeItem(USER_ID_KEY).catch(() => undefined);
   },
 
   setAccessToken(token: string) {
@@ -267,8 +273,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       masterKey,
       deviceId: r.deviceId,
       pwSalt: toBase64(pwSalt),
+      userId: r.userId,
       hasBiometricCache: true,
     });
+    // 持久化 userId（生物识别解锁时恢复，用于笔记 AAD 绑定）
+    void AsyncStorage.setItem(USER_ID_KEY, r.userId).catch(() => undefined);
     return recoveryCode;
   },
 
@@ -302,8 +311,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       masterKey,
       deviceId: r.deviceId,
       pwSalt: salt,
+      userId: r.userId,
       hasBiometricCache: true,
     });
+    // 持久化 userId（生物识别解锁时恢复，用于笔记 AAD 绑定）
+    void AsyncStorage.setItem(USER_ID_KEY, r.userId).catch(() => undefined);
   },
 
   async unlockWithBiometric(): Promise<boolean> {
@@ -314,6 +326,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     // 复用 AsyncStorage 中持久化的 access token（密码解锁时已写入）
     const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
     if (!token) return false;
+    const userId = await AsyncStorage.getItem(USER_ID_KEY);
 
     setAccessToken(token);
     set({
@@ -321,6 +334,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       accessToken: token,
       masterKey,
       deviceId: null,
+      userId,
       hasBiometricCache: true,
     });
     return true;

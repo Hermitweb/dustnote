@@ -27,6 +27,7 @@ import type { RootStackParamList } from '../App';
 import {
   decryptString,
   encryptString,
+  noteAad,
   type Ciphertext,
   type NoteRow,
 } from '@dustnote/shared';
@@ -55,10 +56,16 @@ function parseEnvelope(raw: string): { v: number; payload: Ciphertext } {
   throw new Error('invalid envelope');
 }
 
-/** 解密单条笔记，失败返回占位明文 */
-async function decryptNote(masterKey: Uint8Array, ciphertext: string): Promise<NotePlaintext> {
+/** 解密单条笔记，失败返回占位明文；新密文（AAD 绑定）需传 noteId||userId（§2.2） */
+async function decryptNote(
+  masterKey: Uint8Array,
+  ciphertext: string,
+  aad?: Uint8Array
+): Promise<NotePlaintext> {
   const env = parseEnvelope(ciphertext);
-  const json = await decryptString(masterKey, env.payload);
+  const needsAad = env.payload.a === 1;
+  if (needsAad && !aad) throw new Error('decryptNote: 密文绑定了 AAD，但未提供');
+  const json = await decryptString(masterKey, env.payload, needsAad ? aad : undefined);
   return JSON.parse(json) as NotePlaintext;
 }
 
@@ -104,7 +111,11 @@ export function NotesListScreen() {
         let plain: NotePlaintext | null = null;
         if (masterKey) {
           try {
-            plain = await decryptNote(masterKey, n.ciphertext);
+            plain = await decryptNote(
+              masterKey,
+              n.ciphertext,
+              noteAad(n.id, useAuthStore.getState().userId ?? '')
+            );
           } catch {
             plain = { title: '🔒 解密失败', content: '', tags: [] };
           }

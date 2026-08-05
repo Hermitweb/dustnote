@@ -165,6 +165,44 @@ function App() {
     return undefined;
   }, [authState, loadAll, refreshPendingCount, mode]);
 
+  // 安全（§1.5/§3.3/§3.6）：
+  // - 空闲 N 分钟自动锁屏（preferences.autoLock，0 = 关闭）
+  // - pagehide（含 bfcache 冻结）时清空内存中的 masterKey，防止冻结页泄露密钥
+  const [pageHidden, setPageHidden] = useState(false);
+  useEffect(() => {
+    if (authState !== 'unlocked') return;
+
+    // 空闲自动锁屏
+    let idleTimer: number | null = null;
+    const idleMs = (preferences.autoLock || 0) * 60_000;
+    const resetIdle = () => {
+      if (idleTimer !== null) window.clearTimeout(idleTimer);
+      idleTimer = idleMs > 0 ? window.setTimeout(() => useStore.getState().lock(), idleMs) : null;
+    };
+    const IDLE_EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll', 'wheel'] as const;
+    if (idleMs > 0) {
+      IDLE_EVENTS.forEach((e) => window.addEventListener(e, resetIdle, { passive: true }));
+      resetIdle();
+    }
+
+    // pagehide：浏览器关闭 / 页面被 bfcache 冻结 / 移动端切后台时，清空内存密钥
+    const onPageHide = () => useStore.getState().lock();
+    window.addEventListener('pagehide', onPageHide);
+
+    return () => {
+      IDLE_EVENTS.forEach((e) => window.removeEventListener(e, resetIdle));
+      if (idleTimer !== null) window.clearTimeout(idleTimer);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+  }, [authState, preferences.autoLock]);
+
+  // visibilitychange：页面切到后台时显示全屏遮挡层（防任务切换预览/截图泄露内容，§3.6）
+  useEffect(() => {
+    const onVis = () => setPageHidden(document.hidden);
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+
   // 公开分享路由：/share/:token
   const shareMatch = location.pathname.match(/^\/share\/([A-Za-z0-9_-]+)$/);
   if (shareMatch) {
@@ -261,6 +299,10 @@ function App() {
   // 主界面
   return (
     <div className="flex h-full">
+      {/* 页面隐藏时全屏遮挡（§3.6），防任务切换预览/截图泄露笔记内容 */}
+      {pageHidden && (
+        <div className="fixed inset-0 z-[9999] bg-surface-bg" aria-hidden="true" />
+      )}
       {!sidebarHidden && <Sidebar />}
       <div className="flex flex-1 flex-col">
         {/* 顶部操作条 */}

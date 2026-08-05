@@ -30,6 +30,8 @@ export interface RepositorySnapshot {
 
 /** 创建笔记的入参 */
 export interface CreateNoteInput {
+  /** 客户端预生成的笔记 ID（用于 AAD 绑定 noteId||userId，§2.2）；缺省由仓库生成 */
+  id?: string;
   /** 密文 JSON 字符串 */
   ciphertext: string;
   keyVersion: number;

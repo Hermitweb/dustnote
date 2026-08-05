@@ -113,13 +113,16 @@ export async function encryptNote(
   return { envelope, json: JSON.stringify(envelope) };
 }
 
-/** 用 masterKey 解密信封，得到笔记明文 */
+/** 用 masterKey 解密信封，得到笔记明文；新密文（AAD 绑定）需传 noteId||userId（§2.2） */
 export async function decryptNote(
   key: Uint8Array,
-  envelope: NoteCipherEnvelope
+  envelope: NoteCipherEnvelope,
+  aad?: Uint8Array
 ): Promise<NotePlaintext> {
   if (envelope.v !== ENVELOPE_VERSION) throw new Error(`envelope version mismatch: ${envelope.v}`);
-  const json = await decryptString(key, envelope.payload);
+  const needsAad = envelope.payload.a === 1;
+  if (needsAad && !aad) throw new Error('decryptNote: 密文绑定了 AAD，但未提供');
+  const json = await decryptString(key, envelope.payload, needsAad ? aad : undefined);
   return JSON.parse(json) as NotePlaintext;
 }
 

@@ -120,6 +120,14 @@ jobs:
             console.log('No unignored high/critical vulnerabilities.');
           "
         shell: bash
+      # §10/§12/§15：每次发版自动生成 CycloneDX SBOM（软件物料清单）
+      - name: Generate SBOM (CycloneDX)
+        run: npx @cyclonedx/cyclonedx-npm --output-file sbom.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.xml
+          if-no-files-found: warn
 
   build-web:
     name: Build Web

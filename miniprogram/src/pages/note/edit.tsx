@@ -13,7 +13,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Input, Textarea } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import { encryptString, randomBytes, toBase64Url, wrapKey } from '@dustnote/shared';
+import { encryptString, randomBytes, toBase64Url, wrapKey, noteAad } from '@dustnote/shared';
 import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
 import { useModeStore } from '../../lib/mode-store';
@@ -68,7 +68,7 @@ export default function NoteEdit() {
         // 解析信封并解密明文
         try {
           const envelope = parseEnvelope(n.ciphertext);
-          const pt = await decryptNote(masterKey, envelope);
+          const pt = await decryptNote(masterKey, envelope, noteAad(id, useAuthStore.getState().userId ?? ''));
           setTitle(pt.title);
           setContent(pt.content);
           setTags(pt.tags);

@@ -20,6 +20,7 @@ import type { Ciphertext } from '@dustnote/shared';
 import type { AuthUser } from '../middleware/auth.js';
 import { broadcastShareChanged } from '../services/sync-ws.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
+import { ipHash } from '../auth/ip-hash.js';
 import {
   isLocked,
   recordFailureAtomic,
@@ -111,11 +112,12 @@ sharesRouter.post('/shares', async (req, res) => {
 
       // 审计：分享创建。带密码 / 过期时间写入 meta 便于事后排查
       db.prepare(
-        'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
+        'INSERT INTO audit_log (user_id, device_id, event, ip_hash, meta) VALUES (?, ?, ?, ?, ?)'
       ).run(
         user.userId,
         user.deviceId,
         'share_create',
+        ipHash(req),
         JSON.stringify({ shareId: id, noteId: note.id, hasPassword: !!passwordHash, expiresAt })
       );
     })();
@@ -192,8 +194,14 @@ sharesRouter.delete('/shares/:id', (req, res) => {
     if (r.changes === 0) return { ok: false as const };
     // 审计：分享吊销
     db.prepare(
-      'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
-    ).run(user.userId, user.deviceId, 'share_revoke', JSON.stringify({ shareId: id }));
+      'INSERT INTO audit_log (user_id, device_id, event, ip_hash, meta) VALUES (?, ?, ?, ?, ?)'
+    ).run(
+      user.userId,
+      user.deviceId,
+      'share_revoke',
+      ipHash(req),
+      JSON.stringify({ shareId: id })
+    );
     return { ok: true as const };
   })();
   if (!result.ok) {

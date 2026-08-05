@@ -42,6 +42,7 @@ import {
   LOCK_DURATION_MS,
   type LockoutState,
 } from '../auth/lockout.js';
+import { ipHash } from '../auth/ip-hash.js';
 import type { AuthUser } from '../middleware/auth.js';
 
 export const authRouter = Router();
@@ -334,6 +335,9 @@ authRouter.post('/auth/unlock', asyncHandler(async (req, res) => {
   if (isLocked(lockState)) {
     const waitMs = remainingLockMs(lockState);
     logger.warn({ userId: user.id }, '账号已锁定，拒绝登录');
+    getDb()
+      .prepare('INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)')
+      .run(user.id, client.deviceId, 'login_locked', ipHash(req));
     res.status(423).json({
       error: 'account_locked',
       message: `账号已锁定，请在 ${Math.ceil(waitMs / 60_000)} 分钟后再试`,
@@ -352,6 +356,9 @@ authRouter.post('/auth/unlock', asyncHandler(async (req, res) => {
       { userId: user.id, deviceId: client.deviceId, attempts: next.failedAttempts },
       'authKey 错误'
     );
+    getDb()
+      .prepare('INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)')
+      .run(user.id, client.deviceId, 'login_failed', ipHash(req));
     if (next.lockedUntil && isLocked(next)) {
       res.status(423).json({
         error: 'account_locked',
@@ -376,6 +383,10 @@ authRouter.post('/auth/unlock', asyncHandler(async (req, res) => {
   );
 
   touchDevice(user.id, client.deviceId, client.platform, parsed.data.deviceName);
+  // 审计：登录成功（含失败 / 锁定事件，构成完整认证审计链）
+  getDb()
+    .prepare('INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)')
+    .run(user.id, client.deviceId, 'login_success', ipHash(req));
   logger.info({ userId: user.id, deviceId: client.deviceId }, '用户解锁');
 
   res.json({
@@ -481,8 +492,8 @@ authRouter.post('/auth/recover', asyncHandler(async (req, res) => {
 
   touchDevice(user.id, client.deviceId, client.platform, parsed.data.deviceName);
   getDb()
-    .prepare('INSERT INTO audit_log (user_id, device_id, event) VALUES (?, ?, ?)')
-    .run(user.id, client.deviceId, 'recover');
+    .prepare('INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)')
+    .run(user.id, client.deviceId, 'recover', ipHash(req));
   logger.info({ userId: user.id, deviceId: client.deviceId }, '用户通过恢复码登录');
 
   res.json({
@@ -561,10 +572,11 @@ authRouter.post('/auth/rewrap', asyncHandler(async (req, res) => {
     return;
   }
 
-  db.prepare('INSERT INTO audit_log (user_id, device_id, event) VALUES (?, ?, ?)').run(
+  db.prepare('INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)').run(
     authed.userId,
     authed.deviceId,
-    parsed.data.password ? 'password_changed' : 'recovery_code_changed'
+    parsed.data.password ? 'password_changed' : 'recovery_code_changed',
+    ipHash(req)
   );
   logger.info(
     { userId: authed.userId, password: !!parsed.data.password, recovery: !!parsed.data.recovery },
@@ -619,8 +631,8 @@ authRouter.post('/auth/lock', (req, res) => {
   const user = req.user as AuthUser | undefined;
   if (user) {
     getDb()
-      .prepare('INSERT INTO audit_log (user_id, device_id, event) VALUES (?, ?, ?)')
-      .run(user.userId, user.deviceId, 'lock');
+      .prepare('INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)')
+      .run(user.userId, user.deviceId, 'lock', ipHash(req));
   }
   res.json({ ok: true });
 });

@@ -38,6 +38,7 @@ import {
   toBase64Url,
   fillTemplatePlaceholders,
   PRESET_TEMPLATES,
+  noteAad,
   type Ciphertext,
   type NoteRow,
   type NoteVersionMeta,
@@ -112,7 +113,13 @@ export function NoteEditScreen() {
         if (masterKey) {
           try {
             const env = parseEnvelope(n.ciphertext);
-            const json = await decryptString(masterKey, env.payload);
+            // 新密文（AAD 绑定）需传 noteId||userId（§2.2）
+            const aad = noteAad(noteId, useAuthStore.getState().userId ?? '');
+            const json = await decryptString(
+              masterKey,
+              env.payload,
+              env.payload.a === 1 ? aad : undefined
+            );
             const pt = JSON.parse(json) as { title: string; content: string; tags?: string[] };
             setTitle(pt.title);
             setContent(pt.content);
@@ -307,9 +314,14 @@ export function NoteEditScreen() {
               });
               if (!r.ok) throw new Error(`HTTP ${r.status}`);
               const data = (await r.json()) as { ciphertext: string };
-              // 2. 解密预览
+              // 2. 解密预览（新密文 AAD 绑定需传 noteId||userId，§2.2）
               const env = parseEnvelope(data.ciphertext);
-              const json = await decryptString(masterKey, env.payload);
+              const aad = noteAad(noteId, useAuthStore.getState().userId ?? '');
+              const json = await decryptString(
+                masterKey,
+                env.payload,
+                env.payload.a === 1 ? aad : undefined
+              );
               const pt = JSON.parse(json) as { title: string; content: string };
               // 3. 调用服务端 restore（乐观锁：带当前 version）
               const restoreR = await fetch(

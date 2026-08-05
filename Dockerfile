@@ -41,6 +41,11 @@ COPY --from=builder /app/web/dist /app/web-dist
 # 创建数据目录
 RUN mkdir -p /app/server/data
 
+# §3.9/§15：应用进程以非 root 运行（supervisord 保持 root 以绑定 80 端口，
+# 但 server 子进程降权为 dustnote，数据目录归其所有，避免以 root 写库）
+RUN adduser -D -h /app dustnote && chown -R dustnote:dustnote /app/server
+RUN chmod 600 /app/server/data 2>/dev/null || true
+
 # 环境
 ENV NODE_ENV=production PORT=3210
 ENV DB_PATH=/app/server/data/dustnote.db

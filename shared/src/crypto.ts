@@ -384,6 +384,18 @@ export async function decryptString(
   return decodeUtf8(await decrypt(key, blob, aad));
 }
 
+// ========== AAD 构造（security.md §2.2） ==========
+
+/**
+ * 构造笔记/模板密文的 AAD：`noteId || userId`，防重排攻击。
+ * 解密时必须传入相同 AAD，否则 AES-GCM 认证失败——
+ * 可防止把 note A 的密文挪到 note B 的记录行（重放/重排）。
+ * 历史密文（无 AAD 绑定，Ciphertext.a === 0）解密时不传即可。
+ */
+export function noteAad(entityId: string, userId: string): Uint8Array {
+  return encodeUtf8(`${entityId}||${userId}`);
+}
+
 // ========== 密钥零化 ==========
 //
 // JavaScript 没有真正的「析构」，Uint8Array 在 GC 前会一直留在堆里。
