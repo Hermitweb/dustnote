@@ -111,15 +111,21 @@ foldersRouter.delete('/folders/:id', (req, res) => {
     return;
   }
   const db = getDb();
-  const r = db.prepare(`DELETE FROM folders WHERE id = ? AND user_id = ?`).run(id, user.userId);
-  if (r.changes === 0) {
+  // 事务：删除文件夹 + 清空其下笔记 folder_id 原子化，
+  // 不隐式依赖 FK ON DELETE SET NULL 兜底
+  const r = db.transaction(() => {
+    const del = db.prepare(`DELETE FROM folders WHERE id = ? AND user_id = ?`).run(id, user.userId);
+    if (del.changes === 0) return 0;
+    // 该文件夹下的笔记 folder_id 置空
+    db.prepare(`UPDATE notes SET folder_id = NULL WHERE folder_id = ? AND user_id = ?`).run(
+      id,
+      user.userId
+    );
+    return 1;
+  })();
+  if (r === 0) {
     res.status(404).json({ error: 'not_found' });
     return;
   }
-  // 该文件夹下的笔记 folder_id 置空
-  db.prepare(`UPDATE notes SET folder_id = NULL WHERE folder_id = ? AND user_id = ?`).run(
-    id,
-    user.userId
-  );
   res.json({ ok: true });
 });

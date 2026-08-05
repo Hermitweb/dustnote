@@ -10,6 +10,21 @@ import { useModeStore } from './mode-store';
 const APP_VERSION = __APP_VERSION__;
 let ws: WebSocket | null = null;
 let reconnectTimer: number | null = null;
+// 广播防抖：多端并发编辑时每条消息都触发全量 loadAll 会形成请求风暴，
+// 合并 300ms 窗口内的 note_changed / share_changed 再拉取一次
+let loadDebounceTimer: number | null = null;
+const LOAD_DEBOUNCE_MS = 300;
+
+function scheduleLoadAll(): void {
+  if (loadDebounceTimer !== null) return;
+  loadDebounceTimer = window.setTimeout(() => {
+    loadDebounceTimer = null;
+    useStore
+      .getState()
+      .loadAll()
+      .catch(() => {});
+  }, LOAD_DEBOUNCE_MS);
+}
 
 function wsUrl(): string {
   // 桌面端 webview origin 是 tauri://localhost，不能用 location.host；
@@ -30,10 +45,13 @@ export function startSyncWs(): void {
   const token = getAccessToken();
   if (!token) return;
 
-  const url = `${wsUrl()}?token=${encodeURIComponent(token)}&v=${APP_VERSION}&platform=web&deviceId=${getDeviceId()}`;
+  // access token 不放 URL query：会原样进入反代 access log，日志泄露即会话劫持。
+  // 通过 WebSocket 子协议 ["dustnote", <token>] 携带（服务端从 Sec-WebSocket-Protocol 头读取），
+  // 与分享密码不走 URL 的既有约定保持一致。
+  const url = `${wsUrl()}?v=${APP_VERSION}&platform=web&deviceId=${getDeviceId()}`;
 
   try {
-    ws = new WebSocket(url);
+    ws = new WebSocket(url, ['dustnote', token]);
   } catch (err) {
     console.error('WS 创建失败', err);
     scheduleReconnect();
@@ -65,16 +83,10 @@ export function startSyncWs(): void {
         op?: string;
       };
       if (msg.type === 'note_changed' && msg.noteId) {
-        // 触发重新拉取该笔记
-        useStore
-          .getState()
-          .loadAll()
-          .catch(() => {});
+        // 触发重新拉取（防抖合并，避免消息风暴）
+        scheduleLoadAll();
       } else if (msg.type === 'share_changed' && msg.shareId) {
-        useStore
-          .getState()
-          .loadAll()
-          .catch(() => {});
+        scheduleLoadAll();
       }
     } catch {
       /* ignore */
@@ -107,5 +119,9 @@ export function stopSyncWs(): void {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
+  }
+  if (loadDebounceTimer !== null) {
+    clearTimeout(loadDebounceTimer);
+    loadDebounceTimer = null;
   }
 }

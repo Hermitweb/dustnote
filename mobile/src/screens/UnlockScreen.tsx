@@ -27,6 +27,11 @@ export function UnlockScreen() {
   const hasBiometricCache = useAuthStore((s) => s.hasBiometricCache);
 
   const onUnlock = async () => {
+    // 空密码不提交，避免浪费服务端失败计数配额（连续错误会触发账号锁定）
+    if (!password.trim()) {
+      Alert.alert(t('common.hint'), t('auth.password_required'));
+      return;
+    }
     setSubmitting(true);
     try {
       await unlock(password);

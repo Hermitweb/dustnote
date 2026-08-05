@@ -2,7 +2,7 @@
 
 > 🌿 极简 · 清新 · 跨端 · 安全——一款 E2EE 端到端加密的个人笔记系统
 
-![Status](https://img.shields.io/badge/status-v2.4.0-blue)
+![Status](https://img.shields.io/badge/status-v2.4.4-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Node](https://img.shields.io/badge/node-20%2B-blue)
 ![E2EE](https://img.shields.io/badge/encryption-AES--256--GCM-purple)

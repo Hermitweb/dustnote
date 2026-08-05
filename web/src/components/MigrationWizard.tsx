@@ -77,11 +77,23 @@ export function MigrationWizard({ onClose }: { onClose: () => void }) {
       if (parsed.preferences) {
         setPreferences(parsed.preferences);
       }
-      // 恢复模式状态
+      // 恢复模式状态：mode 必须是合法取值，serverUrl 必须是合法 URL 或 null，
+      // 防止损坏/恶意 env 文件把应用置入异常状态
       if (parsed.modeState) {
-        useModeStore.getState().setMode(parsed.modeState.mode);
-        if (parsed.modeState.serverUrl !== null) {
-          useModeStore.getState().setServerUrl(parsed.modeState.serverUrl);
+        const { mode, serverUrl } = parsed.modeState;
+        if (mode !== 'standalone' && mode !== 'online') {
+          throw new Error(t('migration.bad_format'));
+        }
+        if (serverUrl !== null && serverUrl !== undefined) {
+          try {
+            new URL(serverUrl);
+          } catch {
+            throw new Error(t('migration.bad_format'));
+          }
+        }
+        useModeStore.getState().setMode(mode);
+        if (serverUrl !== null && serverUrl !== undefined) {
+          useModeStore.getState().setServerUrl(serverUrl);
         }
         if (parsed.modeState.initialized) {
           useModeStore.getState().initialize();

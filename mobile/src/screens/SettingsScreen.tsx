@@ -47,7 +47,7 @@ import DocumentPicker from 'react-native-document-picker';
 import { checkUpdateOnce, resetUpdateCache } from '../lib/use-update-check';
 import type { CheckUpdateResult } from '@dustnote/shared';
 
-const APP_VERSION = '2.4.3';
+const APP_VERSION = '2.4.4';
 const LANG_OPTIONS: Array<{ lang: AppLanguage; key: string }> = [
   { lang: 'zh-CN', key: 'settings.lang_zh' },
   { lang: 'en', key: 'settings.lang_en' },
@@ -228,9 +228,13 @@ export function SettingsScreen() {
                     onPress: () => {
                       setShowImport(false);
                       setImportJson('');
-                      // 重新加载数据（通过锁定 + 解锁流程）
+                      // 重新加载数据（通过锁定 + 解锁流程）；
+                      // 单机模式无 'Unlock' 路由，必须按 appMode 选择，否则导航中断
                       lock();
-                      navigation.reset({ index: 0, routes: [{ name: 'Unlock' }] });
+                      navigation.reset({
+                        index: 0,
+                        routes: [{ name: appMode === 'standalone' ? ('StandaloneUnlock' as never) : 'Unlock' }],
+                      });
                     },
                   },
                 ]);
@@ -363,7 +367,10 @@ export function SettingsScreen() {
                       text: '确定',
                       onPress: () => {
                         lock();
-                        navigation.reset({ index: 0, routes: [{ name: 'Unlock' }] });
+                        navigation.reset({
+                          index: 0,
+                          routes: [{ name: appMode === 'standalone' ? ('StandaloneUnlock' as never) : 'Unlock' }],
+                        });
                       },
                     },
                   ]);

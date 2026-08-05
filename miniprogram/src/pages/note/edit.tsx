@@ -213,9 +213,10 @@ export default function NoteEdit() {
 
       // 密钥只放在页面路由参数里（H5 走 hash，weapp 是本地页面路径），不会发给服务端
       const key = toBase64Url(shareKey);
+      // H5 分支不能用写死的 localhost（指向访客本机）；用当前页面 origin 拼同源分享链接
       const shareUrl =
         process.env.TARO_ENV === 'h5'
-          ? `http://localhost:10086/#/pages/share/index?token=${r.token}&key=${key}`
+          ? `${window.location.origin}/#/pages/share/index?token=${r.token}&key=${key}`
           : `/pages/share/index?token=${r.token}&key=${key}`;
       await Taro.setClipboardData({ data: shareUrl });
       Taro.showToast({ title: '分享链接已复制', icon: 'success' });

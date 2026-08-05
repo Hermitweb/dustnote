@@ -42,19 +42,35 @@ async function persist(): Promise<void> {
   if (buffer) await set(DIAG_KEY, buffer);
 }
 
-/** 脱敏：移除密钥、token、密码等敏感字段 */
+/** 敏感字段名（包含匹配，覆盖 accessToken/masterKey/authKey/wrappedMasterKey 等组合名） */
+const SENSITIVE_KEY_PATTERN = /token|secret|password|master|auth|pwd|pass|cookie|key|salt|hash|recovery/i;
+
+/** 递归脱敏：对象含敏感字段 → [REDACTED]；超长字符串截断 */
+function sanitizeValue(key: string, value: unknown, depth = 0): unknown {
+  if (SENSITIVE_KEY_PATTERN.test(key)) return '[REDACTED]';
+  if (depth > 5) return '[deep]';
+  if (typeof value === 'string') {
+    return value.length > 200 ? value.slice(0, 200) + '...[truncated]' : value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v, i) => sanitizeValue(String(i), v, depth + 1));
+  }
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = sanitizeValue(k, v, depth + 1);
+    }
+    return out;
+  }
+  return value;
+}
+
+/** 脱敏：移除密钥、token、密码等敏感字段（含嵌套对象与组合键名） */
 function sanitize(ctx: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
   if (!ctx) return undefined;
-  const SENSITIVE_KEYS = /^(key|token|password|secret|auth|master|pwd|pass|cookie)$/i;
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(ctx)) {
-    if (SENSITIVE_KEYS.test(k)) {
-      out[k] = '[REDACTED]';
-    } else if (typeof v === 'string' && v.length > 200) {
-      out[k] = v.slice(0, 200) + '...[truncated]';
-    } else {
-      out[k] = v;
-    }
+    out[k] = sanitizeValue(k, v);
   }
   return out;
 }
@@ -67,12 +83,14 @@ export async function log(
   ctx?: Record<string, unknown>
 ): Promise<void> {
   const buf = await ensureLoaded();
+  // 先脱敏再存储：日志文件与导出内容不落任何敏感字段
+  const safeCtx = sanitize(ctx);
   const entry: LogEntry = {
     ts: new Date().toISOString(),
     level,
     module,
     msg,
-    ctx: sanitize(ctx),
+    ctx: safeCtx,
   };
   buf.push(entry);
   // 环形缓冲：超过上限丢弃最旧的
@@ -80,9 +98,9 @@ export async function log(
     buf.splice(0, buf.length - MAX_ENTRIES);
   }
   await persist();
-  // 同步输出到 console（开发时可见）
+  // 同步输出到 console（开发时可见）：用脱敏后的 safeCtx，而非原始 ctx
   const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
-  fn(`[${module}] ${msg}`, ctx ?? '');
+  fn(`[${module}] ${msg}`, safeCtx ?? '');
 }
 
 /** 便捷方法 */

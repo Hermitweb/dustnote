@@ -82,6 +82,7 @@ const en = {
     recovery_code_done: 'I have saved it',
     mismatch: 'Passwords do not match',
     too_weak: 'Password must be at least 8 characters',
+    password_required: 'Please enter your master password',
     unlock_failed: 'Unlock failed',
   },
   notes: {

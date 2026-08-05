@@ -168,6 +168,14 @@ export function NoteEditScreen() {
     return () => clearTimeout(timer);
   }, [title, content]);
 
+  // 仅在组件真正卸载（返回/切走）时 flush 防抖窗口内的未保存修改，
+  // 通过 ref 拿到最新 save；空依赖保证不会在每次键入时触发。
+  useEffect(() => {
+    return () => {
+      void saveRef.current();
+    };
+  }, []);
+
   const onDelete = () => {
     Alert.alert('确认', '确定要删除这篇笔记吗？', [
       { text: '取消', style: 'cancel' },

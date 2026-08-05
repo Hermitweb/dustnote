@@ -347,11 +347,6 @@ use velopack_impl::{
 // ============================================================================
 
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! Welcome to DustNote 🌿", name)
-}
-
-#[tauri::command]
 fn show_main_window(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -614,7 +609,6 @@ pub fn run() {
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
-            greet,
             show_main_window,
             save_file_dialog,
             vp_check_for_updates,

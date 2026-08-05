@@ -22,7 +22,7 @@ import { broadcastShareChanged } from '../services/sync-ws.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import {
   isLocked,
-  recordFailure,
+  recordFailureAtomic,
   remainingLockMs,
   MAX_FAILED_ATTEMPTS,
   LOCK_DURATION_MS,
@@ -305,16 +305,14 @@ async function handlePublicShareAccess(req: import('express').Request, res: impo
       }
       const ok = await verifyPassword(pwd, share.password_hash);
       if (!ok) {
-        // 记录失败：达到阈值则锁定该分享 15 分钟
-        const next = recordFailure(lockState);
-        db.prepare(
-          'UPDATE shares SET failed_attempts = ?, locked_until = ? WHERE id = ?'
-        ).run(next.failedAttempts, next.lockedUntil, share.id);
+        // 记录失败：原子更新计数，达到阈值则锁定该分享 15 分钟。
+        // 先读后写在 await 两侧会被并发请求丢失更新，绕过锁定阈值。
+        const next = recordFailureAtomic(db, 'shares', share.id);
         logger.warn(
           { shareId: share.id, attempts: next.failedAttempts, locked: next.failedAttempts >= MAX_FAILED_ATTEMPTS },
           '分享密码错误'
         );
-        const retryAfterMs = next.failedAttempts >= MAX_FAILED_ATTEMPTS
+        const retryAfterMs = next.lockedUntil && isLocked(next)
           ? LOCK_DURATION_MS
           : 0;
         res.status(401).json({

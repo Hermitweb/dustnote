@@ -58,6 +58,11 @@ export function StandaloneUnlockScreen() {
       Alert.alert('账号已锁定', `请 ${remainingSec} 秒后重试`);
       return;
     }
+    // 空密码不提交：避免浪费失败计数配额（连续错误会触发客户端锁定）
+    if (!password.trim()) {
+      Alert.alert('提示', '请输入主密码');
+      return;
+    }
     setSubmitting(true);
     // 让 UI 先渲染 "解锁中..." 状态，避免 Argon2id 同步阻塞主线程时用户看不到反馈
     await new Promise((resolve) => setTimeout(resolve, 0));

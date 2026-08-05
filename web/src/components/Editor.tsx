@@ -52,6 +52,11 @@ export function Editor() {
   // 保存进行中守卫：防止 autoSave 防抖与 Ctrl+S 立即保存并发写同一笔记
   // （并发会触发服务端 version_mismatch 409，导致后写者丢失更新）
   const savingInFlight = useRef(false);
+  // render 阶段同步的当前笔记 id：用于在 autoSave effect cleanup 中
+  // 判断是否发生了「切笔记」——切走时防抖窗口内的未保存输入必须立即补存，
+  // 否则 title/content 被新笔记的 [plain] effect 覆盖，旧改动永久丢失
+  const renderedNoteIdRef = useRef<string | null>(null);
+  renderedNoteIdRef.current = note?.id ?? null;
 
   // 把当前笔记另存为自定义模板（仅联机模式可用）
   const handleSaveAsTemplate = useCallback(() => {
@@ -187,8 +192,20 @@ export function Editor() {
     if (!note) return;
     if (viewMode === 'trash') return;
     const t = setTimeout(autoSave, 800);
-    return () => clearTimeout(t);
-  }, [autoSave, note, viewMode]);
+    return () => {
+      clearTimeout(t);
+      // 切笔记（渲染出的 note id 已改变）时，防抖窗口内的未保存输入立即补存，
+      // 避免被新笔记的 [plain] effect 覆盖而静默丢失
+      if (renderedNoteIdRef.current !== note.id && !savingInFlight.current) {
+        if (title !== plain?.title || content !== plain?.content) {
+          savingInFlight.current = true;
+          void updateNote(note.id, { title, content }).finally(() => {
+            savingInFlight.current = false;
+          });
+        }
+      }
+    };
+  }, [autoSave, note, viewMode, title, content, plain, updateNote]);
 
   // beforeunload：防抖窗口内（默认 800ms）的未保存修改丢失
   // 自动保存会兜底，但用户在 800ms 内关闭窗口/刷新会丢内容，这里再拦一道
@@ -518,6 +535,12 @@ function ShareDialog({
       // 用 masterKey 包装一份，好让主人换设备后还能还原出完整链接
       const wrappedShareKey = await wrapKey(masterKey, shareKey);
 
+      // 有效期校验：必须是有限正整数，非法值（NaN/负数/超大）直接拒绝提交
+      const expiresHoursNum = expiresHours ? Number(expiresHours) : undefined;
+      if (expiresHours && (!Number.isFinite(expiresHoursNum) || expiresHoursNum! <= 0 || expiresHoursNum! > 365 * 24)) {
+        toast.error(t('editor.share_invalid_expiry'));
+        return;
+      }
       const r = await fetch(`${shareApiBase()}/shares`, {
         method: 'POST',
         headers: {
@@ -533,7 +556,7 @@ function ShareDialog({
           ciphertext,
           wrappedShareKey,
           password: password || undefined,
-          expiresIn: expiresHours ? Number(expiresHours) * 3600 : undefined,
+          expiresIn: expiresHoursNum ? expiresHoursNum * 3600 : undefined,
         }),
       });
       const data = (await r.json()) as { token: string; error?: string; message?: string };

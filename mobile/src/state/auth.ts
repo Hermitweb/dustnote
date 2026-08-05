@@ -383,13 +383,16 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
   async unlockStandalone(password: string): Promise<void> {
     const { localAuthBlob, lockoutState } = get();
-    if (!localAuthBlob) throw new Error('未初始化');
+    // lock() 会清空内存中的 localAuthBlob；从持久化层兜底重新加载，
+    // 否则锁屏后（杀进程前）无论密码是否正确都报「未初始化」，只能重启 App
+    const blob = localAuthBlob ?? (await loadLocalAuthBlob());
+    if (!blob) throw new Error('未初始化');
     if (isLocked(lockoutState)) {
       const remaining = remainingLockoutMs(lockoutState);
       throw new Error(`账号已锁定，请 ${Math.ceil(remaining / 1000)} 秒后重试`);
     }
 
-    const result = await unlockLocalAuth(password, localAuthBlob, KDF_PARAMS_MOBILE);
+    const result = await unlockLocalAuth(password, blob, KDF_PARAMS_MOBILE);
     if (!result.success) {
       const newState = recordFailedAttempt(lockoutState);
       await saveLockoutState(newState);
@@ -414,6 +417,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     }
     set({
       masterKey: result.masterKey,
+      localAuthBlob: blob,
       lockoutState: successState,
       authState: 'unlocked',
       hasBiometricCache: true,
@@ -445,8 +449,10 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
   async recoverStandalone(recoveryCode: string, newPassword: string): Promise<string> {
     const { localAuthBlob } = get();
-    if (!localAuthBlob) throw new Error('未初始化');
-    const result = await recoverLocalAuth(recoveryCode, newPassword, localAuthBlob, KDF_PARAMS_MOBILE);
+    // 与 unlockStandalone 一致：lock() 清空内存 blob 后从持久化层兜底重新加载
+    const blob = localAuthBlob ?? (await loadLocalAuthBlob());
+    if (!blob) throw new Error('未初始化');
+    const result = await recoverLocalAuth(recoveryCode, newPassword, blob, KDF_PARAMS_MOBILE);
     if (!result.success || !result.blob || !result.masterKey || !result.recoveryCode) {
       throw new Error('恢复码错误');
     }

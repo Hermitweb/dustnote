@@ -18,7 +18,8 @@ import { useModeStore } from '../../lib/mode-store';
 import { hasLocalAuthSync } from '../../lib/local-auth-storage';
 import { ApiClient } from '@dustnote/shared';
 
-const APP_VERSION = '2.4.0';
+// 与 package.json 同步（全端版本统一，见 release 流程）
+const APP_VERSION = '2.4.4';
 
 /**
  * 检测当前运行时是否提供完整的 WebCrypto subtle API

@@ -36,7 +36,14 @@ let wss: WebSocketServer | null = null;
 export function setupSyncWss(httpServer: import('node:http').Server): WebSocketServer {
   if (wss) return wss;
 
-  wss = new WebSocketServer({ noServer: true, path: '/api/v1/sync/ws', maxPayload: MAX_PAYLOAD_BYTES });
+  wss = new WebSocketServer({
+    noServer: true,
+    path: '/api/v1/sync/ws',
+    maxPayload: MAX_PAYLOAD_BYTES,
+    // 客户端用子协议 ['dustnote', <token>] 携带 access token。
+    // 服务端必须回显客户端已提供的子协议之一，浏览器握手才会成功。
+    handleProtocols: (protocols) => (protocols.has('dustnote') ? 'dustnote' : false),
+  });
 
   httpServer.on('upgrade', (req, socket, head) => {
     const reqPath = req.url?.split('?')[0];
@@ -45,12 +52,12 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
       return;
     }
 
-    // 解析 token：query ?token=<access token>
-    // 这里只接受 access token。原先的 Cookie dustnote_refresh 回落是死代码
-    // （该 cookie 的 path 是 /api/v1/auth，浏览器根本不会发到 /api/v1/sync/ws），
-    // 且会让 30 天有效的 refresh token 直接当长连接凭证用。
-    const url = new URL(req.url ?? '/', 'http://localhost');
-    const token = url.searchParams.get('token');
+    // 解析 token：通过 Sec-WebSocket-Protocol 子协议携带（"dustnote, <token>"）。
+    // 不放 URL query：access token 会原样进入 nginx/Caddy access log，
+    // 一旦日志泄露即会话劫持（pino-http 的 URL 脱敏只覆盖 HTTP 链路，upgrade 事件不经它）。
+    const protoHeader = req.headers['sec-websocket-protocol'] ?? '';
+    const protocols = protoHeader.split(',').map((s) => s.trim()).filter(Boolean);
+    const token = protocols[0] === 'dustnote' ? protocols[1] : undefined;
     if (!token) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();

@@ -35,15 +35,19 @@ import {
 } from '../auth/jwt.js';
 import {
   isLocked,
-  recordFailure,
+  recordFailureAtomic,
   recordSuccess,
   remainingLockMs,
   MAX_FAILED_ATTEMPTS,
+  LOCK_DURATION_MS,
   type LockoutState,
 } from '../auth/lockout.js';
 import type { AuthUser } from '../middleware/auth.js';
 
 export const authRouter = Router();
+
+/** 设备默认名称（重复使用的字符串提取为常量，避免默认值漂移） */
+const DEFAULT_DEVICE_NAME = '新设备';
 
 /**
  * 包装 async 路由处理器，让 rejected promise 走 Express 错误处理中间件
@@ -70,6 +74,10 @@ const CiphertextSchema = z.object({
 
 // ========== helpers ==========
 
+/** 允许的客户端平台（与 migrations 的 devices.platform CHECK 约束一致） */
+const ALLOWED_PLATFORMS = new Set(['web', 'desktop', 'android', 'ios', 'miniprogram']);
+const MAX_DEVICE_ID_LENGTH = 128;
+
 function getRequestClient(req: Request): {
   version: string;
   platform: string;
@@ -82,6 +90,24 @@ function getRequestClient(req: Request): {
     channel: req.header('X-Client-Channel') ?? 'stable',
     deviceId: req.header('X-Client-Device-Id') ?? '',
   };
+}
+
+/**
+ * 校验客户端标识头。auth 公开路由（setup/unlock/recover/status）绕过 version-check
+ * 中间件，因此这里补上等价校验：deviceId 非空且不超长、platform 在允许集合内。
+ * 非法值返回 400，而不是让非法 platform 触发 DB CHECK 约束回滚 / 500。
+ */
+function validateClientHeaders(client: {
+  deviceId: string;
+  platform: string;
+}): string | null {
+  if (!client.deviceId || client.deviceId.length > MAX_DEVICE_ID_LENGTH) {
+    return 'invalid_device_id';
+  }
+  if (client.platform && !ALLOWED_PLATFORMS.has(client.platform)) {
+    return 'invalid_platform';
+  }
+  return null;
 }
 
 function writeRefreshCookie(res: Response, token: string): void {
@@ -124,13 +150,16 @@ function touchDevice(userId: string, deviceId: string, platform: string, name?: 
     .prepare('SELECT 1 FROM devices WHERE id = ? AND user_id = ?')
     .get(deviceId, userId);
   if (exists) {
-    db.prepare(`UPDATE devices SET last_active_at = datetime('now') WHERE id = ?`).run(deviceId);
+    // 纵深防御：UPDATE 补齐 user_id 条件，避免未来 SELECT/UPDATE 之间引入异步时跨用户写
+    db.prepare(
+      `UPDATE devices SET last_active_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND user_id = ?`
+    ).run(deviceId, userId);
     return;
   }
   db.prepare(
     `INSERT INTO devices (id, user_id, name, platform, fingerprint, last_active_at)
-     VALUES (?, ?, ?, ?, ?, datetime('now'))`
-  ).run(deviceId, userId, name ?? '新设备', platform || 'web', deviceId);
+     VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
+  ).run(deviceId, userId, name ?? DEFAULT_DEVICE_NAME, platform || 'web', deviceId);
 }
 
 function issueSession(
@@ -184,17 +213,23 @@ const SetupSchema = z.object({
   wrappedMasterKeyRc: CiphertextSchema,
   pwSalt: SaltSchema,
   rcSalt: SaltSchema,
-  deviceName: z.string().min(1).max(64).default('新设备'),
+  deviceName: z.string().min(1).max(64).default(DEFAULT_DEVICE_NAME),
 });
 
 authRouter.post('/auth/setup', asyncHandler(async (req, res) => {
   const parsed = SetupSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });
+    // 不回传 zod flatten 原始结构（会暴露字段约束细节给攻击者），与 unlock/recover 保持一致
+    res.status(400).json({ error: 'invalid_body' });
     return;
   }
   const d = parsed.data;
   const client = getRequestClient(req);
+  const headerErr = validateClientHeaders(client);
+  if (headerErr) {
+    res.status(400).json({ error: headerErr });
+    return;
+  }
   if (!client.deviceId) {
     res.status(400).json({ error: 'missing_device_id' });
     return;
@@ -274,6 +309,11 @@ authRouter.post('/auth/unlock', asyncHandler(async (req, res) => {
     return;
   }
   const client = getRequestClient(req);
+  const headerErr = validateClientHeaders(client);
+  if (headerErr) {
+    res.status(400).json({ error: headerErr });
+    return;
+  }
   if (!client.deviceId) {
     res.status(400).json({ error: 'missing_device_id' });
     return;
@@ -303,29 +343,25 @@ authRouter.post('/auth/unlock', asyncHandler(async (req, res) => {
   }
 
   if (!(await verifyPassword(parsed.data.authKey, user.auth_hash))) {
-    // 记录失败：累计达阈值后锁定 15 分钟
-    const next = recordFailure(lockState);
-    db.prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?').run(
-      next.failedAttempts,
-      next.lockedUntil,
-      user.id
-    );
+    // 记录失败：单条 UPDATE 原子完成「+1 计数 + 达阈值置锁」。
+    // 不能先读后写在 await 两侧（并发请求会丢失更新，绕过锁定阈值）。
+    const next = recordFailureAtomic(db, 'users', user.id);
 
     const remaining = MAX_FAILED_ATTEMPTS - next.failedAttempts;
     logger.warn(
       { userId: user.id, deviceId: client.deviceId, attempts: next.failedAttempts },
       'authKey 错误'
     );
-    if (next.lockedUntil) {
+    if (next.lockedUntil && isLocked(next)) {
       res.status(423).json({
         error: 'account_locked',
         message: `连续 ${MAX_FAILED_ATTEMPTS} 次凭据错误，账号已锁定 15 分钟`,
-        retryAfterSeconds: 900,
+        retryAfterSeconds: Math.ceil(LOCK_DURATION_MS / 1000),
       });
     } else {
       res.status(401).json({
         error: 'invalid_credentials',
-        message: `凭据错误，剩余尝试次数 ${remaining}`,
+        message: `凭据错误，剩余尝试次数 ${Math.max(remaining, 0)}`,
       });
     }
     return;
@@ -377,6 +413,11 @@ authRouter.post('/auth/recover', asyncHandler(async (req, res) => {
     return;
   }
   const client = getRequestClient(req);
+  const headerErr = validateClientHeaders(client);
+  if (headerErr) {
+    res.status(400).json({ error: headerErr });
+    return;
+  }
   if (!client.deviceId) {
     res.status(400).json({ error: 'missing_device_id' });
     return;
@@ -407,29 +448,24 @@ authRouter.post('/auth/recover', asyncHandler(async (req, res) => {
   }
 
   if (!(await verifyPassword(parsed.data.recoveryAuthKey, user.recovery_auth_hash))) {
-    // 记录失败：与 unlock 共用计数器，达阈值后锁定 15 分钟
-    const next = recordFailure(lockState);
-    db.prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?').run(
-      next.failedAttempts,
-      next.lockedUntil,
-      user.id
-    );
+    // 记录失败：原子更新（与 unlock 共用计数器，防并发丢失更新绕过锁定）
+    const next = recordFailureAtomic(db, 'users', user.id);
 
     const remaining = MAX_FAILED_ATTEMPTS - next.failedAttempts;
     logger.warn(
       { userId: user.id, deviceId: client.deviceId, attempts: next.failedAttempts },
       '恢复码错误'
     );
-    if (next.lockedUntil) {
+    if (next.lockedUntil && isLocked(next)) {
       res.status(423).json({
         error: 'account_locked',
         message: `连续 ${MAX_FAILED_ATTEMPTS} 次凭据错误，账号已锁定 15 分钟`,
-        retryAfterSeconds: 900,
+        retryAfterSeconds: Math.ceil(LOCK_DURATION_MS / 1000),
       });
     } else {
       res.status(401).json({
         error: 'invalid_credentials',
-        message: `凭据错误，剩余尝试次数 ${remaining}`,
+        message: `凭据错误，剩余尝试次数 ${Math.max(remaining, 0)}`,
       });
     }
     return;
@@ -489,7 +525,7 @@ authRouter.post('/auth/rewrap', asyncHandler(async (req, res) => {
   }
   const parsed = RewrapSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });
+    res.status(400).json({ error: 'invalid_body' });
     return;
   }
 
@@ -516,7 +552,7 @@ authRouter.post('/auth/rewrap', asyncHandler(async (req, res) => {
     );
   }
 
-  updates.push(`updated_at = datetime('now')`);
+  updates.push(`updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`);
   params.push(authed.userId);
 
   const result = db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params);

@@ -28,6 +28,7 @@ import {
   type KeyObject,
 } from 'node:crypto';
 import { config } from '../env.js';
+import { logger } from '../logger.js';
 
 const ACCESS_TTL_S = 15 * 60;
 const REFRESH_TTL_S = 30 * 24 * 60 * 60;
@@ -48,7 +49,7 @@ function resolveAlgorithm(): {
       const publicKey = createPublicKey(config.jwtPublicKey);
       return { alg: 'EdDSA', privateKey, publicKey };
     } catch (err) {
-      console.error('[jwt] JWT_PRIVATE_KEY/JWT_PUBLIC_KEY 解析失败，回退到 HS256:', (err as Error).message);
+      logger.warn({ err }, 'JWT_PRIVATE_KEY/JWT_PUBLIC_KEY 解析失败，回退到 HS256');
     }
   }
   return { alg: 'HS256' };

@@ -14,7 +14,8 @@ import { checkForUpdate, type CheckUpdateResult } from '@dustnote/shared';
 import { getCurrentMode, resolveBaseUrl } from './mode-store';
 import { useAuthStore } from '../state/auth';
 
-const APP_VERSION = '2.4.0';
+// 与 package.json 同步（全端版本统一，见 release 流程）
+const APP_VERSION = '2.4.4';
 const UPDATE_CHECK_TIMEOUT_MS = 10_000; // 10s 超时
 const MIN_INTERVAL_MS = 5_000; // 节流：5s 内不发重复请求
 

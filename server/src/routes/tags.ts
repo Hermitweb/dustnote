@@ -117,12 +117,15 @@ tagsRouter.delete('/note-tags', (req, res) => {
     return;
   }
   const db = getDb();
+  // 纵深防御：与 POST 侧一致，同时校验 note 与 tag 均属于当前用户，
+  // 避免未来数据迁移/共享引入跨用户关联行时被越权删除
   db.prepare(
     `
     DELETE FROM note_tags
     WHERE note_id = ? AND tag_id = ?
       AND note_id IN (SELECT id FROM notes WHERE user_id = ?)
+      AND tag_id IN (SELECT id FROM tags WHERE user_id = ?)
   `
-  ).run(parsed.data.noteId, parsed.data.tagId, user.userId);
+  ).run(parsed.data.noteId, parsed.data.tagId, user.userId, user.userId);
   res.json({ ok: true });
 });

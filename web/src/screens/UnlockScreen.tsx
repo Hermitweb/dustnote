@@ -32,8 +32,9 @@ export function UnlockScreen() {
   }, []);
 
   function handleGraceUnlock() {
-    if (graceUnlock()) return;
-    setGraceAvailable(false);
+    void graceUnlock().then((ok) => {
+      if (!ok) setGraceAvailable(false);
+    });
   }
 
   async function handleUnlock() {

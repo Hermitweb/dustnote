@@ -43,7 +43,7 @@ import {
 } from '@dustnote/shared';
 import { getDeviceId } from './device';
 import { applyTheme } from './theme';
-import i18n from './i18n';
+import i18n, { LANGUAGE_STORAGE_KEY } from './i18n';
 import {
   cacheNotes,
   cacheFolders,
@@ -53,7 +53,7 @@ import {
   loadCachedTags,
   clearCache,
 } from './db';
-import { enqueue, peekAll, remove, bumpRetries, size as queueSize } from './offline-queue';
+import { enqueue, peekAll, remove, bumpRetries, getRetryDelayForOp, size as queueSize } from './offline-queue';
 import type { QueuedOp } from './offline-queue';
 import { useModeStore } from './mode-store';
 import { createRepository } from './repository';
@@ -230,7 +230,7 @@ interface StoreState {
   /** 宽限期免密解锁：是否有有效的 grace 缓存 */
   hasGraceUnlock: () => boolean;
   /** 宽限期免密解锁：恢复 unlocked 状态，成功返回 true */
-  graceUnlock: () => boolean;
+  graceUnlock: () => Promise<boolean>;
 
   // actions: auth（单机模式）
   /** 单机模式：检查本地鉴权状态 */
@@ -487,9 +487,8 @@ export const useStore = create<StoreState>((set, get) => ({
     const lockout = loadLockoutState();
     if (!blob) {
       set({ authState: 'uninitialized', lockoutState: lockout });
-    } else if (isLocked(lockout)) {
-      set({ authState: 'needs_unlock', localAuthBlob: blob, lockoutState: lockout });
     } else {
+      // 无论是否处于锁定计数窗口，都回到 needs_unlock（锁定只影响失败计数与提示，不改变鉴权状态）
       set({ authState: 'needs_unlock', localAuthBlob: blob, lockoutState: lockout });
     }
   },
@@ -746,9 +745,28 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   /** 宽限期免密解锁：成功恢复 unlocked，失败返回 false */
-  graceUnlock(): boolean {
+  async graceUnlock(): Promise<boolean> {
     const cached = consumeGraceUnlock();
     if (!cached) return false;
+    // 联机模式：lock() 已清空 accessToken，宽限期恢复必须重新取 token，
+    // 否则 App.tsx 触发 loadAll/startSyncWs 时全部 401，进入「假解锁」故障态。
+    // refresh 走 httpOnly cookie（path=/api/v1/auth），无需用户重新输密码。
+    if (get().mode === 'online') {
+      try {
+        const r = await api().post<{ accessToken: string }>('/auth/refresh');
+        set({
+          masterKey: cached.masterKey,
+          wrappedMasterKey: cached.wrappedMasterKey,
+          accessToken: r.accessToken,
+          authState: 'unlocked',
+        });
+        return true;
+      } catch {
+        // refresh 失败（cookie 过期 / 设备被吊销）：回退到密码解锁
+        set({ authState: 'needs_unlock' });
+        return false;
+      }
+    }
     set({
       masterKey: cached.masterKey,
       wrappedMasterKey: cached.wrappedMasterKey,
@@ -778,7 +796,7 @@ export const useStore = create<StoreState>((set, get) => ({
         // dustnote_language 不同步（如用户在设置中改了语言但 localStorage 未更新），
         // 必须显式调用 i18n.changeLanguage 才能让 UI 立即切换语言。
         if (snapshot.preferences.language) {
-          localStorage.setItem('dustnote_language', snapshot.preferences.language);
+          localStorage.setItem(LANGUAGE_STORAGE_KEY, snapshot.preferences.language);
           void i18n.changeLanguage(snapshot.preferences.language);
         }
       }
@@ -1286,21 +1304,17 @@ export const useStore = create<StoreState>((set, get) => ({
     }
     set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: null });
 
-    // 并发删除；失败的单条入队
-    const results = await Promise.allSettled(
-      trashIds.map((id) => api().delete(`/notes/${id}/permanent`))
-    );
+    // 顺序删除（与 remote-repo 的「必须顺序删除」约束一致，避免清空回收站时请求风暴打爆服务端）
     let anyEnqueued = false;
-    for (let i = 0; i < results.length; i++) {
-      const r = results[i];
-      const failedId = trashIds[i];
-      if (r!.status === 'rejected' && failedId !== undefined) {
-        if (isTransientNetworkError(r!.reason)) {
-          await enqueue({
-            method: 'DELETE',
-            path: `/notes/${failedId}/permanent`,
-            noteId: failedId,
-          });
+    for (const id of trashIds) {
+      try {
+        await api().delete(`/notes/${id}/permanent`);
+      } catch (err) {
+        const e = err as { err?: { status?: number } };
+        // 409 版本冲突 / 404 已删除：服务端状态与本地不一致，交给 loadAll 校正，不重复入队
+        if (e.err?.status === 409 || e.err?.status === 404) continue;
+        if (isTransientNetworkError(err)) {
+          await enqueue({ method: 'DELETE', path: `/notes/${id}/permanent`, noteId: id });
           anyEnqueued = true;
         }
       }
@@ -1562,8 +1576,11 @@ export const useStore = create<StoreState>((set, get) => ({
               await remove(op.id);
               hadConflict = true;
             } else {
-              // 5xx：服务端可能恢复，保留并增加重试计数
+              // 5xx：服务端可能恢复，保留并增加重试计数，
+              // 按指数退避等待后再继续处理下一条（避免瞬时请求风暴）
               await bumpRetries(op.id);
+              const delayMs = await getRetryDelayForOp(op.id);
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
             }
           } else if (err instanceof TypeError) {
             // 网络仍不可达：停止重放，保留 op
@@ -1614,7 +1631,7 @@ export const useStore = create<StoreState>((set, get) => ({
 {
   const _startupLang = useStore.getState().preferences.language;
   if (_startupLang) {
-    localStorage.setItem('dustnote_language', _startupLang);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, _startupLang);
     void i18n.changeLanguage(_startupLang);
   }
 }

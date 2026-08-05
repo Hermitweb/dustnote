@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/shared",
-  "version": "2.4.0",
+  "version": "2.4.4",
   "private": true,
   "description": "DustNote 跨端共享类型与工具",
   "type": "module",

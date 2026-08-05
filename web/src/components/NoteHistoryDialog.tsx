@@ -7,7 +7,7 @@
  * 服务端只存密文，解密在客户端完成（与正常笔记加载一致）。
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
 import { decryptString, type NoteVersionMeta } from '@dustnote/shared';
@@ -43,13 +43,15 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  // 请求序号：防止快速点击多个版本时，后发请求先返回覆盖先点击的预览
+  const requestSeqRef = useRef(0);
 
   const fetchVersions = useCallback(async () => {
     setLoadingList(true);
     setError(null);
     try {
       const { accessToken } = useStore.getState();
-      const r = await fetch(`/notes/${noteId}/versions`, {
+      const r = await fetch(`${apiBase()}/notes/${noteId}/versions`, {
         headers: {
           'X-Client-Platform': 'web',
           'X-Client-Version': __APP_VERSION__,
@@ -57,6 +59,10 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
           Authorization: `Bearer ${accessToken}`,
         },
       });
+      // Tauri 桌面端相对路径会命中资源服务器返回 HTML，解析前先校验 content-type
+      if (!r.headers.get('content-type')?.includes('application/json')) {
+        throw new Error('unexpected_response');
+      }
       const data = (await r.json()) as { versions?: VersionRow[]; error?: string; message?: string };
       if (!r.ok) {
         throw new Error(data.message ?? data.error ?? r.statusText);
@@ -75,6 +81,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
 
   const selectVersion = useCallback(
     async (versionId: string) => {
+      const seq = ++requestSeqRef.current;
       setSelectedId(versionId);
       setPreview(null);
       setLoadingPreview(true);
@@ -83,7 +90,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
         const { accessToken, masterKey } = useStore.getState();
         if (!masterKey) throw new Error('not_unlocked');
 
-        const r = await fetch(`/notes/${noteId}/versions/${versionId}`, {
+        const r = await fetch(`${apiBase()}/notes/${noteId}/versions/${versionId}`, {
           headers: {
             'X-Client-Platform': 'web',
             'X-Client-Version': __APP_VERSION__,
@@ -91,6 +98,9 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
             Authorization: `Bearer ${accessToken}`,
           },
         });
+        if (!r.headers.get('content-type')?.includes('application/json')) {
+          throw new Error('unexpected_response');
+        }
         const data = (await r.json()) as {
           ciphertext: string;
           error?: string;
@@ -99,6 +109,8 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
         if (!r.ok) {
           throw new Error(data.message ?? data.error ?? r.statusText);
         }
+        // 仅应用最后一次点击的响应，避免请求乱序覆盖
+        if (seq !== requestSeqRef.current) return;
 
         // 解密密文（与正常笔记加载流程一致）
         const envelope = JSON.parse(data.ciphertext);
@@ -111,9 +123,13 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
         }
         setPreview({ title: plaintext.title, content: plaintext.content });
       } catch (err) {
-        setError(t('history.load_fail', { reason: (err as Error).message }));
+        if (seq === requestSeqRef.current) {
+          setError(t('history.load_fail', { reason: (err as Error).message }));
+        }
       } finally {
-        setLoadingPreview(false);
+        if (seq === requestSeqRef.current) {
+          setLoadingPreview(false);
+        }
       }
     },
     [noteId, t]
@@ -196,7 +212,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
                     {t('history.version_label', { n: v.noteVersion })}
                   </div>
                   <div className="mt-0.5 text-surface-muted">
-                    {new Date(v.createdAt).toLocaleString()}
+                    {new Date(v.createdAt).toLocaleString('zh-CN')}
                   </div>
                 </button>
               ))

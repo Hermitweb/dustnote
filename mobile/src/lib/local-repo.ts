@@ -141,9 +141,10 @@ export class LocalRepository implements DataRepository {
     const idx = notes.findIndex((n) => n.id === id);
     if (idx < 0) throw new Error(`note not found: ${id}`);
     const cur = notes[idx]!;
-    // version 由调用方传入时（如恢复场景）使用其值；否则递增
-    const nextVersion =
-      input.version !== undefined ? input.version : cur.version + 1;
+    // version 单调递增（与 miniprogram 端行为一致）：
+    // 忽略调用方传入 version，避免编辑/打标场景恒传旧值导致版本号永不增长，
+    // 跨端导入后版本基线错乱。乐观锁只在联机模式由服务端 version 承担。
+    const nextVersion = cur.version + 1;
     const updated: NoteRow = {
       ...cur,
       ciphertext: input.ciphertext ?? cur.ciphertext,

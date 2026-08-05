@@ -60,7 +60,7 @@ export function StandaloneSetupScreen() {
     // 诊断：检查 crypto.subtle 是否就绪（v2.3.5 新增）
     // 如果 polyfill 加载失败，global.crypto.subtle 会是 undefined
     if (typeof global.crypto === 'undefined' || !global.crypto.subtle) {
-      // @ts-ignore - 诊断全局变量
+      // @ts-expect-error - 诊断全局变量
       const st = globalThis.__QCRYPTO_STATUS || {};
       Alert.alert(
         '加密模块未就绪',

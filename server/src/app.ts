@@ -208,11 +208,14 @@ export function createApp(): Application {
     (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       logger.error({ err }, '未捕获错误');
       captureException(err);
+      // 保留 body-parser 等中间件抛出的语义化状态码（JSON 语法错误 400、payload 超限 413），
+      // 而不是一律 500，否则客户端无法区分参数错误与服务端故障。
+      const status = (err as { status?: number }).status ?? 500;
       // production 与 staging 都走脱敏；仅 development 直接回传 err.message 便于本地调试
       const safeEnv = config.nodeEnv === 'development';
-      res.status(500).json({
-        error: 'internal_error',
-        message: safeEnv ? err.message : '服务异常',
+      res.status(status).json({
+        error: status >= 500 ? 'internal_error' : 'bad_request',
+        message: safeEnv ? err.message : status >= 500 ? '服务异常' : '请求格式错误',
       });
     }
   );

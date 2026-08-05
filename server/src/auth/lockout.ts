@@ -13,7 +13,12 @@
  * 纯函数设计：所有函数接收 state + 可选 now，返回新 state，
  * 不直接操作 DB，便于单元测试。auth 路由负责读写 DB 列
  * (failed_attempts / locked_until)。
+ *
+ * recordFailureAtomic 例外：它是并发安全的原子写入 helper，
+ * 供 auth/shares 路由在「密码校验跨 await」的失败路径使用。
  */
+
+import type { Database } from 'better-sqlite3';
 
 export const MAX_FAILED_ATTEMPTS = 6;
 export const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 分钟
@@ -63,4 +68,36 @@ export function recordFailure(state: LockoutState, now: Date = new Date()): Lock
 /** 登录成功后重置状态 */
 export function recordSuccess(): LockoutState {
   return { ...CLEAN_STATE };
+}
+
+/**
+ * 原子记录一次失败登录（并发安全）。
+ *
+ * 路由里「同步读 failed_attempts → await verifyPassword（让出事件循环）→ 回写」的
+ * 读改写模式存在丢失更新竞态：两个并发失败请求读到同一旧值各自回写，
+ * 例如从 4 开始的两次并发错误只记到 5，永不触发第 6 次锁定。
+ * 这里用单条 UPDATE 完成「+1 计数 + 达阈值置锁」，SQLite 语句级串行化保证原子性；
+ * 再读回新状态用于构造响应。table 仅允许 users / shares 两个编译期常量。
+ */
+export function recordFailureAtomic(
+  db: Pick<Database, 'prepare'>,
+  table: 'users' | 'shares',
+  id: string
+): LockoutState {
+  const lockAt = new Date(Date.now() + LOCK_DURATION_MS).toISOString();
+  db.prepare(
+    `UPDATE ${table}
+     SET failed_attempts = failed_attempts + 1,
+         locked_until = CASE
+           WHEN failed_attempts + 1 >= ${MAX_FAILED_ATTEMPTS} THEN ?
+           ELSE locked_until END
+     WHERE id = ?`
+  ).run(lockAt, id);
+  const row = db
+    .prepare(`SELECT failed_attempts, locked_until FROM ${table} WHERE id = ?`)
+    .get(id) as { failed_attempts: number; locked_until: string | null } | undefined;
+  return {
+    failedAttempts: row?.failed_attempts ?? 0,
+    lockedUntil: row?.locked_until ?? null,
+  };
 }

@@ -51,10 +51,21 @@ function makeVersion(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 function fetchOk(body: unknown): Response {
-  return { ok: true, status: 200, json: async () => body } as unknown as Response;
+  return {
+    ok: true,
+    status: 200,
+    headers: { get: (name: string) => (name === 'content-type' ? 'application/json' : null) },
+    json: async () => body,
+  } as unknown as Response;
 }
 function fetchFail(status: number): Response {
-  return { ok: false, status, statusText: 'Err', json: async () => ({ message: 'boom' }) } as unknown as Response;
+  return {
+    ok: false,
+    status,
+    statusText: 'Err',
+    headers: { get: (name: string) => (name === 'content-type' ? 'application/json' : null) },
+    json: async () => ({ message: 'boom' }),
+  } as unknown as Response;
 }
 
 describe('NoteHistoryDialog', () => {

@@ -13,25 +13,34 @@ import { broadcastNoteChanged } from '../services/sync-ws.js';
 
 export const notesRouter = Router();
 
+/** 密文 blob 上限：单条笔记密文（含 JSON 信封）约 2MB，超出视为异常输入 */
+const MAX_CIPHERTEXT_LENGTH = 2_000_000;
+/** ISO-8601 时间戳（客户端 new Date().toISOString() 产物），拒绝空串/任意字符串 */
+const IsoTimestampSchema = z.string().regex(
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/,
+  '必须为 ISO-8601 时间戳'
+);
+
 const CreateNoteSchema = z.object({
   /** 密文 blob JSON 字符串（客户端用 masterKey 加密后的明文） */
-  ciphertext: z.string(),
+  ciphertext: z.string().max(MAX_CIPHERTEXT_LENGTH),
   /** key version */
   keyVersion: z.number().default(1),
   isPinned: z.boolean().default(false),
   isFavorite: z.boolean().default(false),
   /** 客户端时间戳 */
-  clientUpdatedAt: z.string(),
+  clientUpdatedAt: IsoTimestampSchema,
   folderId: z.string().nullable().optional(),
 });
 
 const UpdateNoteSchema = z.object({
-  ciphertext: z.string().optional(),
+  ciphertext: z.string().max(MAX_CIPHERTEXT_LENGTH).optional(),
   keyVersion: z.number().optional(),
   isPinned: z.boolean().optional(),
   isFavorite: z.boolean().optional(),
-  deletedAt: z.string().nullable().optional(),
-  clientUpdatedAt: z.string(),
+  /** 软删除时间必须为 ISO-8601（空串/非法值直接 400，杜绝绕过 30 天保留期被立即永久删除） */
+  deletedAt: IsoTimestampSchema.nullable().optional(),
+  clientUpdatedAt: IsoTimestampSchema,
   /** 乐观锁版本号 */
   version: z.number().int().nonnegative(),
   folderId: z.string().nullable().optional(),
@@ -43,6 +52,12 @@ notesRouter.get('/notes', (req, res) => {
   const user = req.user as AuthUser;
   const since = req.query.since as string | undefined;
   const includeDeleted = req.query.includeDeleted === '1';
+
+  // since 是增量同步游标，必须为 ISO-8601 且不超长，非法值直接 400
+  if (since !== undefined && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/.test(since)) {
+    res.status(400).json({ error: 'invalid_since' });
+    return;
+  }
 
   const db = getDb();
   let rows: {
@@ -161,22 +176,23 @@ notesRouter.patch('/notes/:id', (req, res) => {
   const existing = db
     .prepare(
       `
-    SELECT id, version, is_pinned, is_favorite, deleted_at, ciphertext, key_version, client_updated_at, folder_id
+    SELECT id, version, is_pinned, is_favorite, deleted_at, ciphertext, key_version, client_updated_at, server_updated_at, folder_id
     FROM notes WHERE id = ? AND user_id = ?
   `
     )
     .get(id, user.userId) as
     | {
         id: string;
-        version: number;
-        is_pinned: number;
-        is_favorite: number;
-        deleted_at: string | null;
-        ciphertext: Buffer | string;
-        key_version: number;
-        client_updated_at: string;
-        folder_id: string | null;
-      }
+    version: number;
+    is_pinned: number;
+    is_favorite: number;
+    deleted_at: string | null;
+    ciphertext: Buffer | string;
+    key_version: number;
+    client_updated_at: string;
+    server_updated_at: string;
+    folder_id: string | null;
+  }
     | undefined;
 
   if (!existing) {
@@ -198,7 +214,7 @@ notesRouter.patch('/notes/:id', (req, res) => {
         keyVersion: existing.key_version,
         clientUpdatedAt: existing.client_updated_at,
         folderId: existing.folder_id,
-        serverUpdatedAt: '', // 服务端会立即返
+        serverUpdatedAt: existing.server_updated_at,
       },
     });
     return;
@@ -232,6 +248,9 @@ notesRouter.patch('/notes/:id', (req, res) => {
   }
   updates.push('client_updated_at = ?');
   params.push(data.clientUpdatedAt);
+  // server_updated_at 与 version 同步递增：增量同步（GET /notes?since=）依赖它
+  // 作为游标，任何写路径都必须更新，否则 `server_updated_at > ?` 恒不命中
+  updates.push(`server_updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`);
   updates.push('version = version + 1');
   params.push(id, user.userId);
 
@@ -297,7 +316,10 @@ notesRouter.delete('/notes/:id', (req, res) => {
   const result = db
     .prepare(
       `
-    UPDATE notes SET deleted_at = datetime('now'), version = version + 1
+    UPDATE notes
+    SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+        version = version + 1,
+        server_updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     WHERE id = ? AND user_id = ? AND deleted_at IS NULL
   `
     )
@@ -446,7 +468,7 @@ notesRouter.post('/notes/:id/versions/:versionId/restore', (req, res) => {
   const parsed = z
     .object({
       version: z.number().int().nonnegative(),
-      clientUpdatedAt: z.string(),
+      clientUpdatedAt: IsoTimestampSchema,
     })
     .safeParse(req.body);
   if (!parsed.success) {
@@ -515,9 +537,10 @@ notesRouter.post('/notes/:id/versions/:versionId/restore', (req, res) => {
       currentNote.client_updated_at
     );
 
-    // 用历史版本的密文覆盖当前笔记
+    // 用历史版本的密文覆盖当前笔记（server_updated_at 同步更新，维持增量同步游标）
     db.prepare(
-      `UPDATE notes SET ciphertext = ?, key_version = ?, version = version + 1, client_updated_at = ?
+      `UPDATE notes SET ciphertext = ?, key_version = ?, version = version + 1, client_updated_at = ?,
+          server_updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        WHERE id = ? AND user_id = ?`
     ).run(
       String(versionRow.ciphertext),

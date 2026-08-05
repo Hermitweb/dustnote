@@ -118,12 +118,14 @@ export class ErrorBoundary extends Component<Props, State> {
                 }}
                 numberOfLines={4}
               >
-                {this.state.error.message}
+                {/* 生产包只展示通用文案，内部错误细节仅开发模式可见 */}
+                {__DEV__ ? this.state.error.message : '应用发生内部错误，请重新加载或重启。'}
               </Text>
             </View>
           )}
 
-          {this.state.showDetails && this.state.errorInfo && (
+          {/* 完整错误详情（堆栈）仅开发模式可展开，避免生产包向用户暴露内部路径/代码位置 */}
+          {__DEV__ && this.state.showDetails && this.state.errorInfo && (
             <View
               style={{
                 backgroundColor: '#111827',

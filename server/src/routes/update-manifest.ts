@@ -17,6 +17,12 @@ const QuerySchema = z.object({
   channel: z.enum(['nightly', 'canary', 'beta', 'stable']).optional(),
 });
 
+/** 校验 X-Client-Channel 头，非法值回退 'stable'，避免 CHANNEL_VERSIONS 取到 undefined */
+function parseChannelHeader(raw: string | undefined): 'nightly' | 'canary' | 'beta' | 'stable' {
+  const parsed = z.enum(['nightly', 'canary', 'beta', 'stable']).safeParse(raw);
+  return parsed.success ? parsed.data : 'stable';
+}
+
 updateManifestRouter.get('/update-manifest', (req, res) => {
   const headers = {
     version: req.header('X-Client-Version'),
@@ -40,7 +46,7 @@ updateManifestRouter.get('/update-manifest', (req, res) => {
   }
 
   const requestedChannel =
-    query.data.channel ?? (headers.channel as 'stable' | 'beta' | 'canary' | 'nightly') ?? 'stable';
+    query.data.channel ?? parseChannelHeader(headers.channel) ?? 'stable';
 
   const manifest = getManifestForChannel(requestedChannel, {
     clientVersion: headers.version,

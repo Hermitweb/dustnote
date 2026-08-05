@@ -127,7 +127,9 @@ export function getCurrentMode(): ModeState {
 export function resolveBaseUrl(): string {
   const { mode, serverUrl } = getCurrentMode();
   if (mode === 'online' && serverUrl) {
-    return serverUrl.endsWith('/api/v1') ? serverUrl : `${serverUrl}/api/v1`;
+    // 与 miniprogram 端一致：先去除尾部斜杠，避免用户输入 http://host:3210/ 时拼出 //api/v1
+    const trimmed = serverUrl.replace(/\/+$/, '');
+    return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`;
   }
   return DEFAULT_BASE_URL;
 }

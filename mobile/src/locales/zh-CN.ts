@@ -92,6 +92,7 @@ const zhCN = {
     recovery_code_done: '我已保存',
     mismatch: '两次输入的密码不一致',
     too_weak: '密码至少需要 8 个字符',
+    password_required: '请输入主密码',
     unlock_failed: '解锁失败',
   },
   notes: {

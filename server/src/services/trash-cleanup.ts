@@ -23,8 +23,10 @@ const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 小时
  */
 export function purgeExpiredTrash(now: Date = new Date()): number {
   const db = getDb();
-  // deleted_at 存的是 ISO 字符串或 datetime('now') 生成的 UTC 字符串，
-  // 两者都能被 new Date() 解析。用毫秒级比较避免时区歧义。
+  // deleted_at 历史上有两种入库格式：旧版 datetime('now')（"YYYY-MM-DD HH:MM:SS"）与
+  // ISO-8601（"…T…Z"）。直接按 TEXT 字节序比较会产生「同日时空格(0x20) < 'T'(0x54)」的
+  // 偏差，导致删除满 29 天的笔记被提前永久删除。统一用 julianday() 解析后再比较，
+  // 两种格式都能正确解析，且空串/非法值解析为 NULL（NULL < x 恒为假，不会被清理）。
   const cutoffMs = now.getTime() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
   const cutoff = new Date(cutoffMs).toISOString();
 
@@ -32,7 +34,7 @@ export function purgeExpiredTrash(now: Date = new Date()): number {
     .prepare(
       `
     DELETE FROM notes
-    WHERE deleted_at IS NOT NULL AND deleted_at < ?
+    WHERE deleted_at IS NOT NULL AND julianday(deleted_at) < julianday(?)
   `
     )
     .run(cutoff);

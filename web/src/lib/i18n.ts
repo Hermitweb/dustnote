@@ -121,6 +121,7 @@ const resources = {
         share_not_unlocked: '请先解锁后再分享',
         new_note_default: '新笔记',
         share_fail: '创建分享失败：{{reason}}',
+        share_invalid_expiry: '有效期必须为 1 小时到 1 年之间的正整数',
         copy_key: '复制',
         key_hint: '🔑 解密密钥在链接 # 之后的部分，服务器拿不到它。请务必复制',
         key_hint_strong: '完整链接',
@@ -566,6 +567,7 @@ const resources = {
         share_not_unlocked: 'Unlock before sharing',
         new_note_default: 'New note',
         share_fail: 'Failed to create share: {{reason}}',
+        share_invalid_expiry: 'Expiry must be a positive integer between 1 hour and 1 year',
         copy_key: 'Copy',
         key_hint: '🔑 The decryption key is in the # part of the link. The server never sees it. Make sure to copy',
         key_hint_strong: 'the full link',
@@ -898,9 +900,12 @@ const resources = {
   },
 };
 
+/** 语言偏好 localStorage key（store.ts 也读写它，统一从这里取常量避免字符串漂移） */
+export const LANGUAGE_STORAGE_KEY = 'dustnote_language';
+
 void i18n.use(initReactI18next).init({
   resources,
-  lng: localStorage.getItem('dustnote_language') ?? 'zh-CN',
+  lng: localStorage.getItem(LANGUAGE_STORAGE_KEY) ?? 'zh-CN',
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
 });

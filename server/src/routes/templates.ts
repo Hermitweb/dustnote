@@ -23,7 +23,7 @@ const TemplateSchema = z.object({
     .default('custom'),
   icon: z.string().max(16).default('📄'),
   /** 自定义模板为 ciphertext JSON；预设模板为明文（但预设模板不可由客户端创建） */
-  content: z.string(),
+  content: z.string().max(2_000_000),
   sortOrder: z.number().int().nonnegative().default(100),
 });
 

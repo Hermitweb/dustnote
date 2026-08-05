@@ -13,6 +13,43 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.4.4] - 2026-08-05
+
+### 修复 — 首席架构师 SOP 零故障加固（服务端一致性 + 跨端健壮性 + 安全纵深）
+
+以四步 SOP（需求差异分析 → 深度代码扫描 → 静默修复 → 自动化验证闭环）对全端代码再次地毯式排查，修复 20+ 处真实问题，覆盖 server / web / mobile / miniprogram / desktop 全栈。
+
+#### 服务端（P1/P2）
+
+- **增量同步失效修复（P1）**：`server_updated_at` 此前在所有写路径（PATCH/DELETE/restore）都不更新，`GET /notes?since=` 增量同步恒拉不到变更。修复：三条写路径均显式 `strftime('%Y-%m-%dT%H:%M:%fZ','now')` 更新，与 version 同步递增。
+- **回收站提前清理修复（P1）**：`deleted_at` 历史混用 `datetime('now')`（空格分隔）与 ISO 格式，SQL 字符串比较导致「同日时空格 < 'T'」的字节序偏差，删除满 29 天即被永久清理（最多提前 ~24h）。修复：`trash-cleanup` 改用 `julianday()` 解析比较，两种格式均正确；软删除统一写 ISO。
+- **JWT_SECRET 弱占位绕过修复（P1）**：`.env.example` 占位值 `change-me-to-a-32-char-random-string`（长度 36 ≥ 32）可绕过生产环境强校验，导致以公开密钥签名任意 token。修复：加入 `KNOWN_WEAK_DEFAULTS` + 弱模式正则（change-me/your-secret/random-string 等）双重拒绝，`.env.example` 占位改为空值并注明生成方式。
+- **锁定计数丢失更新修复（P2）**：auth unlock/recover、分享密码校验的「读→await verifyPassword→写」模式存在并发丢失更新（可绕过锁定阈值）。修复：新增 `recordFailureAtomic`，单条 UPDATE 原子完成「+1 计数 + 达阈值置锁」。
+- **deletedAt 空串绕过保留期修复（P2）**：`deletedAt:""` 会恒小于 cutoff 被立即永久删除。修复：ISO-8601 格式校验，非法值 400。
+- **WebSocket token 泄漏修复（P2）**：access token 从 URL query 迁移到 `Sec-WebSocket-Protocol` 子协议，避免进入 nginx/Caddy access log（升级握手不经 pino-http 脱敏）。
+- **纵深防御补齐（P2/P3）**：auth 公开路由 deviceId/platform 头校验；`touchDevice` UPDATE 补 user_id；`DELETE /note-tags` 校验 tag 归属；文件夹删除包事务；`/export/notes/:id` UUID 校验；ciphertext/content 长度上限；`since` 游标格式校验；update-manifest channel 头校验；错误处理器保留 400/413 语义；health 不回传内部错误；jwt.ts 改走 pino 日志；setup 不再泄漏 zod schema。
+
+#### Web 端（P1/P2）
+
+- **笔记历史对话框修复（P1）**：`fetchVersions`/`selectVersion` 改用 `apiBase()` 绝对路径（桌面端 webview origin 为 `tauri://localhost`，相对路径命中资源服务器），并加 JSON content-type 校验与请求竞态防护。
+- **宽限期免密解锁假解锁修复（P1）**：联机模式 `graceUnlock()` 恢复 masterKey 但 accessToken 已被 lock() 清空 → 所有 API 401 假解锁。修复：联机模式宽限恢复时走 `/auth/refresh` 重新取 token，失败回退密码解锁。
+- **分享页异源部署修复（P2）**：PublicShareView 硬编码同源 `/api/v1`，改为从 mode-store 读 serverUrl。
+- **切笔记丢数据修复（P2）**：autoSave 防抖窗口（800ms）内切笔记，cleanup 仅清定时器导致未保存输入被新笔记覆盖丢失。修复：render 期 ref 检测切笔记，cleanup 立即补存。
+- **日志脱敏失效修复（P2）**：diagnostics.ts 正则带锚点匹配不到 `accessToken/masterKey` 等组合键名，且 console 输出原始 ctx。修复：包含匹配 + 递归脱敏 + 输出脱敏后值。
+- **其他（P3）**：WS 广播防抖合并；空回收站改顺序删除；离线队列 5xx 指数退避；MigrationWizard 模式/URL 校验；分享有效期输入校验；crypto 非安全上下文回退；语言 key 常量统一。
+
+#### Mobile / Miniprogram / Desktop（P1/P2）
+
+- **单机模式锁屏后无法解锁修复（P1）**：mobile `lock()` 清空内存 `localAuthBlob` 后，`unlockStandalone`/`recoverStandalone` 直接判空抛「未初始化」，必须杀进程重启。修复：从持久化层兜底重新加载 blob。
+- **移动端导入备份后导航中断修复（P2）**：`navigation.reset('Unlock')` 在单机模式无此路由。修复：按 appMode 选择 `StandaloneUnlock`/`Unlock`。
+- **小程序 H5 分享链接修复（P2）**：硬编码 `http://localhost:10086` 指向访客本机。修复：用 `window.location.origin` 拼同源链接。
+- **版本号硬编码统一（P2）**：mobile api/use-update-check/SettingsScreen、miniprogram auth 内嵌 `2.4.0/2.4.3` 漂移导致「检查更新」恒误报新版本（版本倒挂）。修复：全端统一 2.4.4。
+- **其他（P3）**：mobile ErrorBoundary 生产隐藏堆栈；解锁页空密码校验（避免浪费失败配额）；NoteEditScreen 卸载前 flush 未保存内容；mobile local-repo version 单调递增（与 miniprogram 一致）；resolveBaseUrl 尾部斜杠处理；desktop 删除残留 `greet` 调试命令。
+
+#### 版本号同步
+
+全端版本号同步至 2.4.4（package.json ×7、tauri.conf.json、Cargo.toml/Cargo.lock、Android versionCode 22/versionName、server env/update-manifest、mobile/miniprogram 源码内嵌 APP_VERSION、release.yml、smoke-test.sh、sw.js、.env.example、docs/installation-guide.md）。
+
 ## [2.4.0] - 2026-08-04
 
 ### 新增 — 全端安装/卸载/部署流程规范化 + 品牌统一

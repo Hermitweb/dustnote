@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import { getDb } from '../db.js';
 import { config } from '../env.js';
+import { logger } from '../logger.js';
 
 export const healthRouter = Router();
 
@@ -37,9 +38,11 @@ healthRouter.get('/health', (_req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
+    // 不回传 err.message：内部 SQL/连接细节（DB 路径、表结构）不应对调用方可见
+    logger.error({ err }, '健康检查失败');
     res.status(503).json({
       ok: false,
-      error: err instanceof Error ? err.message : 'unknown',
+      error: 'db_error',
     });
   }
 });

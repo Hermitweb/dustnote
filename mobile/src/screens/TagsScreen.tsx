@@ -35,7 +35,6 @@ import {
   decryptString,
   encryptString,
   type Ciphertext,
-  type NoteRow,
 } from '@dustnote/shared';
 
 interface Tag {
@@ -138,9 +137,8 @@ export function TagsScreen() {
           setBusy(true);
           try {
             const snapshot = await repo.loadAll();
-            const targets = snapshot.notes.filter(
-              (n) => !n.deletedAt && n.id !== tag.id
-            );
+            // 遍历所有未删除笔记，剔除目标标签
+            const targets = snapshot.notes.filter((n) => !n.deletedAt);
             let changed = 0;
             for (const note of targets) {
               try {

@@ -41,13 +41,13 @@ import 'react-native-get-random-values';
 //    捕获，不会冒泡中断 index.js 后续 import（React 等）。
 //    v2.3.5 诊断增强：把加载状态写入 globalThis.__QCRYPTO_STATUS 便于 UI 显示。
 let quickCryptoInstall = null;
-// @ts-ignore - 诊断全局变量
+// @ts-expect-error - 诊断全局变量
 globalThis.__QCRYPTO_STATUS = { requireOk: false, installOk: false, requireError: null, installError: null };
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const mod = require('react-native-quick-crypto');
   quickCryptoInstall = typeof mod.install === 'function' ? mod.install : null;
-  // @ts-ignore
+  // @ts-expect-error - 诊断全局变量
   globalThis.__QCRYPTO_STATUS.requireOk = true;
   globalThis.__QCRYPTO_STATUS.modType = typeof mod;
   globalThis.__QCRYPTO_STATUS.hasInstall = typeof mod.install === 'function';
@@ -56,7 +56,7 @@ try {
   // TurboModuleRegistry 找不到原生模块。捕获后继续，App 可启动但 crypto 不可用。
   // eslint-disable-next-line no-console
   console.error('[DustNote] react-native-quick-crypto module load failed:', e);
-  // @ts-ignore
+  // @ts-expect-error - 诊断全局变量
   globalThis.__QCRYPTO_STATUS.requireError = e instanceof Error ? e.message : String(e);
 }
 
@@ -67,12 +67,12 @@ try {
 try {
   if (quickCryptoInstall) {
     quickCryptoInstall();
-    // @ts-ignore
+    // @ts-expect-error - 诊断全局变量
     globalThis.__QCRYPTO_STATUS.installOk = true;
   }
 } catch (e) {
   // eslint-disable-next-line no-console
   console.error('[DustNote] react-native-quick-crypto install failed:', e);
-  // @ts-ignore
+  // @ts-expect-error - 诊断全局变量
   globalThis.__QCRYPTO_STATUS.installError = e instanceof Error ? e.message : String(e);
 }

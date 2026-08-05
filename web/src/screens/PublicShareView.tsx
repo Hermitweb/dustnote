@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
 import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
 import { sanitizeHtml } from '../lib/sanitize-html';
+import { useModeStore } from '../lib/mode-store';
 
 interface SharePayload {
   title: string;
@@ -55,7 +56,10 @@ export function PublicShareView({ token }: { token: string }) {
       setSubmitting(true);
       try {
         // 密码走 POST body，避免出现在 URL / 反代访问日志 / 浏览器历史里
-        const url = `/api/v1/share/public/${token}`;
+        // API 基址与其余模块一致：异源部署（Web 前端与 API 分离）时也能访问
+        const { serverUrl } = useModeStore.getState();
+        const base = serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : '/api/v1';
+        const url = `${base}/share/public/${token}`;
         const res = await fetch(url, {
           method: 'POST',
           headers: {
