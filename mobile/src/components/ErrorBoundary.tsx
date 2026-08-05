@@ -56,7 +56,7 @@ export class ErrorBoundary extends Component<Props, State> {
     const log = this.state.errorInfo ?? this.state.error?.message ?? 'No error info';
     // RN 无内置 Clipboard（@react-native-clipboard 未链接），输出到 console 供 adb logcat 读取
     // eslint-disable-next-line no-console
-    console.log('[DustNote Error Log]', log);
+    console.error('[DustNote Error Log]', log);
     Alert.alert('日志已输出', '错误日志已打印到控制台（adb logcat | grep DustNote 可查看）', [
       { text: '确定' },
     ]);

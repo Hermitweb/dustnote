@@ -124,7 +124,6 @@ export async function deriveKey(
   if (params.algorithm === 'pbkdf2') {
     // PBKDF2-SHA256 via crypto.subtle.deriveBits
     // react-native-quick-crypto 提供原生 JSI 实现，不阻塞主线程
-    console.log('[DustNote/crypto] PBKDF2 importKey start');
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
       encodeUtf8(password) as BufferSource,
@@ -132,7 +131,6 @@ export async function deriveKey(
       false,
       ['deriveBits']
     );
-    console.log('[DustNote/crypto] PBKDF2 importKey done, deriveBits start');
     const bits = await crypto.subtle.deriveBits(
       {
         name: 'PBKDF2',
@@ -143,7 +141,6 @@ export async function deriveKey(
       keyMaterial,
       params.dkLen * 8
     );
-    console.log('[DustNote/crypto] PBKDF2 deriveBits done, len=' + bits.byteLength);
     return new Uint8Array(bits);
   }
   // 默认 Argon2id（web/小程序，纯 JS，V8 引擎下高效）
@@ -158,8 +155,6 @@ export async function deriveKey(
 // ========== HKDF-SHA256 ==========
 
 async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
-  console.log('[DustNote/crypto] hmacSha256 start, keyLen=' + key.length + ' dataLen=' + data.length);
-
   // react-native-quick-crypto 的 subtle.sign 未实现 HMAC（源码中 case 'HMAC' 被注释），
   // 会抛 "Unrecognized algorithm name" 错误。
   // 移动端改用 Node.js 风格的 createHmac API（react-native-quick-crypto 原生 JSI 实现）。
@@ -181,7 +176,6 @@ async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array
     // 复制到独立的 Uint8Array 避免引用整个底层 ArrayBuffer
     const result = new Uint8Array(sig.byteLength);
     result.set(new Uint8Array(sig.buffer, sig.byteOffset, sig.byteLength));
-    console.log('[DustNote/crypto] hmacSha256 done via createHmac, len=' + result.length);
     return result;
   }
 
@@ -194,7 +188,6 @@ async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array
     ['sign']
   );
   const sig = await crypto.subtle.sign({ name: 'HMAC' }, ck, data as BufferSource);
-  console.log('[DustNote/crypto] hmacSha256 done via subtle.sign, len=' + sig.byteLength);
   return new Uint8Array(sig);
 }
 
@@ -273,15 +266,12 @@ export async function deriveSecrets(
   salt: Uint8Array,
   params = KDF_PARAMS
 ): Promise<DerivedSecrets> {
-  console.log('[DustNote/crypto] deriveSecrets: deriveKey start');
   const ikm = await deriveKey(secret, salt, params);
-  console.log('[DustNote/crypto] deriveSecrets: deriveKey done, hkdf start');
   try {
     const [kek, authKey] = await Promise.all([
       hkdf(ikm, salt, KEK_INFO, 32),
       hkdf(ikm, salt, AUTH_INFO, 32),
     ]);
-    console.log('[DustNote/crypto] deriveSecrets: hkdf done');
     return { kek, authKey };
   } finally {
     // ikm 是从主密码派生的高熵中间值，用后立即零化，降低堆泄漏风险

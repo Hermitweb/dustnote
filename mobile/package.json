@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/mobile",
-  "version": "2.4.2",
+  "version": "2.4.3",
   "private": true,
   "description": "DustNote Android (React Native)",
   "scripts": {
@@ -28,6 +28,7 @@
     "react-i18next": "^14.1.2",
     "react-native": "0.74.1",
     "react-native-biometrics": "^3.0.1",
+    "react-native-document-picker": "^9.3.1",
     "react-native-fs": "^2.20.0",
     "react-native-get-random-values": "^1.11.0",
     "react-native-keychain": "^8.2.0",

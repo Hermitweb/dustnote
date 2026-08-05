@@ -36,12 +36,18 @@ import { useLanguageStore, type AppLanguage } from '../lib/i18n';
 import { createRepository } from '../lib/repository';
 import { useColors, useThemeStore, type ThemeMode, THEMES, type ThemeId } from '../theme';
 import type { BackupPayload, AppMode } from '@dustnote/shared';
+import {
+  decryptString,
+  encryptString,
+  type Ciphertext,
+} from '@dustnote/shared';
 import RNFS from 'react-native-fs';
 import RNShare from 'react-native-share';
+import DocumentPicker from 'react-native-document-picker';
 import { checkUpdateOnce, resetUpdateCache } from '../lib/use-update-check';
 import type { CheckUpdateResult } from '@dustnote/shared';
 
-const APP_VERSION = '2.4.0';
+const APP_VERSION = '2.4.3';
 const LANG_OPTIONS: Array<{ lang: AppLanguage; key: string }> = [
   { lang: 'zh-CN', key: 'settings.lang_zh' },
   { lang: 'en', key: 'settings.lang_en' },
@@ -243,6 +249,207 @@ export function SettingsScreen() {
     }
   };
 
+  // ========== 导出为 Markdown ==========
+  // 解密所有笔记，格式化为单个 .md 文件（每篇笔记以 # 标题 + --- 分隔）
+  const onExportMarkdown = async () => {
+    if (!masterKey) {
+      Alert.alert('提示', '请先解锁');
+      return;
+    }
+    setBusy(true);
+    try {
+      const repo = createRepository({
+        mode: appMode,
+        serverUrl: useModeStore.getState().serverUrl,
+        accessToken: useAuthStore.getState().accessToken,
+        deviceId: useAuthStore.getState().deviceId,
+      });
+      const snapshot = await repo.loadAll();
+      const activeNotes = snapshot.notes.filter((n) => !n.deletedAt);
+
+      // 逐条解密，拼接为 Markdown
+      const parts: string[] = [];
+      let ok = 0;
+      for (const note of activeNotes) {
+        try {
+          const env = JSON.parse(note.ciphertext) as { v?: number; payload?: Ciphertext } | Ciphertext;
+          const payload: Ciphertext =
+            env && typeof env === 'object' && 'payload' in env ? env.payload! : (env as Ciphertext);
+          const json = await decryptString(masterKey, payload);
+          const pt = JSON.parse(json) as { title: string; content: string; tags?: string[] };
+          const tagsLine = Array.isArray(pt.tags) && pt.tags.length > 0
+            ? `\n\n> 标签：${pt.tags.map((t) => `#${t}`).join(' ')}`
+            : '';
+          parts.push(`# ${pt.title || '无标题'}\n\n${pt.content}${tagsLine}\n\n---\n`);
+          ok++;
+        } catch {
+          // 解密失败的笔记跳过
+        }
+      }
+
+      const md = parts.join('\n');
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `dustnote-notes-${ts}.md`;
+      const dir = RNFS.CachesDirectoryPath || RNFS.DocumentDirectoryPath;
+      const path = `${dir}/${filename}`;
+      // 添加 UTF-8 BOM 确保 Windows 记事本兼容
+      await RNFS.writeFile(path, '\uFEFF' + md, 'utf8');
+
+      try {
+        await RNShare.open({
+          title: 'DustNote 笔记导出',
+          subject: `DustNote 笔记 ${ts}`,
+          url: `file://${path}`,
+          type: 'text/markdown',
+          filename,
+          failOnCancel: false,
+        });
+      } catch {
+        Alert.alert('已生成文件', `Markdown 文件已生成：\n${filename}\n\n请通过分享菜单保存。`);
+      }
+      Alert.alert('导出成功', `共导出 ${ok} 篇笔记为 Markdown`);
+    } catch (err) {
+      Alert.alert('导出失败', (err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ========== 从文件导入 ==========
+  // 支持 .json（备份文件）和 .md/.txt（Markdown 笔记）
+  const onImportFile = async () => {
+    if (!masterKey) {
+      Alert.alert('提示', '请先解锁');
+      return;
+    }
+    try {
+      const result = await DocumentPicker.pick({
+        type: [DocumentPicker.types.allFiles],
+        copyTo: 'cachesDirectory',
+      });
+      if (!result || result.length === 0) return;
+      const file = result[0];
+      const content = await RNFS.readFile(file.fileCopyUri || file.uri, 'utf8');
+
+      // 判断格式：JSON 备份 vs Markdown/TXT
+      const trimmed = content.trim();
+      if (trimmed.startsWith('{') && trimmed.includes('"notes"')) {
+        // JSON 备份格式 — 走原有 importBackup 流程
+        const payload = JSON.parse(trimmed) as BackupPayload;
+        if (!payload.notes || !Array.isArray(payload.notes)) {
+          throw new Error('无效的备份格式：缺少 notes 字段');
+        }
+        Alert.alert(
+          '确认导入',
+          `检测到 JSON 备份文件：\n笔记 ${payload.notes.length} 条\n\n将覆盖当前所有数据，继续？`,
+          [
+            { text: '取消', style: 'cancel' },
+            {
+              text: '确认导入',
+              style: 'destructive',
+              onPress: async () => {
+                setBusy(true);
+                try {
+                  const repo = createRepository({
+                    mode: appMode,
+                    serverUrl: useModeStore.getState().serverUrl,
+                    accessToken: useAuthStore.getState().accessToken,
+                    deviceId: useAuthStore.getState().deviceId,
+                  });
+                  await repo.clearBusinessData();
+                  await repo.importBackup(payload);
+                  Alert.alert('导入成功', '数据已恢复', [
+                    {
+                      text: '确定',
+                      onPress: () => {
+                        lock();
+                        navigation.reset({ index: 0, routes: [{ name: 'Unlock' }] });
+                      },
+                    },
+                  ]);
+                } catch (e) {
+                  Alert.alert('导入失败', (e as Error).message);
+                } finally {
+                  setBusy(false);
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        // Markdown/TXT 格式 — 按 --- 分隔符拆分为多篇笔记
+        const sections = content.split(/\n---+\n/).map((s) => s.trim()).filter((s) => s.length > 0);
+        if (sections.length === 0) {
+          Alert.alert('导入失败', '文件内容为空');
+          return;
+        }
+        Alert.alert(
+          '确认导入',
+          `检测到 Markdown 文件：\n将导入 ${sections.length} 篇笔记（追加，不覆盖现有数据）\n\n继续？`,
+          [
+            { text: '取消', style: 'cancel' },
+            {
+              text: '确认导入',
+              onPress: async () => {
+                setBusy(true);
+                try {
+                  const repo = createRepository({
+                    mode: appMode,
+                    serverUrl: useModeStore.getState().serverUrl,
+                    accessToken: useAuthStore.getState().accessToken,
+                    deviceId: useAuthStore.getState().deviceId,
+                  });
+                  let imported = 0;
+                  for (const section of sections) {
+                    // 解析 Markdown：第一行 # 开头为标题，其余为正文
+                    const lines = section.split('\n');
+                    let title = '导入的笔记';
+                    let contentStart = 0;
+                    if (lines[0] && lines[0].startsWith('# ')) {
+                      title = lines[0].slice(2).trim();
+                      contentStart = 1;
+                    }
+                    // 跳过标题后的空行
+                    while (contentStart < lines.length && lines[contentStart].trim() === '') {
+                      contentStart++;
+                    }
+                    const noteContent = lines.slice(contentStart).join('\n').trim();
+                    // 提取 > 标签：xxx 行中的标签
+                    const tagMatch = noteContent.match(/>\s*标签：(.+)/);
+                    let tags: string[] = [];
+                    let cleanContent = noteContent;
+                    if (tagMatch) {
+                      tags = tagMatch[1].split(/\s+/).map((t) => t.replace(/^#/, '')).filter(Boolean);
+                      cleanContent = noteContent.replace(/>\s*标签：.+\n?/, '').trim();
+                    }
+                    const json = JSON.stringify({ title, content: cleanContent, tags });
+                    // 加密并创建笔记（createNote 直接接受 ciphertext）
+                    const payload = await encryptString(masterKey, json, 1);
+                    const env = { v: 1, payload };
+                    await repo.createNote({
+                      ciphertext: JSON.stringify(env),
+                      keyVersion: 1,
+                      folderId: null,
+                    });
+                    imported++;
+                  }
+                  Alert.alert('导入成功', `共导入 ${imported} 篇笔记`);
+                } catch (e) {
+                  Alert.alert('导入失败', (e as Error).message);
+                } finally {
+                  setBusy(false);
+                }
+              },
+            },
+          ]
+        );
+      }
+    } catch (err) {
+      if (DocumentPicker.isCancel(err)) return;
+      Alert.alert('文件读取失败', (err as Error).message);
+    }
+  };
+
   // ========== 模式切换 ==========
   const onSwitchModeConfirm = async () => {
     if (!masterKey) {
@@ -421,11 +628,21 @@ export function SettingsScreen() {
           colors={colors}
         />
         <Row
+          label="📄 导出为 Markdown"
+          onPress={onExportMarkdown}
+          colors={colors}
+        />
+        <Row
           label={t('settings.import')}
           onPress={() => {
             setImportJson('');
             setShowImport(true);
           }}
+          colors={colors}
+        />
+        <Row
+          label="📁 从文件导入 (.md/.txt/.json)"
+          onPress={onImportFile}
           colors={colors}
         />
         <Text style={styles.modeHint}>{t('settings.data_hint')}</Text>

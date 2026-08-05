@@ -15,7 +15,7 @@
  * 注：聚合需要 masterKey 解密笔记；未解锁时不显示标签。
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
 import { useColors } from '../theme';
@@ -119,9 +120,12 @@ export function TagsScreen() {
     }
   }, [repo, modeInitialized, masterKey]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  // useFocusEffect：每次进入标签页时重新聚合，确保从 NoteEditScreen 添加标签后立即刷新
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   const handleDelete = (tag: Tag) => {
     Alert.alert('删除标签', `确定删除「#${tag.name}」？该标签会从所有笔记中移除。`, [

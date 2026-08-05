@@ -82,16 +82,12 @@ export function StandaloneSetupScreen() {
     // 必须先让 React 完成一次渲染，用户才知道按钮被触发了。
     await new Promise((resolve) => setTimeout(resolve, 0));
     try {
-      console.log('[DustNote] setupStandalone start, pwd len=' + password.length);
-      const t0 = Date.now();
       const code = await setupStandalone(password);
-      console.log('[DustNote] setupStandalone done in ' + (Date.now() - t0) + 'ms');
       setRecoveryCode(code);
     } catch (err) {
       console.error('[DustNote] setupStandalone failed:', err);
       const msg = err instanceof Error ? err.message : String(err);
-      const stack = err instanceof Error ? err.stack ?? '' : '';
-      Alert.alert('设置失败', `${msg}\n\n${stack.slice(0, 500)}`);
+      Alert.alert('设置失败', msg);
     } finally {
       setSubmitting(false);
     }
