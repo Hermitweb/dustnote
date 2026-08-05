@@ -201,6 +201,37 @@ export function NoteEditScreen() {
     ]);
   };
 
+  // 收藏/置顶切换（PRD §2.3 主页分类：收藏；此前移动端无任何切换入口）
+  const togglePin = useCallback(async () => {
+    if (!note || saving) return;
+    const next = !note.isPinned;
+    try {
+      const version = await repo.updateNote(noteId, {
+        isPinned: next,
+        isFavorite: note.isFavorite,
+      });
+      setNote({ ...note, isPinned: next, version });
+    } catch (err) {
+      Alert.alert('操作失败', (err as Error).message);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note, noteId, saving, repo]);
+
+  const toggleFavorite = useCallback(async () => {
+    if (!note || saving) return;
+    const next = !note.isFavorite;
+    try {
+      const version = await repo.updateNote(noteId, {
+        isFavorite: next,
+        isPinned: note.isPinned,
+      });
+      setNote({ ...note, isFavorite: next, version });
+    } catch (err) {
+      Alert.alert('操作失败', (err as Error).message);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note, noteId, saving, repo]);
+
   const onShare = useCallback(async () => {
     if (!masterKey || !note) {
       Alert.alert('提示', '请先解锁笔记');
@@ -433,6 +464,25 @@ export function NoteEditScreen() {
           {mode === 'online' && !decryptFailed && (
             <TouchableOpacity onPress={() => void onShare()} disabled={saving}>
               <Text style={styles.toolbarBtn}>{t('editor.share')}</Text>
+            </TouchableOpacity>
+          )}
+          {/* 收藏/置顶（单机/联机均可用） */}
+          {!decryptFailed && (
+            <TouchableOpacity onPress={() => void togglePin()} disabled={saving}>
+              <Text
+                style={[styles.toolbarBtn, note?.isPinned && { color: colors.mint600 }]}
+              >
+                📌
+              </Text>
+            </TouchableOpacity>
+          )}
+          {!decryptFailed && (
+            <TouchableOpacity onPress={() => void toggleFavorite()} disabled={saving}>
+              <Text
+                style={[styles.toolbarBtn, note?.isFavorite && { color: colors.mint600 }]}
+              >
+                ⭐
+              </Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={onDelete}>

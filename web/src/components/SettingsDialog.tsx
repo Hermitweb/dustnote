@@ -72,6 +72,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setTheme = useStore((s) => s.setTheme);
   const setMode = useStore((s) => s.setMode);
   const setLanguage = useStore((s) => s.setLanguage);
+  const setPreferences = useStore((s) => s.setPreferences);
 
   const [showImportExport, setShowImportExport] = useState(false);
   const [showShares, setShowShares] = useState(false);
@@ -298,6 +299,28 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     }`}
                   >
                     {l === 'zh-CN' ? '中文' : 'English'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 自动锁屏（空闲 N 分钟自动锁定，§1.5 默认 15） */}
+            <div>
+              <label className="mb-2 block text-xs font-semibold text-surface-muted">
+                {t('settings.auto_lock')}
+              </label>
+              <div className="flex gap-2">
+                {[0, 5, 15, 30, 60].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setPreferences({ autoLock: n })}
+                    className={`flex-1 rounded-lg border-2 px-2 py-2 text-sm transition-colors ${
+                      prefs.autoLock === n
+                        ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/30 text-surface-fg'
+                        : 'border-surface-border text-surface-fg hover:bg-surface-bg'
+                    }`}
+                  >
+                    {n === 0 ? t('settings.auto_lock_off') : t('settings.auto_lock_min', { n })}
                   </button>
                 ))}
               </div>

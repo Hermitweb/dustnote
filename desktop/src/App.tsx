@@ -22,6 +22,7 @@ import { registerAutostartApi } from './lib/autostart';
 import { registerUpdaterApi } from './lib/updater';
 // 直接复用 web 端 App 组件（vite + tsc 通过相对路径解析）
 import WebApp from '../../web/src/App';
+import { useStore } from '../../web/src/lib/store';
 
 /**
  * 注册桌面端原生能力到 window，供共享的 web 组件（AboutDialog、ImportExportDialog 等）调用。
@@ -52,6 +53,17 @@ function registerDesktopApis() {
   });
 }
 
+/** 注册托盘 tooltip 更新能力（roadmap M4「托盘显示已同步 N 条」） */
+function registerTrayApi() {
+  void import('@tauri-apps/api/core').then(({ invoke }) => {
+    (window as unknown as { __dustnoteSetTrayTooltip: (tooltip: string) => void }).__dustnoteSetTrayTooltip = (
+      tooltip: string
+    ) => {
+      void invoke('set_tray_tooltip', { tooltip }).catch(() => undefined);
+    };
+  });
+}
+
 export function App() {
   useEffect(() => {
     if (isTauri()) {
@@ -67,6 +79,9 @@ export function App() {
       // 注册桌面端原生能力（openUrl、saveFile），供共享 web 组件调用
       registerDesktopApis();
 
+      // 注册托盘 tooltip 更新能力
+      registerTrayApi();
+
       // 设置窗口标题（与 web 端 index.html 的 title 对齐）
       void import('@tauri-apps/api/window')
         .then(async ({ Window }) => {
@@ -80,6 +95,22 @@ export function App() {
     } else {
       document.documentElement.dataset.platform = 'web';
     }
+  }, []);
+
+  // 托盘 tooltip 显示待同步数量（roadmap M4「托盘显示已同步 N 条」）：
+  // 订阅 web store 的 pendingCount 变化，实时刷新托盘 tooltip。
+  useEffect(() => {
+    if (!isTauri()) return undefined;
+    const setTip = () => {
+      const api = (window as unknown as { __dustnoteSetTrayTooltip?: (t: string) => void })
+        .__dustnoteSetTrayTooltip;
+      if (!api) return;
+      const count = useStore.getState().pendingCount;
+      api(count > 0 ? `尘心笔记 · 待同步 ${count} 条` : '尘心笔记 · 已同步');
+    };
+    setTip();
+    const unsub = useStore.subscribe(() => setTip());
+    return () => unsub();
   }, []);
 
   // 直接渲染 web 端 App（已包含 Sidebar / Editor / SetupScreen / UnlockScreen /

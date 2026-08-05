@@ -13,6 +13,7 @@
  * - 小程序端直接使用常量 APP_VERSION（与 state/auth.ts 保持一致）
  */
 
+import { APP_VERSION } from '../state/auth';
 import type {
   ApiClient,
   DataRepository,
@@ -174,7 +175,7 @@ export class RemoteRepository implements DataRepository {
   async exportBackup(): Promise<BackupPayload> {
     const snapshot = await this.loadAll();
     return {
-      version: '2.0.0',
+      version: APP_VERSION,
       exportedAt: new Date().toISOString(),
       notes: snapshot.notes,
       folders: snapshot.folders,

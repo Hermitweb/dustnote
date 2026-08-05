@@ -9,7 +9,7 @@
 import React from 'react';
 import { View, Text } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import { useAuthStore } from '../../state/auth';
+import { useAuthStore, APP_VERSION } from '../../state/auth';
 import { useThemeStore, type Theme } from '../../state/theme';
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo, resetRepoCache } from '../../lib/get-repo';
@@ -258,7 +258,7 @@ export default function Settings() {
       </View>
 
       <View className="footer">
-        <Text className="footer-text">DustNote · 尘心笔记 v2.0.0</Text>
+        <Text className="footer-text">DustNote · 尘心笔记 v{APP_VERSION}</Text>
         <Text className="footer-text">E2EE · 端到端加密 · 单机/联机双模式</Text>
       </View>
     </View>

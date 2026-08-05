@@ -39,6 +39,16 @@ import { TrashScreen } from './screens/TrashScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useIsDark, useColors } from './theme';
 
+// 全局 JS 错误兜底：ErrorBoundary 只覆盖渲染错误，不覆盖异步回调错误。
+// 生产环境记录告警日志（内容经 console 过滤，不打印敏感数据），避免崩溃静默。
+const ErrorUtilsApi = (global as { ErrorUtils?: { setGlobalHandler: (h: (e: unknown, isFatal: boolean) => void) => void } })
+  .ErrorUtils;
+if (ErrorUtilsApi) {
+  ErrorUtilsApi.setGlobalHandler((err, isFatal) => {
+    console.warn('[DustNote] uncaught error:', isFatal, err instanceof Error ? err.message : String(err));
+  });
+}
+
 export type RootStackParamList = {
   ModeSelect: undefined;
   Setup: undefined;

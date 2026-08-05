@@ -7,14 +7,18 @@
 //! - Velopack 自动更新命令（检查/下载/应用）
 //! - 与 Web 端共享前端 bundle
 
+use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager, WindowEvent,
 };
 use tauri_plugin_autostart::MacosLauncher;
 #[cfg(desktop)]
 use tauri_plugin_global_shortcut::ShortcutState;
+
+/// 系统托盘句柄（供 set_tray_tooltip 命令更新 tooltip，展示同步状态）
+struct TrayState(Mutex<Option<TrayIcon>>);
 
 // ============================================================================
 // Velopack 自动更新（仅桌面平台编译）
@@ -406,6 +410,19 @@ async fn save_file_dialog(
     Err("save dialog not supported on mobile".into())
 }
 
+/// 更新系统托盘 tooltip（roadmap M4「托盘显示已同步 N 条」）。
+/// 前端在待同步计数变化时调用；失败静默（不影响主流程）。
+#[cfg(desktop)]
+#[tauri::command]
+fn set_tray_tooltip(app: tauri::AppHandle, tooltip: String) -> Result<(), String> {
+    let state = app.state::<TrayState>();
+    let guard = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(tray) = guard.as_ref() {
+        tray.set_tooltip(Some(tooltip)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default();
@@ -534,7 +551,8 @@ pub fn run() {
                 eprintln!("[DustNote] 警告：default_window_icon 为空，托盘将使用系统默认图标");
             }
 
-            let _tray = tray_builder.build(app)?;
+            let tray = tray_builder.build(app)?;
+            app.manage(TrayState(Mutex::new(Some(tray))));
 
             // 全局快捷键：Ctrl+Shift+M 唤起主窗口（仅桌面平台生效）
             // 若快捷键被其他程序占用，仅打印警告，不阻止启动
@@ -611,6 +629,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             show_main_window,
             save_file_dialog,
+            set_tray_tooltip,
             vp_check_for_updates,
             vp_download_updates,
             vp_apply_and_restart,

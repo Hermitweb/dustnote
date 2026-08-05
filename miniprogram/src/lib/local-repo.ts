@@ -16,6 +16,7 @@
  */
 
 import Taro from '@tarojs/taro';
+import { APP_VERSION } from '../state/auth';
 import type {
   DataRepository,
   RepositorySnapshot,
@@ -237,7 +238,7 @@ export class LocalRepository implements DataRepository {
   async exportBackup(): Promise<BackupPayload> {
     const snapshot = await this.loadAll();
     return {
-      version: '2.0.0',
+      version: APP_VERSION,
       exportedAt: new Date().toISOString(),
       notes: snapshot.notes,
       folders: snapshot.folders,
