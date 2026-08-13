@@ -14,13 +14,14 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
 COPY patches patches
 COPY shared/package.json shared/tsconfig.json shared/
 COPY server/package.json server/tsconfig.json server/
-COPY web/package.json web/tsconfig.json web/vite.config.ts web/tailwind.config.js web/postcss.config.js web/index.html web/
+COPY web/package.json web/tsconfig.json web/tsconfig.app.json web/tsconfig.node.json web/vite.config.ts web/tailwind.config.js web/postcss.config.js web/index.html web/
 RUN pnpm install --frozen-lockfile
 
 # 构建
 COPY shared/src shared/src
 COPY server/src server/src
-COPY web/src web/src web/public web/public
+COPY web/src web/src
+COPY web/public web/public
 RUN pnpm --filter @dustnote/shared build
 RUN pnpm --filter @dustnote/server build
 RUN pnpm --filter @dustnote/web build

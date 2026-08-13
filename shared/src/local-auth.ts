@@ -129,8 +129,15 @@ export async function setupLocalAuth(
     wrappedMasterKey: JSON.stringify(wrappedMasterKey),
     recoveryHash,
     kdfVersion: KDF_VERSION,
-    // §17.4.1：记录实际 KDF 参数，解锁时按 blob 存储的参数派生（支持未来参数演进）
-    kdfParams: { m: params.m, t: params.t, p: params.p, dkLen: params.dkLen },
+    // §17.4.1：记录实际 KDF 参数（含 algorithm / iterations），解锁时按 blob 存储的参数派生
+    kdfParams: {
+      algorithm: params.algorithm ?? 'argon2id',
+      m: params.m,
+      t: params.t,
+      p: params.p,
+      ...(params.iterations !== undefined ? { iterations: params.iterations } : {}),
+      dkLen: params.dkLen,
+    },
     createdAt: new Date().toISOString(),
   };
 
@@ -296,7 +303,14 @@ export async function recoverLocalAuth(
     wrappedMasterKey: JSON.stringify(newWrappedMasterKey),
     recoveryHash: newRecoveryHash,
     kdfVersion: KDF_VERSION,
-    kdfParams: { m: params.m, t: params.t, p: params.p, dkLen: params.dkLen },
+    kdfParams: {
+      algorithm: params.algorithm ?? 'argon2id',
+      m: params.m,
+      t: params.t,
+      p: params.p,
+      ...(params.iterations !== undefined ? { iterations: params.iterations } : {}),
+      dkLen: params.dkLen,
+    },
     createdAt: new Date().toISOString(),
   };
 

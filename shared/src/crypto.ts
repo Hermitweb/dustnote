@@ -15,31 +15,102 @@
 
 import { argon2id as nobleArgon2id } from '@noble/hashes/argon2';
 import { randomBytes as nobleRandomBytes } from '@noble/hashes/utils';
+import { hmac as nobleHmac } from '@noble/hashes/hmac';
+import { pbkdf2Async as noblePbkdf2 } from '@noble/hashes/pbkdf2';
+import { sha256 } from '@noble/hashes/sha256';
+import { gcm as nobleGcm } from '@noble/ciphers/aes';
 
 // ========== 编码工具 ==========
 
-const TEXT_ENCODER = new TextEncoder();
-const TEXT_DECODER = new TextDecoder();
+// TextEncoder/TextDecoder 惰性实例化。
+// 不能像 v2.4.4 之前那样在模块顶层直接 new —— 一旦运行环境（如低版本
+// 基础库的小程序、部分嵌入容器）缺少这两个全局对象，整个 shared 包
+// 在 import 阶段就崩溃，后续任何加密逻辑都无法执行。改为首次使用时
+// 才实例化，缺失时抛出清晰错误而非静默白屏。
+let textEncoder: TextEncoder | null = null;
+let textDecoder: TextDecoder | null = null;
+
+function getTextEncoder(): TextEncoder {
+  if (!textEncoder) {
+    if (typeof TextEncoder === 'undefined') {
+      throw new Error('当前运行环境缺少 TextEncoder，无法进行 UTF-8 编码');
+    }
+    textEncoder = new TextEncoder();
+  }
+  return textEncoder;
+}
+
+function getTextDecoder(): TextDecoder {
+  if (!textDecoder) {
+    if (typeof TextDecoder === 'undefined') {
+      throw new Error('当前运行环境缺少 TextDecoder，无法进行 UTF-8 解码');
+    }
+    textDecoder = new TextDecoder();
+  }
+  return textDecoder;
+}
 
 export function encodeUtf8(s: string): Uint8Array {
-  return TEXT_ENCODER.encode(s);
+  return getTextEncoder().encode(s);
 }
 
 export function decodeUtf8(b: Uint8Array): string {
-  return TEXT_DECODER.decode(b);
+  return getTextDecoder().decode(b);
 }
 
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+/**
+ * 纯 JS Base64 编码（不依赖 btoa）。
+ * 微信小程序等无 btoa/atob 的运行环境也适用，输出与标准 Base64 完全一致。
+ */
 export function toBase64(b: Uint8Array): string {
-  let s = '';
-  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]!);
-  return btoa(s);
+  if (typeof btoa === 'function') {
+    let s = '';
+    for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]!);
+    return btoa(s);
+  }
+  let out = '';
+  for (let i = 0; i < b.length; i += 3) {
+    const o1 = b[i]!;
+    const o2 = i + 1 < b.length ? b[i + 1]! : 0;
+    const o3 = i + 2 < b.length ? b[i + 2]! : 0;
+    out += B64_CHARS[o1 >> 2]!;
+    out += B64_CHARS[((o1 & 3) << 4) | (o2 >> 4)]!;
+    out += i + 1 < b.length ? B64_CHARS[((o2 & 15) << 2) | (o3 >> 6)]! : '=';
+    out += i + 2 < b.length ? B64_CHARS[o3 & 63]! : '=';
+  }
+  return out;
 }
 
+/**
+ * 纯 JS Base64 解码（不依赖 atob），输出与标准 Base64 完全一致。
+ */
 export function fromBase64(s: string): Uint8Array {
-  const bin = atob(s);
-  const b = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
-  return b;
+  if (typeof atob === 'function') {
+    const bin = atob(s);
+    const b = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+    return b;
+  }
+  const lookup: Record<string, number> = {};
+  for (let i = 0; i < B64_CHARS.length; i++) lookup[B64_CHARS[i]!] = i;
+  const clean = s.replace(/=+$/, '');
+  const out = new Uint8Array(Math.floor((clean.length * 6) / 8));
+  let buffer = 0;
+  let bits = 0;
+  let pos = 0;
+  for (let i = 0; i < clean.length; i++) {
+    const v = lookup[clean[i]!];
+    if (v === undefined) continue;
+    buffer = (buffer << 6) | v;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out[pos++] = (buffer >> bits) & 0xff;
+    }
+  }
+  return out.subarray(0, pos);
 }
 
 export function toBase64Url(b: Uint8Array): string {
@@ -52,8 +123,56 @@ export function fromBase64Url(s: string): Uint8Array {
   return fromBase64(b64.padEnd(Math.ceil(b64.length / 4) * 4, '='));
 }
 
+let secureRandomFn: ((n: number) => Uint8Array) | null = null;
+
+/**
+ * 注册同步安全随机源。
+ * 微信小程序等无 WebCrypto 的运行环境在启动时调用（内部用 wx 的安全随机
+ * API 预填充随机池，供同步取用）。传入的函数必须返回密码学安全随机字节。
+ */
+export function setSecureRandomSource(fn: (n: number) => Uint8Array): void {
+  secureRandomFn = fn;
+}
+
+/** 检测当前运行时是否提供 WebCrypto subtle（浏览器 / Node 20+ / RN quick-crypto 有，微信小程序等无） */
+function hasWebCryptoSubtle(): boolean {
+  try {
+    const c = globalThis.crypto as Crypto | undefined;
+    return !!c && !!c.subtle;
+  } catch {
+    return false;
+  }
+}
+
 export function randomBytes(n: number): Uint8Array {
-  return nobleRandomBytes(n);
+  // 优先 WebCrypto getRandomValues
+  const c = globalThis.crypto as Crypto | undefined;
+  if (c && typeof c.getRandomValues === 'function') {
+    const out = new Uint8Array(n);
+    c.getRandomValues(out);
+    return out;
+  }
+  // 平台注入的安全随机源（小程序）。注入源可能因随机池尚未就绪而抛错，
+  // 捕获后尝试 noble 兜底；都失败时抛出注入源的原始错误（如「池未就绪」），
+  // 比笼统的「无安全随机源」更有利于定位。
+  if (secureRandomFn) {
+    try {
+      return secureRandomFn(n);
+    } catch (e) {
+      try {
+        return nobleRandomBytes(n);
+      } catch {
+        throw e instanceof Error ? e : new Error(String(e));
+      }
+    }
+  }
+  try {
+    return nobleRandomBytes(n);
+  } catch {
+    throw new Error(
+      '当前运行环境无安全随机源（缺少 crypto.getRandomValues / wx 安全随机 API），无法生成密钥'
+    );
+  }
 }
 
 // ========== KDF（Argon2id）==========
@@ -122,26 +241,36 @@ export async function deriveKey(
   params = KDF_PARAMS
 ): Promise<Uint8Array> {
   if (params.algorithm === 'pbkdf2') {
-    // PBKDF2-SHA256 via crypto.subtle.deriveBits
-    // react-native-quick-crypto 提供原生 JSI 实现，不阻塞主线程
-    const keyMaterial = await crypto.subtle.importKey(
-      'raw',
-      encodeUtf8(password) as BufferSource,
-      { name: 'PBKDF2' },
-      false,
-      ['deriveBits']
+    if (hasWebCryptoSubtle()) {
+      // PBKDF2-SHA256 via crypto.subtle.deriveBits
+      // react-native-quick-crypto 提供原生 JSI 实现，不阻塞主线程
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        encodeUtf8(password) as BufferSource,
+        { name: 'PBKDF2' },
+        false,
+        ['deriveBits']
+      );
+      const bits = await crypto.subtle.deriveBits(
+        {
+          name: 'PBKDF2',
+          salt: salt as BufferSource,
+          iterations: params.iterations ?? 310000,
+          hash: 'SHA-256',
+        } as Pbkdf2Params,
+        keyMaterial,
+        params.dkLen * 8
+      );
+      return new Uint8Array(bits);
+    }
+    // 纯 JS 回退（微信小程序等无 WebCrypto 环境）。@noble/hashes 的
+    // PBKDF2 与 WebCrypto deriveBits 同为标准 PBKDF2-HMAC-SHA256，输出完全一致。
+    return new Uint8Array(
+      await noblePbkdf2(sha256, encodeUtf8(password), salt, {
+        c: params.iterations ?? 310000,
+        dkLen: params.dkLen,
+      })
     );
-    const bits = await crypto.subtle.deriveBits(
-      {
-        name: 'PBKDF2',
-        salt: salt as BufferSource,
-        iterations: params.iterations ?? 310000,
-        hash: 'SHA-256',
-      } as Pbkdf2Params,
-      keyMaterial,
-      params.dkLen * 8
-    );
-    return new Uint8Array(bits);
   }
   // 默认 Argon2id（web/小程序，纯 JS，V8 引擎下高效）
   return nobleArgon2id(password, salt, {
@@ -168,7 +297,8 @@ async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array
       digest(): { buffer: ArrayBuffer; byteOffset: number; byteLength: number };
     };
   };
-  if (typeof cryptoObj.createHmac === 'function') {
+  // 微信小程序等环境 globalThis.crypto 可能完全不存在，必须先判空再访问
+  if (cryptoObj && typeof cryptoObj.createHmac === 'function') {
     const hmac = cryptoObj.createHmac('sha256', key as BufferSource);
     hmac.update(data as BufferSource);
     const sig = hmac.digest();
@@ -179,16 +309,21 @@ async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array
     return result;
   }
 
-  // web/小程序端：使用 WebCrypto subtle.sign
-  const ck = await crypto.subtle.importKey(
-    'raw',
-    key as BufferSource,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const sig = await crypto.subtle.sign({ name: 'HMAC' }, ck, data as BufferSource);
-  return new Uint8Array(sig);
+  if (hasWebCryptoSubtle()) {
+    // web 端：使用 WebCrypto subtle.sign
+    const ck = await crypto.subtle.importKey(
+      'raw',
+      key as BufferSource,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const sig = await crypto.subtle.sign({ name: 'HMAC' }, ck, data as BufferSource);
+    return new Uint8Array(sig);
+  }
+
+  // 纯 JS 回退（微信小程序等无 WebCrypto 环境），输出与 WebCrypto HMAC-SHA256 一致
+  return nobleHmac(sha256, key, data);
 }
 
 async function hkdfExtract(salt: Uint8Array, ikm: Uint8Array): Promise<Uint8Array> {
@@ -312,6 +447,39 @@ async function importAesKey(key: Uint8Array): Promise<CryptoKey> {
   ]);
 }
 
+/** AES-GCM-256 加密。密文格式统一为「密文 || 16 字节 tag」（WebCrypto 与 @noble/ciphers 一致） */
+async function aesGcmEncrypt(
+  key: Uint8Array,
+  nonce: Uint8Array,
+  plaintext: Uint8Array,
+  aad?: Uint8Array
+): Promise<Uint8Array> {
+  if (hasWebCryptoSubtle()) {
+    const ck = await importAesKey(key);
+    const params: AesGcmParams = { name: 'AES-GCM', iv: nonce as BufferSource };
+    if (aad) (params as AesGcmParams & { additionalData: BufferSource }).additionalData = aad as BufferSource;
+    return new Uint8Array(await crypto.subtle.encrypt(params, ck, plaintext as BufferSource));
+  }
+  // 纯 JS 回退（微信小程序等无 WebCrypto 环境），输出与 WebCrypto AES-GCM 完全一致
+  return nobleGcm(key, nonce, aad ?? undefined).encrypt(plaintext);
+}
+
+/** AES-GCM-256 解密；认证失败（tag 不匹配）时抛错 */
+async function aesGcmDecrypt(
+  key: Uint8Array,
+  nonce: Uint8Array,
+  ciphertext: Uint8Array,
+  aad?: Uint8Array
+): Promise<Uint8Array> {
+  if (hasWebCryptoSubtle()) {
+    const ck = await importAesKey(key);
+    const params: AesGcmParams = { name: 'AES-GCM', iv: nonce as BufferSource };
+    if (aad) (params as AesGcmParams & { additionalData: BufferSource }).additionalData = aad as BufferSource;
+    return new Uint8Array(await crypto.subtle.decrypt(params, ck, ciphertext as BufferSource));
+  }
+  return nobleGcm(key, nonce, aad ?? undefined).decrypt(ciphertext);
+}
+
 /**
  * AES-GCM 加密。
  *
@@ -328,16 +496,13 @@ export async function encrypt(
   keyVersion = 1,
   aad?: Uint8Array
 ): Promise<Ciphertext> {
-  const ck = await importAesKey(key);
   const nonce = randomBytes(12);
-  const params: AesGcmParams = { name: 'AES-GCM', iv: nonce as BufferSource };
-  if (aad) (params as AesGcmParams & { additionalData: BufferSource }).additionalData = aad as BufferSource;
-  const ct = await crypto.subtle.encrypt(params, ck, plaintext as BufferSource);
+  const ct = await aesGcmEncrypt(key, nonce, plaintext, aad);
   return {
     v: 1,
     k: keyVersion,
     n: toBase64(nonce),
-    c: toBase64(new Uint8Array(ct)),
+    c: toBase64(ct),
     a: aad ? 1 : 0,
   };
 }
@@ -347,22 +512,18 @@ export async function decrypt(
   blob: Ciphertext,
   aad?: Uint8Array
 ): Promise<Uint8Array> {
-  const ck = await importAesKey(key);
   const nonce = fromBase64(blob.n);
   const ct = fromBase64(blob.c);
-  const params: AesGcmParams = { name: 'AES-GCM', iv: nonce as BufferSource };
   const blobHasAad = blob.a === 1;
   if (blobHasAad) {
     if (!aad) {
       throw new Error('decrypt: 此密文绑定了 AAD，但解密时未提供 AAD');
     }
-    (params as AesGcmParams & { additionalData: BufferSource }).additionalData = aad as BufferSource;
   } else if (aad) {
     // 历史密文没有 AAD，但调用方传了 AAD：可能调用方搞错了上下文，拒绝解密
     throw new Error('decrypt: 此密文未绑定 AAD，但解密时传入了 AAD（上下文不匹配）');
   }
-  const pt = await crypto.subtle.decrypt(params, ck, ct as BufferSource);
-  return new Uint8Array(pt);
+  return aesGcmDecrypt(key, nonce, ct, blobHasAad ? aad : undefined);
 }
 
 // ========== 高层便捷方法（字符串）==========
@@ -449,7 +610,7 @@ const RECOVERY_LENGTH = 10;
  * 256 能被 32 整除，所以按字节取模不引入偏置。
  */
 export function generateRecoveryCode(): string {
-  const bytes = nobleRandomBytes(RECOVERY_LENGTH);
+  const bytes = randomBytes(RECOVERY_LENGTH);
   let code = '';
   for (let i = 0; i < RECOVERY_LENGTH; i++) {
     code += RECOVERY_ALPHABET[bytes[i]! % 32];

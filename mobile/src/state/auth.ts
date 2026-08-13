@@ -689,9 +689,11 @@ async function buildLocalAuthBlobForMasterKey(
     recoveryHash: toBase64(rc.authKey),
     kdfVersion: KDF_VERSION,
     kdfParams: {
+      algorithm: 'pbkdf2',
       m: KDF_PARAMS_MOBILE.m,
       t: KDF_PARAMS_MOBILE.t,
       p: KDF_PARAMS_MOBILE.p,
+      iterations: KDF_PARAMS_MOBILE.iterations,
       dkLen: KDF_PARAMS_MOBILE.dkLen,
     },
     createdAt: new Date().toISOString(),

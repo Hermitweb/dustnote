@@ -20,13 +20,16 @@ import { ApiClient } from '@dustnote/shared';
 import { APP_VERSION } from '../../state/auth';
 
 /**
- * 检测当前运行时是否提供完整的 WebCrypto subtle API
+ * 检测当前运行时是否可支撑单机模式（本地 AES-GCM + HKDF）
  *
- * 小程序运行时（如部分微信版本、支付宝、抖音等）可能不提供 crypto.subtle，
- * 或提供不完整的 importKey/encrypt/decrypt/sign 实现。
- * 缺失时单机模式（依赖本地 AES-GCM + HKDF）不可用——必须用联机模式。
+ * - 微信小程序（weapp）：基础库不提供 WebCrypto，但已由 crypto-polyfill 注入
+ *   安全随机源（wx.getUserCryptoManager().getRandomValues）+ shared 纯 JS 加密
+ *   回退（PBKDF2/HMAC/AES-GCM），单机模式可用，直接放行。
+ * - 其他运行时（H5/支付宝/抖音等）：仍要求提供完整的 crypto.subtle，
+ *   缺失时禁用单机模式。
  */
 function isWebCryptoAvailable(): boolean {
+  if (process.env.TARO_ENV === 'weapp') return true;
   try {
     const c = (globalThis as unknown as { crypto?: { subtle?: unknown } }).crypto;
     const subtle = c?.subtle;

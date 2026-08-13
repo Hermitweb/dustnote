@@ -27,6 +27,15 @@ export default {
     webpackChain(chain: any) {
       // 禁用 webpackbar，避免旧版 webpackbar 5 与 webpack 5.78+ 的 ProgressPlugin 不兼容
       chain.plugins.delete('webpackbar');
+      // 关键修复：pnpm workspace 下 react 经 junction/符号链接被解析为多份拷贝，
+      // 导致 Taro 页面钩子调用 React.useContext 时 dispatcher 为 null 崩溃（页面无法渲染）。
+      // 关闭 symlinks 跟随，让 webpack 按真实路径归一化模块，保证 react/react-dom 只打包一份。
+      chain.resolve.symlinks(false);
+      // 显式将 react/react-dom 别名到根 node_modules 唯一实例
+      chain.resolve.alias
+        .set('react', path.resolve(__dirname, '..', '..', 'node_modules', 'react'))
+        .set('react/jsx-runtime', path.resolve(__dirname, '..', '..', 'node_modules', 'react', 'jsx-runtime'))
+        .set('react-dom', path.resolve(__dirname, '..', '..', 'node_modules', 'react-dom'));
       // 让 babel-loader 处理 @dustnote/shared 中的新语法（数字分隔符等）
       const scriptRule = chain.module.rules.get('script');
       if (scriptRule) {

@@ -37,12 +37,13 @@ export default function StandaloneSetup() {
 
   const strength = evalStrength(password);
 
-  const onSetup = async () => {
-    if (password.length < 8) {
+  // 主流程：校验 → setupStandalone → 展示恢复码弹窗
+  const doSetup = async (pwd: string, confirmPwd: string) => {
+    if (pwd.length < 8) {
       Taro.showToast({ title: '密码至少 8 位', icon: 'none' });
       return;
     }
-    if (password !== confirm) {
+    if (pwd !== confirmPwd) {
       Taro.showToast({ title: '两次密码不一致', icon: 'none' });
       return;
     }
@@ -51,7 +52,7 @@ export default function StandaloneSetup() {
       Taro.showLoading({ title: '设置中…' });
       // 通过 auth store action：生成 masterKey + blob + recoveryCode，
       // 持久化 blob、缓存 masterKey、更新 authState='unlocked'
-      const recoveryCode = await setupStandalone(password);
+      const recoveryCode = await setupStandalone(pwd);
       Taro.hideLoading();
 
       // 弹窗显示恢复码（用户必须保存）
@@ -108,7 +109,7 @@ export default function StandaloneSetup() {
 
       <View
         className="mint-btn mint-btn-block"
-        onClick={onSetup}
+        onClick={() => doSetup(password, confirm)}
         style={{ opacity: submitting ? 0.5 : 1 }}
       >
         {submitting ? '设置中…' : '创建主密码'}

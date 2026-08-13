@@ -5,6 +5,8 @@
  */
 
 import type { ReactNode } from 'react';
+// 必须在任何加密操作前先注入安全随机源（微信小程序无 WebCrypto）
+import './lib/crypto-polyfill';
 import Taro from '@tarojs/taro';
 import { useLaunch } from '@tarojs/taro';
 import { AuthProvider } from './state/auth';

@@ -197,7 +197,7 @@ authRouter.get('/auth/status', (req, res) => {
     deviceKnown,
     // 派生 KEK 需要盐，客户端在输入密码前就得拿到。盐不是秘密。
     pwSalt: user ? user.pw_salt.toString('base64') : null,
-    kdfParams: { m: KDF_PARAMS.m, t: KDF_PARAMS.t, p: KDF_PARAMS.p, dkLen: KDF_PARAMS.dkLen },
+    kdfParams: { algorithm: 'argon2id', m: KDF_PARAMS.m, t: KDF_PARAMS.t, p: KDF_PARAMS.p, dkLen: KDF_PARAMS.dkLen },
   });
 });
 
@@ -406,7 +406,7 @@ authRouter.get('/auth/recovery-params', (_req, res) => {
   }
   res.json({
     rcSalt: user.rc_salt.toString('base64'),
-    kdfParams: { m: KDF_PARAMS.m, t: KDF_PARAMS.t, p: KDF_PARAMS.p, dkLen: KDF_PARAMS.dkLen },
+    kdfParams: { algorithm: 'argon2id', m: KDF_PARAMS.m, t: KDF_PARAMS.t, p: KDF_PARAMS.p, dkLen: KDF_PARAMS.dkLen },
   });
 });
 

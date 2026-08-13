@@ -226,8 +226,18 @@ export interface LocalAuthBlob {
   wrappedMasterKey: string;
   /** KDF 版本（v2 = 2；v1 旧数据 = 1，无法解锁需重新 setup） */
   kdfVersion: number;
-  /** KDF 参数（m/t/p/dkLen，§17.4.1）；旧 blob 无此字段，按 KDF_PARAMS 默认处理 */
-  kdfParams?: { m: number; t: number; p: number; dkLen: number };
+  /**
+   * 创建时使用的 KDF 参数（§17.4.1：解锁时按 blob 记录的参数派生，支持未来参数演进）
+   * algorithm 必须记录：小程序/移动端用 PBKDF2，web 用 Argon2id，缺失会导致解锁用错算法。
+   */
+  kdfParams?: {
+    algorithm?: 'argon2id' | 'pbkdf2';
+    m: number;
+    t: number;
+    p: number;
+    iterations?: number;
+    dkLen: number;
+  };
   /** 创建时间 ISO */
   createdAt: string;
 }
