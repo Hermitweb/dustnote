@@ -13,6 +13,27 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.1] - 2026-08-13
+
+### 修复 — 跨端环境差异导致的加密功能缺失（恢复码页不显示/崩溃）
+
+对「无 WebCrypto / 无 btoa-atob / 无 TextEncoder / kdfParams 不完整」等环境假设进行全端审查与加固，恢复码展示流程在三端（web / mobile / miniprogram）实测通过。
+
+#### 小程序（P1）
+
+- **无 WebCrypto 环境加密修复**：基础库不提供 `crypto.subtle` / `getRandomValues` / `btoa` / `atob`，首次搭建生成恢复码时全部加密操作失败。修复：新增 `crypto-polyfill`（`wx.getUserCryptoManager().getRandomValues` 安全随机池 + shared 注入同步取用），shared 层补纯 JS 回退（PBKDF2/HMAC/AES-GCM 经 @noble），`mode-select` 能力检测放行 weapp。
+- **kdfParams 缺失修复**：`LocalAuthBlob.kdfParams` 记录 `algorithm`（argon2id/pbkdf2）与 `iterations`，避免解锁时误用 Argon2id 崩溃（`p should be 1 <= p < 2^24`）。
+
+#### Shared / 跨端（P1）
+
+- **TextEncoder/TextDecoder 惰性化**：此前模块顶层 `new TextEncoder()`，缺该全局对象的运行时在 import 阶段整体崩溃。改为首次使用实例化 + 缺失时清晰报错。
+- **randomBytes 兜底**：平台注入随机源失败时尝试 noble 兜底，并保留「随机池未就绪」原始错误便于定位。
+- **kdfParams 补全**：mobile `buildLocalAuthBlobForMasterKey`、server auth 路由两处构造点补齐 `algorithm`/`iterations`。
+
+#### 部署（P2）
+
+- **服务器完整版部署**：API-only 容器无 web 前端导致「输入密码后不跳恢复码页」。改用根 Dockerfile（web+nginx+API 一体），web:8091 / api:8090，浏览器端到端实测恢复码流程通过。构建环境修复：apk 阿里云镜像、npm npmmirror 源、docker 镜像源切换、构建容器 DNS 域名钉死。
+
 ## [2.4.4] - 2026-08-05
 
 ### 修复 — 首席架构师 SOP 零故障加固（服务端一致性 + 跨端健壮性 + 安全纵深）
