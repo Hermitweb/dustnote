@@ -55,7 +55,7 @@ createRoot(root).render(
             </h2>
             <p className="mb-4 text-sm text-surface-muted">
               {import.meta.env.PROD
-                ? '错误已自动上报，请刷新页面或重启应用。'
+                ? '应用遇到了问题，请刷新页面或重启应用。'
                 : (error as Error).message}
             </p>
             <button

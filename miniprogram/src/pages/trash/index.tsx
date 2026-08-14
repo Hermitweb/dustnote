@@ -100,8 +100,14 @@ export default function Trash() {
     });
     if (!r.confirm) return;
     try {
-      await getRepo().emptyTrash();
-      Taro.showToast({ title: '已清空', icon: 'success' });
+      const result = (await getRepo().emptyTrash()) as unknown as { deleted: number; failed: number } | undefined;
+      const deleted = result?.deleted ?? 0;
+      const failed = result?.failed ?? 0;
+      if (failed > 0) {
+        Taro.showToast({ title: `已清空 ${deleted} 条，${failed} 条失败`, icon: 'none' });
+      } else {
+        Taro.showToast({ title: '已清空', icon: 'success' });
+      }
       await load();
     } catch {
       Taro.showToast({ title: '清空失败', icon: 'none' });

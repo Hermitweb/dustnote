@@ -113,7 +113,7 @@ export interface DataRepository {
   restoreNote(id: string): Promise<void>;
 
   /** 清空回收站：永久删除所有已软删的笔记 */
-  emptyTrash(): Promise<void>;
+  emptyTrash(): Promise<void | { deleted: number; failed: number }>;
 
   // ========== 文件夹 ==========
 

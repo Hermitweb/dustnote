@@ -132,7 +132,10 @@ export function useUpdater(): {
     setProgress(0);
     const unlisten = await api.onDownloadProgress((pct) => setProgress(pct));
     try {
-      const ok = await api.downloadUpdates();
+      const downloadTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('下载超时')), 300_000)
+      );
+      const ok = await Promise.race([api.downloadUpdates(), downloadTimeout]);
       setState(ok ? 'ready' : 'uptodate');
     } catch (e) {
       setError((e as UpdaterError)?.message ?? String(e));
@@ -146,7 +149,10 @@ export function useUpdater(): {
     const api = getUpdaterApi();
     if (!api) return;
     try {
-      await api.applyAndRestart();
+      const restartTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('重启超时')), 30_000)
+      );
+      await Promise.race([api.applyAndRestart(), restartTimeout]);
     } catch (e) {
       setError((e as UpdaterError)?.message ?? String(e));
       setState('error');

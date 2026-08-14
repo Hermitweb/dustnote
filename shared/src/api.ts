@@ -21,7 +21,7 @@ export interface FetchResponse {
 /** 跨端网络实现签名（body 为 JSON 字符串；二进制上传走默认 fetch） */
 export type FetchFn = (
   url: string,
-  init: { method: string; headers: Record<string, string>; body?: string }
+  init: { method: string; headers: Record<string, string>; body?: string; signal?: AbortSignal }
 ) => Promise<FetchResponse>;
 
 export interface ApiClientOptions {
@@ -34,6 +34,8 @@ export interface ApiClientOptions {
   accessToken?: string | undefined;
   /** 自定义网络实现（小程序等无 fetch 环境） */
   fetch?: FetchFn;
+  /** 请求超时（毫秒），0 或 undefined 表示不限制 */
+  timeoutMs?: number;
 }
 
 export interface ApiError {
@@ -56,6 +58,7 @@ const defaultFetch: FetchFn = async (url, init) => {
     method: init.method,
     headers: init.headers as unknown as HeadersInit,
     ...(init.body !== undefined ? { body: init.body } : {}),
+    ...(init.signal ? { signal: init.signal } : {}),
   });
   return {
     ok: res.ok,
@@ -87,37 +90,56 @@ export class ApiClient {
     const url = `${this.opts.baseUrl}${path}`;
     const headers = this.headers(init?.headers as Record<string, string> | undefined);
 
-    // 二进制请求体（FormData/Blob/ArrayBuffer）：仅默认 fetch 支持，走原生通路
-    if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer) {
-      delete headers['Content-Type'];
-      const res = await fetch(url, {
-        ...init,
+    const controller = this.opts.timeoutMs ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), this.opts.timeoutMs) : null;
+    try {
+      // 二进制请求体（FormData/Blob/ArrayBuffer）：仅默认 fetch 支持，走原生通路
+      if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer) {
+        delete headers['Content-Type'];
+        const res = await fetch(url, {
+          ...init,
+          method,
+          headers: headers as unknown as HeadersInit,
+          body: body as BodyInit,
+          ...(controller ? { signal: controller.signal } : {}),
+        });
+        return this.parseResponse<T>(res);
+      }
+
+      let payload: string | undefined;
+      if (body !== undefined) {
+        payload = JSON.stringify(body);
+      } else if (init?.body) {
+        payload = typeof init.body === 'string' ? init.body : undefined;
+      }
+
+      const fetchImpl = this.opts.fetch ?? defaultFetch;
+      const res = await fetchImpl(url, {
         method,
-        headers: headers as unknown as HeadersInit,
-        body: body as BodyInit,
+        headers,
+        ...(payload !== undefined ? { body: payload } : {}),
+        ...(controller ? { signal: controller.signal } : {}),
       });
       return this.parseResponse<T>(res);
+    } finally {
+      if (timer) clearTimeout(timer);
     }
-
-    let payload: string | undefined;
-    if (body !== undefined) {
-      payload = JSON.stringify(body);
-    } else if (init?.body) {
-      payload = typeof init.body === 'string' ? init.body : undefined;
-    }
-
-    const fetchImpl = this.opts.fetch ?? defaultFetch;
-    const res = await fetchImpl(url, {
-      method,
-      headers,
-      ...(payload !== undefined ? { body: payload } : {}),
-    });
-    return this.parseResponse<T>(res);
   }
 
   private async parseResponse<T>(res: FetchResponse): Promise<T> {
     const text = await res.text();
-    const data = text ? (JSON.parse(text) as unknown) : null;
+    let data: unknown = null;
+    if (text) {
+      try {
+        data = JSON.parse(text) as unknown;
+      } catch {
+        throw new ApiException({
+          status: res.status,
+          code: 'unknown',
+          message: res.statusText || 'Invalid JSON response',
+        });
+      }
+    }
 
     if (!res.ok) {
       const errObj = (data ?? {}) as { error?: string; message?: string };

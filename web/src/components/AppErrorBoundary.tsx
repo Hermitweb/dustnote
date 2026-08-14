@@ -52,6 +52,10 @@ export class AppErrorBoundary extends Component<Props, State> {
     location.reload();
   };
 
+  handleRetry = (): void => {
+    this.setState({ hasError: false, error: null });
+  };
+
   handleCopyDiagnostics = async (): Promise<void> => {
     try {
       const { exportDiagnostics } = await import('../lib/diagnostics');
@@ -96,6 +100,12 @@ export class AppErrorBoundary extends Component<Props, State> {
               className="flex-1 rounded-lg border border-surface-border px-4 py-2.5 text-sm font-medium text-surface-fg hover:bg-surface-bg"
             >
               📋 导出诊断信息
+            </button>
+            <button
+              onClick={this.handleRetry}
+              className="flex-1 rounded-lg border border-surface-border px-4 py-2.5 text-sm font-medium text-surface-fg hover:bg-surface-bg"
+            >
+              🔁 重试
             </button>
             <button
               onClick={this.handleReload}

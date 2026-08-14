@@ -3,9 +3,18 @@
 # Caddy 会自动申请 Let's Encrypt 证书
 
 {$DOMAIN} {
-	reverse_proxy dustnote:3210 {
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-Proto {scheme}
+	handle /api/* {
+		reverse_proxy dustnote:3210 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# web 静态资源（SPA fallback）
+	handle {
+		root * /srv/web
+		file_server
+		try_files {path} /index.html
 	}
 
 	# 压缩

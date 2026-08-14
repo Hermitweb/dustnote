@@ -162,6 +162,7 @@ export function PublicShareView({ token }: { token: string }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder={t('public_share.password_placeholder')}
+            aria-label={t('public_share.password_title')}
             className="mb-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
             autoFocus
             onKeyDown={(e) => {

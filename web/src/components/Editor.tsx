@@ -535,6 +535,7 @@ export function Editor() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={t('editor.placeholder')}
+          aria-label={t('editor.placeholder')}
           className="w-full bg-transparent text-2xl font-bold text-surface-fg placeholder-surface-muted focus:outline-none"
         />
         {/* 标签编辑：chips + 添加/新建 */}
@@ -636,6 +637,7 @@ export function Editor() {
             onDrop={onDrop}
             onPaste={onPaste}
             placeholder={t('editor.md_placeholder')}
+            aria-label={t('editor.md_placeholder')}
             className={`editor-textarea flex-1 resize-none bg-surface-bg p-6 text-sm text-surface-fg placeholder-surface-muted focus:outline-none ${
               mode === 'split' ? 'border-r border-surface-border' : ''
             }`}

@@ -28,6 +28,12 @@ async function main(): Promise<void> {
   const app = createApp();
   const httpServer = createServer(app);
 
+  // 请求超时：避免慢速攻击把连接长期挂住耗尽句柄
+  httpServer.requestTimeout = 30_000;
+  httpServer.headersTimeout = 65_000;
+  httpServer.keepAliveTimeout = 60_000;
+  httpServer.timeout = 120_000;
+
   // 3. 启动 WebSocket
   setupSyncWss(httpServer);
 
@@ -54,7 +60,7 @@ async function main(): Promise<void> {
     shuttingDown = true;
     logger.info({ reason }, '开始优雅退出');
     try {
-      httpServer.close();
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
       stopTrashCleanup();
       await closeWss();
       closeDb();

@@ -5,7 +5,7 @@
 #   docker build -f server/Dockerfile -t dustnote-server:2.1.0 .
 
 # ========== 构建阶段 ==========
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
 
@@ -33,7 +33,7 @@ RUN pnpm --filter @dustnote/server build
 RUN pnpm --filter @dustnote/server --prod deploy /prod-server
 
 # ========== 运行阶段 ==========
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 RUN apk add --no-cache tini curl
 WORKDIR /app
 

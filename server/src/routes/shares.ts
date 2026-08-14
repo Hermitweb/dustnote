@@ -46,7 +46,7 @@ const CreateShareSchema = z.object({
   ciphertext: CiphertextSchema,
   /** masterKey 包装的 shareKey，服务端解不开 */
   wrappedShareKey: CiphertextSchema,
-  password: z.string().min(4).max(64).optional(),
+  password: z.string().min(8).max(64).optional(),
   expiresIn: z
     .number()
     .int()

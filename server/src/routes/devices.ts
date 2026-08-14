@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 设备管理 API
  *
  * GET    /api/v1/devices       - 列出当前用户所有登录设备/会话
@@ -18,6 +18,8 @@ import type { AuthUser } from '../middleware/auth.js';
 import { ipHash } from '../auth/ip-hash.js';
 
 export const devicesRouter = Router();
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface DeviceRow {
   id: string;
@@ -67,6 +69,10 @@ devicesRouter.get('/devices', (req, res) => {
 devicesRouter.delete('/devices/:id', (req, res) => {
   const user = req.user as AuthUser;
   const deviceId = req.params.id;
+  if (!deviceId || !UUID_RE.test(deviceId)) {
+    res.status(400).json({ error: 'invalid_id' });
+    return;
+  }
   const db = getDb();
 
   const row = db

@@ -304,12 +304,12 @@ export async function recoverLocalAuth(
     recoveryHash: newRecoveryHash,
     kdfVersion: KDF_VERSION,
     kdfParams: {
-      algorithm: params.algorithm ?? 'argon2id',
-      m: params.m,
-      t: params.t,
-      p: params.p,
-      ...(params.iterations !== undefined ? { iterations: params.iterations } : {}),
-      dkLen: params.dkLen,
+      algorithm: usedParams.algorithm ?? 'argon2id',
+      m: usedParams.m,
+      t: usedParams.t,
+      p: usedParams.p,
+      ...(usedParams.iterations !== undefined ? { iterations: usedParams.iterations } : {}),
+      dkLen: usedParams.dkLen,
     },
     createdAt: new Date().toISOString(),
   };

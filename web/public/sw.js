@@ -10,12 +10,14 @@
  * 前端可通过 controllerchange 事件提示用户刷新。
  */
 
-const SW_VERSION = 'dustnote-v2.4.4-001';
+const SW_VERSION = 'dustnote-v2.5.2-001';
 const CACHE_PREFIX = 'dustnote';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${SW_VERSION}`;
 const RUNTIME_CACHE = `${CACHE_PREFIX}-runtime`;
 
 // 需要预缓存的静态资源（install 时缓存）
+// 注意：当前预缓存列表不含 JS/CSS bundle（构建后文件名带 hash 无法手动维护）。
+// 建议未来使用 vite-plugin-pwa 自动生成 precache manifest。
 const PRECACHE_URLS = [
   '/',
   '/index.html',

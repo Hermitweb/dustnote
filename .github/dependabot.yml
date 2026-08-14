@@ -9,13 +9,24 @@ updates:
       interval: 'weekly'
       day: 'monday'
     open-pull-requests-limit: 10
-    reviewers:
-      - 'maintainers'
     labels:
       - 'dependencies'
     ignore:
       - dependency-name: '*'
         update-types: ['version-update:semver-major']
+    groups:
+      eslint:
+        patterns:
+          - '@typescript-eslint/*'
+          - 'eslint*'
+          - 'prettier*'
+      types:
+        patterns:
+          - '@types/*'
+      babel:
+        patterns:
+          - '@babel/*'
+          - 'babel-*'
 
   - package-ecosystem: 'github-actions'
     directory: '/'
@@ -23,3 +34,19 @@ updates:
       interval: 'weekly'
     labels:
       - 'dependencies'
+  - package-ecosystem: 'docker'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'docker'
+    directory: '/server'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'gradle'
+    directory: '/mobile/android'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'cargo'
+    directory: '/desktop/src-tauri'
+    schedule:
+      interval: 'weekly'

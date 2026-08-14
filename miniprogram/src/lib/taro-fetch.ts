@@ -23,7 +23,7 @@ export const taroFetch: FetchFn = (url, init) =>
       header: init.headers,
       // wx.request 对对象自动序列化为 JSON；body 是 shared 层 JSON.stringify 后的字符串
       data: init.body ? (JSON.parse(init.body) as unknown) : undefined,
-      timeout: 30_000,
+      timeout: 15_000,
       success: (res) => {
         resolve({
           ok: res.statusCode >= 200 && res.statusCode < 300,

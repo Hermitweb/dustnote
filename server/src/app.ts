@@ -176,6 +176,7 @@ export function createApp(): Application {
       '/api/v1/auth/recovery-params',
       '/api/v1/auth/setup',
       '/api/v1/auth/refresh',
+      '/api/v1/auth/rewrap',
     ],
     rateLimit({
       windowMs: 15 * 60_000, // 15 分钟窗口

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 认证 API（协议 v2 + 账号锁定）
  *
  * GET  /api/v1/auth/status          - 是否已初始化 + 派生 KEK 所需的 pw_salt
@@ -139,7 +139,7 @@ function loadUser(): UserRow | undefined {
       `SELECT id, pw_salt, rc_salt, auth_hash, recovery_auth_hash,
               wrapped_master_key_pw, wrapped_master_key_rc,
               failed_attempts, locked_until
-       FROM users WHERE auth_hash IS NOT NULL LIMIT 1`
+       FROM users WHERE auth_hash IS NOT NULL ORDER BY id LIMIT 1`
     )
     .get() as UserRow | undefined;
 }
@@ -156,6 +156,15 @@ function touchDevice(userId: string, deviceId: string, platform: string, name?: 
       `UPDATE devices SET last_active_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND user_id = ?`
     ).run(deviceId, userId);
     return;
+  }
+  // Device count limit: max 20 per user, evict oldest when exceeded
+  const cnt = (db.prepare('SELECT COUNT(*) AS c FROM devices WHERE user_id = ?').get(userId) as { c: number }).c;
+  if (cnt >= 20) {
+    db.prepare(
+      `DELETE FROM devices WHERE user_id = ? AND id IN (
+         SELECT id FROM devices WHERE user_id = ? ORDER BY last_active_at ASC LIMIT ?
+       )`
+    ).run(userId, userId, cnt - 19);
   }
   db.prepare(
     `INSERT INTO devices (id, user_id, name, platform, fingerprint, last_active_at)

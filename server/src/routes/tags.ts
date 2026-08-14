@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 标签 API（明文，不加密）
  */
 
@@ -9,6 +9,8 @@ import { getDb } from '../db.js';
 import type { AuthUser } from '../middleware/auth.js';
 
 export const tagsRouter = Router();
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const TagSchema = z.object({
   name: z.string().min(1).max(32),
@@ -60,7 +62,7 @@ tagsRouter.post('/tags', (req, res) => {
 tagsRouter.delete('/tags/:id', (req, res) => {
   const user = req.user as AuthUser;
   const id = req.params.id;
-  if (!id) {
+  if (!id || !UUID_RE.test(id)) {
     res.status(400).json({ error: 'missing_id' });
     return;
   }

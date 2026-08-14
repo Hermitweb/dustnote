@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v[0-9]*'
   # 分支推送不再触发 release（仅 tag 触发，避免分支 push 与 tag push 产生双重 release 冲突）。
   # 分支推送的 CI 检查由 .github/workflows/ci.yml 负责。
 
@@ -12,7 +12,7 @@ env:
   PNPM_VERSION: '9.12.0'
   # Use the tag name when triggered by a tag; fall back to v2.5.1 for the
   # branch-triggered release.
-  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.1' }}
+  RELEASE_TAG: ${{ github.ref_name }}
 
 concurrency:
   group: release-${{ github.ref }}
@@ -117,6 +117,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
       - name: Add macOS Rust targets
         if: matrix.os == 'macos-latest'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
@@ -161,7 +165,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.1' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.2' }}
         run: |
           $ver = $env:VPK_VERSION -replace '^v', ''
           $stagingPath = 'desktop/src-tauri/staging'
@@ -184,7 +188,7 @@ jobs:
         # macOS/Linux vpk pack 依赖 .app bundle 或额外运行时资源，硬件平台受限
         continue-on-error: ${{ matrix.os != 'windows-latest' }}
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.1' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.2' }}
         # 一键 Setup.exe（PerUser，无需管理员）：
         #   - 安装位置：%LocalAppData%\DustNote
         #   - 快捷方式：--shortcuts 默认 "Desktop,StartMenuRoot"（桌面 + 开始菜单）
@@ -212,7 +216,7 @@ jobs:
         shell: bash
         continue-on-error: true
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.1' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.2' }}
         # --msi                      生成 .msi（vpk 内置 WiX 5，无需单独安装）
         # --instLocation PerMachine  默认 Program Files\{publisher}\{packTitle}（HKLM，需提权）
         # -o Releases-msi            输出到独立目录，避免覆盖第一步的 RELEASES/delta.nupkg
@@ -242,10 +246,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: desktop-velopack-${{ matrix.channel }}
+          name: desktop-veloppack-${{ matrix.channel }}
           path: |
             desktop/src-tauri/Releases/
-          if-no-files-found: ignore
+          if-no-files-found: ${{ matrix.channel == 'win' && 'error' || 'ignore' }}
 
   build-mobile:
     name: Build Mobile Android
@@ -300,8 +304,7 @@ jobs:
                      node_modules/@react-native node_modules/@react-native-*; do
             [ -e "$pkg" ] || continue
             name=$(basename "$pkg")
-            [ -e "mobile/node_modules/$name" ] && continue
-            ln -s "$(pwd)/$pkg" "mobile/node_modules/$name"
+            rm -f "mobile/node_modules/$name" && ln -s "$(pwd)/$pkg" "mobile/node_modules/$name"
           done
       - run: chmod +x mobile/android/gradlew
       - name: Decode release keystore
@@ -330,6 +333,7 @@ jobs:
           echo "enabled=true" >> "$GITHUB_OUTPUT"
           echo "✓ Release keystore decoded"
       - name: Build Android APK
+        id: build-apk
         working-directory: mobile/android
         # 仅在 keystore 实际解码成功时注入 DUSTNOTE_* 环境变量。
         # 否则 GitHub Actions 会把空字符串注入 env，Gradle 中 System.env.VAR
@@ -340,19 +344,26 @@ jobs:
           DUSTNOTE_KEY_ALIAS: ${{ steps.keystore.outputs.enabled == 'true' && env.DUSTNOTE_KEY_ALIAS || '' }}
           DUSTNOTE_KEY_PASSWORD: ${{ steps.keystore.outputs.enabled == 'true' && env.DUSTNOTE_KEY_PASSWORD || '' }}
         # 显式 unset 防止空串污染 Gradle 配置阶段（双保险，build.gradle 内亦做空串判断）
+        # 无签名密钥时降级到 assembleDebug，输出文件名标记为 debug，避免误发 Release 签名包
         run: |
           if [ -z "$DUSTNOTE_STORE_FILE" ]; then
             unset DUSTNOTE_STORE_FILE DUSTNOTE_STORE_PASSWORD DUSTNOTE_KEY_ALIAS DUSTNOTE_KEY_PASSWORD
+            GRADLE_TASK="assembleDebug"
+            APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+          else
+            GRADLE_TASK="assembleRelease"
+            APK_PATH="app/build/outputs/apk/release/app-release.apk"
           fi
-          set -o pipefail && ./gradlew assembleRelease --stacktrace 2>&1 | tee build-output.log
+          set -o pipefail && ./gradlew "$GRADLE_TASK" --stacktrace 2>&1 | tee build-output.log
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
       - name: Verify APK exists
         working-directory: mobile/android
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! test -f app/build/outputs/apk/release/app-release.apk; then
-            echo "::error::app-release.apk not found"
+          if ! test -f "${{ steps.build-apk.outputs.apk_path }}"; then
+            echo "::error::APK not found at ${{ steps.build-apk.outputs.apk_path }}"
             exit 1
           fi
       - name: Verify autolinked native modules
@@ -390,7 +401,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          path: mobile/android/${{ steps.build-apk.outputs.apk_path }}
           if-no-files-found: error
 
   build-server-zip:
@@ -451,7 +462,7 @@ jobs:
           # 6. 版本元信息
           cat > "$STAGE/VERSION" <<EOF
           release_tag: ${RELEASE_TAG}
-          server_version: 2.2.0
+          server_version: $(node -p "require('./server/package.json').version")
           packaged_at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
           EOF
 
@@ -471,7 +482,7 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs: [build-web, build-miniprogram, build-desktop, build-mobile, build-server-zip]
-    if: always()  # 即使 macOS/Linux 桌面构建失败也创建 Release（硬件/签名问题）
+    if: ${{ !cancelled() && needs.build-web.result == 'success' && needs.build-server-zip.result == 'success' }}
     permissions:
       contents: write
     steps:

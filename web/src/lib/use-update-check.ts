@@ -115,5 +115,15 @@ export function useUpdateCheck(): UseUpdateCheckReturn {
     };
   }, []);
 
-  return { state, result, recheck: () => undefined };
+  return {
+    state,
+    result,
+    recheck: () => {
+      lastCheckedAt = 0;
+      void checkUpdateOnce().then((r) => {
+        setResult(r);
+        setState(r.status === 'ok' ? 'ok' : r.status);
+      });
+    },
+  };
 }

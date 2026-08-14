@@ -1,4 +1,4 @@
-/**
+﻿/**
  * GET /api/v1/update-manifest
  *
  * 返回客户端更新清单，详见 update-strategy.md §3
@@ -11,6 +11,9 @@ import { logger } from '../logger.js';
 import { getManifestForChannel } from '../services/update-manifest.js';
 
 export const updateManifestRouter = Router();
+
+/** Allowed client platforms (must match devices.platform CHECK constraint) */
+const ALLOWED_PLATFORMS = new Set(['web', 'desktop', 'android', 'ios', 'miniprogram']);
 
 const QuerySchema = z.object({
   // 预留：未来可带 ?channel= 覆盖 header
@@ -36,6 +39,11 @@ updateManifestRouter.get('/update-manifest', (req, res) => {
       error: 'missing_client_headers',
       message: '请求必须带 X-Client-Version / X-Client-Platform / X-Client-Device-Id',
     });
+    return;
+  }
+
+  if (!ALLOWED_PLATFORMS.has(headers.platform)) {
+    res.status(400).json({ error: 'invalid_platform' });
     return;
   }
 

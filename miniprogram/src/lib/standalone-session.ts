@@ -11,17 +11,11 @@
  */
 
 import Taro from '@tarojs/taro';
-import { fromBase64, toBase64 } from '@dustnote/shared';
+import { fromBase64 } from '@dustnote/shared';
 
 const EVENT_MASTER_KEY = 'standalone:masterKey';
 
 let cachedMasterKey: Uint8Array | null = null;
-
-/** 将 masterKey 发布给所有页面（base64 编码，避免事件序列化问题） */
-export function publishMasterKey(masterKey: Uint8Array): void {
-  cachedMasterKey = masterKey;
-  Taro.eventCenter.trigger(EVENT_MASTER_KEY, toBase64(masterKey));
-}
 
 /** 读取缓存的 masterKey（仅在解锁后有效） */
 export function getStandaloneMasterKey(): Uint8Array | null {
@@ -42,33 +36,13 @@ export function clearStandaloneMasterKey(): void {
 }
 
 /**
- * 订阅 masterKey 变化事件
- *
- * 在页面加载时调用，确保页面切换后也能收到事件。
- * 返回取消订阅的函数。
- */
-export function subscribeMasterKey(cb: (key: Uint8Array) => void): () => void {
-  const handler = (b64: string) => {
-    try {
-      cachedMasterKey = fromBase64(b64);
-      cb(cachedMasterKey);
-    } catch {
-      /* base64 解码失败，忽略 */
-    }
-  };
-  Taro.eventCenter.on(EVENT_MASTER_KEY, handler);
-  return () => {
-    Taro.eventCenter.off(EVENT_MASTER_KEY, handler);
-  };
-}
-
-/**
  * 初始化：订阅全局事件
  *
  * 在 app.tsx 的 useLaunch 中调用一次即可。
  * 若 cachedMasterKey 已有值（同一进程内的页面跳转），回调会被立即触发。
  */
 export function initStandaloneSession(): void {
+  Taro.eventCenter.off(EVENT_MASTER_KEY);
   Taro.eventCenter.on(EVENT_MASTER_KEY, (b64: string) => {
     try {
       cachedMasterKey = fromBase64(b64);

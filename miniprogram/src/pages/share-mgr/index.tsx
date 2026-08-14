@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
-import Taro from '@tarojs/taro';
+import Taro, { useDidShow } from '@tarojs/taro';
 import { getApi } from '../../state/auth';
 
 interface ShareItem {
@@ -48,6 +48,10 @@ export default function Shares() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDidShow(() => {
+    void load();
+  });
 
   const enterSelect = useCallback((id: string) => {
     setSelecting(true);

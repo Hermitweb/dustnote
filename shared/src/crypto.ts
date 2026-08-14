@@ -210,11 +210,11 @@ export const KDF_PARAMS: KdfParams = {
  * 最终方案：移动端使用 PBKDF2-SHA256 替代 Argon2id
  * - PBKDF2 通过 react-native-quick-crypto 的 crypto.subtle.deriveBits 实现
  *   （原生 JSI 调用 OpenSSL，不阻塞 JS 主线程）
- * - 310000 次迭代（OWASP 2023 推荐最低值）
+ * - 600000 次迭代（OWASP 2023 推荐最低值）
  * - 在中端手机上约需 0.5-2 秒
  *
  * 安全取舍：PBKDF2 对 GPU/ASIC 攻击的抗性弱于 Argon2id，
- * 但对于个人笔记应用，310000 次 PBKDF2-SHA256 已足够安全。
+ * 但对于个人笔记应用，600000 次 PBKDF2-SHA256 已足够安全。
  * 联机模式跨设备解锁时，服务端需记录每个设备的 KDF 算法版本。
  */
 export const KDF_PARAMS_MOBILE: KdfParams = {
@@ -222,7 +222,7 @@ export const KDF_PARAMS_MOBILE: KdfParams = {
   m: 0, // Argon2id 参数不用
   t: 0,
   p: 0,
-  iterations: 310000, // OWASP 2023 推荐
+  iterations: 600000, // OWASP 2023 推荐
   dkLen: 32,
 };
 
@@ -441,6 +441,7 @@ export interface Ciphertext {
 }
 
 async function importAesKey(key: Uint8Array): Promise<CryptoKey> {
+  if (key.length !== 32) throw new Error('AES-256-GCM key must be 32 bytes');
   return crypto.subtle.importKey('raw', key as BufferSource, { name: 'AES-GCM' }, false, [
     'encrypt',
     'decrypt',
@@ -517,13 +518,16 @@ export async function decrypt(
   const blobHasAad = blob.a === 1;
   if (blobHasAad) {
     if (!aad) {
-      throw new Error('decrypt: 此密文绑定了 AAD，但解密时未提供 AAD');
+      throw new Error('decryption failed');
     }
   } else if (aad) {
-    // 历史密文没有 AAD，但调用方传了 AAD：可能调用方搞错了上下文，拒绝解密
-    throw new Error('decrypt: 此密文未绑定 AAD，但解密时传入了 AAD（上下文不匹配）');
+    throw new Error('decryption failed');
   }
-  return aesGcmDecrypt(key, nonce, ct, blobHasAad ? aad : undefined);
+  try {
+    return await aesGcmDecrypt(key, nonce, ct, blobHasAad ? aad : undefined);
+  } catch {
+    throw new Error('decryption failed');
+  }
 }
 
 // ========== 高层便捷方法（字符串）==========

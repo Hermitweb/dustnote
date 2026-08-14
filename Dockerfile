@@ -1,5 +1,10 @@
 # DustNote 生产 Docker 部署
 # docker compose up -d --build
+#
+# 此 Dockerfile 为一体部署（含 nginx + web 静态资源）。
+# docker-compose.yml 默认使用 server/Dockerfile（API-only）。
+# 如需一体部署，将 docker-compose.yml 的 dockerfile 改为 Dockerfile，
+# 端口映射改为 '${PORT:-8080}:80'。
 
 # ─── Stage 1: 全量构建 ───
 FROM node:22-alpine AS builder
@@ -45,7 +50,7 @@ RUN mkdir -p /app/server/data
 # §3.9/§15：应用进程以非 root 运行（supervisord 保持 root 以绑定 80 端口，
 # 但 server 子进程降权为 dustnote，数据目录归其所有，避免以 root 写库）
 RUN adduser -D -h /app dustnote && chown -R dustnote:dustnote /app/server
-RUN chmod 600 /app/server/data 2>/dev/null || true
+RUN chmod 700 /app/server/data 2>/dev/null || true
 
 # 环境
 ENV NODE_ENV=production PORT=3210

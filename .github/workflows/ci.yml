@@ -4,20 +4,33 @@ on:
   push:
     branches: [main, dev]
     paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.trae/**'
+        - '**.md'
+        - 'docs/**'
+        - '.trae/**'
+        - '*.yml'
+        - 'scripts/**'
+        - 'deploy/**'
+        - 'docker-compose.yml'
+        - 'Dockerfile'
   pull_request:
     branches: [main, dev]
     paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.trae/**'
+        - '**.md'
+        - 'docs/**'
+        - '.trae/**'
+        - '*.yml'
+        - 'scripts/**'
+        - 'deploy/**'
+        - 'docker-compose.yml'
+        - 'Dockerfile'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   NODE_VERSION: '20'
@@ -104,7 +117,7 @@ jobs:
       - name: Security Audit
         run: |
           set +e
-          pnpm audit --prod --audit-level=high --json > audit.json
+          pnpm audit --audit-level=high --json > audit.json
           set -e
           node -e "
             const fs = require('fs');
@@ -133,7 +146,7 @@ jobs:
     name: Build Web
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, audit]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -171,7 +184,7 @@ jobs:
     name: Build Server
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, audit]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -200,7 +213,7 @@ jobs:
     name: Build Miniprogram (H5)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, audit]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -225,7 +238,7 @@ jobs:
     name: Build Miniprogram (WeApp)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, audit]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -250,7 +263,7 @@ jobs:
     name: Build Desktop (Web)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, audit]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -306,7 +319,7 @@ jobs:
     name: Build Android (Debug APK)
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, audit]
     # Android 构建较慢且对 RN 升级敏感，作为 mobile 端回归保护。
     # 失败不阻塞 web/server 端 PR 合并（continue-on-error），但会发出明确信号。
     continue-on-error: true
@@ -323,6 +336,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
       - name: Install Android SDK & CMake
         # cmake;3.22.1: react-native-quick-crypto 使用 externalNativeBuild + CMakeLists.txt
         # 构建 C++/JSI 原生代码，runner 预装 SDK 可能缺 CMake

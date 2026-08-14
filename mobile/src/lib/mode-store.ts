@@ -119,14 +119,18 @@ export function getCurrentMode(): ModeState {
 /**
  * 解析当前应使用的 baseUrl：
  * - online 模式且 serverUrl 非空 → `${serverUrl}/api/v1`
- * - 否则 → DEFAULT_BASE_URL（默认 localhost，便于真机调试）
+ * - online 模式且 serverUrl 为空 → 抛出错误（联机模式必须配置服务器地址）
+ * - standalone 模式 → DEFAULT_BASE_URL
  *
  * serverUrl 期望是不含 /api/v1 后缀的根地址（如 'http://192.168.1.10:3210'）；
  * 若用户已包含 /api/v1 则直接使用。
  */
 export function resolveBaseUrl(): string {
   const { mode, serverUrl } = getCurrentMode();
-  if (mode === 'online' && serverUrl) {
+  if (mode === 'online') {
+    if (!serverUrl) {
+      throw new Error('联机模式未配置服务器地址');
+    }
     // 与 miniprogram 端一致：先去除尾部斜杠，避免用户输入 http://host:3210/ 时拼出 //api/v1
     const trimmed = serverUrl.replace(/\/+$/, '');
     return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`;

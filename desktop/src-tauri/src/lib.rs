@@ -108,8 +108,9 @@ mod velopack_impl {
     /// Velopack 的 download_updates / apply_updates 也会发起网络请求，
     /// 需要通过 env var 让其走代理。
     fn set_proxy_env(proxy: &str) {
-        // SAFETY: env var 写入非线程安全，但此处仅在 spawn_blocking 线程内执行，
-        // 且在 Velopack 构造 HTTP client 之前调用。Rust 1.85+ 要求 unsafe。
+        // SAFETY: env var 写入非线程安全。此处从 vp_check_for_updates (spawn_blocking)
+        // 和 vp_download_updates (sync) 调用，存在数据竞争风险，但代理 env var 仅被
+        // Velopack 内部 reqwest client 消费，且在构造前设置。Rust 1.85+ 要求 unsafe。
         unsafe {
             std::env::set_var("HTTPS_PROXY", proxy);
             std::env::set_var("HTTP_PROXY", proxy);
@@ -375,6 +376,17 @@ async fn save_file_dialog(
 ) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
 
+    // S83: 校验 filename，防止路径穿越
+    let filename = std::path::Path::new(&filename)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("export.bin")
+        .to_string();
+    // S84: 限制导出文件大小
+    if content.len() > 500 * 1024 * 1024 {
+        return Err("file too large (max 500MB)".into());
+    }
+
     let app_clone = app.clone();
     tokio::task::spawn_blocking(move || {
         let path = app_clone
@@ -448,11 +460,10 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             // 原生菜单栏
-            let new_note_i = MenuItem::with_id(app, "file_new_note", "新建笔记", true, Some("Ctrl+N"))?;
-            let file_quit_i = MenuItem::with_id(app, "file_quit", "退出 尘心笔记", true, Some("Ctrl+Q"))?;
+            let new_note_i = MenuItem::with_id(app, "file_new_note", "新建笔记", true, Some("CommandOrControl+N"))?;
+            let file_quit_i = MenuItem::with_id(app, "file_quit", "退出 尘心笔记", true, Some("CommandOrControl+Q"))?;
             let file_menu = Submenu::with_items(app, "文件", true, &[&new_note_i, &file_quit_i])?;
 
             let undo_i = PredefinedMenuItem::undo(app, Some("撤销"))?;
@@ -465,11 +476,11 @@ pub fn run() {
                 &undo_i, &redo_i, &cut_i, &copy_i, &paste_i, &select_all_i
             ])?;
 
-            let zoom_in_i = MenuItem::with_id(app, "view_zoom_in", "放大", true, Some("Ctrl+="))?;
-            let zoom_out_i = MenuItem::with_id(app, "view_zoom_out", "缩小", true, Some("Ctrl+-"))?;
-            let zoom_reset_i = MenuItem::with_id(app, "view_zoom_reset", "重置缩放", true, Some("Ctrl+0"))?;
+            let zoom_in_i = MenuItem::with_id(app, "view_zoom_in", "放大", true, Some("CommandOrControl+="))?;
+            let zoom_out_i = MenuItem::with_id(app, "view_zoom_out", "缩小", true, Some("CommandOrControl+-"))?;
+            let zoom_reset_i = MenuItem::with_id(app, "view_zoom_reset", "重置缩放", true, Some("CommandOrControl+0"))?;
             let fullscreen_i = MenuItem::with_id(app, "view_toggle_fullscreen", "全屏", true, Some("F11"))?;
-            let sidebar_i = MenuItem::with_id(app, "view_toggle_sidebar", "侧边栏", true, Some("Ctrl+B"))?;
+            let sidebar_i = MenuItem::with_id(app, "view_toggle_sidebar", "侧边栏", true, Some("CommandOrControl+B"))?;
             let view_menu = Submenu::with_items(app, "视图", true, &[
                 &zoom_in_i, &zoom_out_i, &zoom_reset_i, &fullscreen_i, &sidebar_i
             ])?;
@@ -560,7 +571,7 @@ pub fn run() {
             {
                 let shortcut_result: Result<(), tauri_plugin_global_shortcut::Error> = (|| {
                     let builder = tauri_plugin_global_shortcut::Builder::new()
-                        .with_shortcuts(["Ctrl+Shift+M"])?
+                        .with_shortcuts(["CommandOrControl+Shift+M"])?
                         .with_handler(|app, _shortcut, event| {
                             if event.state == ShortcutState::Pressed {
                                 if let Some(w) = app.get_webview_window("main") {

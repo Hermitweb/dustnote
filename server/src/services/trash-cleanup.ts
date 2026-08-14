@@ -6,13 +6,13 @@
  * - 服务端启动时跑一次，之后每小时跑一次
  * - 单用户场景下 notes 表数据量有限，全表扫描开销可忽略
  *
- * 注意：永久删除不可恢复，且会触发 broadcastNoteChanged 让在线设备
- * 同步移除该笔记。这里为了简单不广播（启动时通常无在线设备），
- * 客户端会在下次 loadAll 时自然不再拿到这些笔记。
+ * 永久删除不可恢复，会触发 broadcastNoteChanged 让在线设备
+ * 同步移除该笔记（op: 'permanent_delete'），避免客户端残留本地副本。
  */
 
 import { getDb } from '../db.js';
 import { logger } from '../logger.js';
+import { broadcastNoteChanged } from './sync-ws.js';
 
 export const TRASH_RETENTION_DAYS = 30;
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 小时
@@ -30,6 +30,17 @@ export function purgeExpiredTrash(now: Date = new Date()): number {
   const cutoffMs = now.getTime() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
   const cutoff = new Date(cutoffMs).toISOString();
 
+  // 先查出待删除笔记的 id + user_id，用于广播；再执行 DELETE。
+  // 单用户场景下数据量有限，且 30 天保留期保证单次清理量可控。
+  const toPurge = db
+    .prepare(
+      `SELECT id, user_id FROM notes
+       WHERE deleted_at IS NOT NULL AND julianday(deleted_at) < julianday(?)`
+    )
+    .all(cutoff) as { id: string; user_id: string }[];
+
+  if (toPurge.length === 0) return 0;
+
   const result = db
     .prepare(
       `
@@ -38,6 +49,11 @@ export function purgeExpiredTrash(now: Date = new Date()): number {
   `
     )
     .run(cutoff);
+
+  // 广播永久删除事件，让在线设备同步移除该笔记
+  for (const n of toPurge) {
+    broadcastNoteChanged(n.user_id, { id: n.id, op: 'permanent_delete' });
+  }
 
   if (result.changes > 0) {
     logger.info(

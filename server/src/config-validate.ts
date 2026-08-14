@@ -52,6 +52,14 @@ if (config.nodeEnv === 'production') {
     );
     process.exit(1);
   }
+  // 生产环境必须显式设置 TRUST_PROXY>0：部署在反代后未设置时，
+  // express-rate-limit 会把所有请求归到反代 IP 同一桶，限流形同虚设。
+  if (config.trustProxy === 0) {
+    console.error(
+      '❌ 生产环境必须设置 TRUST_PROXY>0（反代层数，通常为 1），否则限流按反代 IP 聚合失效'
+    );
+    process.exit(1);
+  }
 } else if (config.nodeEnv !== 'test') {
   if (KNOWN_WEAK_DEFAULTS.has(config.jwtSecret)) {
     console.warn('⚠️  正在使用默认 JWT_SECRET，请勿用于对外暴露的开发环境：export JWT_SECRET="$(openssl rand -base64 48)"');

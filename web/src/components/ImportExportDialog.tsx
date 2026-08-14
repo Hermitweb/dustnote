@@ -75,6 +75,10 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
     for (let i = 0; i < arr.length; i++) {
       const f = arr[i];
       if (!f) continue;
+      if (f.size > 50 * 1024 * 1024) {
+        setError(t('import_export.file_too_large', { name: f.name, defaultValue: `文件过大：${f.name}（超过 50MB 限制）` }));
+        continue;
+      }
       try {
         if (detectFormat(f.name) === 'unknown') {
           setStatus(
@@ -178,7 +182,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       return;
     }
     const date = new Date().toISOString().slice(0, 10);
-    const safeTitle = (plain.title || 'note').replace(/[\\/:*?"<>|]/g, '-');
+    const safeTitle = (plain.title || 'note').replace(/[\\/:*?"<>|]/g, '-').replace(/\.\.+/g, '.').replace(/^\.+/, '');
     if (fmt === 'md') {
       const blob = exportAsMarkdown(plain.title, plain.content);
       const filename = `${safeTitle}-${date}.md`;
@@ -296,7 +300,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       const usedNames = new Set<string>();
 
       for (const [, pt] of entries) {
-        const safeTitle = (pt.title || 'untitled').replace(/[\\/:*?"<>|]/g, '-').slice(0, 60);
+        const safeTitle = (pt.title || 'untitled').replace(/[\\/:*?"<>|]/g, '-').replace(/\.\.+/g, '.').replace(/^\.+/, '').slice(0, 60);
         // 避免同名文件冲突：若已存在则追加序号
         let filename = `${safeTitle}.md`;
         let n = 2;

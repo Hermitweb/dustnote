@@ -58,6 +58,7 @@ export default function Share() {
         method: 'POST',
         data: pwd ? { password: pwd } : {},
         header: { 'X-Client-Platform': 'miniprogram', 'Content-Type': 'application/json' },
+        timeout: 10000,
       });
       if (res.statusCode === 401) {
         const e = (res.data as { error?: string }).error;
@@ -104,8 +105,8 @@ export default function Share() {
       } else {
         setError('加载失败');
       }
-    } catch {
-      setError('网络错误');
+    } catch (err) {
+      setError((err as { errMsg?: string })?.errMsg || '网络错误');
     }
   };
 

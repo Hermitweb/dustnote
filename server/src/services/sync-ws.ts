@@ -14,6 +14,7 @@
 
 import { WebSocketServer, type WebSocket } from 'ws';
 import { verifyToken } from '../auth/jwt.js';
+import { getDb } from '../db.js';
 import { logger } from '../logger.js';
 
 interface AuthedSocket extends WebSocket {
@@ -71,6 +72,16 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
     }
 
     wss!.handleUpgrade(req, socket, head, (ws) => {
+      // 设备吊销检查：verifyToken 只校验签名，不查库。
+      // 设备被吊销后 refresh_token_hash 被清空，但已签发的 access token
+      // 在过期前仍有效。这里补一次库查询，阻止被吊销设备建 WS。
+      const device = getDb()
+        .prepare('SELECT 1 FROM devices WHERE id = ? AND user_id = ? AND refresh_token_hash IS NOT NULL')
+        .get(payload.device, payload.sub);
+      if (!device) {
+        ws.close(4001, 'device_revoked');
+        return;
+      }
       const authed = ws as AuthedSocket;
       authed.userId = payload.sub;
       authed.deviceId = payload.device;

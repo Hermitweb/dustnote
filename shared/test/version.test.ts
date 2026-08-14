@@ -14,6 +14,14 @@ describe('version', () => {
     expect(lt('1.0.0-rc.1', '1.0.0-rc.2')).toBe(true);
   });
 
+  it('numeric prerelease comparison', () => {
+    expect(lt('1.0.0-2', '1.0.0-10')).toBe(true);
+  });
+
+  it('build metadata ignored', () => {
+    expect(compareSemver('1.0.0+build123', '1.0.0')).toBe(0);
+  });
+
   it('force update levels', () => {
     const base = {
       current: '1.0.0',

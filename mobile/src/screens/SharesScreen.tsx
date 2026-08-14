@@ -17,9 +17,9 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  Clipboard,
   Share,
 } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   decryptString,

@@ -2,6 +2,7 @@
  * Tauri 环境检测与桥接封装
  */
 
+import { invoke } from '@tauri-apps/api/core';
 import { ApiClient } from '@dustnote/shared';
 
 const APP_VERSION = __APP_VERSION__;
@@ -46,4 +47,11 @@ export function getDeviceId(): string {
     localStorage.setItem('dustnote_device_id', id);
   }
   return id;
+}
+
+export async function invokeWithTimeout<T>(cmd: string, args?: Record<string, unknown>, timeoutMs = 30_000): Promise<T> {
+  return Promise.race([
+    invoke<T>(cmd, args),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`IPC timeout: ${cmd}`)), timeoutMs)),
+  ]);
 }

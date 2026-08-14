@@ -252,7 +252,7 @@ export default function Settings() {
           <View
             className="settings-row"
             onClick={() => {
-              Taro.redirectTo({ url: '/pages/share-mgr/index' }).catch(() => {});
+              Taro.navigateTo({ url: '/pages/share-mgr/index' }).catch(() => {});
             }}
           >
             <View className="settings-row-label">

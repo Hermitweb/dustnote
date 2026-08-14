@@ -202,7 +202,7 @@ export function NoteEditScreen() {
   useEffect(() => {
     const timer = setTimeout(() => void saveRef.current(), 1500);
     return () => clearTimeout(timer);
-  }, [title, content]);
+  }, [title, content, tags]);
 
   // 仅在组件真正卸载（返回/切走）时 flush 防抖窗口内的未保存修改，
   // 通过 ref 拿到最新 save；空依赖保证不会在每次键入时触发。

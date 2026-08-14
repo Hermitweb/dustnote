@@ -17,6 +17,7 @@ import Taro from '@tarojs/taro';
 import { useModeStore } from '../../lib/mode-store';
 import { hasLocalAuthSync } from '../../lib/local-auth-storage';
 import { ApiClient } from '@dustnote/shared';
+import { taroFetch } from '../../lib/taro-fetch';
 import { APP_VERSION } from '../../state/auth';
 
 /**
@@ -66,6 +67,7 @@ async function testServerConnection(serverUrl: string): Promise<{ ok: boolean; m
       platform: 'miniprogram',
       channel: 'stable',
       deviceId: 'connection-test',
+      fetch: process.env.TARO_ENV === 'weapp' ? taroFetch : undefined,
     });
     const r = await api.get<{ initialized: boolean }>('/auth/status');
     return {

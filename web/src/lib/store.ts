@@ -46,6 +46,7 @@ import {
 import { getDeviceId } from './device';
 import { applyTheme, applyTypography } from './theme';
 import i18n, { LANGUAGE_STORAGE_KEY } from './i18n';
+import { toast } from './toast';
 import {
   cacheNotes as cacheNotesRaw,
   cacheFolders,
@@ -1717,7 +1718,9 @@ export const useStore = create<StoreState>((set, get) => ({
       // 联机模式：同步到服务端
       void api()
         .patch('/preferences', p)
-        .catch(() => undefined);
+        .catch(() => {
+          toast.error(i18n.t('settings.save_fail'));
+        });
     }
   },
 
@@ -1810,6 +1813,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   async clearLocalData(): Promise<void> {
     await clearCache();
+    await caches.delete('dustnote-runtime');
     const { clear: clearQueue } = await import('./offline-queue');
     await clearQueue();
     // 单机模式：清除本地鉴权数据 + 锁定状态

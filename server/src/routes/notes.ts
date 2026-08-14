@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 笔记 CRUD API（E2EE）
  * 服务端只存密文，所有明文处理在客户端完成
  */
@@ -13,6 +13,8 @@ import { broadcastNoteChanged } from '../services/sync-ws.js';
 import { ipHash } from '../auth/ip-hash.js';
 
 export const notesRouter = Router();
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** 密文 blob 上限：单条笔记密文（含 JSON 信封）约 2MB，超出视为异常输入 */
 const MAX_CIPHERTEXT_LENGTH = 2_000_000;
@@ -163,7 +165,7 @@ notesRouter.post('/notes', (req, res) => {
 notesRouter.patch('/notes/:id', (req, res) => {
   const user = req.user as AuthUser;
   const id = req.params.id;
-  if (!id) {
+  if (!id || !UUID_RE.test(id)) {
     res.status(400).json({ error: 'missing_id' });
     return;
   }
@@ -310,7 +312,7 @@ notesRouter.patch('/notes/:id', (req, res) => {
 notesRouter.delete('/notes/:id', (req, res) => {
   const user = req.user as AuthUser;
   const id = req.params.id;
-  if (!id) {
+  if (!id || !UUID_RE.test(id)) {
     res.status(400).json({ error: 'missing_id' });
     return;
   }
@@ -342,7 +344,7 @@ notesRouter.delete('/notes/:id', (req, res) => {
 notesRouter.delete('/notes/:id/permanent', (req, res) => {
   const user = req.user as AuthUser;
   const id = req.params.id;
-  if (!id) {
+  if (!id || !UUID_RE.test(id)) {
     res.status(400).json({ error: 'missing_id' });
     return;
   }
@@ -379,7 +381,7 @@ notesRouter.delete('/notes/:id/permanent', (req, res) => {
 notesRouter.get('/notes/:id/versions', (req, res) => {
   const user = req.user as AuthUser;
   const id = req.params.id;
-  if (!id) {
+  if (!id || !UUID_RE.test(id)) {
     res.status(400).json({ error: 'missing_id' });
     return;
   }
@@ -426,7 +428,7 @@ notesRouter.get('/notes/:id/versions', (req, res) => {
 notesRouter.get('/notes/:id/versions/:versionId', (req, res) => {
   const user = req.user as AuthUser;
   const { id, versionId } = req.params;
-  if (!id || !versionId) {
+  if (!id || !versionId || !UUID_RE.test(id) || !UUID_RE.test(versionId)) {
     res.status(400).json({ error: 'missing_params' });
     return;
   }
@@ -469,7 +471,7 @@ notesRouter.get('/notes/:id/versions/:versionId', (req, res) => {
 notesRouter.post('/notes/:id/versions/:versionId/restore', (req, res) => {
   const user = req.user as AuthUser;
   const { id, versionId } = req.params;
-  if (!id || !versionId) {
+  if (!id || !versionId || !UUID_RE.test(id) || !UUID_RE.test(versionId)) {
     res.status(400).json({ error: 'missing_params' });
     return;
   }

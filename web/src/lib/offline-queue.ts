@@ -43,6 +43,12 @@ export interface QueuedOp {
 
 let memQueue: QueuedOp[] | null = null;
 
+if (typeof BroadcastChannel !== 'undefined') {
+  new BroadcastChannel('dustnote-queue').onmessage = () => {
+    memQueue = null;
+  };
+}
+
 /** 从 IndexedDB 加载队列到内存（懒加载，仅一次） */
 async function ensureLoaded(): Promise<QueuedOp[]> {
   if (memQueue) return memQueue;
@@ -74,6 +80,9 @@ export async function enqueue(
   };
   queue.push(full);
   await persist();
+  if (typeof BroadcastChannel !== 'undefined') {
+    new BroadcastChannel('dustnote-queue').postMessage({ type: 'enqueued' });
+  }
   return full;
 }
 

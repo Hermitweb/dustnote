@@ -154,7 +154,7 @@ function markdownToHtml(md: string): string {
   // 链接：仅允许安全协议，阻止 javascript:/data: 等 XSS 向量
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, text: string, url: string) => {
     if (!/^(https?:|mailto:|tel:|#|\/)/i.test(url)) return m;
-    return `<a href="${url}">${text}</a>`;
+    return `<a href="${escapeHtml(url)}">${escapeHtml(text)}</a>`;
   });
   // 代码
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');

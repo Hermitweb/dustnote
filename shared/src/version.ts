@@ -34,7 +34,27 @@ export function compareSemver(a: string, b: string): number {
   if (pa.prerelease && !pb.prerelease) return -1;
   if (!pa.prerelease && pb.prerelease) return 1;
   if (pa.prerelease && pb.prerelease) {
-    return pa.prerelease.localeCompare(pb.prerelease);
+    const paIds = pa.prerelease.split('.');
+    const pbIds = pb.prerelease.split('.');
+    for (let i = 0; i < Math.max(paIds.length, pbIds.length); i++) {
+      const aId = paIds[i];
+      const bId = pbIds[i];
+      if (aId === undefined) return -1;
+      if (bId === undefined) return 1;
+      const aNum = /^\d+$/.test(aId) ? Number(aId) : null;
+      const bNum = /^\d+$/.test(bId) ? Number(bId) : null;
+      if (aNum !== null && bNum !== null) {
+        if (aNum !== bNum) return aNum < bNum ? -1 : 1;
+      } else if (aNum !== null) {
+        return -1;
+      } else if (bNum !== null) {
+        return 1;
+      } else {
+        const cmp = aId.localeCompare(bId);
+        if (cmp !== 0) return cmp < 0 ? -1 : 1;
+      }
+    }
+    return 0;
   }
   return 0;
 }
