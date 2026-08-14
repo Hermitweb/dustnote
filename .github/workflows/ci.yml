@@ -42,11 +42,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -61,11 +61,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -82,11 +82,11 @@ jobs:
     timeout-minutes: 15
     needs: [lint, typecheck]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -102,11 +102,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -136,7 +136,7 @@ jobs:
       # §10/§12/§15：每次发版自动生成 CycloneDX SBOM（软件物料清单）
       - name: Generate SBOM (CycloneDX)
         run: npx @cyclonedx/cyclonedx-npm --output-file sbom.xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: sbom
           path: sbom.xml
@@ -148,11 +148,11 @@ jobs:
     timeout-minutes: 15
     needs: [lint, typecheck, test, audit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -174,7 +174,7 @@ jobs:
           if [ "$kb" -gt "$max_kb" ]; then
             echo "::warning::Bundle size ${kb} KB exceeds ${max_kb} KB threshold"
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: web-dist
           path: web/dist/
@@ -186,11 +186,11 @@ jobs:
     timeout-minutes: 15
     needs: [lint, typecheck, test, audit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -203,7 +203,7 @@ jobs:
       - run: pnpm --filter @dustnote/server build
       - name: List server dist
         run: ls -la server/dist/ || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: server-dist
           path: server/dist/
@@ -215,11 +215,11 @@ jobs:
     timeout-minutes: 20
     needs: [lint, typecheck, test, audit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -228,7 +228,7 @@ jobs:
       - run: pnpm --filter @dustnote/miniprogram build:h5
       - name: List miniprogram dist
         run: ls -la miniprogram/dist/ || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: miniprogram-h5-dist
           path: miniprogram/dist/
@@ -240,11 +240,11 @@ jobs:
     timeout-minutes: 20
     needs: [lint, typecheck, test, audit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -253,7 +253,7 @@ jobs:
       - run: pnpm --filter @dustnote/miniprogram build:weapp
       - name: List weapp dist
         run: ls -la miniprogram/dist/ || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: miniprogram-weapp-dist
           path: miniprogram/dist/
@@ -265,11 +265,11 @@ jobs:
     timeout-minutes: 15
     needs: [lint, typecheck, test, audit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -278,7 +278,7 @@ jobs:
       - run: pnpm --filter @dustnote/desktop build:web
       - name: List desktop dist
         run: ls -la desktop/dist/ || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: desktop-web-dist
           path: desktop/dist/
@@ -293,11 +293,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -324,15 +324,15 @@ jobs:
     # 失败不阻塞 web/server 端 PR 合并（continue-on-error），但会发出明确信号。
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -358,7 +358,7 @@ jobs:
           ./gradlew assembleDebug --no-daemon
       - name: Upload APK artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: android-debug-apk
           path: mobile/android/app/build/outputs/apk/debug/*.apk
@@ -374,7 +374,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3

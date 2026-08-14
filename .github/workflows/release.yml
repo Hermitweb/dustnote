@@ -24,11 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -37,7 +37,7 @@ jobs:
       - run: pnpm --filter @dustnote/web build
       - name: Package Web static assets
         run: zip -r dustnote-web-${{ env.RELEASE_TAG }}.zip web/dist/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: web-dist
           path: dustnote-web-${{ env.RELEASE_TAG }}.zip
@@ -47,11 +47,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -80,7 +80,7 @@ jobs:
         run: |
           cd staging-weapp
           zip -r "../dustnote-miniprogram-weapp-${{ env.RELEASE_TAG }}.zip" .
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: miniprogram-dist
           path: |
@@ -108,11 +108,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -129,7 +129,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
       - name: Install vpk (Velopack CLI)
@@ -176,7 +176,7 @@ jobs:
           }
           Compress-Archive -Path "$stagingPath/*" -DestinationPath $zipPath -Force
           Get-Item $zipPath | Format-List Name, Length, FullName
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: matrix.os == 'windows-latest'
         with:
           name: desktop-portable-win
@@ -243,10 +243,10 @@ jobs:
         run: |
           echo "=== Releases directory (vpk output) ==="
           ls -la desktop/src-tauri/Releases/ 2>/dev/null || echo "No Releases dir found"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: always()
         with:
-          name: desktop-veloppack-${{ matrix.channel }}
+          name: desktop-velopack-${{ matrix.channel }}
           path: |
             desktop/src-tauri/Releases/
           if-no-files-found: ${{ matrix.channel == 'win' && 'error' || 'ignore' }}
@@ -259,15 +259,15 @@ jobs:
       contents: write
       issues: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: 17
@@ -398,7 +398,7 @@ jobs:
             fi
           done
           echo "✓ All critical native modules autolinked"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: android-apk
           path: mobile/android/${{ steps.build-apk.outputs.apk_path }}
@@ -409,7 +409,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Stage server deployment package
         run: |
           set -e
@@ -472,7 +472,7 @@ jobs:
           # 7. 打包 zip
           zip -r "dustnote-server-${RELEASE_TAG}.zip" "$STAGE"
           ls -la "dustnote-server-${RELEASE_TAG}.zip"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: server-zip
           path: dustnote-server-${{ env.RELEASE_TAG }}.zip
@@ -486,8 +486,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
         with:
           path: artifacts
       - name: Compute version metadata
@@ -528,7 +528,7 @@ jobs:
           fi
 
           # ---- Velopack 产物（保留 RELEASES / releases.*.json / *.nupkg 用于自动更新） ----
-          # actions/upload-artifact@v4 上传 path: desktop/src-tauri/Releases/ 时
+          # actions/upload-artifact@v5 上传 path: desktop/src-tauri/Releases/ 时
           # 保留 Releases/ 目录内容的根级，下载后结构为 artifacts/desktop-velopack-<channel>/<files>
           for channel in win macos linux; do
             src_dir="artifacts/desktop-velopack-${channel}"
