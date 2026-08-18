@@ -12,6 +12,31 @@ DustNote 服务端基于 **Fastify + SQLite**，单进程即可运行，无需�
 
 ---
 
+## 〇、一键部署（推荐）
+
+无需手动安装 Docker、无需手改 `.env`，一条命令完成部署（自动检测/安装 Docker、配置镜像源、生成随机 `JWT_SECRET`、构建启动、等待健康检查、输出访问地址）。
+
+**Linux（Ubuntu/Debian/CentOS/RHEL/Fedora 等）与 macOS：**
+
+```bash
+./deploy/deploy.sh                # HTTP 模式（默认 8080 端口）
+./deploy/deploy.sh --cn           # 中国网络（aliyun apk + npmmirror + docker 镜像加速）
+./deploy/deploy.sh --domain notes.example.com   # 公网 HTTPS（Caddy 自动证书）
+./deploy/deploy.sh --port 9000 --cn --domain notes.example.com
+```
+
+**Windows（PowerShell）：**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
+powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1 -Cn
+powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1 -Domain notes.example.com
+```
+
+脚本生成的 `.env` 会自动写入随机 `JWT_SECRET`（64 字符 hex），无需手动设置。已存在 `.env` 时会跳过生成，避免覆盖旧配置。
+
+---
+
 ## 一、目录结构
 
 部署包 `dustnote-server-v<version>.zip` 解压后结构：
@@ -26,7 +51,9 @@ dustnote-server-v<version>/
 │   └── .env.example
 ├── shared/                  # 共享类型与工具（构建时需要）
 │   └── src/
-├── deploy/                  # 反代/部署辅助配置
+├── deploy/                  # 反代/部署辅助配置与一键脚本
+│   ├── deploy.sh            # Linux/macOS 一键部署
+│   ├── deploy.ps1           # Windows 一键部署
 │   ├── nginx.conf
 │   ├── Caddyfile
 │   ├── supervisord.conf

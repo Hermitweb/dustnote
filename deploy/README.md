@@ -1,9 +1,35 @@
 # DustNote 部署指南
 
+## 一键部署（推荐）
+
+无需手动装 Docker、无需手改 `.env`，一条命令完成部署：
+
+```bash
+# Linux（Ubuntu/Debian/CentOS/RHEL/Fedora/…）与 macOS
+./deploy/deploy.sh
+
+# 中国网络（自动切换 aliyun apk / npmmirror / docker 镜像加速）
+./deploy/deploy.sh --cn
+
+# 公网 + 自有域名（Caddy 自动申请 HTTPS 证书）
+./deploy/deploy.sh --domain notes.example.com
+```
+
+```powershell
+# Windows（PowerShell）
+powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
+
+# 中国网络
+powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1 -Cn
+```
+
+脚本会自动完成：检测/安装 Docker → 配置镜像源（`--cn`）→ 生成随机 `JWT_SECRET` 的 `.env` → `docker compose up -d --build` → 等待健康检查 → 输出访问地址。
+
 ## 前置条件
 
 - Docker 24+
 - Docker Compose v2+
+- 一键脚本可自动安装 Docker（Linux）；Windows 需先装 Docker Desktop
 
 ## 快速启动（HTTP）
 

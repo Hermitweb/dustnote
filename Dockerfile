@@ -1,13 +1,17 @@
-# DustNote 生产 Docker 部署
+# DustNote 生产 Docker 部署（一体化：web 静态 + nginx + API 单容器）
 # docker compose up -d --build
 #
-# 此 Dockerfile 为一体部署（含 nginx + web 静态资源）。
-# docker-compose.yml 默认使用 server/Dockerfile（API-only）。
-# 如需一体部署，将 docker-compose.yml 的 dockerfile 改为 Dockerfile，
-# 端口映射改为 '${PORT:-8080}:80'。
+# 此 Dockerfile 为一体部署，docker-compose.yml 默认使用本文件。
+# server/Dockerfile 为「仅 API」镜像，仅在需要拆分部署时使用。
 
 # ─── Stage 1: 全量构建 ───
 FROM node:22-alpine AS builder
+# 镜像源（中国网络通过 --cn 传入 Aliyun/npmmirror，国外保持官方源）
+ARG APK_MIRROR=dl-cdn.alpinelinux.org
+ARG NPM_REGISTRY=
+RUN if [ "$APK_MIRROR" != "dl-cdn.alpinelinux.org" ]; then \
+      sed -i "s|dl-cdn.alpinelinux.org|${APK_MIRROR}|g" /etc/apk/repositories; \
+    fi
 WORKDIR /app
 RUN npm install -g pnpm@9.12.0
 
@@ -20,7 +24,8 @@ COPY patches patches
 COPY shared/package.json shared/tsconfig.json shared/
 COPY server/package.json server/tsconfig.json server/
 COPY web/package.json web/tsconfig.json web/tsconfig.app.json web/tsconfig.node.json web/vite.config.ts web/tailwind.config.js web/postcss.config.js web/index.html web/
-RUN pnpm install --frozen-lockfile
+RUN if [ -n "$NPM_REGISTRY" ]; then pnpm config set registry "$NPM_REGISTRY"; fi \
+  && pnpm install --frozen-lockfile
 
 # 构建
 COPY shared/src shared/src
