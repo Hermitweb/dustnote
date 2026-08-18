@@ -13,6 +13,14 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.4] - 2026-08-18
+
+### 新增 — 一条命令安装部署（从 GitHub 拉取）
+
+- **install.sh / install.ps1 入口**：新增一条命令入口脚本，从 GitHub Release 拉取部署包并自动完成部署（无需先 clone 仓库）。Linux/macOS：`curl -fsSL .../deploy/install.sh | bash`；Windows：`powershell ... "iwr .../deploy/install.ps1 | iex"`。
+- **脚本按平台分类**：`deploy/` 目录明确区分 `install.*`（拉取 + 部署入口）与 `deploy.*`（部署执行），`nginx.conf` / `Caddyfile` / `supervisord.conf` 为通用反代 / TLS / 进程配置。
+- **部署文档更新**：README / DEPLOY.md / deploy/README.md 按平台补充一条命令安装部署说明，GitHub Release 正文同步更新。
+
 ## [2.5.3] - 2026-08-18
 
 ### 新增 — 跨平台一键部署

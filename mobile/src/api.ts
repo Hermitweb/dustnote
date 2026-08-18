@@ -16,7 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_BASE_URL, resolveBaseUrl } from './lib/mode-store';
 
 // 与 package.json 同步（全端版本统一，见 release 流程）
-const APP_VERSION = '2.5.3';
+const APP_VERSION = '2.5.4';
 
 let deviceId: string | null = null;
 
