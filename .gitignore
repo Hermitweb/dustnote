@@ -95,3 +95,7 @@ docs/_build/
 
 # Local APK/build audit artifacts (never commit binaries)
 _apk-audit/
+
+# Agent tool artifacts (local only, not for commit)
+.workbuddy/
+ISSUE_*.md
