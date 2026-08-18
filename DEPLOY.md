@@ -12,25 +12,38 @@ DustNote 服务端基于 **Fastify + SQLite**，单进程即可运行，无需�
 
 ---
 
-## 〇、一键部署（推荐）
+## 〇、一条命令安装部署（推荐）
 
-无需手动安装 Docker、无需手改 `.env`，一条命令完成部署（自动检测/安装 Docker、配置镜像源、生成随机 `JWT_SECRET`、构建启动、等待健康检查、输出访问地址）。
+无需先 clone 仓库、无需手动装 Docker、无需手改 `.env`，一条命令完成「从 GitHub 拉取部署包 → 解压 → 装 Docker → 生成随机 `JWT_SECRET` → 构建启动 → 健康检查 → 输出访问地址」。
 
 **Linux（Ubuntu/Debian/CentOS/RHEL/Fedora 等）与 macOS：**
 
 ```bash
-./deploy/deploy.sh                # HTTP 模式（默认 8080 端口）
-./deploy/deploy.sh --cn           # 中国网络（aliyun apk + npmmirror + docker 镜像加速）
-./deploy/deploy.sh --domain notes.example.com   # 公网 HTTPS（Caddy 自动证书）
-./deploy/deploy.sh --port 9000 --cn --domain notes.example.com
+curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash -s -- --cn --domain notes.example.com
 ```
 
 **Windows（PowerShell）：**
 
 ```powershell
+powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.ps1 | iex"
+```
+
+> 指定版本：追加 `--version v2.5.3`（Linux/macOS）或 `-Version v2.5.3`（Windows）；默认自动获取 GitHub 最新 Release。
+
+### 已有部署包 / 仓库：本地一键部署
+
+若已解压部署包或已 clone 仓库，可直接运行（跳过拉取步骤）：
+
+```bash
+./deploy/deploy.sh                # HTTP 模式（默认 8080 端口）
+./deploy/deploy.sh --cn           # 中国网络（aliyun apk + npmmirror + docker 镜像加速）
+./deploy/deploy.sh --domain notes.example.com   # 公网 HTTPS（Caddy 自动证书）
+```
+
+```powershell
 powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
 powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1 -Cn
-powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1 -Domain notes.example.com
 ```
 
 脚本生成的 `.env` 会自动写入随机 `JWT_SECRET`（64 字符 hex），无需手动设置。已存在 `.env` 时会跳过生成，避免覆盖旧配置。
@@ -52,8 +65,10 @@ dustnote-server-v<version>/
 ├── shared/                  # 共享类型与工具（构建时需要）
 │   └── src/
 ├── deploy/                  # 反代/部署辅助配置与一键脚本
-│   ├── deploy.sh            # Linux/macOS 一键部署
-│   ├── deploy.ps1           # Windows 一键部署
+│   ├── install.sh           # Linux/macOS 一条命令入口（拉取 + 部署）
+│   ├── install.ps1          # Windows 一条命令入口（拉取 + 部署）
+│   ├── deploy.sh            # Linux/macOS 部署执行（装 Docker + compose）
+│   ├── deploy.ps1           # Windows 部署执行
 │   ├── nginx.conf
 │   ├── Caddyfile
 │   ├── supervisord.conf

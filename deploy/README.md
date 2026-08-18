@@ -1,25 +1,55 @@
 # DustNote 部署指南
 
-## 一键部署（推荐）
+## 脚本分类（按平台）
 
-无需手动装 Docker、无需手改 `.env`，一条命令完成部署：
+| 脚本 | 平台 | 职责 |
+| --- | --- | --- |
+| `install.sh` | Linux / macOS | **一条命令入口**：从 GitHub 拉取部署包 + 部署 |
+| `install.ps1` | Windows | **一条命令入口**：从 GitHub 拉取部署包 + 部署 |
+| `deploy.sh` | Linux / macOS | 部署执行：装 Docker → 生成 `.env` → `compose up` |
+| `deploy.ps1` | Windows | 部署执行（同上） |
+| `nginx.conf` | 通用 | 反代参考（裸机 / 已有 nginx） |
+| `Caddyfile` | 通用 | TLS 反代（自动 HTTPS） |
+| `supervisord.conf` | 通用 | 容器内进程管理 |
+
+## 一条命令安装部署（推荐）
+
+无需先 clone 仓库，一条命令完成「从 GitHub 拉取部署包 → 解压 → 装 Docker → 生成 `.env` → 构建启动 → 健康检查」：
+
+### Linux / macOS
 
 ```bash
-# Linux（Ubuntu/Debian/CentOS/RHEL/Fedora/…）与 macOS
-./deploy/deploy.sh
+curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash
 
-# 中国网络（自动切换 aliyun apk / npmmirror / docker 镜像加速）
-./deploy/deploy.sh --cn
+# 中国网络（aliyun apk / npmmirror / docker 镜像加速）
+curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash -s -- --cn
 
-# 公网 + 自有域名（Caddy 自动申请 HTTPS 证书）
-./deploy/deploy.sh --domain notes.example.com
+# 公网 + 域名（Caddy 自动 HTTPS）
+curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash -s -- --domain notes.example.com
+```
+
+### Windows
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.ps1 | iex"
+```
+
+> 指定版本：追加 `--version v2.5.3`（Linux/macOS）或 `-Version v2.5.3`（Windows）；默认自动获取 GitHub 最新 Release。
+
+## 已有仓库 / 部署包：本地一键部署
+
+若已 clone 仓库或已解压部署包，可直接在目录内运行（跳过拉取步骤）：
+
+```bash
+# Linux / macOS
+./deploy/deploy.sh                 # HTTP（8080）
+./deploy/deploy.sh --cn            # 中国网络
+./deploy/deploy.sh --domain notes.example.com   # 公网 HTTPS
 ```
 
 ```powershell
-# Windows（PowerShell）
+# Windows
 powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
-
-# 中国网络
 powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1 -Cn
 ```
 

@@ -76,14 +76,14 @@ DustNote 提供两种使用模式，无需任何配置即可选择：
 1. **部署服务器**（详见 [DEPLOY.md](./DEPLOY.md)）：
 
    ```bash
-   # 一条命令完成部署（自动装 Docker、生成随机 JWT_SECRET、构建启动、健康检查）
-   ./deploy/deploy.sh
+   # 一条命令：从 GitHub 拉取部署包并完成部署（自动装 Docker、生成随机 JWT_SECRET、构建启动、健康检查）
+   curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash
 
    # 中国网络：自动切换国内镜像源
-   ./deploy/deploy.sh --cn
+   curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash -s -- --cn
 
    # 公网 + 域名（Caddy 自动 HTTPS）
-   ./deploy/deploy.sh --domain notes.example.com
+   curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash -s -- --domain notes.example.com
    ```
 
 2. **客户端连接**：首次启动选择「🌐 连接服务器」→ 输入服务器地址 → 设置主密码
@@ -127,7 +127,18 @@ pnpm dev:h5
 
 ### 生产部署（Docker）
 
-**推荐：一键部署脚本**（自动检测/安装 Docker、生成随机 `JWT_SECRET`、构建启动、健康检查）：
+**① 一条命令安装部署**（从 GitHub 拉取部署包 → 自动装 Docker → 构建启动 → 健康检查）：
+
+```bash
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash -s -- --cn --domain notes.example.com
+
+# Windows（PowerShell）
+powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.ps1 | iex"
+```
+
+**② 已有仓库 / 部署包：本地一键部署**：
 
 ```bash
 # Linux / macOS
@@ -140,7 +151,7 @@ powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
 powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1 -Cn
 ```
 
-**手动方式**（需已安装 Docker）：
+**③ 手动方式**（需已安装 Docker）：
 
 ```bash
 cp .env.example .env               # 编辑 .env，填写你的域名
