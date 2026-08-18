@@ -32,6 +32,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     p === '/auth/unlock' ||
     p === '/auth/refresh' ||
     p === '/auth/recover' ||
+    p === '/auth/recovery-params' ||
     p.startsWith('/share/public/')
   ) {
     return next();

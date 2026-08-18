@@ -1,4 +1,4 @@
-/**
+﻿/**
  * GET /api/v1/update-manifest
  *
  * 返回客户端更新清单，详见 update-strategy.md §3
@@ -12,10 +12,19 @@ import { getManifestForChannel } from '../services/update-manifest.js';
 
 export const updateManifestRouter = Router();
 
+/** Allowed client platforms (must match devices.platform CHECK constraint) */
+const ALLOWED_PLATFORMS = new Set(['web', 'desktop', 'android', 'ios', 'miniprogram']);
+
 const QuerySchema = z.object({
   // 预留：未来可带 ?channel= 覆盖 header
   channel: z.enum(['nightly', 'canary', 'beta', 'stable']).optional(),
 });
+
+/** 校验 X-Client-Channel 头，非法值回退 'stable'，避免 CHANNEL_VERSIONS 取到 undefined */
+function parseChannelHeader(raw: string | undefined): 'nightly' | 'canary' | 'beta' | 'stable' {
+  const parsed = z.enum(['nightly', 'canary', 'beta', 'stable']).safeParse(raw);
+  return parsed.success ? parsed.data : 'stable';
+}
 
 updateManifestRouter.get('/update-manifest', (req, res) => {
   const headers = {
@@ -33,6 +42,11 @@ updateManifestRouter.get('/update-manifest', (req, res) => {
     return;
   }
 
+  if (!ALLOWED_PLATFORMS.has(headers.platform)) {
+    res.status(400).json({ error: 'invalid_platform' });
+    return;
+  }
+
   const query = QuerySchema.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: 'invalid_query' });
@@ -40,7 +54,7 @@ updateManifestRouter.get('/update-manifest', (req, res) => {
   }
 
   const requestedChannel =
-    query.data.channel ?? (headers.channel as 'stable' | 'beta' | 'canary' | 'nightly') ?? 'stable';
+    query.data.channel ?? parseChannelHeader(headers.channel) ?? 'stable';
 
   const manifest = getManifestForChannel(requestedChannel, {
     clientVersion: headers.version,

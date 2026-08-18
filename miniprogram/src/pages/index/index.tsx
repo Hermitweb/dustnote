@@ -1,10 +1,21 @@
 /**
  * 小程序首页（笔记列表）
+ *
+ * v2.0.0 双模式架构：
+ * - 数据访问统一通过 getRepo()（standalone → LocalRepository，online → RemoteRepository）
+ * - 鉴权流程：
+ *   - standalone 未设置 → 重定向到 standalone-setup
+ *   - standalone 已设置未解锁 → 重定向到 standalone-unlock
+ *   - online 未初始化 → 显示创建主密码按钮（跳转 setup）
+ *   - online 需解锁 → 显示解锁表单
+ *   - 已解锁 → 显示笔记列表
+ *
  * 功能：多选批量操作、视图切换、文件夹筛选
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, Input } from '@tarojs/components';
+import { View, Text, ScrollView, Input, Image } from '@tarojs/components';
+import logoUrl from '../../assets/logo.png';
 import Taro, { useDidShow } from '@tarojs/taro';
 import {
   getApi,
@@ -15,6 +26,9 @@ import {
   parseEnvelope,
   type NotePlaintext,
 } from '../../state/auth';
+import { useModeStore } from '../../lib/mode-store';
+import { getRepo } from '../../lib/get-repo';
+import { noteAad } from '@dustnote/shared';
 
 interface Note {
   id: string;
@@ -38,8 +52,13 @@ export default function Index() {
   const lock = useAuthStore((s) => s.lock);
   const unlock = useAuthStore((s) => s.unlock);
   const masterKey = useAuthStore((s) => s.masterKey);
+  const mode = useModeStore((s) => s.mode);
+  const modeInitialized = useModeStore((s) => s.initialized);
   const [notes, setNotes] = useState<Note[]>([]);
   const [titles, setTitles] = useState<Record<string, string>>({});
+  // 解密后的标签索引（与 titles 同源，仅用于客户端搜索过滤）
+  const [tagsMap, setTagsMap] = useState<Record<string, string[]>>({});
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -48,6 +67,23 @@ export default function Index() {
   const [unlocking, setUnlocking] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // 模式未选择时重定向到 mode-select
+  useEffect(() => {
+    if (!modeInitialized) {
+      Taro.reLaunch({ url: '/pages/mode-select/index' });
+    }
+  }, [modeInitialized]);
+
+  // 单机模式鉴权重定向
+  useEffect(() => {
+    if (!modeInitialized || mode !== 'standalone') return;
+    if (authState === 'uninitialized') {
+      Taro.reLaunch({ url: '/pages/standalone-setup/index' });
+    } else if (authState === 'needs_unlock') {
+      Taro.reLaunch({ url: '/pages/standalone-unlock/index' });
+    }
+  }, [modeInitialized, mode, authState]);
 
   useEffect(() => {
     if (authState === 'unlocked' && masterKey) void load();
@@ -59,24 +95,30 @@ export default function Index() {
   const load = async () => {
     setLoading(true);
     try {
-      const [notesRes, foldersRes] = await Promise.all([
-        getApi().get<{ notes: Note[] }>('/notes?includeDeleted=1'),
-        getApi().get<{ folders: Folder[] }>('/folders'),
-      ]);
-      setNotes(notesRes.notes);
-      setFolders(foldersRes.folders);
+      const repo = getRepo();
+      const snapshot = await repo.loadAll();
+      setNotes(snapshot.notes as Note[]);
+      setFolders(snapshot.folders as Folder[]);
       if (masterKey) {
         const t: Record<string, string> = {};
-        for (const n of notesRes.notes) {
+        const tg: Record<string, string[]> = {};
+        for (const n of snapshot.notes) {
           if (n.deletedAt) continue;
           try {
             const e = parseEnvelope(n.ciphertext);
-            t[n.id] = (await decryptNote(masterKey, e)).title;
+            const pt = await decryptNote(
+              masterKey,
+              e,
+              noteAad(n.id, useAuthStore.getState().userId ?? '')
+            );
+            t[n.id] = pt.title;
+            tg[n.id] = pt.tags ?? [];
           } catch {
             t[n.id] = '🔒 解密失败';
           }
         }
         setTitles(t);
+        setTagsMap(tg);
       }
     } catch {
       Taro.showToast({ title: '加载失败', icon: 'none' });
@@ -95,6 +137,12 @@ export default function Index() {
       }
       if (viewMode === 'favorite') return n.isFavorite && !n.deletedAt;
       return !!n.deletedAt;
+    })
+    .filter((n) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return true;
+      if ((titles[n.id] || '').toLowerCase().includes(q)) return true;
+      return (tagsMap[n.id] || []).some((tag) => tag.toLowerCase().includes(q));
     })
     .sort((a, b) =>
       viewMode === 'trash'
@@ -136,15 +184,11 @@ export default function Index() {
   const batchPatch = async (field: 'isPinned' | 'isFavorite', val: boolean) => {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
+    const repo = getRepo();
     let ok = 0;
     for (const id of ids) {
       try {
-        const n = notes.find((x) => x.id === id);
-        await getApi().patch(`/notes/${id}`, {
-          [field]: val,
-          clientUpdatedAt: new Date().toISOString(),
-          version: n?.version ?? 0,
-        });
+        await repo.updateNote(id, { [field]: val } as any);
         ok++;
       } catch {
         /* skip */
@@ -166,10 +210,11 @@ export default function Index() {
       confirmColor: '#E07B6C',
     });
     if (!r.confirm) return;
+    const repo = getRepo();
     let ok = 0;
     for (const id of ids) {
       try {
-        await getApi().delete(`/notes/${id}`);
+        await repo.deleteNote(id);
         ok++;
       } catch {
         /* skip */
@@ -183,16 +228,11 @@ export default function Index() {
   const batchRestore = async () => {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
+    const repo = getRepo();
     let ok = 0;
     for (const id of ids) {
       try {
-        const n = notes.find((x) => x.id === id);
-        if (n)
-          await getApi().patch(`/notes/${id}`, {
-            deletedAt: null,
-            clientUpdatedAt: new Date().toISOString(),
-            version: n.version,
-          });
+        await repo.restoreNote(id);
         ok++;
       } catch {
         /* skip */
@@ -213,10 +253,11 @@ export default function Index() {
       confirmColor: '#E07B6C',
     });
     if (!r.confirm) return;
+    const repo = getRepo();
     let ok = 0;
     for (const id of ids) {
       try {
-        await getApi().delete(`/notes/${id}/permanent`);
+        await repo.permanentDeleteNote(id);
         ok++;
       } catch {
         /* skip */
@@ -231,8 +272,10 @@ export default function Index() {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
     try {
-      const fr = await getApi().get<{ folders: Folder[] }>('/folders');
-      const itemList = ['未分类', ...fr.folders.map((f) => f.name)];
+      const repo = getRepo();
+      const snapshot = await repo.loadAll();
+      const folderList = snapshot.folders as Folder[];
+      const itemList = ['未分类', ...folderList.map((f) => f.name)];
       let ti: number;
       try {
         const res = await Taro.showActionSheet({ itemList });
@@ -241,17 +284,12 @@ export default function Index() {
         if (e?.errMsg?.includes?.('cancel')) return;
         throw e;
       }
-      const fid = ti > 0 ? fr.folders[ti - 1].id : null;
-      const fname = ti > 0 ? fr.folders[ti - 1].name : '未分类';
+      const fid = ti > 0 ? folderList[ti - 1].id : null;
+      const fname = ti > 0 ? folderList[ti - 1].name : '未分类';
       let ok = 0;
       for (const id of ids) {
         try {
-          const n = notes.find((x) => x.id === id);
-          await getApi().patch(`/notes/${id}`, {
-            folderId: fid,
-            clientUpdatedAt: new Date().toISOString(),
-            version: n?.version ?? 0,
-          });
+          await repo.moveNote(id, fid);
           ok++;
         } catch {
           /* skip */
@@ -268,11 +306,7 @@ export default function Index() {
   // ---------- 单条操作（回收站） ----------
   const restoreSingle = async (n: Note) => {
     try {
-      await getApi().patch(`/notes/${n.id}`, {
-        deletedAt: null,
-        clientUpdatedAt: new Date().toISOString(),
-        version: n.version,
-      });
+      await getRepo().restoreNote(n.id);
       Taro.showToast({ title: '已恢复', icon: 'success' });
       await load();
     } catch {
@@ -288,7 +322,7 @@ export default function Index() {
     });
     if (!r.confirm) return;
     try {
-      await getApi().delete(`/notes/${n.id}/permanent`);
+      await getRepo().permanentDeleteNote(n.id);
       Taro.showToast({ title: '已永久删除', icon: 'success' });
       await load();
     } catch {
@@ -299,10 +333,29 @@ export default function Index() {
   const hasAll = visibleNotes.length > 0 && selectedIds.size === visibleNotes.length;
   const selCount = selectedIds.size;
 
-  if (authState === 'uninitialized') {
+  // 模式未选择：显示加载中（useEffect 会重定向）
+  if (!modeInitialized) {
     return (
       <View className="hero">
-        <Text className="hero-logo">🌿</Text>
+        <Text className="hero-subtitle">加载中…</Text>
+      </View>
+    );
+  }
+
+  // 单机模式未解锁：显示加载中（useEffect 会重定向到 standalone 页面）
+  if (mode === 'standalone' && authState !== 'unlocked') {
+    return (
+      <View className="hero">
+        <Text className="hero-subtitle">加载中…</Text>
+      </View>
+    );
+  }
+
+  // 联机模式未初始化：显示创建主密码按钮
+  if (mode === 'online' && authState === 'uninitialized') {
+    return (
+      <View className="hero">
+        <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
         <Text className="hero-title">欢迎使用 DustNote</Text>
         <Text className="hero-subtitle">端到端加密 · 私密笔记</Text>
         <View
@@ -314,7 +367,9 @@ export default function Index() {
       </View>
     );
   }
-  if (authState === 'needs_unlock') {
+
+  // 联机模式需解锁：显示解锁表单
+  if (mode === 'online' && authState === 'needs_unlock') {
     const doUnlock = async () => {
       if (!unlockPwd) {
         Taro.showToast({ title: '请输入主密码', icon: 'none' });
@@ -331,7 +386,7 @@ export default function Index() {
     };
     return (
       <View className="hero">
-        <Text className="hero-logo">🌿</Text>
+        <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
         <Text className="hero-title">DustNote</Text>
         <Text className="hero-subtitle mb-l">输入主密码解锁</Text>
         <Input
@@ -352,6 +407,7 @@ export default function Index() {
     );
   }
 
+  // 已解锁：显示主界面
   return (
     <View className="page">
       <View className="topbar">
@@ -367,7 +423,7 @@ export default function Index() {
           </>
         ) : (
           <>
-            <Text className="topbar-title">🌿 DustNote</Text>
+            <Text className="topbar-title">DustNote</Text>
             <View className="topbar-actions">
               <Text
                 className="icon-btn"
@@ -382,6 +438,22 @@ export default function Index() {
           </>
         )}
       </View>
+
+      {!selecting && (
+        <View className="search-box">
+          <Input
+            className="search-input"
+            placeholder="搜索标题 / 标签"
+            value={searchQuery}
+            onInput={(e) => setSearchQuery((e.detail as { value: string }).value)}
+          />
+          {searchQuery ? (
+            <Text className="search-clear" onClick={() => setSearchQuery('')}>
+              ✕
+            </Text>
+          ) : null}
+        </View>
+      )}
 
       {!selecting && viewMode === 'all' && folders.length > 0 && (
         <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>
@@ -556,15 +628,14 @@ export default function Index() {
             try {
               const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
               const { json: cipherJson } = await encryptNote(masterKey, empty);
-              const r = await getApi().post<{ id: string }>('/notes', {
+              const id = await getRepo().createNote({
                 ciphertext: cipherJson,
                 keyVersion: 1,
                 isPinned: false,
                 isFavorite: false,
-                clientUpdatedAt: new Date().toISOString(),
                 folderId: null,
               });
-              Taro.navigateTo({ url: `/pages/note/edit?id=${r.id}` });
+              Taro.navigateTo({ url: `/pages/note/edit?id=${id}` });
             } catch {
               Taro.showToast({ title: '创建失败', icon: 'none' });
             }

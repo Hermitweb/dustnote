@@ -1,16 +1,23 @@
 /**
- * 小程序笔记编辑
+ * 小程序笔记编辑（v2.0.0 双模式）
+ *
+ * 数据访问统一通过 getRepo()（standalone → LocalRepository，online → RemoteRepository）
  * 接入 E2EE：加载时解密显示，保存时加密后提交
  *
  * 功能：
  * - 自动保存（输入停止 1500ms 后触发）
  * - 顶栏置顶 / 收藏 / 删除图标按钮
  * - 保存状态指示器
+ * - 分享功能仅联机模式可用（单机模式隐藏分享按钮）
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, Input, Textarea } from '@tarojs/components';
+import { View, Text, Input, Textarea, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
+import { encryptString, randomBytes, toBase64Url, wrapKey, noteAad } from '@dustnote/shared';
 import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '../../state/auth';
+import { getRepo } from '../../lib/get-repo';
+import { useModeStore } from '../../lib/mode-store';
+import Markdown from '../../lib/markdown';
 
 interface Folder {
   id: string;
@@ -30,10 +37,20 @@ interface NoteData {
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'unsaved';
 
+/** 分享有效期选项（seconds：秒；0 = 永久） */
+const SHARE_EXPIRY_OPTIONS = [
+  { key: '1d', label: '1 天', seconds: 86400 },
+  { key: '7d', label: '7 天', seconds: 604800 },
+  { key: '30d', label: '30 天', seconds: 2592000 },
+  { key: 'forever', label: '永久', seconds: 0 },
+] as const;
+type ShareExpiryKey = (typeof SHARE_EXPIRY_OPTIONS)[number]['key'];
+
 export default function NoteEdit() {
   const instance = Taro.getCurrentInstance();
   const id = instance && instance.router && instance.router.params && instance.router.params.id;
   const masterKey = useAuthStore((s) => s.masterKey);
+  const mode = useModeStore((s) => s.mode);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   // 保留原始 tags，保存时一起加密回去
@@ -42,6 +59,13 @@ export default function NoteEdit() {
   const noteRef = useRef(note);
   noteRef.current = note;
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [preview, setPreview] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+  // 分享创建弹窗：可选密码 / 有效期
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharePwd, setSharePwd] = useState('');
+  const [shareExpiry, setShareExpiry] = useState<ShareExpiryKey>('forever');
+  const [sharing, setSharing] = useState(false);
 
   // 用于追踪是否已初始化加载，避免初始 load 触发自动保存
   const loadedRef = useRef(false);
@@ -51,8 +75,8 @@ export default function NoteEdit() {
     if (!id || !masterKey) return;
     void (async () => {
       try {
-        const r = await getApi().get<{ notes: NoteData[] }>('/notes');
-        const n = r.notes.find((x) => x.id === id);
+        const snapshot = await getRepo().loadAll();
+        const n = snapshot.notes.find((x) => x.id === id) as NoteData | undefined;
         if (!n) {
           Taro.showToast({ title: '笔记不存在', icon: 'none' });
           return;
@@ -61,7 +85,7 @@ export default function NoteEdit() {
         // 解析信封并解密明文
         try {
           const envelope = parseEnvelope(n.ciphertext);
-          const pt = await decryptNote(masterKey, envelope);
+          const pt = await decryptNote(masterKey, envelope, noteAad(id, useAuthStore.getState().userId ?? ''));
           setTitle(pt.title);
           setContent(pt.content);
           setTags(pt.tags);
@@ -83,19 +107,14 @@ export default function NoteEdit() {
     try {
       // 加密明文后提交
       const { json: cipherJson } = await encryptNote(masterKey, { title, content, tags });
-      const r = await getApi().patch<{ version: number; serverUpdatedAt: string }>(
-        `/notes/${cur.id}`,
-        {
-          ciphertext: cipherJson,
-          keyVersion: 1,
-          isPinned: cur.isPinned,
-          isFavorite: cur.isFavorite,
-          clientUpdatedAt: new Date().toISOString(),
-          version: cur.version,
-        }
-      );
+      const newVersion = await getRepo().updateNote(cur.id, {
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: cur.isPinned,
+        isFavorite: cur.isFavorite,
+      });
       // 更新本地 version，防止下次保存用旧版本号导致 409 冲突
-      setNote((prev) => (prev ? { ...prev, version: r.version } : prev));
+      setNote((prev) => (prev ? { ...prev, version: newVersion } : prev));
       setSaveStatus('saved');
     } catch (err: any) {
       const status = err?.err?.status;
@@ -115,7 +134,6 @@ export default function NoteEdit() {
   saveRef.current = save;
 
   // 自动保存：title / content 变化且加载完成后，1500ms 防抖触发
-  // 注意：不依赖 note，否则 save 成功后 note.version 更新会触发热重设为 unsaved
   useEffect(() => {
     if (!loadedRef.current || !noteRef.current) return;
     setSaveStatus('unsaved');
@@ -126,7 +144,7 @@ export default function NoteEdit() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [title, content]);
+  }, [title, content, tags]);
 
   const onManualSave = async () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -137,18 +155,13 @@ export default function NoteEdit() {
     const cur = noteRef.current;
     if (!cur) return;
     const next = !cur.isPinned;
-    const prevVer = cur.version;
     setNote({ ...cur, isPinned: next });
     try {
-      const r = await getApi().patch<{ version: number }>(`/notes/${cur.id}`, {
-        isPinned: next,
-        clientUpdatedAt: new Date().toISOString(),
-        version: prevVer,
-      });
-      setNote((p) => (p ? { ...p, version: r.version } : p));
+      const newVersion = await getRepo().updateNote(cur.id, { isPinned: next });
+      setNote((p) => (p ? { ...p, version: newVersion } : p));
       Taro.showToast({ title: next ? '已置顶' : '已取消置顶', icon: 'none' });
     } catch {
-      setNote({ ...cur, isPinned: !next, version: prevVer });
+      setNote({ ...cur, isPinned: !next });
       Taro.showToast({ title: '操作失败', icon: 'none' });
     }
   };
@@ -157,18 +170,13 @@ export default function NoteEdit() {
     const cur = noteRef.current;
     if (!cur) return;
     const next = !cur.isFavorite;
-    const prevVer = cur.version;
     setNote({ ...cur, isFavorite: next });
     try {
-      const r = await getApi().patch<{ version: number }>(`/notes/${cur.id}`, {
-        isFavorite: next,
-        clientUpdatedAt: new Date().toISOString(),
-        version: prevVer,
-      });
-      setNote((p) => (p ? { ...p, version: r.version } : p));
+      const newVersion = await getRepo().updateNote(cur.id, { isFavorite: next });
+      setNote((p) => (p ? { ...p, version: newVersion } : p));
       Taro.showToast({ title: next ? '已收藏' : '已取消收藏', icon: 'none' });
     } catch {
-      setNote({ ...cur, isFavorite: !next, version: prevVer });
+      setNote({ ...cur, isFavorite: !next });
       Taro.showToast({ title: '操作失败', icon: 'none' });
     }
   };
@@ -184,7 +192,7 @@ export default function NoteEdit() {
     });
     if (!confirm.confirm) return;
     try {
-      await getApi().delete(`/notes/${cur.id}`);
+      await getRepo().deleteNote(cur.id);
       Taro.showToast({ title: '已删除', icon: 'success' });
       setTimeout(() => Taro.navigateBack(), 500);
     } catch {
@@ -192,26 +200,102 @@ export default function NoteEdit() {
     }
   };
 
-  // 创建公开永久分享并复制链接到剪贴板
-  const onShare = async () => {
+  // 打开分享创建弹窗（仅联机模式）：可选密码 / 有效期
+  const openShare = () => {
     const cur = noteRef.current;
     if (!cur) return;
+    if (mode === 'standalone') {
+      Taro.showToast({ title: '单机模式不支持在线分享，请使用导出', icon: 'none' });
+      return;
+    }
+    if (!useAuthStore.getState().masterKey) {
+      Taro.showToast({ title: '请先解锁', icon: 'none' });
+      return;
+    }
+    setSharePwd('');
+    setShareExpiry('forever');
+    setShareOpen(true);
+  };
+
+  // 生成分享链接并复制到剪贴板（支持可选密码 / 有效期，字段与服务端 /shares 一致）
+  const doCreateShare = async () => {
+    const cur = noteRef.current;
+    if (!cur) return;
+    const mk = useAuthStore.getState().masterKey;
+    if (!mk) {
+      Taro.showToast({ title: '请先解锁', icon: 'none' });
+      return;
+    }
+    const pwd = sharePwd.trim();
+    if (pwd && (pwd.length < 4 || pwd.length > 64)) {
+      Taro.showToast({ title: '密码需为 4-64 位', icon: 'none' });
+      return;
+    }
+    const opt =
+      SHARE_EXPIRY_OPTIONS.find((o) => o.key === shareExpiry) ?? SHARE_EXPIRY_OPTIONS[3]!;
+    setSharing(true);
     try {
-      const r = await getApi().post<{ token: string }>('/shares', {
+      // shareKey 只在本地生成，服务端只收到密文
+      const shareKey = randomBytes(32);
+      const ciphertext = await encryptString(
+        shareKey,
+        JSON.stringify({ title: title || '未命名笔记', content: content || '' })
+      );
+      const wrappedShareKey = await wrapKey(mk, shareKey);
+
+      const body: Record<string, unknown> = {
         noteId: cur.id,
-        title: title || '未命名笔记',
-        content: content || '',
-      });
-      // H5: 完整可访问的页面链接；weapp: 分享页路径
+        ciphertext,
+        wrappedShareKey,
+      };
+      if (pwd) body.password = pwd;
+      if (opt.seconds > 0) body.expiresIn = opt.seconds;
+
+      const r = await getApi().post<{ token: string }>('/shares', body);
+
+      // 密钥只放在页面路由参数里（H5 走 hash，weapp 是本地页面路径），不会发给服务端
+      const key = toBase64Url(shareKey);
+      // H5 分支不能用写死的 localhost（指向访客本机）；用当前页面 origin 拼同源分享链接
       const shareUrl =
         process.env.TARO_ENV === 'h5'
-          ? `http://localhost:10086/#/pages/share/index?token=${r.token}`
-          : `/pages/share/index?token=${r.token}`;
+          ? `${window.location.origin}/#/pages/share/index?token=${r.token}&key=${key}`
+          : `/pages/share/index?token=${r.token}&key=${key}`;
       await Taro.setClipboardData({ data: shareUrl });
+      setShareOpen(false);
       Taro.showToast({ title: '分享链接已复制', icon: 'success' });
-    } catch {
-      Taro.showToast({ title: '分享失败', icon: 'none' });
+    } catch (err: any) {
+      const msg = err?.err?.message || err?.message || '未知错误';
+      Taro.showToast({ title: `分享失败：${msg}`, icon: 'none', duration: 3000 });
+    } finally {
+      setSharing(false);
     }
+  };
+
+  // 标签编辑（随笔记一起加密保存）
+  const addTag = () => {
+    const raw = tagInput.trim().replace(/^#+/, '');
+    if (!raw) {
+      Taro.showToast({ title: '请输入标签', icon: 'none' });
+      return;
+    }
+    if (raw.length > 20) {
+      Taro.showToast({ title: '标签最多 20 字符', icon: 'none' });
+      return;
+    }
+    if (tags.length >= 20) {
+      Taro.showToast({ title: '标签最多 20 个', icon: 'none' });
+      return;
+    }
+    if (tags.includes(raw)) {
+      Taro.showToast({ title: '标签已存在', icon: 'none' });
+      return;
+    }
+    setTags((prev) => [...prev, raw]);
+    setTagInput('');
+  };
+
+  const removeTag = (i: number) => {
+    setTags((prev) => prev.filter((_, idx) => idx !== i));
   };
 
   // 移动笔记到指定文件夹（或移出文件夹）
@@ -220,8 +304,8 @@ export default function NoteEdit() {
     if (!cur) return;
     let folders: Folder[] = [];
     try {
-      const r = await getApi().get<{ folders: Folder[] }>('/folders');
-      folders = r.folders;
+      const snapshot = await getRepo().loadAll();
+      folders = snapshot.folders as Folder[];
     } catch {
       Taro.showToast({ title: '加载文件夹失败', icon: 'none' });
       return;
@@ -246,12 +330,8 @@ export default function NoteEdit() {
       folderName = f.name;
     }
     try {
-      const r = await getApi().patch<{ version: number }>(`/notes/${cur.id}`, {
-        folderId,
-        clientUpdatedAt: new Date().toISOString(),
-        version: cur.version,
-      });
-      setNote({ ...cur, folderId, version: r.version });
+      await getRepo().moveNote(cur.id, folderId);
+      setNote({ ...cur, folderId });
       Taro.showToast({ title: folderId ? `已移动到 ${folderName}` : '已移出文件夹', icon: 'none' });
     } catch {
       Taro.showToast({ title: '移动失败', icon: 'none' });
@@ -282,6 +362,12 @@ export default function NoteEdit() {
         <Text className="save-indicator">{statusText}</Text>
         <View className="topbar-actions">
           <Text
+            className={`mint-btn mint-btn-sm mint-btn-ghost${preview ? ' icon-btn-active' : ''}`}
+            onClick={() => setPreview((v) => !v)}
+          >
+            {preview ? '编辑' : '预览'}
+          </Text>
+          <Text
             className={`icon-btn${note?.isPinned ? ' icon-btn-active' : ''}`}
             onClick={togglePinned}
           >
@@ -296,9 +382,11 @@ export default function NoteEdit() {
           <Text className="icon-btn" onClick={onMoveFolder}>
             📁
           </Text>
-          <Text className="icon-btn" onClick={onShare}>
-            🔗
-          </Text>
+          {mode === 'online' && (
+            <Text className="icon-btn" onClick={openShare}>
+              🔗
+            </Text>
+          )}
           <Text className="icon-btn" onClick={onDelete}>
             🗑️
           </Text>
@@ -315,14 +403,92 @@ export default function NoteEdit() {
           onInput={(e) => setTitle((e.detail as { value: string }).value)}
           placeholder="标题"
         />
-        <Textarea
-          className="mint-textarea flex-1"
-          value={content}
-          onInput={(e) => setContent((e.detail as { value: string }).value)}
-          placeholder="开始记录…"
-          autoHeight
-        />
+
+        {/* 标签编辑（随笔记一起加密保存） */}
+        <View className="tag-editor">
+          {tags.length > 0 && (
+            <View className="tag-pills">
+              {tags.map((tag, i) => (
+                <View key={`${tag}-${i}`} className="tag-pill tag-pill-edit">
+                  <Text>#{tag}</Text>
+                  <Text className="tag-pill-x" onClick={() => removeTag(i)}>
+                    ✕
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+          <View className="tag-input-row">
+            <Input
+              className="folder-input tag-input"
+              placeholder="添加标签，点「添加」确认"
+              value={tagInput}
+              onInput={(e) => setTagInput((e.detail as { value: string }).value)}
+              onConfirm={addTag}
+            />
+            <Text className="mint-btn mint-btn-sm" onClick={addTag}>
+              添加
+            </Text>
+          </View>
+        </View>
+
+        {preview ? (
+          <ScrollView scrollY className="flex-1">
+            <View className="md-preview">
+              <Markdown content={content} />
+            </View>
+          </ScrollView>
+        ) : (
+          <Textarea
+            className="mint-textarea flex-1"
+            value={content}
+            onInput={(e) => setContent((e.detail as { value: string }).value)}
+            placeholder="开始记录…"
+            autoHeight
+          />
+        )}
       </View>
+      {shareOpen && (
+        <View className="modal-mask" onClick={() => !sharing && setShareOpen(false)}>
+          <View className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <Text className="modal-title">创建分享链接</Text>
+            <Input
+              className="mint-input"
+              password
+              placeholder="可选：设置访问密码（4-64 位）"
+              value={sharePwd}
+              onInput={(e) => setSharePwd((e.detail as { value: string }).value)}
+            />
+            <Text className="hint">有效期</Text>
+            <View className="row gap-s mt-s mb-m">
+              {SHARE_EXPIRY_OPTIONS.map((opt) => (
+                <Text
+                  key={opt.key}
+                  className={`expiry-chip${shareExpiry === opt.key ? ' expiry-chip-active' : ''}`}
+                  onClick={() => setShareExpiry(opt.key)}
+                >
+                  {opt.label}
+                </Text>
+              ))}
+            </View>
+            <View className="row gap-m">
+              <View
+                className="mint-btn mint-btn-ghost flex-1"
+                onClick={() => !sharing && setShareOpen(false)}
+              >
+                取消
+              </View>
+              <View
+                className="mint-btn flex-1"
+                style={{ opacity: sharing ? 0.5 : 1 }}
+                onClick={doCreateShare}
+              >
+                {sharing ? '生成中…' : '生成链接'}
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }

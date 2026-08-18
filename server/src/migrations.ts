@@ -9,6 +9,7 @@
  */
 
 import type { Migration } from './db.js';
+import { logger } from './logger.js';
 
 export const migrations: Migration[] = [
   {
@@ -197,6 +198,186 @@ export const migrations: Migration[] = [
         ALTER TABLE shares ADD COLUMN title TEXT;
         ALTER TABLE shares ADD COLUMN content TEXT;
         UPDATE meta SET value = '5' WHERE key = 'schema_version';
+      `);
+    },
+  },
+  {
+    id: 6,
+    name: 'add-account-lockout-columns',
+    up: (db) => {
+      // 账号级锁定：连续 6 次密码错误后锁定 15 分钟。
+      // 与 app.ts 中 IP 级 express-rate-limit 互补——
+      // IP 限流防分布式爆破，账号锁定防单账号定向爆破。
+      db.exec(`
+        ALTER TABLE users ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE users ADD COLUMN locked_until TEXT;
+        UPDATE meta SET value = '6' WHERE key = 'schema_version';
+      `);
+    },
+  },
+  {
+    id: 7,
+    name: 'e2ee-shares',
+    up: (db) => {
+      // 破坏性变更：分享改为 secret-link（端到端加密）方案。
+      //
+      // 旧实现把笔记的明文快照存进 shares.title / shares.content，
+      // 「服务端仅存密文」的说法对分享过的笔记并不成立。
+      //
+      // 新实现：客户端随机生成 shareKey 加密 {title, content}，服务端只存密文；
+      // shareKey 放在分享链接的 URL fragment 里（`#` 后面的部分浏览器不会发给
+      // 服务端），访客本地解密。同时用 masterKey 包装一份 shareKey 存库，
+      // 好让主人换设备后仍能还原出完整链接——服务端两边都解不开。
+      //
+      // 已有分享是明文快照，没有对应的 shareKey 可迁移，只能丢弃。
+      const existing = db.prepare('SELECT COUNT(*) AS c FROM shares').get() as { c: number };
+      if (existing.c > 0) {
+        logger.warn(
+          { shares: existing.c },
+          '分享升级到 E2EE：已删除全部旧分享链接（旧数据是明文快照，无法转成密文），请重新分享'
+        );
+      }
+
+      db.exec(`
+        DROP TABLE shares;
+
+        CREATE TABLE shares (
+          id            TEXT PRIMARY KEY,
+          note_id       TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+          user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token         TEXT NOT NULL UNIQUE,
+          -- shareKey 加密的 {title, content}，服务端只见密文
+          ciphertext    TEXT NOT NULL,
+          -- masterKey 包装的 shareKey，仅供主人还原链接
+          wrapped_share_key TEXT NOT NULL,
+          password_hash TEXT,
+          expires_at    TEXT,
+          view_count    INTEGER NOT NULL DEFAULT 0,
+          revoked       INTEGER NOT NULL DEFAULT 0,
+          created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX idx_shares_note ON shares(note_id);
+        CREATE INDEX idx_shares_user ON shares(user_id);
+
+        UPDATE meta SET value = '7' WHERE key = 'schema_version';
+      `);
+    },
+  },
+  {
+    id: 8,
+    name: 'auth-protocol-v2',
+    up: (db) => {
+      // 破坏性变更：认证协议 v1 → v2
+      //
+      // v1 的两个致命缺陷：
+      //   1. 客户端把主密码明文发给服务端，服务端又存了 client_master_salt，
+      //      于是服务端能自行推导 masterKey —— E2EE 对服务端形同虚设。
+      //   2. masterKey = f(password)，用恢复码重置后 masterKey 变了，
+      //      历史笔记全部变成解不开的密文。
+      //
+      // v2 改为：masterKey 随机生成，分别用「主密码 KEK」和「恢复码 KEK」
+      // 包装两份存库；服务端只存 authKey 的 scrypt 哈希。
+      //
+      // v1 的凭据在 v2 下无法换算（需要用户重新输入密码），因此已有账号
+      // 必须重新 setup。外键 CASCADE 会带走 notes/shares/folders/tags。
+      // 升级前请自行备份 DB 文件。
+      db.exec(`
+        ALTER TABLE users ADD COLUMN pw_salt BLOB;
+        ALTER TABLE users ADD COLUMN rc_salt BLOB;
+        ALTER TABLE users ADD COLUMN auth_hash TEXT;
+        ALTER TABLE users ADD COLUMN recovery_auth_hash TEXT;
+        ALTER TABLE users ADD COLUMN wrapped_master_key_pw TEXT;
+        ALTER TABLE users ADD COLUMN wrapped_master_key_rc TEXT;
+      `);
+
+      // 只清理旧协议残留的账号（auth_hash 为空即为 v1 账号）
+      const legacy = db
+        .prepare('SELECT COUNT(*) AS c FROM users WHERE auth_hash IS NULL')
+        .get() as { c: number };
+      if (legacy.c > 0) {
+        logger.warn(
+          { users: legacy.c },
+          '认证协议升级到 v2：已清除旧协议账号及其全部笔记（旧密文无法在新协议下解开），请重新 setup'
+        );
+        db.exec(`DELETE FROM users WHERE auth_hash IS NULL;`);
+      }
+
+      db.exec(`UPDATE meta SET value = '8' WHERE key = 'schema_version';`);
+    },
+  },
+  {
+    id: 9,
+    name: 'note-versions',
+    up: (db) => {
+      // 笔记历史版本表：每次笔记内容变更时，将旧密文快照存入此表。
+      // 服务端只存密文，明文在客户端解密后查看。
+      db.exec(`
+        CREATE TABLE note_versions (
+          id               TEXT PRIMARY KEY,
+          note_id          TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+          user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          ciphertext       BLOB NOT NULL,
+          key_version      INTEGER NOT NULL DEFAULT 1,
+          note_version     INTEGER NOT NULL,
+          client_updated_at TEXT NOT NULL,
+          created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX idx_note_versions_note ON note_versions(note_id, created_at DESC);
+      `);
+      db.exec(`UPDATE meta SET value = '9' WHERE key = 'schema_version';`);
+    },
+  },
+  {
+    id: 10,
+    name: 'templates',
+    up: (db) => {
+      // 笔记模板系统（v2.1.0）：
+      // - 预设模板：user_id 为 NULL，全用户共享，content 为明文 Markdown
+      // - 自定义模板：user_id 绑定用户，content 为 ciphertext JSON（E2EE）
+      // 客户端按 is_preset 标志决定明文读取还是解密。
+      db.exec(`
+        CREATE TABLE templates (
+          id          TEXT PRIMARY KEY,
+          user_id     TEXT REFERENCES users(id) ON DELETE CASCADE,
+          name        TEXT NOT NULL,
+          description TEXT NOT NULL DEFAULT '',
+          category    TEXT NOT NULL DEFAULT 'custom',
+          icon        TEXT NOT NULL DEFAULT '📄',
+          content     TEXT NOT NULL,
+          is_preset   INTEGER NOT NULL DEFAULT 0,
+          sort_order  INTEGER NOT NULL DEFAULT 0,
+          created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX idx_templates_user ON templates(user_id);
+        CREATE INDEX idx_templates_preset ON templates(is_preset, sort_order);
+
+        -- 预设模板种子数据（user_id = NULL, is_preset = 1, content = 明文 Markdown）
+        INSERT INTO templates (id, user_id, name, description, category, icon, content, is_preset, sort_order) VALUES
+          ('tpl-blank',       NULL, '空白笔记', '从零开始',                        'blank',   '📄', '', 1, 1),
+          ('tpl-journal',     NULL, '每日日记', '记录今天的所思所感',              'journal', '📔', '# {{date}} 日记\n\n## 今日心情\n\n\n## 三件感恩的事\n1. \n2. \n3. \n\n## 自由书写\n\n', 1, 2),
+          ('tpl-meeting',     NULL, '会议记录', '结构化的会议纪要',                'meeting', '🗓️', '# 会议主题\n\n- **时间**：\n- **地点**：\n- **参会**：\n\n## 议题\n\n1. \n2. \n\n## 决议\n\n- \n\n## 待办（Owner / 截止）\n\n- [ ]  /  \n', 1, 3),
+          ('tpl-todo',        NULL, '待办清单', '可勾选的任务列表',                'todo',    '✅', '# 待办清单\n\n## 今天\n- [ ] \n- [ ] \n\n## 本周\n- [ ] \n- [ ] \n\n## 已完成\n- [x] \n', 1, 4),
+          ('tpl-reading',     NULL, '阅读笔记', '读书摘要与思考',                  'reading', '📚', '# 《书名》\n\n- **作者**：\n- **进度**：\n- **评分**：⭐⭐⭐⭐⭐\n\n## 摘要\n\n\n## 关键观点\n1. \n2. \n\n## 我的思考\n\n', 1, 5),
+          ('tpl-project',     NULL, '项目计划', '项目目标与里程碑',                'project', '🚀', '# 项目名称\n\n## 背景与目标\n\n\n## 范围\n- **包含**：\n- **不包含**：\n\n## 里程碑\n| 里程碑 | 截止日期 | 状态 |\n| ------ | -------- | ---- |\n|        |          |      |\n\n## 风险\n- \n', 1, 6);
+
+        UPDATE meta SET value = '10' WHERE key = 'schema_version';
+      `);
+    },
+  },
+  {
+    id: 11,
+    name: 'share-password-lockout',
+    up: (db) => {
+      // 单分享密码爆破防护。
+      // 账号锁定（users.failed_attempts）保护登录入口，但分享密码校验
+      // 走的是另一条路径——之前没有任何失败计数，攻击者可对单个分享
+      // 链接的密码无限穷举。这里复用 lockout 策略，但加在 shares 表上：
+      // 6 次错误 → 该分享被锁 15 分钟。
+      db.exec(`
+        ALTER TABLE shares ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE shares ADD COLUMN locked_until TEXT;
+        UPDATE meta SET value = '11' WHERE key = 'schema_version';
       `);
     },
   },

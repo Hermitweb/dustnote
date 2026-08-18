@@ -7,5 +7,5 @@ contact_links:
     url: mailto:security@dustnote.app
     about: 私下报告安全漏洞（请勿在公开 Issue 提及）
   - name: 文档
-    url: https://github.com/your-org/dustnote/blob/main/.trae/documents/
+    url: https://github.com/Hermitweb/dustnote/blob/main/.trae/documents/
     about: 阅读产品文档、用户手册、技术规范

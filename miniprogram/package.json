@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/miniprogram",
-  "version": "0.1.0",
+  "version": "2.5.3",
   "private": true,
   "description": "DustNote 小程序 (Taro 3 + React)",
   "scripts": {

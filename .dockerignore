@@ -4,8 +4,6 @@ dist
 **/node_modules
 **/dist
 **/.turbo
-mobile
-miniprogram
 desktop/src-tauri
 *.db
 *.db-journal

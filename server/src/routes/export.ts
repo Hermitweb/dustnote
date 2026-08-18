@@ -24,8 +24,10 @@ const ExportQuerySchema = z.object({
 exportRouter.get('/export/notes/:id', (req, res) => {
   const user = req.user as AuthUser;
   const id = req.params.id;
-  if (!id) {
-    res.status(400).json({ error: 'missing_id' });
+  // id 参与 Content-Disposition 文件名拼接，必须校验为 UUID，
+  // 防止 %22/%0d%0a 等 URL 编码字符破坏响应头格式 / 触发 setHeader 500
+  if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    res.status(400).json({ error: 'invalid_id' });
     return;
   }
   const parsed = ExportQuerySchema.safeParse(req.query);

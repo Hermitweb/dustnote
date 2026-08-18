@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 标签 API（明文，不加密）
  */
 
@@ -9,6 +9,8 @@ import { getDb } from '../db.js';
 import type { AuthUser } from '../middleware/auth.js';
 
 export const tagsRouter = Router();
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const TagSchema = z.object({
   name: z.string().min(1).max(32),
@@ -60,7 +62,7 @@ tagsRouter.post('/tags', (req, res) => {
 tagsRouter.delete('/tags/:id', (req, res) => {
   const user = req.user as AuthUser;
   const id = req.params.id;
-  if (!id) {
+  if (!id || !UUID_RE.test(id)) {
     res.status(400).json({ error: 'missing_id' });
     return;
   }
@@ -117,12 +119,15 @@ tagsRouter.delete('/note-tags', (req, res) => {
     return;
   }
   const db = getDb();
+  // 纵深防御：与 POST 侧一致，同时校验 note 与 tag 均属于当前用户，
+  // 避免未来数据迁移/共享引入跨用户关联行时被越权删除
   db.prepare(
     `
     DELETE FROM note_tags
     WHERE note_id = ? AND tag_id = ?
       AND note_id IN (SELECT id FROM notes WHERE user_id = ?)
+      AND tag_id IN (SELECT id FROM tags WHERE user_id = ?)
   `
-  ).run(parsed.data.noteId, parsed.data.tagId, user.userId);
+  ).run(parsed.data.noteId, parsed.data.tagId, user.userId, user.userId);
   res.json({ ok: true });
 });

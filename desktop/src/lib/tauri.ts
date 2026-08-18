@@ -2,6 +2,7 @@
  * Tauri 环境检测与桥接封装
  */
 
+import { invoke } from '@tauri-apps/api/core';
 import { ApiClient } from '@dustnote/shared';
 
 const APP_VERSION = __APP_VERSION__;
@@ -11,8 +12,9 @@ export function isTauri(): boolean {
 }
 
 export function getApiBase(): string {
-  // v1 桌面端使用本地服务：打包时内置 server.exe
-  // 开发期通过 vite proxy 转发到 localhost:3210
+  // 桌面端联机模式：连接用户在模式设置中配置的 serverUrl（见 web/src/lib/mode-store.ts），
+  // 此处返回开发期默认地址（vite dev proxy 转发到 localhost:3210）。
+  // 注意：v1 桌面端不内置 server.exe——内置本地 server 为 v1.1 规划项。
   if (isTauri()) {
     return 'http://localhost:3210/api/v1';
   }
@@ -45,4 +47,11 @@ export function getDeviceId(): string {
     localStorage.setItem('dustnote_device_id', id);
   }
   return id;
+}
+
+export async function invokeWithTimeout<T>(cmd: string, args?: Record<string, unknown>, timeoutMs = 30_000): Promise<T> {
+  return Promise.race([
+    invoke<T>(cmd, args),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`IPC timeout: ${cmd}`)), timeoutMs)),
+  ]);
 }

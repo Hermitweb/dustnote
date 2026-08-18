@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  大平板适配（sw720dp = 10"+ 平板）
+-->
+<resources>
+    <dimen name="status_bar_height">24dp</dimen>
+    <dimen name="activity_horizontal_margin">32dp</dimen>
+    <dimen name="activity_vertical_margin">32dp</dimen>
+</resources>

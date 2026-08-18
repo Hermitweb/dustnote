@@ -1,0 +1,15 @@
+# Caddy 反向代理配置（一体化容器：web + API 已由容器内 nginx 处理）
+# 将 {$DOMAIN} 替换为你的域名（通过环境变量 DOMAIN 传入）
+# Caddy 仅负责 TLS 终结 + 反代到 dustnote:80（一体化 nginx）
+
+{$DOMAIN} {
+	# 一体化容器内 nginx 已处理 web 静态（SPA fallback）+ /api/ 反代 + 安全头
+	reverse_proxy dustnote:80
+
+	encode gzip zstd
+
+	log {
+		output stdout
+		format json
+	}
+}

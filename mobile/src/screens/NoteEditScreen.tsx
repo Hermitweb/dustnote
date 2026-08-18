@@ -2,9 +2,15 @@
  * 笔记编辑：标题 + Markdown 内容 + 自动保存
  *
  * 加载时解密展示，保存时加密提交；解密失败的笔记禁止自动保存，避免覆盖原始密文。
+ *
+ * v2.0.0 双模式架构：通过 createRepository 工厂按模式分流（standalone / online）
+ * 不再直接调用 api，避免单机模式下因无服务端而崩溃
+ *
+ * 注：DataRepository 接口未提供 getNote(id)，loadAll 后 find 是临时方案；
+ * 后续可在接口补 getNote(id)，或联机模式直接 GET /notes/:id
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,23 +21,35 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Share,
+  Modal,
+  ActivityIndicator,
+  FlatList,
 } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
 import type { RootStackParamList } from '../App';
-import { decryptString, encryptString, type Ciphertext } from '@dustnote/shared';
-import { api } from '../api';
+import {
+  decryptString,
+  encryptString,
+  randomBytes,
+  wrapKey,
+  toBase64Url,
+  fillTemplatePlaceholders,
+  PRESET_TEMPLATES,
+  noteAad,
+  type Ciphertext,
+  type NoteRow,
+  type NoteVersionMeta,
+  type Folder,
+} from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
+import { useModeStore } from '../lib/mode-store';
+import { createRepository } from '../lib/repository';
+import { MarkdownView } from '../components/MarkdownView';
+import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../lib/offline-queue';
 import { useColors } from '../theme';
-
-interface NoteData {
-  id: string;
-  ciphertext: string;
-  keyVersion: number;
-  isPinned: number;
-  isFavorite: number;
-  version: number;
-}
 
 interface NoteEnvelope {
   v: number;
@@ -54,21 +72,45 @@ export function NoteEditScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'NoteEdit'>>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const colors = useColors();
+  const { t } = useTranslation();
   const masterKey = useAuthStore((s) => s.masterKey);
+  const mode = useModeStore((s) => s.mode);
   const { noteId } = route.params;
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [saving, setSaving] = useState(false);
-  const [note, setNote] = useState<NoteData | null>(null);
+  const [note, setNote] = useState<NoteRow | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   /** 解密是否失败；失败时禁止自动保存，避免覆盖原始密文 */
   const [decryptFailed, setDecryptFailed] = useState(false);
+  // 模板选择 Modal
+  const [showTemplates, setShowTemplates] = useState(false);
+  // 历史版本 Modal
+  const [showHistory, setShowHistory] = useState(false);
+  const [versions, setVersions] = useState<NoteVersionMeta[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  // 移动到文件夹 Modal
+  const [showFolders, setShowFolders] = useState(false);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [foldersLoading, setFoldersLoading] = useState(false);
+  // Markdown 预览（v2.4.4）
+  const [preview, setPreview] = useState(false);
+  // 离线入队标记（保存失败且网络不可用）
+  const [offlineQueued, setOfflineQueued] = useState(false);
+
+  // 创建 Repository（按当前模式分流）
+  const repo = useMemo(
+    () => createRepository({ mode: mode ?? 'online', serverUrl: null, accessToken: null, deviceId: null }),
+    [mode]
+  );
 
   useEffect(() => {
     void (async () => {
       try {
-        const r = await api.get<{ notes: NoteData[] }>(`/notes`);
-        const n = r.notes.find((x) => x.id === noteId);
+        const snapshot = await repo.loadAll();
+        const n = snapshot.notes.find((x) => x.id === noteId);
         if (!n) {
           setLoadError('笔记不存在');
           return;
@@ -77,14 +119,22 @@ export function NoteEditScreen() {
         if (masterKey) {
           try {
             const env = parseEnvelope(n.ciphertext);
-            const json = await decryptString(masterKey, env.payload);
-            const pt = JSON.parse(json) as { title: string; content: string };
+            // 新密文（AAD 绑定）需传 noteId||userId（§2.2）
+            const aad = noteAad(noteId, useAuthStore.getState().userId ?? '');
+            const json = await decryptString(
+              masterKey,
+              env.payload,
+              env.payload.a === 1 ? aad : undefined
+            );
+            const pt = JSON.parse(json) as { title: string; content: string; tags?: string[] };
             setTitle(pt.title);
             setContent(pt.content);
+            setTags(Array.isArray(pt.tags) ? pt.tags : []);
             setDecryptFailed(false);
           } catch {
             setTitle('🔒 解密失败');
             setContent('');
+            setTags([]);
             setDecryptFailed(true);
           }
         }
@@ -92,6 +142,7 @@ export function NoteEditScreen() {
         setLoadError((err as Error).message);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteId, masterKey]);
 
   const save = useCallback(async () => {
@@ -100,29 +151,66 @@ export function NoteEditScreen() {
     if (decryptFailed) return;
     setSaving(true);
     try {
-      const json = JSON.stringify({ title, content, tags: [] });
+      const json = JSON.stringify({ title, content, tags });
       const payload = await encryptString(masterKey, json, 1);
       const env: NoteEnvelope = { v: 1, payload };
-      const r = await api.patch<{ version: number; serverUpdatedAt: string }>(`/notes/${noteId}`, {
+      const nextVersion = await repo.updateNote(noteId, {
         ciphertext: JSON.stringify(env),
         keyVersion: 1,
         isPinned: !!note.isPinned,
         isFavorite: !!note.isFavorite,
-        clientUpdatedAt: new Date().toISOString(),
         version: note.version,
       });
-      setNote({ ...note, version: r.version });
+      setNote({ ...note, version: nextVersion });
+      setOfflineQueued(false);
+      // 网络恢复：顺手重放离线队列中的未同步修改
+      if (mode === 'online') void flushOfflineQueue();
     } catch (err) {
-      Alert.alert('保存失败', (err as Error).message);
+      // 联机模式网络不可用：入队待同步，不再直接弹错误（v2.4.4 离线队列简化版）
+      if (mode === 'online' && isNetworkError(err)) {
+        try {
+          const json = JSON.stringify({ title, content, tags });
+          const payload = await encryptString(masterKey, json, 1);
+          const env: NoteEnvelope = { v: 1, payload };
+          await enqueueOffline('PATCH', `/notes/${noteId}`, {
+            ciphertext: JSON.stringify(env),
+            keyVersion: 1,
+            isPinned: !!note.isPinned,
+            isFavorite: !!note.isFavorite,
+            version: note.version,
+            clientUpdatedAt: new Date().toISOString(),
+          });
+          setOfflineQueued(true);
+        } catch {
+          Alert.alert('保存失败', (err as Error).message);
+        }
+      } else {
+        Alert.alert('保存失败', (err as Error).message);
+      }
     } finally {
       setSaving(false);
     }
-  }, [masterKey, note, noteId, title, content, decryptFailed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [masterKey, note, noteId, title, content, tags, decryptFailed, repo, mode]);
+
+  // 用 ref 持有最新 save，从 useEffect deps 移除 save 本身。
+  // 否则 save 依赖 note，save 成功后 setNote 改变 note → save 重建 → effect 重跑 →
+  // 每 1.5s 永久循环（即使无输入），version 无限自增、AsyncStorage/网络风暴。
+  const saveRef = useRef(save);
+  saveRef.current = save;
 
   useEffect(() => {
-    const timer = setTimeout(() => void save(), 1500);
+    const timer = setTimeout(() => void saveRef.current(), 1500);
     return () => clearTimeout(timer);
-  }, [title, content, save]);
+  }, [title, content, tags]);
+
+  // 仅在组件真正卸载（返回/切走）时 flush 防抖窗口内的未保存修改，
+  // 通过 ref 拿到最新 save；空依赖保证不会在每次键入时触发。
+  useEffect(() => {
+    return () => {
+      void saveRef.current();
+    };
+  }, []);
 
   const onDelete = () => {
     Alert.alert('确认', '确定要删除这篇笔记吗？', [
@@ -132,7 +220,7 @@ export function NoteEditScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await api.delete(`/notes/${noteId}`);
+            await repo.deleteNote(noteId);
             navigation.goBack();
           } catch (err) {
             Alert.alert('删除失败', (err as Error).message);
@@ -141,6 +229,221 @@ export function NoteEditScreen() {
       },
     ]);
   };
+
+  // 收藏/置顶切换（PRD §2.3 主页分类：收藏；此前移动端无任何切换入口）
+  const togglePin = useCallback(async () => {
+    if (!note || saving) return;
+    const next = !note.isPinned;
+    try {
+      const version = await repo.updateNote(noteId, {
+        isPinned: next,
+        isFavorite: note.isFavorite,
+      });
+      setNote({ ...note, isPinned: next, version });
+    } catch (err) {
+      Alert.alert('操作失败', (err as Error).message);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note, noteId, saving, repo]);
+
+  const toggleFavorite = useCallback(async () => {
+    if (!note || saving) return;
+    const next = !note.isFavorite;
+    try {
+      const version = await repo.updateNote(noteId, {
+        isFavorite: next,
+        isPinned: note.isPinned,
+      });
+      setNote({ ...note, isFavorite: next, version });
+    } catch (err) {
+      Alert.alert('操作失败', (err as Error).message);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note, noteId, saving, repo]);
+
+  const onShare = useCallback(async () => {
+    if (!masterKey || !note) {
+      Alert.alert('提示', '请先解锁笔记');
+      return;
+    }
+    // 联机模式才可分享（单机模式无服务端）
+    if (mode !== 'online') {
+      Alert.alert('提示', '分享功能仅在联机模式下可用');
+      return;
+    }
+    try {
+      // shareKey 只在本地生成，服务端永远见不到它
+      const shareKey = randomBytes(32);
+      const ciphertext = await encryptString(
+        shareKey,
+        JSON.stringify({ title: title || '未命名笔记', content })
+      );
+      const wrappedShareKey = await wrapKey(masterKey, shareKey);
+
+      const { resolveBaseUrl } = await import('../lib/mode-store');
+      const baseUrl = resolveBaseUrl().replace(/\/api\/v1$/, '');
+      const token = useAuthStore.getState().accessToken;
+      const r = await fetch(`${baseUrl}/api/v1/shares`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          noteId,
+          ciphertext,
+          wrappedShareKey,
+        }),
+      });
+      const data = (await r.json()) as { token: string; error?: string; message?: string };
+      if (!r.ok) {
+        Alert.alert('分享失败', data.message ?? data.error ?? `HTTP ${r.status}`);
+        return;
+      }
+      // 密钥放 fragment：与 web 端一致，浏览器不会把 # 之后的内容发给服务端
+      const shareUrl = `${baseUrl}/share/${data.token}#${toBase64Url(shareKey)}`;
+      await Share.share({ message: shareUrl, title: title || '分享笔记' });
+    } catch (err) {
+      Alert.alert('分享失败', (err as Error).message);
+    }
+  }, [masterKey, note, mode, title, content, noteId]);
+
+  // ========== 模板选择（简化版：仅预设模板） ==========
+  const onApplyTemplate = useCallback(
+    (templateContent: string, templateName: string) => {
+      Alert.alert(t('common.hint'), t('templates.apply_confirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: () => {
+            try {
+              const filled = fillTemplatePlaceholders(templateContent);
+              setContent(filled);
+              // 标题为空时用模板名填充
+              if (!title.trim()) setTitle(templateName);
+              setShowTemplates(false);
+              Alert.alert(t('templates.applied'));
+            } catch (err) {
+              Alert.alert(t('templates.apply_failed'), (err as Error).message);
+            }
+          },
+        },
+      ]);
+    },
+    [t, title]
+  );
+
+  // ========== 历史版本（简化版：联机模式直接调 API） ==========
+  const onLoadHistory = useCallback(async () => {
+    if (mode !== 'online') {
+      Alert.alert(t('common.hint'), t('templates.standalone_hint'));
+      return;
+    }
+    setShowHistory(true);
+    setHistoryLoading(true);
+    try {
+      const { resolveBaseUrl } = await import('../lib/mode-store');
+      const baseUrl = resolveBaseUrl();
+      const token = useAuthStore.getState().accessToken;
+      const r = await fetch(`${baseUrl}/notes/${noteId}/versions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = (await r.json()) as { versions: NoteVersionMeta[] };
+      setVersions(data.versions ?? []);
+    } catch (err) {
+      Alert.alert(t('history.load_failed'), (err as Error).message);
+      setShowHistory(false);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [mode, noteId, t]);
+
+  const onRestoreVersion = useCallback(
+    async (versionId: string) => {
+      Alert.alert(t('history.restore'), t('history.restore_confirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: async () => {
+            try {
+              if (!masterKey) throw new Error('no masterKey');
+              const { resolveBaseUrl } = await import('../lib/mode-store');
+              const baseUrl = resolveBaseUrl();
+              const token = useAuthStore.getState().accessToken;
+              // 1. 拉取版本密文
+              const r = await fetch(`${baseUrl}/notes/${noteId}/versions/${versionId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              if (!r.ok) throw new Error(`HTTP ${r.status}`);
+              const data = (await r.json()) as { ciphertext: string };
+              // 2. 解密预览（新密文 AAD 绑定需传 noteId||userId，§2.2）
+              const env = parseEnvelope(data.ciphertext);
+              const aad = noteAad(noteId, useAuthStore.getState().userId ?? '');
+              const json = await decryptString(
+                masterKey,
+                env.payload,
+                env.payload.a === 1 ? aad : undefined
+              );
+              const pt = JSON.parse(json) as { title: string; content: string };
+              // 3. 调用服务端 restore（乐观锁：带当前 version）
+              const restoreR = await fetch(
+                `${baseUrl}/notes/${noteId}/versions/${versionId}/restore`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                  body: JSON.stringify({ version: note?.version ?? 1 }),
+                }
+              );
+              if (!restoreR.ok) throw new Error(`HTTP ${restoreR.status}`);
+              const restored = (await restoreR.json()) as { version: number };
+              // 4. 更新本地 UI
+              setTitle(pt.title);
+              setContent(pt.content);
+              if (note) setNote({ ...note, version: restored.version });
+              setShowHistory(false);
+              Alert.alert(t('history.restore_success'));
+            } catch (err) {
+              Alert.alert(t('history.restore_failed'), (err as Error).message);
+            }
+          },
+        },
+      ]);
+    },
+    [masterKey, noteId, note, t]
+  );
+
+  // ========== 移动到文件夹 ==========
+  const onLoadFolders = useCallback(async () => {
+    setShowFolders(true);
+    setFoldersLoading(true);
+    try {
+      const snapshot = await repo.loadAll();
+      setFolders(snapshot.folders ?? []);
+    } catch (err) {
+      Alert.alert(t('folders.move_failed'), (err as Error).message);
+      setShowFolders(false);
+    } finally {
+      setFoldersLoading(false);
+    }
+  }, [repo, t]);
+
+  const onMoveToFolder = useCallback(
+    async (folderId: string | null) => {
+      if (!note) return;
+      try {
+        await repo.moveNote(noteId, folderId);
+        // 更新本地 note 状态（version 由后端/local-repo 递增）
+        setNote({ ...note, folderId, version: note.version + 1 });
+        setShowFolders(false);
+        const folderName =
+          folderId === null
+            ? t('folders.move_none')
+            : folders.find((f) => f.id === folderId)?.name ?? '';
+        Alert.alert(t('folders.move_success'), folderName);
+      } catch (err) {
+        Alert.alert(t('folders.move_failed'), (err as Error).message);
+      }
+    },
+    [note, noteId, repo, folders, t]
+  );
 
   const styles = makeStyles(colors);
 
@@ -159,36 +462,272 @@ export function NoteEditScreen() {
     >
       <View style={styles.toolbar}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.toolbarBtn}>←</Text>
+          <Text style={styles.toolbarBtn}>{t('editor.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.toolbarStatus}>
-          {decryptFailed ? '⚠️ 解密失败' : saving ? '🔄 保存中…' : '✅ 已保存'}
+          {offlineQueued
+            ? t('editor.offline_queued')
+            : decryptFailed
+              ? t('editor.status_decrypt_failed')
+              : saving
+                ? t('editor.status_saving')
+                : t('editor.status_saved')}
         </Text>
-        <TouchableOpacity onPress={onDelete}>
-          <Text style={[styles.toolbarBtn, { color: colors.danger }]}>🗑️</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row' }}>
+          {/* 预览 / 编辑切换（v2.4.4 Markdown 预览） */}
+          {!decryptFailed && (
+            <TouchableOpacity onPress={() => setPreview((v) => !v)} disabled={saving}>
+              <Text style={styles.toolbarBtn}>{preview ? t('editor.edit') : t('editor.preview')}</Text>
+            </TouchableOpacity>
+          )}
+          {/* 模板选择（简化版：仅预设模板，单机/联机均可用） */}
+          {!decryptFailed && (
+            <TouchableOpacity onPress={() => setShowTemplates(true)} disabled={saving}>
+              <Text style={styles.toolbarBtn}>{t('editor.templates')}</Text>
+            </TouchableOpacity>
+          )}
+          {/* 移动到文件夹（单机/联机均可用） */}
+          {!decryptFailed && (
+            <TouchableOpacity onPress={() => void onLoadFolders()} disabled={saving}>
+              <Text style={styles.toolbarBtn}>{t('editor.move')}</Text>
+            </TouchableOpacity>
+          )}
+          {/* 历史版本（联机模式才可用） */}
+          {mode === 'online' && !decryptFailed && (
+            <TouchableOpacity onPress={() => void onLoadHistory()} disabled={saving}>
+              <Text style={styles.toolbarBtn}>{t('editor.history')}</Text>
+            </TouchableOpacity>
+          )}
+          {mode === 'online' && !decryptFailed && (
+            <TouchableOpacity onPress={() => void onShare()} disabled={saving}>
+              <Text style={styles.toolbarBtn}>{t('editor.share')}</Text>
+            </TouchableOpacity>
+          )}
+          {/* 收藏/置顶（单机/联机均可用） */}
+          {!decryptFailed && (
+            <TouchableOpacity onPress={() => void togglePin()} disabled={saving}>
+              <Text
+                style={[styles.toolbarBtn, note?.isPinned && { color: colors.mint600 }]}
+              >
+                📌
+              </Text>
+            </TouchableOpacity>
+          )}
+          {!decryptFailed && (
+            <TouchableOpacity onPress={() => void toggleFavorite()} disabled={saving}>
+              <Text
+                style={[styles.toolbarBtn, note?.isFavorite && { color: colors.mint600 }]}
+              >
+                ⭐
+              </Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={onDelete}>
+            <Text style={[styles.toolbarBtn, { color: colors.danger }]}>{t('editor.delete')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
-        <TextInput
-          style={styles.title}
-          value={title}
-          onChangeText={setTitle}
-          placeholder="标题"
-          placeholderTextColor={colors.muted}
-          editable={!decryptFailed}
-        />
-        <TextInput
-          style={styles.content}
-          value={content}
-          onChangeText={setContent}
-          placeholder="开始记录…\n\n支持 Markdown 语法"
-          placeholderTextColor={colors.muted}
-          multiline
-          textAlignVertical="top"
-          editable={!decryptFailed}
-        />
+        {preview ? (
+          // Markdown 预览（只读，v2.4.4）
+          <MarkdownView title={title} content={content} colors={colors} />
+        ) : (
+          <>
+            <TextInput
+              style={styles.title}
+              value={title}
+              onChangeText={setTitle}
+              placeholder={t('editor.title_placeholder')}
+              placeholderTextColor={colors.muted}
+              editable={!decryptFailed}
+            />
+            <TextInput
+              style={styles.content}
+              value={content}
+              onChangeText={setContent}
+              placeholder={t('editor.content_placeholder')}
+              placeholderTextColor={colors.muted}
+              multiline
+              textAlignVertical="top"
+              editable={!decryptFailed}
+            />
+            {/* ========== 标签编辑 ========== */}
+            {!decryptFailed && (
+              <View style={styles.tagsContainer}>
+                <View style={styles.tagsRow}>
+                  {tags.map((tag) => (
+                    <View key={tag} style={styles.tagChip}>
+                      <Text style={styles.tagChipText}>#{tag}</Text>
+                      <TouchableOpacity
+                        onPress={() => setTags((prev) => prev.filter((x) => x !== tag))}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Text style={styles.tagChipClose}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.tagInputRow}>
+                  <TextInput
+                    style={styles.tagInput}
+                    value={tagInput}
+                    onChangeText={setTagInput}
+                    placeholder="添加标签…"
+                    placeholderTextColor={colors.muted}
+                    returnKeyType="done"
+                    onSubmitEditing={() => {
+                      const v = tagInput.trim().replace(/^#/, '').trim();
+                      if (v && !tags.includes(v)) {
+                        setTags((prev) => [...prev, v]);
+                      }
+                      setTagInput('');
+                    }}
+                  />
+                  <TouchableOpacity
+                    style={[styles.tagAddBtn, !tagInput.trim() && { opacity: 0.5 }]}
+                    disabled={!tagInput.trim()}
+                    onPress={() => {
+                      const v = tagInput.trim().replace(/^#/, '').trim();
+                      if (v && !tags.includes(v)) {
+                        setTags((prev) => [...prev, v]);
+                      }
+                      setTagInput('');
+                    }}
+                  >
+                    <Text style={styles.tagAddBtnText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
+
+      {/* ========== 模板选择 Modal ========== */}
+      <Modal visible={showTemplates} animationType="slide" transparent={false}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t('templates.title')}</Text>
+            <TouchableOpacity onPress={() => setShowTemplates(false)}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.modalHint}>{t('templates.subtitle')}</Text>
+          <FlatList
+            data={PRESET_TEMPLATES}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.templateRow}
+                onPress={() => onApplyTemplate(item.content, item.name)}
+              >
+                <Text style={styles.templateIcon}>{item.icon}</Text>
+                <View style={styles.templateInfo}>
+                  <Text style={styles.templateName}>{item.name}</Text>
+                  <Text style={styles.templateDesc}>{item.description}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
+
+      {/* ========== 历史版本 Modal ========== */}
+      <Modal visible={showHistory} animationType="slide" transparent={false}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t('history.title')}</Text>
+            <TouchableOpacity onPress={() => setShowHistory(false)}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          {historyLoading ? (
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color={colors.mint600} />
+              <Text style={{ marginTop: 12, color: colors.muted }}>{t('history.loading')}</Text>
+            </View>
+          ) : versions.length === 0 ? (
+            <View style={styles.center}>
+              <Text style={{ fontSize: 40, marginBottom: 8 }}>🕘</Text>
+              <Text style={{ color: colors.muted }}>{t('history.empty')}</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={versions}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.templateRow}
+                  onPress={() => void onRestoreVersion(item.id)}
+                >
+                  <Text style={styles.templateIcon}>🕘</Text>
+                  <View style={styles.templateInfo}>
+                    <Text style={styles.templateName}>
+                      {t('history.version_label', { n: item.noteVersion })}
+                    </Text>
+                    <Text style={styles.templateDesc}>
+                      {new Date(item.createdAt).toLocaleString()}
+                    </Text>
+                  </View>
+                  <Text style={styles.restoreBtn}>{t('history.restore')}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          )}
+        </View>
+      </Modal>
+
+      {/* ========== 移动到文件夹 Modal ========== */}
+      <Modal visible={showFolders} animationType="slide" transparent={false}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t('folders.move_title')}</Text>
+            <TouchableOpacity onPress={() => setShowFolders(false)}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          {foldersLoading ? (
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color={colors.mint600} />
+              <Text style={{ marginTop: 12, color: colors.muted }}>
+                {t('folders.move_loading')}
+              </Text>
+            </View>
+          ) : folders.length === 0 ? (
+            <View style={styles.center}>
+              <Text style={{ fontSize: 40, marginBottom: 8 }}>📁</Text>
+              <Text style={{ color: colors.muted }}>{t('folders.move_empty')}</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={[{ id: '__none__', name: t('folders.move_none'), parentId: null, icon: null, sortOrder: 0, createdAt: '' } as Folder, ...folders]}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => {
+                const isNone = item.id === '__none__';
+                const targetId = isNone ? null : item.id;
+                const active = note?.folderId === targetId || (note?.folderId == null && isNone);
+                return (
+                  <TouchableOpacity
+                    style={[styles.templateRow, active && { backgroundColor: colors.accentSoft }]}
+                    onPress={() => void onMoveToFolder(targetId)}
+                  >
+                    <Text style={styles.templateIcon}>{isNone ? '📂' : '📁'}</Text>
+                    <View style={styles.templateInfo}>
+                      <Text style={styles.templateName}>{item.name}</Text>
+                    </View>
+                    {active && (
+                      <Text style={[styles.restoreBtn, { color: colors.accent }]}>
+                        {t('folders.move_current')}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          )}
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -227,5 +766,83 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       minHeight: 400,
       lineHeight: 24,
     },
+    // 标签编辑
+    tagsContainer: {
+      paddingHorizontal: 16,
+      paddingTop: 4,
+      paddingBottom: 24,
+      borderTopColor: c.border,
+      borderTopWidth: 1,
+      marginTop: 4,
+    },
+    tagsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 10,
+    },
+    tagChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.bg,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderWidth: 1,
+      borderColor: c.border,
+      gap: 6,
+    },
+    tagChipText: { fontSize: 13, color: c.mint600, fontWeight: '500' },
+    tagChipClose: { fontSize: 14, color: c.muted, fontWeight: '600' },
+    tagInputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    tagInput: {
+      flex: 1,
+      backgroundColor: c.bg,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontSize: 14,
+      color: c.fg,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    tagAddBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      backgroundColor: c.mint600,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    tagAddBtnText: { color: 'white', fontSize: 22, fontWeight: '300' },
+    // Modal 通用样式
+    modalContainer: { flex: 1, backgroundColor: c.bg, padding: 16 },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      marginBottom: 8,
+    },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: c.fg },
+    modalClose: { fontSize: 22, color: c.muted, paddingHorizontal: 8 },
+    modalHint: { fontSize: 13, color: c.muted, marginBottom: 12, lineHeight: 18 },
+    // 模板 / 历史列表行
+    templateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 14,
+      borderBottomColor: c.border,
+      borderBottomWidth: 1,
+    },
+    templateIcon: { fontSize: 28, marginRight: 14 },
+    templateInfo: { flex: 1 },
+    templateName: { fontSize: 15, fontWeight: '600', color: c.fg, marginBottom: 2 },
+    templateDesc: { fontSize: 12, color: c.muted },
+    restoreBtn: { fontSize: 13, color: c.mint600, fontWeight: '600' },
   });
 }

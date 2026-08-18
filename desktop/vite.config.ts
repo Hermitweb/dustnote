@@ -18,6 +18,9 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   plugins: [react()],
+  // 复用 web/public 目录：logo.png、favicon 等公共资源只在 web/public 维护一份，
+  // 桌面端构建时自动拷贝到 dist/，避免 AboutDialog 等共享组件找不到 logo。
+  publicDir: resolve(__dirname, '../web/public'),
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),

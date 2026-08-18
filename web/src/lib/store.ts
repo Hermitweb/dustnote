@@ -1,39 +1,105 @@
 /**
  * 全局状态：masterKey、auth、notes、folders、tags、theme、i18n、preferences
  *
+ * v2.0.0 支持 单机/联机 双模式：
+ * - standalone：数据存储在 IndexedDB（LocalRepository），鉴权走 local-auth.ts
+ * - online：数据存储在服务端（RemoteRepository），鉴权走 /auth/* API
+ *
  * masterKey 仅存内存（refresh 后清空），刷新页面需重新解锁
  */
 
 import { create } from 'zustand';
 import {
   ApiClient,
+  ApiException,
   type Ciphertext,
-  deriveMasterKey,
+  type DataRepository,
+  type AppMode,
+  type Template,
   decryptString,
   encryptString,
   generateRecoveryCode,
-  wrapMasterKey,
-  deriveRecoveryKey,
+  generateMasterKey,
+  deriveSecrets,
+  wrapKey,
+  unwrapKey,
+  normalizeRecoveryCode,
   fromBase64,
   toBase64,
   randomBytes,
+  hkdf,
+  noteAad,
+  setupLocalAuth,
+  unlockLocalAuth,
+  recoverLocalAuth,
+  recordFailedAttempt,
+  recordSuccessfulAttempt,
+  isLocked,
+  remainingLockoutMs,
+  INITIAL_LOCKOUT_STATE,
+  LOCAL_LOCKOUT_DURATION_MS,
+  PRESET_TEMPLATES,
+  fillTemplatePlaceholders,
+  type LocalAuthBlob,
+  type LocalLockoutState,
 } from '@dustnote/shared';
 import { getDeviceId } from './device';
-import { applyTheme } from './theme';
-import i18n from './i18n';
+import { applyTheme, applyTypography } from './theme';
+import i18n, { LANGUAGE_STORAGE_KEY } from './i18n';
+import { toast } from './toast';
+import {
+  cacheNotes as cacheNotesRaw,
+  cacheFolders,
+  cacheTags,
+  loadCachedNotes,
+  loadCachedFolders,
+  loadCachedTags,
+  clearCache,
+  clearPlainCache,
+} from './db';
+import { enqueue, peekAll, remove, bumpRetries, getRetryDelayForOp, size as queueSize } from './offline-queue';
+import type { QueuedOp } from './offline-queue';
+import { useModeStore } from './mode-store';
+import { createRepository } from './repository';
+import {
+  enableGraceUnlock,
+  consumeGraceUnlock,
+  peekGraceUnlock,
+  clearGraceUnlock,
+  isGraceUnlockEnabled,
+  getGraceUnlockMin,
+} from './grace-unlock';
+import {
+  loadLocalAuthBlob,
+  saveLocalAuthBlob,
+  clearLocalAuthBlob,
+  loadLockoutState,
+  saveLockoutState,
+  clearLockoutState,
+} from './local-auth-storage';
 
 const API_BASE = '/api/v1';
 const APP_VERSION = __APP_VERSION__;
 
-const api = (): ApiClient =>
-  new ApiClient({
-    baseUrl: API_BASE,
+/**
+ * 构造 ApiClient（联机模式鉴权 / 数据同步用）
+ *
+ * 基址选择（与 RemoteRepository 保持一致）：
+ * - mode-store 中 serverUrl 不为空 → 拼接 `${serverUrl}/api/v1`（桌面端联机模式）
+ * - serverUrl 为空 → 同源 `/api/v1`（Web 部署、开发环境 vite proxy）
+ */
+const api = (): ApiClient => {
+  const { serverUrl } = useModeStore.getState();
+  const baseUrl = serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : API_BASE;
+  return new ApiClient({
+    baseUrl,
     clientVersion: APP_VERSION,
     platform: 'web',
     channel: 'stable',
     deviceId: getDeviceId(),
     accessToken: useStore.getState().accessToken ?? undefined,
   });
+};
 
 // ========== 类型 ==========
 
@@ -81,7 +147,7 @@ export interface Tag {
   count: number;
 }
 
-export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked';
+export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked' | 'error';
 
 /** 侧栏视图：全部 / 收藏 / 回收站 */
 export type ViewMode = 'all' | 'favorites' | 'trash';
@@ -107,37 +173,90 @@ export interface Preferences {
 // ========== Store ==========
 
 interface StoreState {
+  // mode（v2.0.0）
+  /** 当前应用模式 */
+  mode: AppMode;
+  /** 数据访问 Repository（根据 mode 注入） */
+  repository: DataRepository | null;
+
   // auth
   authState: AuthState;
+  /** 联机模式服务器不可达时的错误信息（authState === 'error' 时展示） */
+  serverError: string | null;
   accessToken: string | null;
   userId: string | null;
   serverSalt: string | null; // base64
   masterKey: Uint8Array | null;
   wrappedMasterKey: Ciphertext | null;
+  /** 单机模式本地鉴权 blob */
+  localAuthBlob: LocalAuthBlob | null;
+  /** 单机模式锁定状态 */
+  lockoutState: LocalLockoutState;
 
   // data
   notes: Map<string, NoteRow>;
   notesPlain: Map<string, NotePlaintext>;
   folders: Folder[];
   tags: Tag[];
+  /** 笔记模板（预设 + 自定义；单机模式仅有 bundled 预设） */
+  templates: Template[];
   selectedNoteId: string | null;
   selectedFolderId: string | null;
+  /** 当前选中的标签（侧栏按标签过滤笔记列表） */
+  selectedTagId: string | null;
   /** 当前侧栏视图（全部/收藏/回收站） */
   viewMode: ViewMode;
+
+  // UI 临时状态（不持久化）
+  /** 侧边栏是否隐藏（Ctrl+B 切换） */
+  sidebarHidden: boolean;
+  /** 搜索框聚焦令牌（变化时触发 Sidebar 聚焦搜索框） */
+  searchFocusToken: number;
 
   // preferences
   preferences: Preferences;
 
-  // actions: auth
+  // offline-first
+  isOnline: boolean;
+  /** 待同步的离线操作数量（来自 offline-queue） */
+  pendingCount: number;
+
+  // actions: mode
+  /** 初始化 Repository（根据当前模式注入） */
+  initRepository: () => void;
+  /** 切换模式（含数据迁移） */
+  switchMode: (target: AppMode, serverUrl?: string | null) => Promise<void>;
+
+  // actions: auth（联机模式）
   checkStatus: () => Promise<void>;
   setup: (password: string) => Promise<string>; // 返回 recoveryCode
   unlock: (password: string) => Promise<void>;
   recover: (recoveryCode: string, newPassword: string) => Promise<void>;
+  /** 修改主密码：校验当前密码后重新包装 masterKey（单机/联机分派） */
+  changePassword: (masterPassword: string, newPassword: string) => Promise<void>;
   lock: () => void;
+  /** 宽限期免密解锁：是否有有效的 grace 缓存 */
+  hasGraceUnlock: () => boolean;
+  /** 宽限期免密解锁：恢复 unlocked 状态，成功返回 true */
+  graceUnlock: () => Promise<boolean>;
+
+  // actions: auth（单机模式）
+  /** 单机模式：检查本地鉴权状态 */
+  checkStatusStandalone: () => void;
+  /** 单机模式：首次设置主密码 */
+  setupStandalone: (password: string) => Promise<string>;
+  /** 单机模式：解锁 */
+  unlockStandalone: (password: string) => Promise<void>;
+  /** 单机模式：恢复码重置密码 */
+  recoverStandalone: (recoveryCode: string, newPassword: string) => Promise<void>;
+  /** 单机模式：获取剩余锁定时间（ms） */
+  getRemainingLockoutMs: () => number;
 
   // actions: data
   loadAll: () => Promise<void>;
   createNote: (folderId?: string | null) => Promise<string>;
+  /** 从模板创建笔记：解密模板 content（自定义模板）或直接用明文（预设模板），写入新笔记 */
+  createNoteFromTemplate: (templateId: string, folderId?: string | null) => Promise<string>;
   updateNote: (
     id: string,
     patch: Partial<NotePlaintext> & { isPinned?: boolean; isFavorite?: boolean }
@@ -147,9 +266,19 @@ interface StoreState {
   deleteNote: (id: string) => Promise<void>;
   selectNote: (id: string | null) => void;
   selectFolder: (id: string | null) => void;
+  /** 按标签过滤笔记列表（null = 清除标签过滤） */
+  selectTag: (id: string | null) => void;
   setViewMode: (mode: ViewMode) => void;
+  /** 切换侧边栏显隐（Ctrl+B） */
+  toggleSidebar: () => void;
+  /** 触发搜索框聚焦（Ctrl+F） */
+  focusSearch: () => void;
   createFolder: (name: string) => Promise<string>;
   deleteFolder: (id: string) => Promise<void>;
+  /** 新建标签（名称重复时返回已有标签 id），color 形如 #rrggbb */
+  createTag: (name: string, color?: string | null) => Promise<string>;
+  /** 删除标签（不影响笔记明文中的标签名引用） */
+  deleteTag: (id: string) => Promise<void>;
   /** 永久删除笔记（不可恢复） */
   permanentDeleteNote: (id: string) => Promise<void>;
   /** 清空回收站：永久删除所有已软删的笔记 */
@@ -157,11 +286,29 @@ interface StoreState {
   /** 恢复笔记：从回收站还原 */
   restoreNote: (id: string) => Promise<void>;
 
+  // actions: templates（v2.1.0）
+  /** 加载模板列表（联机：服务端拉取；单机：bundled 预设） */
+  loadTemplates: () => Promise<void>;
+  /** 把当前笔记另存为自定义模板（联机模式专用，加密存储） */
+  saveAsTemplate: (name: string, plain: NotePlaintext) => Promise<void>;
+  /** 删除自定义模板（预设模板不可删） */
+  deleteTemplate: (id: string) => Promise<void>;
+
   // actions: prefs
   setPreferences: (p: Partial<Preferences>) => void;
   setTheme: (theme: ThemeId) => void;
   setMode: (mode: Mode) => void;
   setLanguage: (lang: 'zh-CN' | 'en') => void;
+
+  // actions: offline
+  /** 由 online-listener 调用，更新在线状态 */
+  setOnline: (online: boolean) => void;
+  /** 刷新 pendingCount（供 UI 订阅） */
+  refreshPendingCount: () => Promise<void>;
+  /** 重放离线队列；409/4xx 丢弃，网络错误保留 */
+  flushQueue: () => Promise<void>;
+  /** 注销时清空本地缓存 + 队列 */
+  clearLocalData: () => Promise<void>;
 }
 
 const DEFAULT_PREFS: Preferences = {
@@ -195,17 +342,26 @@ const ENVELOPE_VERSION = 1;
 
 async function encryptNote(
   key: Uint8Array,
-  pt: NotePlaintext
+  pt: NotePlaintext,
+  aad?: Uint8Array
 ): Promise<{ envelope: NoteCipherEnvelope; json: string }> {
   const json = JSON.stringify(pt);
-  const blob = await encryptString(key, json, 1);
+  // AAD 绑定 noteId||userId（§2.2）：防重排攻击；模板/旧数据不传（密文保持 a=0 向后兼容）
+  const blob = await encryptString(key, json, 1, aad);
   const envelope: NoteCipherEnvelope = { v: ENVELOPE_VERSION, payload: blob };
   return { envelope, json: JSON.stringify(envelope) };
 }
 
-async function decryptNote(key: Uint8Array, envelope: NoteCipherEnvelope): Promise<NotePlaintext> {
+async function decryptNote(
+  key: Uint8Array,
+  envelope: NoteCipherEnvelope,
+  aad?: Uint8Array
+): Promise<NotePlaintext> {
   if (envelope.v !== ENVELOPE_VERSION) throw new Error(`envelope version mismatch: ${envelope.v}`);
-  const json = await decryptString(key, envelope.payload);
+  // 历史密文（a=0）无 AAD 绑定，解密时不传；新密文（a=1）必须传相同 AAD
+  const needsAad = envelope.payload.a === 1;
+  if (needsAad && !aad) throw new Error('decryptNote: 此密文绑定了 AAD，但解密时未提供 AAD');
+  const json = await decryptString(key, envelope.payload, needsAad ? aad : undefined);
   return JSON.parse(json) as NotePlaintext;
 }
 
@@ -223,153 +379,663 @@ function parseEnvelope(raw: string): NoteCipherEnvelope {
   throw new Error('invalid envelope');
 }
 
+// ========== 离线辅助 ==========
+
+/**
+ * 判断错误是否为网络故障（应入队重试）。
+ *
+ * - fetch 抛 TypeError：DNS 解析失败 / 离线 / CORS 阻断 → 入队
+ * - ApiException 5xx：服务端错误，可能恢复 → 入队
+ * - ApiException 4xx：客户端错误（如 409 冲突），不可恢复 → 不入队
+ */
+function isTransientNetworkError(err: unknown): boolean {
+  if (err instanceof ApiException) {
+    return err.err.status >= 500;
+  }
+  // TypeError: Failed to fetch
+  return err instanceof TypeError;
+}
+
+/**
+ * 执行一个 mutation；网络失败时入队等待重放。
+ *
+ * @param op 入队用的操作描述（method/path/body/noteId）
+ * @param fn 实际执行网络的函数
+ * @returns 成功返回 true，已入队返回 false
+ */
+async function runOrEnqueue(
+  op: { method: 'POST' | 'PATCH' | 'DELETE'; path: string; body?: unknown; noteId?: string },
+  fn: () => Promise<unknown>
+): Promise<boolean> {
+  try {
+    await fn();
+    return true;
+  } catch (err) {
+    if (isTransientNetworkError(err)) {
+      await enqueue(op);
+      await useStore.getState().refreshPendingCount();
+      return false;
+    }
+    throw err;
+  }
+}
+
 // ========== Store 实现 ==========
 
+/** flushQueue 重入守卫（模块级，避免并发重放同一批离线操作） */
+const flushingRef = { inFlight: false };
+
+/**
+ * 本地明文缓存加密（security.md §3.4）：
+ * 缓存明文前先用 masterKey 经 HKDF 派生 localDEK（32B）加密落盘；
+ * 未解锁（无 masterKey）时不落明文。lock() 会清掉明文缓存。
+ */
+const LOCAL_DEK_INFO = 'dustnote-local-dek-v1';
+async function deriveLocalKey(mk: Uint8Array | null): Promise<Uint8Array | null> {
+  if (!mk) return null;
+  return hkdf(mk, new Uint8Array(0), LOCAL_DEK_INFO, 32);
+}
+async function cacheNotesLocal(
+  notes: Map<string, NoteRow>,
+  plain: Map<string, NotePlaintext>
+): Promise<void> {
+  const localKey = (await deriveLocalKey(useStore.getState().masterKey)) ?? undefined;
+  return cacheNotesRaw(notes, plain, localKey);
+}
+
 export const useStore = create<StoreState>((set, get) => ({
+  // mode（v2.0.0）
+  mode: useModeStore.getState().mode,
+  repository: null,
+
+  // auth
   authState: 'unknown',
+  serverError: null,
   accessToken: null,
   userId: null,
   serverSalt: null,
   masterKey: null,
   wrappedMasterKey: null,
+  localAuthBlob: null,
+  lockoutState: INITIAL_LOCKOUT_STATE,
+
+  // data
   notes: new Map(),
   notesPlain: new Map(),
   folders: [],
   tags: [],
+  // 单机模式无需联网即可使用预设模板；联机模式解锁后会 loadTemplates 覆盖
+  templates: PRESET_TEMPLATES,
   selectedNoteId: null,
   selectedFolderId: null,
+  selectedTagId: null,
   viewMode: 'all',
+
+  // UI 临时状态
+  sidebarHidden: false,
+  searchFocusToken: 0,
+
+  // preferences
   preferences: loadPrefs(),
+
+  // offline-first
+  isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
+  pendingCount: 0,
+
+  // -------- mode actions --------
+
+  initRepository(): void {
+    const { mode } = get();
+    const repo = createRepository(
+      { mode, serverUrl: useModeStore.getState().serverUrl },
+      () => get().accessToken
+    );
+    set({ repository: repo });
+  },
+
+  async switchMode(target: AppMode, serverUrl: string | null = null): Promise<void> {
+    const { repository, masterKey } = get();
+    if (!repository || !masterKey) {
+      throw new Error('切换模式前需先解锁');
+    }
+    // 切换模式前清空宽限期缓存（masterKey 即将失效）
+    clearGraceUnlock();
+    // 备份当前 store 与 mode-store 状态：迁移失败时回滚，避免数据丢失且无感知
+    const prevMode = useModeStore.getState().mode;
+    const prevServerUrl = useModeStore.getState().serverUrl;
+    const prevStore = {
+      mode: get().mode,
+      repository: get().repository,
+      notes: get().notes,
+      notesPlain: get().notesPlain,
+      folders: get().folders,
+      tags: get().tags,
+      selectedTagId: get().selectedTagId,
+    };
+    try {
+      // 1. 导出当前模式的数据
+      const backup = await repository.exportBackup();
+      // 2. 更新 mode-store
+      useModeStore.getState().setMode(target);
+      if (serverUrl !== null) {
+        useModeStore.getState().setServerUrl(serverUrl);
+      }
+      // 3. 初始化新 Repository
+      const newRepo = createRepository(
+        { mode: target, serverUrl: useModeStore.getState().serverUrl },
+        () => get().accessToken
+      );
+      // 4. 清空新模式的业务数据（避免重复）
+      await newRepo.clearBusinessData();
+      // 5. 导入备份数据
+      await newRepo.importBackup(backup);
+      // 6. 更新 store
+      set({ mode: target, repository: newRepo });
+      // 7. 重新加载数据
+      await get().loadAll();
+    } catch (err) {
+      // 失败回滚：恢复原模式与 mode-store 状态，并还原内存中的数据
+      useModeStore.getState().setMode(prevMode);
+      if (prevServerUrl !== null || serverUrl !== null) {
+        useModeStore.getState().setServerUrl(prevServerUrl);
+      }
+      set({
+        mode: prevStore.mode,
+        repository: prevStore.repository,
+        notes: prevStore.notes,
+        notesPlain: prevStore.notesPlain,
+        folders: prevStore.folders,
+        tags: prevStore.tags,
+        selectedTagId: prevStore.selectedTagId,
+      });
+      throw err;
+    }
+  },
+
+  // -------- standalone auth --------
+
+  checkStatusStandalone(): void {
+    const blob = loadLocalAuthBlob();
+    const lockout = loadLockoutState();
+    if (!blob) {
+      set({ authState: 'uninitialized', lockoutState: lockout });
+    } else {
+      // 无论是否处于锁定计数窗口，都回到 needs_unlock（锁定只影响失败计数与提示，不改变鉴权状态）
+      set({ authState: 'needs_unlock', localAuthBlob: blob, lockoutState: lockout });
+    }
+  },
+
+  async setupStandalone(password: string): Promise<string> {
+    const result = await setupLocalAuth(password);
+    saveLocalAuthBlob(result.blob);
+    clearLockoutState();
+    // 注意：此处不设置 authState: 'unlocked'！
+    // setupStandalone 返回 recoveryCode 后 SetupScreen 需要展示恢复码，
+    // 若提前把 authState 改成 'unlocked'，App.tsx 会立即切到主界面，
+    // 导致恢复码界面被卸载、用户永远看不到恢复码。
+    // 用户点击「我已保存」→ reload → checkStatusStandalone 设置 needs_unlock → 输入密码解锁。
+    set({
+      localAuthBlob: result.blob,
+      masterKey: result.masterKey,
+      lockoutState: INITIAL_LOCKOUT_STATE,
+    });
+    return result.recoveryCode;
+  },
+
+  async unlockStandalone(password: string): Promise<void> {
+    const { localAuthBlob, lockoutState } = get();
+    if (!localAuthBlob) throw new Error('未初始化');
+    if (isLocked(lockoutState)) {
+      const remaining = remainingLockoutMs(lockoutState);
+      throw new Error(`账号已锁定，请 ${Math.ceil(remaining / 1000)} 秒后重试`);
+    }
+    const result = await unlockLocalAuth(password, localAuthBlob);
+    if (!result.success) {
+      const newState = recordFailedAttempt(lockoutState);
+      saveLockoutState(newState);
+      set({ lockoutState: newState });
+      if (isLocked(newState)) {
+        throw new Error(`密码错误次数过多，账号已锁定 ${LOCAL_LOCKOUT_DURATION_MS / 60000} 分钟`);
+      }
+      throw new Error('主密码错误');
+    }
+    const successState = recordSuccessfulAttempt();
+    saveLockoutState(successState);
+    set({
+      masterKey: result.masterKey,
+      lockoutState: successState,
+      authState: 'unlocked',
+    });
+  },
+
+  async recoverStandalone(recoveryCode: string, newPassword: string): Promise<void> {
+    const { localAuthBlob } = get();
+    if (!localAuthBlob) throw new Error('未初始化');
+    const result = await recoverLocalAuth(recoveryCode, newPassword, localAuthBlob);
+    if (!result.success || !result.blob || !result.masterKey || !result.recoveryCode) {
+      throw new Error('恢复码错误');
+    }
+    saveLocalAuthBlob(result.blob);
+    clearLockoutState();
+    set({
+      localAuthBlob: result.blob,
+      masterKey: result.masterKey,
+      lockoutState: INITIAL_LOCKOUT_STATE,
+      authState: 'unlocked',
+    });
+  },
+
+  getRemainingLockoutMs(): number {
+    return remainingLockoutMs(get().lockoutState);
+  },
 
   // -------- auth --------
 
   async checkStatus(): Promise<void> {
-    const r = await api().get<{ initialized: boolean; deviceKnown: boolean }>('/auth/status');
-    if (!r.initialized) {
-      set({ authState: 'uninitialized' });
-    } else {
-      set({ authState: 'needs_unlock' });
+    const { mode } = get();
+    if (mode === 'standalone') {
+      // 单机模式：检查本地鉴权 blob
+      get().checkStatusStandalone();
+      return;
+    }
+    // 联机模式：调用 /auth/status API
+    try {
+      const r = await api().get<{
+        initialized: boolean;
+        deviceKnown: boolean;
+        pwSalt: string | null;
+      }>('/auth/status');
+      if (!r.initialized) {
+        set({ authState: 'uninitialized', serverError: null, serverSalt: null });
+      } else {
+        // pwSalt 是派生 KEK 的前提，客户端在输入密码前就得拿到。盐不是秘密。
+        set({ authState: 'needs_unlock', serverError: null, serverSalt: r.pwSalt });
+      }
+    } catch (err) {
+      // 服务器不可达（未启动 / 地址错误 / 网络故障）：
+      // 设置 error 状态，避免 authState 停留在 'unknown' 导致卡在加载界面
+      set({
+        authState: 'error',
+        serverError: err instanceof Error ? err.message : String(err),
+      });
     }
   },
 
   async setup(password: string): Promise<string> {
+    // v2：masterKey 随机生成，与密码无关——这样以后换密码不会让旧笔记解不开
+    const masterKey = generateMasterKey();
     const recoveryCode = generateRecoveryCode();
-    const clientMasterSalt = randomBytes(16);
-    const masterKey = await deriveMasterKey(password, clientMasterSalt);
-    const recoverySalt = randomBytes(16);
-    const recoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt);
-    const wrapped = await wrapMasterKey(recoveryKey, masterKey);
+    const pwSalt = randomBytes(16);
+    const rcSalt = randomBytes(16);
+
+    const [pw, rc] = await Promise.all([
+      deriveSecrets(password, pwSalt),
+      deriveSecrets(normalizeRecoveryCode(recoveryCode), rcSalt),
+    ]);
+    const [wrappedPw, wrappedRc] = await Promise.all([
+      wrapKey(pw.kek, masterKey),
+      wrapKey(rc.kek, masterKey),
+    ]);
 
     const r = await api().post<{
       accessToken: string;
       userId: string;
       deviceId: string;
-      clientMasterSalt: string;
     }>('/auth/setup', {
-      password,
-      recoveryCode,
-      wrappedMasterKey: wrapped,
-      clientMasterSalt: toBase64(clientMasterSalt),
+      // 只上传 authKey 和密文，主密码与 masterKey 都不出客户端
+      authKey: toBase64(pw.authKey),
+      recoveryAuthKey: toBase64(rc.authKey),
+      wrappedMasterKeyPw: wrappedPw,
+      wrappedMasterKeyRc: wrappedRc,
+      pwSalt: toBase64(pwSalt),
+      rcSalt: toBase64(rcSalt),
       deviceName: 'Web 浏览器',
     });
 
+    // 注意：此处不设置 authState: 'unlocked'！
+    // 与 setupStandalone 同理：SetupScreen 需在 setup() 返回后展示恢复码，
+    // 提前切 'unlocked' 会导致恢复码界面被 App.tsx 卸载。
     set({
       accessToken: r.accessToken,
       userId: r.userId,
-      serverSalt: r.clientMasterSalt,
+      serverSalt: toBase64(pwSalt),
       masterKey,
-      wrappedMasterKey: wrapped,
-      authState: 'unlocked',
+      wrappedMasterKey: wrappedPw,
     });
     return recoveryCode;
   },
 
   async unlock(password: string): Promise<void> {
+    // v2：pwSalt 在 checkStatus 时已拿到；直接进解锁页时兜底再取一次
+    let salt = get().serverSalt;
+    if (!salt) {
+      const status = await api().get<{
+        initialized: boolean;
+        pwSalt: string | null;
+      }>('/auth/status');
+      salt = status.pwSalt;
+      if (!salt) throw new Error('系统未初始化');
+    }
+
+    const pw = await deriveSecrets(password, fromBase64(salt));
     const r = await api().post<{
       accessToken: string;
       userId: string;
       deviceId: string;
-      clientMasterSalt: string;
-    }>('/auth/unlock', { password, deviceName: 'Web 浏览器' });
-    const clientMasterSalt = fromBase64(r.clientMasterSalt);
-    const masterKey = await deriveMasterKey(password, clientMasterSalt);
+      wrappedMasterKey: Ciphertext;
+    }>('/auth/unlock', {
+      authKey: toBase64(pw.authKey),
+      deviceName: 'Web 浏览器',
+    });
+
+    // 服务端只能验证 authKey；masterKey 得靠本地 KEK 解封，服务端无从得知
+    const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
 
     set({
       accessToken: r.accessToken,
       userId: r.userId,
-      serverSalt: r.clientMasterSalt,
+      serverSalt: salt,
       masterKey,
+      wrappedMasterKey: r.wrappedMasterKey,
       authState: 'unlocked',
     });
   },
 
   async recover(recoveryCode: string, newPassword: string): Promise<void> {
-    const newClientMasterSalt = randomBytes(16);
-    const newMasterKey = await deriveMasterKey(newPassword, newClientMasterSalt);
-    const recoverySalt = randomBytes(16);
-    const newRecoveryKey = deriveRecoveryKey(recoveryCode, recoverySalt);
-    const newWrapped = await wrapMasterKey(newRecoveryKey, newMasterKey);
+    const a = api();
+    // v2：先取恢复码派生所需的 rc_salt（盐不是秘密，无需鉴权）
+    const { rcSalt } = await a.get<{ rcSalt: string }>('/auth/recovery-params');
+    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), fromBase64(rcSalt));
 
-    const r = await api().post<{
+    const r = await a.post<{
       accessToken: string;
       userId: string;
       deviceId: string;
-      clientMasterSalt: string;
+      wrappedMasterKey: Ciphertext;
     }>('/auth/recover', {
-      recoveryCode,
-      newPassword,
-      newWrappedMasterKey: newWrapped,
-      newClientMasterSalt: toBase64(newClientMasterSalt),
+      recoveryAuthKey: toBase64(rc.authKey),
       deviceName: 'Web 浏览器（恢复）',
+    });
+
+    // 关键：解封出来的是原来那把 masterKey，历史笔记照常能解开
+    const masterKey = await unwrapKey(rc.kek, r.wrappedMasterKey);
+
+    // 拿回 masterKey 后立刻用新密码重新包装（masterKey 本身不变）
+    const newPwSalt = randomBytes(16);
+    const pw = await deriveSecrets(newPassword, newPwSalt);
+    const wrappedPw = await wrapKey(pw.kek, masterKey);
+
+    // 先落 token，rewrap 是需要鉴权的接口（api() 从 store 读 accessToken）
+    set({ accessToken: r.accessToken });
+    await api().post('/auth/rewrap', {
+      password: {
+        authKey: toBase64(pw.authKey),
+        salt: toBase64(newPwSalt),
+        wrappedMasterKey: wrappedPw,
+      },
     });
 
     set({
       accessToken: r.accessToken,
       userId: r.userId,
-      serverSalt: r.clientMasterSalt,
-      masterKey: newMasterKey,
-      wrappedMasterKey: newWrapped,
+      serverSalt: toBase64(newPwSalt),
+      masterKey,
+      wrappedMasterKey: wrappedPw,
       authState: 'unlocked',
     });
   },
 
+  // 修改主密码：校验当前密码后，用新密码重新包装 masterKey（masterKey 本身不变）
+  async changePassword(masterPassword: string, newPassword: string): Promise<void> {
+    if (newPassword.length < 8) throw new Error('新主密码至少 8 个字符');
+    const { mode } = get();
+
+    // ---- 单机模式：本地校验当前密码 + 重新包装 ----
+    if (mode === 'standalone') {
+      const { localAuthBlob, lockoutState } = get();
+      if (!localAuthBlob) throw new Error('未初始化');
+      if (isLocked(lockoutState)) {
+        const rem = remainingLockoutMs(lockoutState);
+        throw new Error(`账号已锁定，请 ${Math.ceil(rem / 1000)} 秒后重试`);
+      }
+      const result = await unlockLocalAuth(masterPassword, localAuthBlob);
+      if (!result.success || !result.masterKey) {
+        const newState = recordFailedAttempt(lockoutState);
+        saveLockoutState(newState);
+        set({ lockoutState: newState });
+        if (isLocked(newState)) {
+          throw new Error(`密码错误次数过多，账号已锁定 ${LOCAL_LOCKOUT_DURATION_MS / 60000} 分钟`);
+        }
+        throw new Error('当前密码错误');
+      }
+      // 新密码派生 KEK + authKey，重新包装同一把 masterKey
+      const newPwSalt = randomBytes(16);
+      const { kek: newKek, authKey: newAuthKey } = await deriveSecrets(newPassword, newPwSalt);
+      const newWrapped = await wrapKey(newKek, result.masterKey);
+      const newBlob: LocalAuthBlob = {
+        ...localAuthBlob,
+        pwSalt: toBase64(newPwSalt),
+        passwordHash: toBase64(newAuthKey),
+        passwordWrappedMasterKey: JSON.stringify(newWrapped),
+      };
+      saveLocalAuthBlob(newBlob);
+      clearLockoutState();
+      set({ localAuthBlob: newBlob, lockoutState: INITIAL_LOCKOUT_STATE });
+      return;
+    }
+
+    // ---- 联机模式：/auth/unlock 校验当前密码 → /auth/rewrap 换包装 ----
+    let salt = get().serverSalt;
+    if (!salt) {
+      const status = await api().get<{ initialized: boolean; pwSalt: string | null }>('/auth/status');
+      salt = status.pwSalt;
+      if (!salt) throw new Error('系统未初始化');
+    }
+    const pw = await deriveSecrets(masterPassword, fromBase64(salt));
+    const r = await api().post<{
+      accessToken: string;
+      userId: string;
+      wrappedMasterKey: Ciphertext;
+    }>('/auth/unlock', {
+      authKey: toBase64(pw.authKey),
+      deviceName: 'Web 浏览器',
+    });
+    // 解封 masterKey 即验证当前密码正确；masterKey 本身不变
+    const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
+    const newPwSalt = randomBytes(16);
+    const npw = await deriveSecrets(newPassword, newPwSalt);
+    const wrappedPw = await wrapKey(npw.kek, masterKey);
+    // 先落 token，rewrap 是需要鉴权的接口（api() 从 store 读 accessToken）
+    set({ accessToken: r.accessToken });
+    await api().post('/auth/rewrap', {
+      password: {
+        authKey: toBase64(npw.authKey),
+        salt: toBase64(newPwSalt),
+        wrappedMasterKey: wrappedPw,
+      },
+    });
+    set({ serverSalt: toBase64(newPwSalt), wrappedMasterKey: wrappedPw });
+  },
+
   lock(): void {
     const k = get().masterKey;
+    // 启用宽限期时缓存 masterKey 副本（在 fill(0) 之前完成深拷贝）
+    if (k && isGraceUnlockEnabled()) {
+      enableGraceUnlock(k, get().wrappedMasterKey, getGraceUnlockMin());
+    }
     if (k) k.fill(0);
-    set({ masterKey: null, selectedNoteId: null });
+    // 必须将 authState 切回 'needs_unlock'，否则 App.tsx 仍渲染主界面
+    // 但 masterKey 已清空，笔记无法解密 → 用户卡死在空白界面无法解锁
+    set({
+      masterKey: null,
+      accessToken: null,
+      selectedNoteId: null,
+      notesPlain: new Map(),
+      authState: 'needs_unlock',
+    });
+    // 安全（§3.4）：锁定时清掉 IndexedDB 明文缓存，避免解锁态副本长期落盘
+    void clearPlainCache().catch(() => undefined);
+  },
+
+  /**
+   * 桌面端免密解锁宽限期（S-1 懒人化体验）
+   * - lock() 时缓存 masterKey 副本（仅内存，进程退出即丢失）
+   * - graceUnlock() 宽限期内一键恢复 unlocked
+   * - 用户可在设置中关闭（graceUnlockMin=0）
+   */
+  // -------- grace unlock --------
+
+  /** 检查是否有有效的宽限期免密解锁 */
+  hasGraceUnlock(): boolean {
+    return peekGraceUnlock();
+  },
+
+  /** 宽限期免密解锁：成功恢复 unlocked，失败返回 false */
+  async graceUnlock(): Promise<boolean> {
+    const cached = consumeGraceUnlock();
+    if (!cached) return false;
+    // 联机模式：lock() 已清空 accessToken，宽限期恢复必须重新取 token，
+    // 否则 App.tsx 触发 loadAll/startSyncWs 时全部 401，进入「假解锁」故障态。
+    // refresh 走 httpOnly cookie（path=/api/v1/auth），无需用户重新输密码。
+    if (get().mode === 'online') {
+      try {
+        const r = await api().post<{ accessToken: string }>('/auth/refresh');
+        set({
+          masterKey: cached.masterKey,
+          wrappedMasterKey: cached.wrappedMasterKey,
+          accessToken: r.accessToken,
+          authState: 'unlocked',
+        });
+        return true;
+      } catch {
+        // refresh 失败（cookie 过期 / 设备被吊销）：回退到密码解锁
+        set({ authState: 'needs_unlock' });
+        return false;
+      }
+    }
+    set({
+      masterKey: cached.masterKey,
+      wrappedMasterKey: cached.wrappedMasterKey,
+      authState: 'unlocked',
+    });
+    return true;
   },
 
   // -------- data --------
 
   async loadAll(): Promise<void> {
-    const a = api();
-    const [notesRes, foldersRes, tagsRes, meRes] = await Promise.all([
-      // includeDeleted=1：回收站视图需要拿到已软删的笔记
-      a.get<{ notes: NoteRow[] }>('/notes?includeDeleted=1'),
-      a.get<{ folders: Folder[] }>('/folders'),
-      a.get<{ tags: Tag[] }>('/tags'),
-      a.get<{ wrappedMasterKey: Ciphertext }>('/auth/me'),
-    ]);
-    set({
-      notes: new Map(notesRes.notes.map((n: NoteRow) => [n.id, n])),
-      folders: foldersRes.folders,
-      tags: tagsRes.tags,
-      wrappedMasterKey: meRes.wrappedMasterKey,
-    });
+    const { mode, repository } = get();
 
-    const masterKey = get().masterKey;
-    if (masterKey) {
-      const plain = new Map<string, NotePlaintext>();
-      for (const n of notesRes.notes) {
-        try {
-          const envelope = parseEnvelope(n.ciphertext);
-          const pt = await decryptNote(masterKey, envelope);
-          plain.set(n.id, pt);
-        } catch {
-          plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
+    // 单机模式：直接从 LocalRepository 加载
+    if (mode === 'standalone' && repository) {
+      const snapshot = await repository.loadAll();
+      const notesMap = new Map<string, NoteRow>(snapshot.notes.map((n: NoteRow) => [n.id, n]));
+      set({
+        notes: notesMap,
+        folders: snapshot.folders,
+        tags: snapshot.tags,
+      });
+      if (snapshot.preferences) {
+        const merged = { ...get().preferences, ...snapshot.preferences };
+        set({ preferences: merged });
+        // 同步 i18n 语言：loadAll 从 SQLite 加载的偏好可能与 localStorage 中的
+        // dustnote_language 不同步（如用户在设置中改了语言但 localStorage 未更新），
+        // 必须显式调用 i18n.changeLanguage 才能让 UI 立即切换语言。
+        if (snapshot.preferences.language) {
+          localStorage.setItem(LANGUAGE_STORAGE_KEY, snapshot.preferences.language);
+          void i18n.changeLanguage(snapshot.preferences.language);
         }
       }
-      set({ notesPlain: plain });
+      // 解密笔记
+      const masterKey = get().masterKey;
+      if (masterKey) {
+        const plain = new Map<string, NotePlaintext>();
+        for (const n of snapshot.notes) {
+          try {
+            const envelope = parseEnvelope(n.ciphertext);
+            const pt = await decryptNote(masterKey, envelope, noteAad(n.id, get().userId ?? ''));
+            plain.set(n.id, pt);
+          } catch {
+            plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
+          }
+        }
+        set({ notesPlain: plain });
+      }
+      // 单机模式模板：使用 bundled 预设
+      set({ templates: PRESET_TEMPLATES });
+      return;
+    }
+
+    // 联机模式：Offline-first，先用 IndexedDB 缓存填充 store，UI 立即可见；
+    // 同时发起网络请求拉取最新数据。失败时保留缓存（不抛错）。
+    try {
+      // 明文缓存已用 localDEK 加密，解锁后才有 masterKey 可解密
+      const localKey = (await deriveLocalKey(get().masterKey)) ?? undefined;
+      const [cachedNotes, cachedFolders, cachedTags] = await Promise.all([
+        loadCachedNotes(localKey),
+        loadCachedFolders(),
+        loadCachedTags(),
+      ]);
+      if (cachedNotes.notes.size > 0 || cachedFolders.length > 0) {
+        set({
+          notes: cachedNotes.notes,
+          notesPlain: cachedNotes.plain,
+          folders: cachedFolders,
+          tags: cachedTags,
+        });
+      }
+    } catch {
+      /* 缓存读取失败，忽略，继续走网络 */
+    }
+
+    try {
+      const a = api();
+      const [notesRes, foldersRes, tagsRes, templatesRes] = await Promise.all([
+        // includeDeleted=1：回收站视图需要拿到已软删的笔记
+        a.get<{ notes: NoteRow[] }>('/notes?includeDeleted=1'),
+        a.get<{ folders: Folder[] }>('/folders'),
+        a.get<{ tags: Tag[] }>('/tags'),
+        a.get<{ templates: Template[] }>('/templates'),
+      ]);
+      set({
+        notes: new Map(notesRes.notes.map((n: NoteRow) => [n.id, n])),
+        folders: foldersRes.folders,
+        tags: tagsRes.tags,
+        templates: templatesRes.templates ?? PRESET_TEMPLATES,
+      });
+
+      const masterKey = get().masterKey;
+      if (masterKey) {
+        const plain = new Map<string, NotePlaintext>();
+        for (const n of notesRes.notes) {
+          try {
+            const envelope = parseEnvelope(n.ciphertext);
+            const pt = await decryptNote(masterKey, envelope, noteAad(n.id, get().userId ?? ''));
+            plain.set(n.id, pt);
+          } catch {
+            plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
+          }
+        }
+        set({ notesPlain: plain });
+
+        // 网络成功后刷新缓存（明文 + 密文）
+        try {
+          await cacheNotesLocal(get().notes, plain);
+          await cacheFolders(foldersRes.folders);
+          await cacheTags(tagsRes.tags);
+        } catch {
+          /* 缓存写入失败不影响主流程 */
+        }
+      }
+    } catch (err) {
+      // 网络失败：如果已有缓存则静默保留；否则抛错让上层处理
+      if (get().notes.size === 0) throw err;
+      // 标记离线状态
+      if (isTransientNetworkError(err)) {
+        set({ isOnline: false });
+      }
+      // 模板拉取失败时降级为 bundled 预设
+      set({ templates: PRESET_TEMPLATES });
     }
   },
 
@@ -377,10 +1043,50 @@ export const useStore = create<StoreState>((set, get) => ({
     const masterKey = get().masterKey;
     if (!masterKey) throw new Error('未解锁');
 
+    // 客户端预生成 id：作为 AAD（noteId||userId）绑定密文（§2.2），防重排
+    const noteId = crypto.randomUUID();
     const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
-    const { json: cipherJson } = await encryptNote(masterKey, empty);
+    const { json: cipherJson } = await encryptNote(
+      masterKey,
+      empty,
+      noteAad(noteId, get().userId ?? '')
+    );
 
+    // 单机模式：直接写入 LocalRepository
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      const id = await repository.createNote({
+        id: noteId,
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: false,
+        isFavorite: false,
+        folderId,
+      });
+      const now = new Date().toISOString();
+      const note: NoteRow = {
+        id,
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: false,
+        isFavorite: false,
+        deletedAt: null,
+        version: 1,
+        clientUpdatedAt: now,
+        serverUpdatedAt: now,
+        folderId,
+      };
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, note);
+      const newPlain = new Map(get().notesPlain);
+      newPlain.set(id, empty);
+      set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: id });
+      return id;
+    }
+
+    // 联机模式：API + 离线队列
     const r = await api().post<{ id: string; serverUpdatedAt: string; version: number }>('/notes', {
+      id: noteId,
       ciphertext: cipherJson,
       keyVersion: 1,
       isPinned: false,
@@ -410,6 +1116,103 @@ export const useStore = create<StoreState>((set, get) => ({
     return note.id;
   },
 
+  async createNoteFromTemplate(templateId: string, folderId: string | null = null): Promise<string> {
+    const masterKey = get().masterKey;
+    if (!masterKey) throw new Error('未解锁');
+
+    // 查找模板
+    const tpl = get().templates.find((t) => t.id === templateId);
+    if (!tpl) throw new Error('模板不存在');
+
+    // 解析模板内容
+    let plainContent: string;
+    if (tpl.isPreset) {
+      // 预设模板：明文 Markdown
+      plainContent = fillTemplatePlaceholders(tpl.content);
+    } else {
+      // 自定义模板：ciphertext JSON，需用 masterKey 解密
+      const envelope = parseEnvelope(tpl.content);
+      const json = await decryptString(masterKey, envelope.payload);
+      const pt = JSON.parse(json) as NotePlaintext;
+      plainContent = fillTemplatePlaceholders(pt.content);
+    }
+
+    // 从模板内容提取首行作为标题（去掉 Markdown 的 # 号）
+    const firstLine = plainContent.split('\n')[0]?.trim() || '';
+    const title = firstLine.replace(/^#+\s*/, '') || tpl.name;
+
+    const plain: NotePlaintext = { title, content: plainContent, tags: [] };
+    // 客户端预生成 id：作为 AAD 绑定密文（§2.2）
+    const noteId = crypto.randomUUID();
+    const { json: cipherJson } = await encryptNote(
+      masterKey,
+      plain,
+      noteAad(noteId, get().userId ?? '')
+    );
+
+    // 单机模式
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      const id = await repository.createNote({
+        id: noteId,
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: false,
+        isFavorite: false,
+        folderId,
+      });
+      const now = new Date().toISOString();
+      const note: NoteRow = {
+        id,
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: false,
+        isFavorite: false,
+        deletedAt: null,
+        version: 1,
+        clientUpdatedAt: now,
+        serverUpdatedAt: now,
+        folderId,
+      };
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, note);
+      const newPlain = new Map(get().notesPlain);
+      newPlain.set(id, plain);
+      set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: id });
+      return id;
+    }
+
+    // 联机模式
+    const r = await api().post<{ id: string; serverUpdatedAt: string; version: number }>('/notes', {
+      id: noteId,
+      ciphertext: cipherJson,
+      keyVersion: 1,
+      isPinned: false,
+      isFavorite: false,
+      clientUpdatedAt: new Date().toISOString(),
+      folderId,
+    });
+
+    const note: NoteRow = {
+      id: r.id,
+      ciphertext: cipherJson,
+      keyVersion: 1,
+      isPinned: false,
+      isFavorite: false,
+      deletedAt: null,
+      version: r.version,
+      clientUpdatedAt: new Date().toISOString(),
+      serverUpdatedAt: r.serverUpdatedAt,
+      folderId,
+    };
+    const newNotes = new Map(get().notes);
+    newNotes.set(note.id, note);
+    const newPlain = new Map(get().notesPlain);
+    newPlain.set(note.id, plain);
+    set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: note.id });
+    return note.id;
+  },
+
   async updateNote(
     id: string,
     patch: Partial<NotePlaintext> & { isPinned?: boolean; isFavorite?: boolean }
@@ -434,65 +1237,192 @@ export const useStore = create<StoreState>((set, get) => ({
       content: patch.content ?? current?.content ?? '',
       tags: patch.tags ?? current?.tags ?? [],
     };
-    const { json: cipherJson } = await encryptNote(masterKey, merged);
+    const { json: cipherJson } = await encryptNote(masterKey, merged, noteAad(id, get().userId ?? ''));
 
-    const r = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, {
+    // 单机模式：直接更新 LocalRepository
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      const version = await repository.updateNote(id, {
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: patch.isPinned ?? note.isPinned,
+        isFavorite: patch.isFavorite ?? note.isFavorite,
+      });
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, {
+        ...note,
+        ciphertext: cipherJson,
+        version,
+        isPinned: patch.isPinned ?? note.isPinned,
+        isFavorite: patch.isFavorite ?? note.isFavorite,
+      });
+      const newPlain = new Map(get().notesPlain);
+      newPlain.set(id, merged);
+      set({ notes: newNotes, notesPlain: newPlain });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
+    const body = {
       ciphertext: cipherJson,
       keyVersion: 1,
       isPinned: patch.isPinned ?? note.isPinned,
       isFavorite: patch.isFavorite ?? note.isFavorite,
       clientUpdatedAt: new Date().toISOString(),
       version: note.version,
-    });
+    };
 
+    // 乐观更新：先写入本地 store，UI 立即反映
     const newNotes = new Map(get().notes);
     newNotes.set(id, {
       ...note,
-      version: r.version,
-      serverUpdatedAt: r.serverUpdatedAt,
       ciphertext: cipherJson,
+      isPinned: patch.isPinned ?? note.isPinned,
+      isFavorite: patch.isFavorite ?? note.isFavorite,
     });
     const newPlain = new Map(get().notesPlain);
     newPlain.set(id, merged);
     set({ notes: newNotes, notesPlain: newPlain });
+
+    // 网络请求：失败时入队，不回滚（用户已看到变更）
+    const ok = await runOrEnqueue(
+      { method: 'PATCH', path: `/notes/${id}`, body, noteId: id },
+      async () => {
+        const r = await api().patch<{ version: number; serverUpdatedAt: string }>(
+          `/notes/${id}`,
+          body
+        );
+        // 成功后用服务端返回的 version/serverUpdatedAt 校正本地
+        const nn = new Map(get().notes);
+        const updated = nn.get(id);
+        if (updated) {
+          nn.set(id, { ...updated, version: r.version, serverUpdatedAt: r.serverUpdatedAt });
+          set({ notes: nn });
+        }
+      }
+    );
+    if (!ok) {
+      // 已入队，更新离线徽章计数
+      set({ isOnline: false });
+    }
+    // 缓存刷新（异步，不阻塞）
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
   },
 
   async moveNote(id: string, folderId: string | null): Promise<void> {
     const note = get().notes.get(id);
     if (!note) return;
     if (note.folderId === folderId) return; // 已在目标文件夹，无需请求
-    const r = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, {
+
+    // 单机模式：直接更新 LocalRepository
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.moveNote(id, folderId);
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, { ...note, folderId });
+      set({ notes: newNotes });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
+    const body = {
       folderId,
       clientUpdatedAt: new Date().toISOString(),
       version: note.version,
-    });
+    };
+
+    // 乐观更新
     const newNotes = new Map(get().notes);
-    newNotes.set(id, { ...note, folderId, version: r.version, serverUpdatedAt: r.serverUpdatedAt });
+    newNotes.set(id, { ...note, folderId });
     set({ notes: newNotes });
+
+    const ok = await runOrEnqueue(
+      { method: 'PATCH', path: `/notes/${id}`, body, noteId: id },
+      async () => {
+        const r = await api().patch<{ version: number; serverUpdatedAt: string }>(
+          `/notes/${id}`,
+          body
+        );
+        const nn = new Map(get().notes);
+        const updated = nn.get(id);
+        if (updated) {
+          nn.set(id, { ...updated, version: r.version, serverUpdatedAt: r.serverUpdatedAt });
+          set({ notes: nn });
+        }
+      }
+    );
+    if (!ok) set({ isOnline: false });
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
   },
 
   async deleteNote(id: string): Promise<void> {
     const note = get().notes.get(id);
     if (!note) return;
-    await api().delete(`/notes/${id}`);
+
+    // 单机模式：直接更新 LocalRepository
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.deleteNote(id);
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, { ...note, deletedAt: new Date().toISOString() });
+      set({ notes: newNotes, selectedNoteId: null });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
     const newNotes = new Map(get().notes);
     newNotes.set(id, { ...note, deletedAt: new Date().toISOString() });
     set({ notes: newNotes, selectedNoteId: null });
+
+    const ok = await runOrEnqueue(
+      { method: 'DELETE', path: `/notes/${id}`, noteId: id },
+      async () => {
+        await api().delete(`/notes/${id}`);
+      }
+    );
+    if (!ok) set({ isOnline: false });
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
   },
 
   selectNote(id: string | null): void {
     set({ selectedNoteId: id });
   },
   selectFolder(id: string | null): void {
-    set({ selectedFolderId: id, viewMode: 'all' });
+    set({ selectedFolderId: id, selectedTagId: null, viewMode: 'all' });
+  },
+  selectTag(id: string | null): void {
+    set({ selectedTagId: id, selectedFolderId: null, viewMode: 'all', selectedNoteId: null });
   },
   setViewMode(mode: ViewMode): void {
-    set({ viewMode: mode, selectedFolderId: null, selectedNoteId: null });
+    set({ viewMode: mode, selectedFolderId: null, selectedTagId: null, selectedNoteId: null });
+  },
+  toggleSidebar(): void {
+    set((s) => ({ sidebarHidden: !s.sidebarHidden }));
+  },
+  focusSearch(): void {
+    set((s) => ({ searchFocusToken: s.searchFocusToken + 1 }));
   },
   async permanentDeleteNote(id: string): Promise<void> {
     const note = get().notes.get(id);
     if (!note) return;
-    await api().delete(`/notes/${id}/permanent`);
+
+    // 单机模式：直接删除
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.permanentDeleteNote(id);
+      const newNotes = new Map(get().notes);
+      newNotes.delete(id);
+      const newPlain = new Map(get().notesPlain);
+      newPlain.delete(id);
+      set({
+        notes: newNotes,
+        notesPlain: newPlain,
+        selectedNoteId: get().selectedNoteId === id ? null : get().selectedNoteId,
+      });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
     const newNotes = new Map(get().notes);
     newNotes.delete(id);
     const newPlain = new Map(get().notesPlain);
@@ -502,14 +1432,37 @@ export const useStore = create<StoreState>((set, get) => ({
       notesPlain: newPlain,
       selectedNoteId: get().selectedNoteId === id ? null : get().selectedNoteId,
     });
+
+    const ok = await runOrEnqueue(
+      { method: 'DELETE', path: `/notes/${id}/permanent`, noteId: id },
+      async () => {
+        await api().delete(`/notes/${id}/permanent`);
+      }
+    );
+    if (!ok) set({ isOnline: false });
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
   },
   async emptyTrash(): Promise<void> {
     const trashIds = Array.from(get().notes.values())
       .filter((n) => n.deletedAt)
       .map((n) => n.id);
     if (trashIds.length === 0) return;
-    // 并发删除（服务端允许永久删除已软删笔记）
-    await Promise.all(trashIds.map((id) => api().delete(`/notes/${id}/permanent`)));
+
+    // 单机模式：直接清空
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.emptyTrash();
+      const newNotes = new Map(get().notes);
+      const newPlain = new Map(get().notesPlain);
+      for (const id of trashIds) {
+        newNotes.delete(id);
+        newPlain.delete(id);
+      }
+      set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: null });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
     const newNotes = new Map(get().notes);
     const newPlain = new Map(get().notesPlain);
     for (const id of trashIds) {
@@ -517,21 +1470,156 @@ export const useStore = create<StoreState>((set, get) => ({
       newPlain.delete(id);
     }
     set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: null });
+
+    // 顺序删除（与 remote-repo 的「必须顺序删除」约束一致，避免清空回收站时请求风暴打爆服务端）
+    let anyEnqueued = false;
+    for (const id of trashIds) {
+      try {
+        await api().delete(`/notes/${id}/permanent`);
+      } catch (err) {
+        const e = err as { err?: { status?: number } };
+        // 409 版本冲突 / 404 已删除：服务端状态与本地不一致，交给 loadAll 校正，不重复入队
+        if (e.err?.status === 409 || e.err?.status === 404) continue;
+        if (isTransientNetworkError(err)) {
+          await enqueue({ method: 'DELETE', path: `/notes/${id}/permanent`, noteId: id });
+          anyEnqueued = true;
+        }
+      }
+    }
+    if (anyEnqueued) {
+      set({ isOnline: false });
+      await get().refreshPendingCount();
+    }
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
   },
   async restoreNote(id: string): Promise<void> {
     const note = get().notes.get(id);
     if (!note || !note.deletedAt) return;
-    const r = await api().patch<{ version: number }>(`/notes/${id}`, {
+
+    // 单机模式：直接恢复
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.restoreNote(id);
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, { ...note, deletedAt: null });
+      set({ notes: newNotes });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
+    const body = {
       deletedAt: null,
       clientUpdatedAt: new Date().toISOString(),
       version: note.version,
-    });
+    };
+    // 乐观更新
     const newNotes = new Map(get().notes);
-    newNotes.set(id, { ...note, deletedAt: null, version: r.version });
+    newNotes.set(id, { ...note, deletedAt: null });
     set({ notes: newNotes });
+
+    const ok = await runOrEnqueue(
+      { method: 'PATCH', path: `/notes/${id}`, body, noteId: id },
+      async () => {
+        const r = await api().patch<{ version: number }>(`/notes/${id}`, body);
+        const nn = new Map(get().notes);
+        const updated = nn.get(id);
+        if (updated) {
+          nn.set(id, { ...updated, version: r.version });
+          set({ notes: nn });
+        }
+      }
+    );
+    if (!ok) set({ isOnline: false });
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
+  },
+
+  // -------- templates（v2.1.0）--------
+
+  async loadTemplates(): Promise<void> {
+    const { mode } = get();
+    // 单机模式：仅使用 bundled 预设模板
+    if (mode === 'standalone') {
+      set({ templates: PRESET_TEMPLATES });
+      return;
+    }
+    // 联机模式：从服务端拉取（预设 + 用户自定义）
+    try {
+      const r = await api().get<{ templates: Template[] }>('/templates');
+      set({ templates: r.templates ?? PRESET_TEMPLATES });
+    } catch {
+      // 拉取失败时保留 bundled 预设，避免 UI 空白
+      set({ templates: PRESET_TEMPLATES });
+    }
+  },
+
+  async saveAsTemplate(name: string, plain: NotePlaintext): Promise<void> {
+    const masterKey = get().masterKey;
+    if (!masterKey) throw new Error('未解锁');
+    const { mode } = get();
+    if (mode !== 'online') {
+      throw new Error('自定义模板仅在联机模式可用');
+    }
+    // 加密模板内容（与笔记信封同格式）
+    const { json: cipherJson } = await encryptNote(masterKey, plain);
+    const r = await api().post<{ id: string }>('/templates', {
+      name,
+      description: '',
+      category: 'custom',
+      icon: '📝',
+      content: cipherJson,
+      sortOrder: 100,
+    });
+    // 更新本地 store
+    const newTemplate: Template = {
+      id: r.id,
+      userId: get().userId,
+      name,
+      description: '',
+      category: 'custom',
+      icon: '📝',
+      content: cipherJson,
+      isPreset: false,
+      sortOrder: 100,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    set({ templates: [...get().templates, newTemplate] });
+  },
+
+  async deleteTemplate(id: string): Promise<void> {
+    const { mode } = get();
+    if (mode !== 'online') {
+      throw new Error('自定义模板仅在联机模式可用');
+    }
+    const tpl = get().templates.find((t) => t.id === id);
+    if (!tpl) return;
+    if (tpl.isPreset) throw new Error('预设模板不可删除');
+    await api().delete(`/templates/${id}`);
+    set({ templates: get().templates.filter((t) => t.id !== id) });
   },
 
   async createFolder(name: string): Promise<string> {
+    // 单机模式：直接创建
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      const id = await repository.createFolder({ name });
+      set({
+        folders: [
+          ...get().folders,
+          {
+            id,
+            name,
+            parentId: null,
+            icon: null,
+            sortOrder: get().folders.length,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      });
+      return id;
+    }
+
+    // 联机模式：API
     const r = await api().post<{ id: string }>('/folders', { name });
     set({
       folders: [
@@ -550,8 +1638,57 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async deleteFolder(id: string): Promise<void> {
-    await api().delete(`/folders/${id}`);
+    // 单机模式：直接删除
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.deleteFolder(id);
+      set({ folders: get().folders.filter((f) => f.id !== id) });
+      // 该文件夹下的笔记 folderId 置为 null
+      const newNotes = new Map(get().notes);
+      let changed = false;
+      for (const [nid, n] of newNotes) {
+        if (n.folderId === id) {
+          newNotes.set(nid, { ...n, folderId: null });
+          changed = true;
+        }
+      }
+      if (changed) set({ notes: newNotes });
+      return;
+    }
+
+    // 联机模式：乐观更新 + API + 离线队列
     set({ folders: get().folders.filter((f) => f.id !== id) });
+    const ok = await runOrEnqueue({ method: 'DELETE', path: `/folders/${id}` }, async () => {
+      await api().delete(`/folders/${id}`);
+    });
+    if (!ok) set({ isOnline: false });
+    void cacheFolders(get().folders).catch(() => undefined);
+  },
+
+  // -------- 标签 --------
+
+  async createTag(name: string, color: string | null = null): Promise<string> {
+    const { repository } = get();
+    if (!repository) throw new Error('未初始化');
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error('标签名不能为空');
+    // 按名称（忽略大小写）去重：已存在则直接返回，避免重复创建
+    const existing = get().tags.find((t) => t.name.toLowerCase() === trimmed.toLowerCase());
+    if (existing) return existing.id;
+    const id = await repository.createTag(trimmed, color);
+    const tag: Tag = { id, name: trimmed, color, count: 0 };
+    set({ tags: [...get().tags, tag] });
+    return id;
+  },
+
+  async deleteTag(id: string): Promise<void> {
+    const { repository } = get();
+    if (!repository) throw new Error('未初始化');
+    const tag = get().tags.find((t) => t.id === id);
+    if (!tag) return;
+    await repository.deleteTag(id);
+    set({ tags: get().tags.filter((t) => t.id !== id) });
+    if (get().selectedTagId === id) set({ selectedTagId: null });
   },
 
   // -------- prefs --------
@@ -562,10 +1699,29 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ preferences: next });
     if (p.theme) applyTheme(p.theme, next.mode);
     if (p.mode) applyTheme(next.theme, p.mode);
-    if (p.language) void i18n.changeLanguage(p.language);
-    void api()
-      .patch('/preferences', p)
-      .catch(() => undefined);
+    // 字体 / 行高密度：通过 CSS 变量立即生效
+    if (p.font || p.density) {
+      applyTypography(p.font ?? next.font, p.density ?? next.density);
+    }
+    if (p.language) {
+      // 同步 dustnote_language localStorage key：i18n.ts 初始化时从此读取默认语言，
+      // 若不更新则刷新页面后语言会回退到默认 'zh-CN'，用户设置的语言不生效。
+      localStorage.setItem('dustnote_language', p.language);
+      void i18n.changeLanguage(p.language);
+    }
+
+    // 单机模式：写入 LocalRepository
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      void repository.setPreferences(p).catch(() => undefined);
+    } else {
+      // 联机模式：同步到服务端
+      void api()
+        .patch('/preferences', p)
+        .catch(() => {
+          toast.error(i18n.t('settings.save_fail'));
+        });
+    }
   },
 
   setTheme(theme: ThemeId): void {
@@ -577,4 +1733,111 @@ export const useStore = create<StoreState>((set, get) => ({
   setLanguage(language: 'zh-CN' | 'en'): void {
     get().setPreferences({ language });
   },
+
+  // -------- offline --------
+
+  setOnline(online: boolean): void {
+    set({ isOnline: online });
+    if (online) {
+      // 联网时自动刷新一次 pendingCount（队列可能为空）
+      void get().refreshPendingCount();
+    }
+  },
+
+  async refreshPendingCount(): Promise<void> {
+    try {
+      const n = await queueSize();
+      set({ pendingCount: n });
+    } catch {
+      /* ignore */
+    }
+  },
+
+  async flushQueue(): Promise<void> {
+    // 重入守卫：并发触发（online 事件 + 用户手动同步）会 peek 到同一批 op
+    // 并重复执行，导致笔记重复创建 / 版本冲突。此处串行化重放。
+    if (flushingRef.inFlight) return;
+    flushingRef.inFlight = true;
+    try {
+      const ops = await peekAll();
+      if (ops.length === 0) return;
+
+      let hadConflict = false;
+      for (const op of ops) {
+        try {
+          await replayOp(op);
+          await remove(op.id);
+        } catch (err) {
+          if (err instanceof ApiException) {
+            const status = err.err.status;
+            if (status === 409 || (status >= 400 && status < 500)) {
+              // 冲突或客户端错误：丢弃该 op，避免死循环
+              await remove(op.id);
+              hadConflict = true;
+            } else {
+              // 5xx：服务端可能恢复，保留并增加重试计数，
+              // 按指数退避等待后再继续处理下一条（避免瞬时请求风暴）
+              await bumpRetries(op.id);
+              const delayMs = await getRetryDelayForOp(op.id);
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+            }
+          } else if (err instanceof TypeError) {
+            // 网络仍不可达：停止重放，保留 op
+            break;
+          } else {
+            // 未知错误：丢弃避免阻塞队列
+            await remove(op.id);
+          }
+        }
+      }
+
+      await get().refreshPendingCount();
+
+      // 冲突或全部成功后，拉取最新数据校正本地
+      if (hadConflict || ops.length > 0) {
+        try {
+          await get().loadAll();
+        } catch {
+          /* loadAll 内部已处理 */
+        }
+      }
+
+      // 重放后若全部成功，标记为在线
+      if ((await queueSize()) === 0) {
+        set({ isOnline: true });
+      }
+    } finally {
+      flushingRef.inFlight = false;
+    }
+  },
+
+  async clearLocalData(): Promise<void> {
+    await clearCache();
+    await caches.delete('dustnote-runtime');
+    const { clear: clearQueue } = await import('./offline-queue');
+    await clearQueue();
+    // 单机模式：清除本地鉴权数据 + 锁定状态
+    clearLocalAuthBlob();
+    clearLockoutState();
+    // 清空宽限期缓存
+    clearGraceUnlock();
+    set({ pendingCount: 0, localAuthBlob: null, lockoutState: INITIAL_LOCKOUT_STATE });
+  },
 }));
+
+// 启动时同步 i18n 语言：preferences 可能保存了用户选择的语言，
+// 但 i18n.ts 初始化时从 dustnote_language localStorage 读取（可能为空 → 默认 zh-CN）。
+// 这里补齐：把 preferences.language 写入 dustnote_language 并切换 i18n。
+{
+  const _startupLang = useStore.getState().preferences.language;
+  if (_startupLang) {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, _startupLang);
+    void i18n.changeLanguage(_startupLang);
+  }
+}
+
+/** 重放单个 op：用当前 store 的 accessToken 构造请求 */
+async function replayOp(op: QueuedOp): Promise<void> {
+  const client = api();
+  await client.request<unknown>(op.method, op.path, op.body);
+}

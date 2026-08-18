@@ -1,0 +1,20 @@
+# Pin the Rust toolchain for both local and CI builds.
+#
+# rustc 1.97.1 has an internal compiler error (ICE) when type-checking
+# rustls 0.23.42's `enum_builder` macro:
+#   rustc_middle/src/hir/map.rs: DefId(...) is not an owner
+#   query stack: typeck_root -> analysis on crate `rustls`
+# The ICE is in the typeck pass (flag-independent), so release-profile
+# tweaks (panic=abort / codegen-units=1 / lto) cannot work around it.
+#
+# 1.96.0 (previous stable, 2026-05-25) predates the regression and builds
+# rustls 0.23.42 cleanly. The GitHub Actions release workflow uses
+# dtolnay/rust-toolchain@stable; rustup's per-directory toolchain file
+# takes precedence over the action's default, so CI will use 1.96.0 too.
+#
+# When a future stable rustc fixes the ICE, bump this channel and remove
+# this note. Keep the pin in sync with the version tested locally.
+
+[toolchain]
+channel = "1.96.0"
+profile = "minimal"

@@ -16,7 +16,8 @@ const ConfigSchema = z.object({
     .regex(/^\d+\.\d+\.\d+/)
     .nullable(),
   eolDateForV0: z.string().optional(),
-  jwtSecret: z.string().min(16),
+  jwtSecret: z.string().min(32),
+  trustProxy: z.number().int().nonnegative().max(10),
 });
 
 describe('config validation schema', () => {
@@ -31,6 +32,7 @@ describe('config validation schema', () => {
       minClientVersion: '0.1.0',
       recommendedClientVersion: '0.1.0',
       forceUpdateVersion: null,
+      trustProxy: 1,
       jwtSecret: 'a-very-strong-secret-key-32-chars-long',
     });
     expect(result.success).toBe(true);
@@ -47,6 +49,7 @@ describe('config validation schema', () => {
       minClientVersion: '0.1.0',
       recommendedClientVersion: '0.1.0',
       forceUpdateVersion: null,
+      trustProxy: 1,
       jwtSecret: 'short-secret',
     });
     expect(result.success).toBe(false);
@@ -63,7 +66,25 @@ describe('config validation schema', () => {
       minClientVersion: '0.1.0',
       recommendedClientVersion: '0.1.0',
       forceUpdateVersion: null,
+      trustProxy: 1,
       jwtSecret: 'short',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a negative trust proxy hop count', () => {
+    const result = ConfigSchema.safeParse({
+      nodeEnv: 'production',
+      port: 3210,
+      logLevel: 'info',
+      dbPath: './data/dustnote.db',
+      webOrigin: 'https://dustnote.example.com',
+      serverVersion: '0.1.0',
+      minClientVersion: '0.1.0',
+      recommendedClientVersion: '0.1.0',
+      forceUpdateVersion: null,
+      trustProxy: -1,
+      jwtSecret: 'a-very-strong-secret-key-32-chars-long',
     });
     expect(result.success).toBe(false);
   });
@@ -79,6 +100,7 @@ describe('config validation schema', () => {
       minClientVersion: '0.1.0',
       recommendedClientVersion: '0.1.0',
       forceUpdateVersion: null,
+      trustProxy: 1,
       jwtSecret: 'a-very-strong-secret-key-32-chars-long',
     });
     expect(result.success).toBe(false);

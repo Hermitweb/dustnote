@@ -33,7 +33,7 @@ assignees: ''
 
 - **设备**：例如 MacBook Pro 2023 / iPhone 14 / Pixel 7
 - **操作系统**：例如 macOS 14.5 / iOS 17.5 / Android 14
-- **应用版本**：例如 v1.0.0 (build 100)
+- **应用版本**：例如 v2.5.1
 - **应用类型**：Web / Desktop / Android / 小程序
 - **浏览器**（如适用）：Chrome 120 / Safari 17
 

@@ -1,6 +1,10 @@
 # 桌面端构建产物
 src-tauri/target/
 
+# Velopack 打包产物（由 vpk pack 生成）
+src-tauri/Releases/
+src-tauri/staging/
+
 # Node
 node_modules/
 dist/

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  平板适配（sw600dp = 7"+ 平板）
+  React Native 应用主要通过 JS 层响应式布局适配平板，
+  此文件仅覆盖原生 UI 组件（StatusBar、权限对话框等）的尺寸。
+-->
+<resources>
+    <!-- 状态栏高度（平板与手机相同，但显式声明避免继承问题） -->
+    <dimen name="status_bar_height">24dp</dimen>
+
+    <!-- 默认 Activity 切换动画缩放（平板上略大，提升视觉反馈） -->
+    <dimen name="activity_horizontal_margin">24dp</dimen>
+    <dimen name="activity_vertical_margin">24dp</dimen>
+</resources>

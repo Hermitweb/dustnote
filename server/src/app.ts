@@ -10,6 +10,7 @@ import pinoHttp from 'pino-http';
 import rateLimit from 'express-rate-limit';
 import { config } from './env.js';
 import { logger } from './logger.js';
+import { setupSentryErrorHandler, captureException } from './sentry.js';
 import { versionCheckMiddleware } from './middleware/version-check.js';
 import { authMiddleware } from './middleware/auth.js';
 import { updateManifestRouter } from './routes/update-manifest.js';
@@ -21,9 +22,37 @@ import { tagsRouter } from './routes/tags.js';
 import { sharesRouter, publicSharesRouter } from './routes/shares.js';
 import { exportRouter } from './routes/export.js';
 import { preferencesRouter } from './routes/preferences.js';
+import { templatesRouter } from './routes/templates.js';
+import { devicesRouter } from './routes/devices.js';
+import { accountRouter } from './routes/account.js';
 
+/**
+ * 脱敏 URL 中的敏感查询参数。
+ * pino-http 默认把 req.url 原样写入日志，而 /share/public/:token?password=<明文>
+ * 这类路径会让分享密码与 token 明文落盘到日志文件及反代 access log。
+ * 这里把 password / token 等敏感 query 值替换为 [REDACTED]，保留路径与无害参数。
+ */
+function redactSensitiveUrl(url: string | undefined): string {
+  if (!url) return '';
+  // 仅处理含 query string 的 URL
+  const qIdx = url.indexOf('?');
+  if (qIdx === -1) return url;
+  const path = url.slice(0, qIdx);
+  const query = url.slice(qIdx + 1);
+  const SENSITIVE_KEYS = /^(password|pwd|token|access_token|refresh_token|secret|key|auth)=/i;
+  const redacted = query
+    .split('&')
+    .map((kv) => (SENSITIVE_KEYS.test(kv) ? `${kv.slice(0, kv.indexOf('='))}=[REDACTED]` : kv))
+    .join('&');
+  return `${path}?${redacted}`;
+}
 export function createApp(): Application {
   const app = express();
+
+  // 反代层数。必须在任何限流中间件之前设置，否则 req.ip 是 nginx 的地址，
+  // express-rate-limit 会把所有客户端算进同一个计数桶（既挡不住爆破，又能被
+  // 单个 IP 打成全站 DoS）。见 config.trustProxy 注释。
+  app.set('trust proxy', config.trustProxy);
 
   // 安全头
   app.use(
@@ -41,16 +70,16 @@ export function createApp(): Application {
     'http://localhost:1420',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:1420',
+    'tauri://localhost', // Tauri 桌面客户端生产模式
+    'https://tauri.localhost', // Tauri 桌面客户端生产模式（HTTPS）
   ];
   app.use(
     cors({
       origin(origin, cb) {
-        // 允许同源、无 Origin（如 curl、小程序原生请求）和已知白名单
-        if (!origin || allowedOrigins.includes(origin)) {
-          cb(null, true);
-        } else {
-          cb(new Error(`CORS blocked: ${origin}`));
-        }
+        // 允许同源、无 Origin（如 curl、小程序原生请求）和已知白名单。
+        // 不放行时回 cb(null, false)：跨域响应不带 CORS 头即可，
+        // 抛 Error 会冒泡到错误处理中间件、把一次策略拒绝变成 500。
+        cb(null, !origin || allowedOrigins.includes(origin));
       },
       credentials: true,
       methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
@@ -60,14 +89,21 @@ export function createApp(): Application {
   // Cookie 解析（refresh token）
   app.use(cookieParser());
 
-  // 请求体
-  app.use(express.json({ limit: '60mb' }));
-  app.use(express.urlencoded({ extended: false, limit: '60mb' }));
+  // 请求体。单条笔记的密文远小于此，60mb × 600 req/min 的旧上限等于把内存
+  // 交给任意匿名客户端支配。导入大文件是客户端逐条加密上传的，不需要这么大。
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
   // HTTP 日志
   app.use(
     pinoHttp({
       logger,
+      serializers: {
+        // 自定义 req 序列化：脱敏 URL 中的密码/token 等敏感查询参数，避免明文落盘日志
+        req(req) {
+          return { id: req.id, method: req.method, url: redactSensitiveUrl(req.url), remoteAddress: req.remoteAddress };
+        },
+      },
       customLogLevel: (_req, res, err) => {
         if (err || res.statusCode >= 500) return 'error';
         if (res.statusCode >= 400) return 'warn';
@@ -96,11 +132,12 @@ export function createApp(): Application {
   app.use('/api/v1', versionCheckMiddleware);
 
   // 公开分享（无需登录）：对公开访问单独限流以防止爬取
+  // §4.1 要求 POST /shares/<token>/unlock 及公开页访问 10 req/min
   app.use(
     '/api/v1/share/public',
     rateLimit({
       windowMs: 60_000,
-      limit: 60,
+      limit: 10,
       standardHeaders: 'draft-7',
       legacyHeaders: false,
       message: { error: 'too_many_requests', message: '访问过于频繁，请稍后再试' },
@@ -111,13 +148,36 @@ export function createApp(): Application {
   // 鉴权中间件
   app.use('/api/v1', authMiddleware);
 
+  // 写操作限流（§4.1）：每个用户 60 次/分钟，防脚本化写入与批量删除
+  // 匿名写请求（如分享解锁前的公开 POST）按 IP 维度计数；
+  // keyGenerator 用 userId，单用户场景下即便全部请求经反代同一 IP 也能按用户精确限流。
+  app.use(
+    '/api/v1',
+    rateLimit({
+      windowMs: 60_000,
+      limit: 60,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      keyGenerator: (req) => (req.user?.userId ?? req.ip) as string,
+      skip: (req) => !/^(POST|PUT|PATCH|DELETE)$/.test(req.method),
+      message: { error: 'too_many_writes', message: '写入过于频繁，请稍后再试' },
+    })
+  );
+
   // 路由
   app.use('/api/v1', updateManifestRouter);
 
   // 认证相关：对 unlock / recover / setup / refresh 做严格限流，防爆破
   // 注意：在 authMiddleware 之后挂载，所以 refresh 路由能正确处理
   app.use(
-    ['/api/v1/auth/unlock', '/api/v1/auth/recover', '/api/v1/auth/setup', '/api/v1/auth/refresh'],
+    [
+      '/api/v1/auth/unlock',
+      '/api/v1/auth/recover',
+      '/api/v1/auth/recovery-params',
+      '/api/v1/auth/setup',
+      '/api/v1/auth/refresh',
+      '/api/v1/auth/rewrap',
+    ],
     rateLimit({
       windowMs: 15 * 60_000, // 15 分钟窗口
       limit: 20, // 每个 IP 最多 20 次
@@ -133,19 +193,47 @@ export function createApp(): Application {
   app.use('/api/v1', sharesRouter);
   app.use('/api/v1', exportRouter);
   app.use('/api/v1', preferencesRouter);
+  app.use('/api/v1', templatesRouter);
+  // 设备管理 + 账户管理（GDPR Article 17/20）
+  app.use('/api/v1', devicesRouter);
+  // /account/export 是重 IO 全量导出，单独限流防滥用：每用户 1 小时最多 5 次（§4.1 导出 5/hour，
+  // 兼容导出失败重试与多设备，同时阻止脚本化拉取全量数据）。
+  // keyGenerator 用 userId（authMiddleware 已注入 req.user），单用户场景下
+  // 即便全部请求经 nginx 同一 IP 转发，也能按用户精确限流。
+  app.use(
+    '/api/v1/account/export',
+    rateLimit({
+      windowMs: 60 * 60_000,
+      limit: 5,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      keyGenerator: (req) => (req.user?.userId ?? req.ip) as string,
+      message: { error: 'too_many_exports', message: '导出过于频繁，请 1 小时后再试' },
+    })
+  );
+  app.use('/api/v1', accountRouter);
 
   // 404
-  app.use((req, res) => {
-    res.status(404).json({ error: 'not_found', path: req.path });
+  app.use((_req, res) => {
+    res.status(404).json({ error: 'not_found' });
   });
+
+  // Sentry 错误处理（必须在所有路由之后、自定义错误处理之前；未配置 DSN 时为 no-op）
+  setupSentryErrorHandler(app);
 
   // 错误处理
   app.use(
     (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       logger.error({ err }, '未捕获错误');
-      res.status(500).json({
-        error: 'internal_error',
-        message: config.nodeEnv === 'production' ? '服务异常' : err.message,
+      captureException(err);
+      // 保留 body-parser 等中间件抛出的语义化状态码（JSON 语法错误 400、payload 超限 413），
+      // 而不是一律 500，否则客户端无法区分参数错误与服务端故障。
+      const status = (err as { status?: number }).status ?? 500;
+      // production 与 staging 都走脱敏；仅 development 直接回传 err.message 便于本地调试
+      const safeEnv = config.nodeEnv === 'development';
+      res.status(status).json({
+        error: status >= 500 ? 'internal_error' : 'bad_request',
+        message: safeEnv ? err.message : status >= 500 ? '服务异常' : '请求格式错误',
       });
     }
   );

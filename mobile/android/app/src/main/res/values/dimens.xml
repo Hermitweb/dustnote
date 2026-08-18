@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  基础尺寸定义（手机默认值）
+  平板适配在 values-sw600dp / values-sw720dp 中覆盖这些值。
+  Android 要求所有在限定目录（如 values-sw600dp）中声明的资源
+  必须在基础 values 目录中也有声明，否则在不匹配限定符的
+  设备上查询该资源会崩溃。
+-->
+<resources>
+    <dimen name="status_bar_height">24dp</dimen>
+    <dimen name="activity_horizontal_margin">16dp</dimen>
+    <dimen name="activity_vertical_margin">16dp</dimen>
+</resources>

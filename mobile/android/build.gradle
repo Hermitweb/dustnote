@@ -9,11 +9,17 @@ buildscript {
     kotlinVersion = "1.9.22"
   }
   repositories {
+    // Canonical repositories first: Google hosts Android/AGP artifacts
+    // (e.g. com.android:zipflinger) that aliyun's `public` mirror does not.
+    // aliyun's mirrors are kept as a fallback for regions with slow direct
+    // access. IMPORTANT: Gradle does NOT fall back to the next repository on
+    // HTTP 5xx errors (only on 404), so a flaky mirror listed first aborts the
+    // whole resolution — hence the order matters.
+    google()
+    mavenCentral()
     maven { url 'https://maven.aliyun.com/repository/public' }
     maven { url 'https://maven.aliyun.com/repository/google' }
     maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
-    google()
-    mavenCentral()
   }
   dependencies {
     classpath("com.android.tools.build:gradle")
@@ -26,10 +32,10 @@ apply plugin: "com.facebook.react.rootproject"
 
 allprojects {
   repositories {
+    google()
+    mavenCentral()
     maven { url 'https://maven.aliyun.com/repository/public' }
     maven { url 'https://maven.aliyun.com/repository/google' }
     maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
-    google()
-    mavenCentral()
   }
 }

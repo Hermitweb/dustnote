@@ -9,8 +9,13 @@ const KEY = 'dustnote_device_id';
 
 function uuidv4(): string {
   // 简单实现（生产建议用 crypto.randomUUID）
+  // 非安全上下文（http 非 localhost）下 crypto 可能未定义，回退 Math.random
   const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
   bytes[6] = (bytes[6]! & 0x0f) | 0x40;
   bytes[8] = (bytes[8]! & 0x3f) | 0x80;
   const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');

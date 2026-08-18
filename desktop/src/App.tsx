@@ -19,8 +19,51 @@
 import { useEffect } from 'react';
 import { isTauri } from './lib/tauri';
 import { registerAutostartApi } from './lib/autostart';
+import { registerUpdaterApi, useUpdater } from './lib/updater';
+import { notifyUpdateAvailable } from './lib/notifications';
 // 直接复用 web 端 App 组件（vite + tsc 通过相对路径解析）
 import WebApp from '../../web/src/App';
+import { useStore } from '../../web/src/lib/store';
+
+/**
+ * 注册桌面端原生能力到 window，供共享的 web 组件（AboutDialog、ImportExportDialog 等）调用。
+ *
+ * 这些 API 仅在 Tauri 环境下注册，web 端运行时 window 上不存在对应字段，
+ * 组件内通过 `isTauri() && window.__dustnoteXxx` 判断后调用。
+ */
+function registerDesktopApis() {
+  // 1. 打开外部 URL（GitHub 链接等）：使用 opener 插件调用系统默认浏览器
+  void import('@tauri-apps/plugin-opener').then(({ openUrl }) => {
+    (window as unknown as { __dustnoteOpenUrl: (url: string) => Promise<void> }).__dustnoteOpenUrl = (
+      url: string
+    ) => openUrl(url);
+  });
+
+  // 2. 原生保存对话框 + 写文件：供导出备份/批量导出使用
+  void import('@tauri-apps/api/core').then(({ invoke }) => {
+    (window as unknown as {
+      __dustnoteSaveFile: (filename: string, content: Uint8Array) => Promise<string | null>;
+    }).__dustnoteSaveFile = async (filename: string, content: Uint8Array) => {
+      // Uint8Array → Vec<u8>：Tauri invoke 要求 plain object，先转 Array
+      const result = await invoke<string | null>('save_file_dialog', {
+        filename,
+        content: Array.from(content),
+      });
+      return result;
+    };
+  });
+}
+
+/** 注册托盘 tooltip 更新能力（roadmap M4「托盘显示已同步 N 条」） */
+function registerTrayApi() {
+  void import('@tauri-apps/api/core').then(({ invoke }) => {
+    (window as unknown as { __dustnoteSetTrayTooltip: (tooltip: string) => void }).__dustnoteSetTrayTooltip = (
+      tooltip: string
+    ) => {
+      void invoke('set_tray_tooltip', { tooltip }).catch(() => undefined);
+    };
+  });
+}
 
 export function App() {
   useEffect(() => {
@@ -30,6 +73,15 @@ export function App() {
 
       // 注册 autostart 全局 API（供 web SettingsDialog 在 Tauri 环境下调用）
       registerAutostartApi();
+
+      // 注册 Velopack 更新 API（供 web SettingsDialog 在 Tauri 环境下调用）
+      registerUpdaterApi();
+
+      // 注册桌面端原生能力（openUrl、saveFile），供共享 web 组件调用
+      registerDesktopApis();
+
+      // 注册托盘 tooltip 更新能力
+      registerTrayApi();
 
       // 设置窗口标题（与 web 端 index.html 的 title 对齐）
       void import('@tauri-apps/api/window')
@@ -44,6 +96,36 @@ export function App() {
     } else {
       document.documentElement.dataset.platform = 'web';
     }
+  }, []);
+
+  // 桌面端更新检查状态机（启动时静默检查一次；独立于设置页内手动检查）。
+  // 必须在上方注册 effect 之后调用：React 按声明顺序执行 effect，
+  // useUpdater 内部的启动静默检查需要 window.__DUSTNOTE_UPDATER__ 已注册。
+  const updater = useUpdater();
+
+  // 更新可用系统通知：订阅 useUpdater 状态，检查发现有新版本（available）时
+  // 发送「DustNote 有新版本」通知（设置页内手动检查走 SettingsDialog 自有状态，不触发）。
+  useEffect(() => {
+    if (!isTauri()) return;
+    if (updater.state === 'available' && updater.targetVersion) {
+      void notifyUpdateAvailable(updater.targetVersion);
+    }
+  }, [updater.state, updater.targetVersion]);
+
+  // 托盘 tooltip 显示待同步数量（roadmap M4「托盘显示已同步 N 条」）：
+  // 订阅 web store 的 pendingCount 变化，实时刷新托盘 tooltip。
+  useEffect(() => {
+    if (!isTauri()) return undefined;
+    const setTip = () => {
+      const api = (window as unknown as { __dustnoteSetTrayTooltip?: (t: string) => void })
+        .__dustnoteSetTrayTooltip;
+      if (!api) return;
+      const count = useStore.getState().pendingCount;
+      api(count > 0 ? `尘心笔记 · 待同步 ${count} 条` : '尘心笔记 · 已同步');
+    };
+    setTip();
+    const unsub = useStore.subscribe(() => setTip());
+    return () => unsub();
   }, []);
 
   // 直接渲染 web 端 App（已包含 Sidebar / Editor / SetupScreen / UnlockScreen /

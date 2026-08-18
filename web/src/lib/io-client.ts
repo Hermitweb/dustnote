@@ -18,10 +18,11 @@ export function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
 /** 解析 .txt 笔记 */
 function parseTxt(name: string, _buf: ArrayBuffer): NotePlaintext {
   const text = new TextDecoder('utf-8').decode(_buf);
-  // 找第一行非空内容作为标题
-  const firstLine = text.split('\n').find((l) => l.trim()) ?? name;
+  // 找第一行非空内容作为标题；若全文为空则回退到文件名（去掉扩展名）
+  const firstLine = text.split('\n').find((l) => l.trim());
+  const title = firstLine ? firstLine.slice(0, 80) : name.replace(/\.txt$/i, '');
   return {
-    title: firstLine.slice(0, 80) || name.replace(/\.txt$/i, ''),
+    title,
     content: text,
     tags: ['导入'],
   };
@@ -97,7 +98,8 @@ export async function parseNoteFile(file: File): Promise<NotePlaintext> {
 /** 导出为 Markdown */
 export function exportAsMarkdown(title: string, content: string): Blob {
   const md = content.startsWith('#') ? content : `# ${title}\n\n${content}`;
-  return new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  // 添加 UTF-8 BOM，确保 Windows 记事本正确识别编码
+  return new Blob(['\uFEFF', md], { type: 'text/markdown;charset=utf-8' });
 }
 
 /** 导出为 HTML */
@@ -149,8 +151,11 @@ function markdownToHtml(md: string): string {
   // 粗体/斜体
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
-  // 链接
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  // 链接：仅允许安全协议，阻止 javascript:/data: 等 XSS 向量
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, text: string, url: string) => {
+    if (!/^(https?:|mailto:|tel:|#|\/)/i.test(url)) return m;
+    return `<a href="${escapeHtml(url)}">${escapeHtml(text)}</a>`;
+  });
   // 代码
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   // 引用
@@ -174,6 +179,53 @@ function markdownToHtml(md: string): string {
 /** 导出为 JSON（单条或全量） */
 export function exportAsJson(data: unknown): Blob {
   return new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+}
+
+/**
+ * 打印笔记（通过浏览器原生打印引擎生成 PDF）
+ *
+ * 替代原先的 jsPDF 方案：jsPDF 默认 Helvetica 字体不含 CJK 字形，
+ * 中文会全部乱码。改用浏览器原生打印 → "另存为 PDF"，完美支持中文。
+ * 实现方式：隐藏 iframe 加载 HTML → 调用 print() → 用户选"另存为 PDF"。
+ */
+export async function printNote(title: string, content: string): Promise<void> {
+  const htmlBlob = exportAsHtml(title, content);
+  const blobUrl = URL.createObjectURL(htmlBlob);
+
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.src = blobUrl;
+  document.body.appendChild(iframe);
+
+  return new Promise<void>((resolve) => {
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {
+        // 某些浏览器/WebView 可能阻止跨域 iframe 打印
+      }
+      // 打印对话框关闭后清理 iframe
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        URL.revokeObjectURL(blobUrl);
+        resolve();
+      }, 1000);
+    };
+    // 超时保护：10 秒后无论如何都 resolve
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+        URL.revokeObjectURL(blobUrl);
+      }
+      resolve();
+    }, 10000);
+  });
 }
 
 /** 触发下载 */

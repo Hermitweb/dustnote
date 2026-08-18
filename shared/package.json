@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/shared",
-  "version": "0.1.0",
+  "version": "2.5.3",
   "private": true,
   "description": "DustNote 跨端共享类型与工具",
   "type": "module",
@@ -21,6 +21,7 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
+    "@noble/ciphers": "^1.0.0",
     "@noble/hashes": "^1.4.0",
     "zod": "^3.23.8"
   },

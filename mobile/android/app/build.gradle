@@ -3,11 +3,70 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 react {
-  autolinkLibrariesWithApp()
+  // pnpm (node-linker=hoisted) hoists react-native to the workspace root
+  // node_modules/. The plugin default resolves to mobile/node_modules/react-native
+  // which does not exist in this layout, so point at the workspace root instead.
+  //
+  // ReactExtension properties are Kotlin `val`s backed by Gradle Properties.
+  // We use .set() explicitly (rather than `=`) because Groovy `=` assignment
+  // does not reliably override a Property convention at configuration time.
+  //
+  // IMPORTANT: We do NOT override `root` (default = ${rootProject.dir}/../ = mobile/).
+  // The `root` property is used by detectedEntryFile() to locate index.js and by
+  // detectOSAwareHermesCommand() to locate hermesc. Overriding `root` to the
+  // workspace root would break entryFile resolution (workspace root has no index.js;
+  // the entry file lives at mobile/index.js). The hermesc path
+  // (mobile/node_modules/react-native/sdks/hermesc/...) is handled by the CI
+  // symlink step that mirrors workspace-root packages into mobile/node_modules/.
+  reactNativeDir.set(file("../../../node_modules/react-native"))
+  codegenDir.set(file("../../../node_modules/@react-native/codegen"))
+  // Explicit entry file: mobile/index.js (relative to mobile/android/app/).
+  entryFile.set(file("../../index.js"))
 }
 
 def enableProguardInReleaseBuilds = false
 def jscFlavor = 'org.webkit:android-jsc:+'
+
+/**
+ * Release signing config resolution.
+ *
+ * Priority:
+ *   1. Environment variables (CI):  DUSTNOTE_STORE_FILE / _STORE_PASSWORD /
+ *      _KEY_ALIAS / _KEY_PASSWORD — point at a pre-decoded keystore path.
+ *   2. Local dev: ../keystore.properties (gitignored) next to the android/
+ *      project root, referencing app/dustnote-release.keystore.
+ *   3. Fallback: debug keystore (keeps `assembleRelease` working before a
+ *      release keystore exists; safe for local Debug-only builds).
+ *
+ * keystore.properties is gitignored. CI regenerates it from the
+ * ANDROID_KEYSTORE_BASE64 GitHub secret (see .github/workflows/release.yml).
+ */
+def releaseStoreFile = null
+def releaseStorePassword = null
+def releaseKeyAlias = null
+def releaseKeyPassword = null
+
+// CI 通过 GITHUB_ENV / step env 注入 DUSTNOTE_*。当 secret 未配置时，
+// GitHub Actions 会把空字符串注入环境变量（而非不注入），
+// System.env.VAR 此时返回 "" 而非 null，故必须同时排除空串，
+// 否则 file("") 会抛 "path may not be null or empty string" 导致配置阶段失败。
+def envStoreFile = System.env.DUSTNOTE_STORE_FILE
+if (envStoreFile != null && envStoreFile.length() > 0) {
+  releaseStoreFile = file(envStoreFile)
+  releaseStorePassword = System.env.DUSTNOTE_STORE_PASSWORD
+  releaseKeyAlias = System.env.DUSTNOTE_KEY_ALIAS
+  releaseKeyPassword = System.env.DUSTNOTE_KEY_PASSWORD
+} else {
+  def keystorePropsFile = rootProject.file("keystore.properties")
+  if (keystorePropsFile.exists()) {
+    def props = new Properties()
+    keystorePropsFile.withInputStream { props.load(it) }
+    releaseStoreFile = file(props['storeFile'])
+    releaseStorePassword = props['storePassword']
+    releaseKeyAlias = props['keyAlias']
+    releaseKeyPassword = props['keyPassword']
+  }
+}
 
 android {
   ndkVersion rootProject.ext.ndkVersion
@@ -19,8 +78,17 @@ android {
     applicationId "com.dustnote"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 1
-    versionName "0.1.0"
+    versionCode 26
+    versionName "2.5.3"
+    // Explicitly list supported ABIs to exclude the residual `armeabi` (ARMv5)
+    // directory. minSdk=23 guarantees armeabi-v7a+ on all devices, but a
+    // third-party .so (libconceal.so) ships an armeabi variant that produces an
+    // incomplete lib/armeabi/ in the APK (only 1 of 48 .so files). Filtering
+    // here keeps the APK clean and avoids any theoretical UnsatisfiedLinkError
+    // on a device that wrongly selects armeabi over armeabi-v7a.
+    ndk {
+      abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'
+    }
   }
   signingConfigs {
     debug {
@@ -29,13 +97,29 @@ android {
       keyAlias 'androiddebugkey'
       keyPassword 'android'
     }
+    // Release signing is only registered when credentials are resolvable.
+    // If absent, release builds fall back to the debug config so `assembleRelease`
+    // still works for local dev / CI dry-runs.
+    if (releaseStoreFile != null && releaseStoreFile.exists()) {
+      release {
+        storeFile releaseStoreFile
+        storePassword releaseStorePassword
+        keyAlias releaseKeyAlias
+        keyPassword releaseKeyPassword
+      }
+    }
   }
   buildTypes {
     debug {
       signingConfig signingConfigs.debug
     }
     release {
-      signingConfig signingConfigs.debug
+      // Groovy 属性访问在 signingConfigs 块未定义 release 时会抛
+      // MissingPropertyException（无法用 != null 防御），故用 findByName
+      // 安全查找；未配置 release keystore 时回退到 debug 签名。
+      signingConfig signingConfigs.findByName('release') != null
+        ? signingConfigs.release
+        : signingConfigs.debug
       minifyEnabled enableProguardInReleaseBuilds
       proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
     }
@@ -51,3 +135,20 @@ dependencies {
     implementation jscFlavor
   }
 }
+
+// React Native autolinking (RN 0.74 API).
+// applyNativeModulesAppBuildGradle(project) does three things the app build
+// depends on:
+//   1. Adds `implementation project(':react-native-<module>')` for every
+//      autolinked native module discovered from package.json (without this the
+//      subprojects are included by settings.gradle but never wired into :app).
+//   2. Registers the `generatePackageList` task (run before preBuild) that
+//      writes PackageList.java to build/generated/rncli/. MainApplication.kt
+//      imports com.facebook.react.PackageList; without this task the Kotlin
+//      compile fails with "Unresolved reference: PackageList".
+//   3. Adds build/generated/rncli/src/main/java to the main source set so the
+//      generated PackageList.java is visible to the compiler.
+// This is the standard RN 0.74 template line; the older
+// `react { autolinkLibrariesWithApp() }` DSL was removed in 0.74 and is NOT
+// used here.
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)

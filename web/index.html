@@ -2,14 +2,30 @@
 <html lang="zh-CN" class="h-full">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#22c55e" />
-    <meta name="description" content="DustNote · 尘心笔记" />
+    <meta name="description" content="DustNote · 尘心笔记 — 端到端加密的私密笔记系统" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="DustNote" />
     <title>DustNote · 尘心笔记</title>
   </head>
   <body class="h-full bg-surface-bg text-surface-fg antialiased">
     <div id="root" class="h-full"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // 注册 Service Worker（仅生产环境）
+      if ('serviceWorker' in navigator && location.protocol === 'https:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch((err) => {
+            console.warn('[SW] registration failed:', err);
+          });
+        });
+      }
+    </script>
   </body>
 </html>

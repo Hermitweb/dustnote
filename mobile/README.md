@@ -2,6 +2,26 @@
 
 > 基于 React Native 0.74 + Android 的 DustNote 移动端
 
+## 原生依赖体积说明（quick-crypto）
+
+`react-native-quick-crypto` 提供 JSI 级 Web Crypto Polyfill（Argon2id / AES-GCM / HKDF），
+是端到端加密在 RN 上的性能保障，但代价是原生体积：
+
+- 原生库（librealm + OpenSSL 静态链接）约 **8–12 MB**（arm64-v8a 单 ABI）
+- APK 体积因此比纯 JS 实现大约 10 MB；Hermes JS bundle 不受影响
+- 取舍依据：Argon2id 在纯 JS 下需 3–8s（m=64MB），JSI 下 200–400ms，体验差距决定保留
+
+**安装位置**：`mobile/polyfill.js` 必须在 `App.tsx` 之前导入（ES module 静态提升，
+`install()` 必须先于组件加载执行）。0.7+ 已移除 `/auto` 子路径，使用：
+
+```js
+import { install } from 'react-native-quick-crypto';
+install();
+```
+
+如需进一步缩减体积，可在 `android/app/build.gradle` 启用 `ndk.abiFilters=['arm64-v8a']`
+仅打包 64 位（现代 Android 设备全覆盖）。
+
 ## 目录结构
 
 ```

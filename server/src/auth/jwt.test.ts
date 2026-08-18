@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
+import { generateKeyPairSync } from 'node:crypto';
 
 // 在加载 jwt 模块前设置强密钥
 beforeAll(() => {
@@ -11,7 +12,14 @@ async function loadJwt() {
   return mod;
 }
 
-describe('jwt', () => {
+describe('jwt (HS256 fallback)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    delete process.env.JWT_PRIVATE_KEY;
+    delete process.env.JWT_PUBLIC_KEY;
+    process.env.JWT_SECRET = 'test-secret-at-least-32-bytes-long-12345';
+  });
+
   it('issues a verifiable access token', async () => {
     const { issueAccessToken, verifyToken } = await loadJwt();
     const token = issueAccessToken('user-1', 'device-1');
@@ -83,3 +91,93 @@ describe('jwt', () => {
     expect(verifyToken(`${header}.${body}.${sig}`)).toBeNull();
   });
 });
+
+// 生成一组 Ed25519 密钥供测试复用
+const testKeyPair = generateKeyPairSync('ed25519', {
+  privateKeyEncoding: { format: 'pem', type: 'pkcs8' },
+  publicKeyEncoding: { format: 'pem', type: 'spki' },
+});
+
+describe('jwt (EdDSA / Ed25519)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    process.env.JWT_PRIVATE_KEY = testKeyPair.privateKey;
+    process.env.JWT_PUBLIC_KEY = testKeyPair.publicKey;
+  });
+
+  it('uses EdDSA algorithm when key pair is configured', async () => {
+    const { issueAccessToken, verifyToken, ACTIVE_ALGORITHM } = await loadJwt();
+    expect(ACTIVE_ALGORITHM).toBe('EdDSA');
+
+    const token = issueAccessToken('user-ed', 'device-ed');
+    const parts = token.split('.');
+    expect(parts).toHaveLength(3);
+
+    // header 应声明 EdDSA
+    const header = JSON.parse(Buffer.from(parts[0]!, 'base64url').toString());
+    expect(header.alg).toBe('EdDSA');
+    expect(header.typ).toBe('JWT');
+
+    const payload = verifyToken(token);
+    expect(payload).not.toBeNull();
+    expect(payload!.sub).toBe('user-ed');
+    expect(payload!.device).toBe('device-ed');
+  });
+
+  it('issues verifiable refresh tokens with EdDSA', async () => {
+    const { issueRefreshToken, verifyToken } = await loadJwt();
+    const token = issueRefreshToken('user-ed', 'device-ed');
+    const payload = verifyToken(token);
+    expect(payload).not.toBeNull();
+    expect(payload!.type).toBe('refresh');
+    expect(payload!.exp - payload!.iat).toBe(30 * 24 * 60 * 60);
+  });
+
+  it('rejects tampered EdDSA token', async () => {
+    const { issueAccessToken, verifyToken } = await loadJwt();
+    const token = issueAccessToken('user-ed', 'device-ed');
+    const tampered = token.slice(0, -5) + 'xxxxx';
+    expect(verifyToken(tampered)).toBeNull();
+  });
+
+  it('rejects EdDSA token when server has no public key configured (algorithm downgrade defense)', async () => {
+    // 用 EdDSA 签发 token
+    const edMod = await loadJwt();
+    const edToken = edMod.issueAccessToken('user-ed', 'device-ed');
+
+    // 清除密钥配置，回退到 HS256，此时 EdDSA token 应被拒绝
+    vi.resetModules();
+    delete process.env.JWT_PRIVATE_KEY;
+    delete process.env.JWT_PUBLIC_KEY;
+    process.env.JWT_SECRET = 'test-secret-at-least-32-bytes-long-12345';
+    const hsMod = await loadJwt();
+    expect(hsMod.ACTIVE_ALGORITHM).toBe('HS256');
+    // HS256 服务端不应接受 EdDSA token（防止降级攻击）
+    expect(hsMod.verifyToken(edToken)).toBeNull();
+  });
+
+  it('accepts HS256 token during EdDSA migration (backward compat) and rejects alg=none downgrade', async () => {
+    // 先用 HS256 签发（模拟迁移前已签发的存量 token）
+    vi.resetModules();
+    delete process.env.JWT_PRIVATE_KEY;
+    delete process.env.JWT_PUBLIC_KEY;
+    process.env.JWT_SECRET = 'test-secret-at-least-32-bytes-long-12345';
+    const hsMod = await loadJwt();
+    const hsToken = hsMod.issueAccessToken('user-hs', 'device-hs');
+
+    // 切到 EdDSA：JWT_SECRET 仍保留（迁移模式），存量 HS256 token 在过期前可验签
+    vi.resetModules();
+    process.env.JWT_PRIVATE_KEY = testKeyPair.privateKey;
+    process.env.JWT_PUBLIC_KEY = testKeyPair.publicKey;
+    process.env.JWT_SECRET = 'test-secret-at-least-32-bytes-long-12345';
+    const edMod = await loadJwt();
+    expect(edMod.ACTIVE_ALGORITHM).toBe('EdDSA');
+    // 迁移兼容：HS256 token 仍可验签（直到过期；refresh 最长 30 天）
+    expect(edMod.verifyToken(hsToken)).not.toBeNull();
+    // 新签发的 token 使用 EdDSA
+    const edToken = edMod.issueAccessToken('user-ed', 'device-ed');
+    const header = JSON.parse(Buffer.from(edToken.split('.')[0]!, 'base64url').toString());
+    expect(header.alg).toBe('EdDSA');
+  });
+});
+

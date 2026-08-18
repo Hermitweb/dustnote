@@ -85,6 +85,7 @@ export function useAutostart(): {
       setEnabled(await isAutostartEnabled());
     } catch (err) {
       console.error('[autostart] toggle failed', err);
+      throw err;
     }
   }
 

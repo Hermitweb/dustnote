@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
-import Taro from '@tarojs/taro';
+import Taro, { useDidShow } from '@tarojs/taro';
 import { getApi } from '../../state/auth';
 
 interface ShareItem {
@@ -16,7 +16,6 @@ interface ShareItem {
   viewCount: number;
   revoked: boolean;
   createdAt: string;
-  title: string;
 }
 
 function isExpired(e: string | null): boolean {
@@ -49,6 +48,10 @@ export default function Shares() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDidShow(() => {
+    void load();
+  });
 
   const enterSelect = useCallback((id: string) => {
     setSelecting(true);
@@ -168,7 +171,8 @@ export default function Shares() {
                     if (!selecting && canAct) enterSelect(s.id);
                   }}
                 >
-                  {s.title || '(无标题)'}
+                  {/* 标题已不再存服务端（E2EE 分享），这里按创建时间标识 */}
+                  {new Date(s.createdAt).toLocaleString('zh-CN')}
                 </Text>
                 {!selecting && canAct && (
                   <View className="share-actions">

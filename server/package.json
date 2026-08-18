@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/server",
-  "version": "0.1.0",
+  "version": "2.5.3",
   "private": true,
   "description": "DustNote 后端服务",
   "type": "module",
@@ -16,10 +16,10 @@
   },
   "dependencies": {
     "@dustnote/shared": "workspace:*",
+    "@sentry/node": "^10.68.0",
     "better-sqlite3": "^11.0.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^7.3.1",
     "helmet": "^7.1.0",
@@ -29,7 +29,6 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.10",
     "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",

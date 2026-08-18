@@ -4,20 +4,33 @@ on:
   push:
     branches: [main, dev]
     paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.trae/**'
+        - '**.md'
+        - 'docs/**'
+        - '.trae/**'
+        - '*.yml'
+        - 'scripts/**'
+        - 'deploy/**'
+        - 'docker-compose.yml'
+        - 'Dockerfile'
   pull_request:
     branches: [main, dev]
     paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.trae/**'
+        - '**.md'
+        - 'docs/**'
+        - '.trae/**'
+        - '*.yml'
+        - 'scripts/**'
+        - 'deploy/**'
+        - 'docker-compose.yml'
+        - 'Dockerfile'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   NODE_VERSION: '20'
@@ -29,28 +42,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm format:check
       - run: pnpm lint
+      - name: Check i18n keys
+        run: node scripts/check-i18n.mjs
 
   typecheck:
     name: TypeScript Type Check
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -67,11 +82,11 @@ jobs:
     timeout-minutes: 15
     needs: [lint, typecheck]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -87,11 +102,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -102,7 +117,7 @@ jobs:
       - name: Security Audit
         run: |
           set +e
-          pnpm audit --prod --audit-level=high --json > audit.json
+          pnpm audit --audit-level=high --json > audit.json
           set -e
           node -e "
             const fs = require('fs');
@@ -118,18 +133,26 @@ jobs:
             console.log('No unignored high/critical vulnerabilities.');
           "
         shell: bash
+      # §10/§12/§15：每次发版自动生成 CycloneDX SBOM（软件物料清单）
+      - name: Generate SBOM (CycloneDX)
+        run: npx @cyclonedx/cyclonedx-npm --output-file sbom.xml
+      - uses: actions/upload-artifact@v5
+        with:
+          name: sbom
+          path: sbom.xml
+          if-no-files-found: warn
 
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, audit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -142,7 +165,16 @@ jobs:
       - run: pnpm --filter @dustnote/web build
       - name: List web dist
         run: ls -la web/dist/ || true
-      - uses: actions/upload-artifact@v4
+      - name: Check bundle size
+        run: |
+          total=$(du -sb web/dist/ | cut -f1)
+          kb=$((total / 1024))
+          max_kb=$((5 * 1024))
+          echo "Web bundle size: ${kb} KB"
+          if [ "$kb" -gt "$max_kb" ]; then
+            echo "::warning::Bundle size ${kb} KB exceeds ${max_kb} KB threshold"
+          fi
+      - uses: actions/upload-artifact@v5
         with:
           name: web-dist
           path: web/dist/
@@ -152,13 +184,13 @@ jobs:
     name: Build Server
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, audit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -171,7 +203,7 @@ jobs:
       - run: pnpm --filter @dustnote/server build
       - name: List server dist
         run: ls -la server/dist/ || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: server-dist
           path: server/dist/
@@ -181,13 +213,13 @@ jobs:
     name: Build Miniprogram (H5)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, audit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -196,9 +228,34 @@ jobs:
       - run: pnpm --filter @dustnote/miniprogram build:h5
       - name: List miniprogram dist
         run: ls -la miniprogram/dist/ || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: miniprogram-h5-dist
+          path: miniprogram/dist/
+          if-no-files-found: warn
+
+  build-miniprogram-weapp:
+    name: Build Miniprogram (WeApp)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [lint, typecheck, test, audit]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/miniprogram build:weapp
+      - name: List weapp dist
+        run: ls -la miniprogram/dist/ || true
+      - uses: actions/upload-artifact@v5
+        with:
+          name: miniprogram-weapp-dist
           path: miniprogram/dist/
           if-no-files-found: warn
 
@@ -206,13 +263,13 @@ jobs:
     name: Build Desktop (Web)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, audit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -221,7 +278,7 @@ jobs:
       - run: pnpm --filter @dustnote/desktop build:web
       - name: List desktop dist
         run: ls -la desktop/dist/ || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: desktop-web-dist
           path: desktop/dist/
@@ -236,11 +293,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -258,6 +315,55 @@ jobs:
       - run: pnpm --filter @dustnote/server build
       - run: pnpm --filter @dustnote/server test
 
+  build-android:
+    name: Build Android (Debug APK)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    needs: [lint, typecheck, test, audit]
+    # Android 构建较慢且对 RN 升级敏感，作为 mobile 端回归保护。
+    # 失败不阻塞 web/server 端 PR 合并（continue-on-error），但会发出明确信号。
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+      - name: Install Android SDK & CMake
+        # cmake;3.22.1: react-native-quick-crypto 使用 externalNativeBuild + CMakeLists.txt
+        # 构建 C++/JSI 原生代码，runner 预装 SDK 可能缺 CMake
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'cmake;3.22.1'
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dustnote/shared build
+      - name: Build Android Debug APK
+        working-directory: mobile/android
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.network.timeout=300000"
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Upload APK artifact
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: android-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
@@ -268,7 +374,8 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -278,8 +385,11 @@ jobs:
       - uses: docker/build-push-action@v5
         with:
           context: .
-          file: server/Dockerfile
+          # 根 Dockerfile = web 静态资源 + API + nginx 的一体镜像，
+          # 与 README/docker-compose 的一键部署一致。server/Dockerfile 是仅 API 的变体。
+          file: Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ github.repository_owner }}/dustnote:latest
             ghcr.io/${{ github.repository_owner }}/dustnote:${{ github.sha }}

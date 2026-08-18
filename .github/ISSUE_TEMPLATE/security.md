@@ -7,7 +7,7 @@ assignees: ''
 ---
 
 > ⚠️ **请勿在此公开漏洞细节。**
-> 遵循我们的 [安全策略](https://github.com/your-org/dustnote/blob/main/SECURITY.md)，
+> 遵循我们的 [安全策略](https://github.com/Hermitweb/dustnote/blob/main/SECURITY.md)，
 > 请通过邮件 [security@dustnote.app](mailto:security@dustnote.app) 报告。
 
 ## 报告类型

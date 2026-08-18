@@ -11,6 +11,9 @@
   --mn-card: 255 255 255;
   --mn-accent: 22 163 74;
   --mn-accent-soft: 220 252 231;
+  /* 排版变量：由 theme.ts 的 applyTypography 按 preferences.font/density 运行时注入 */
+  --mn-font: 'Manrope', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  --mn-line-height: 1.6;
 }
 
 [data-mode='dark'] {
@@ -29,7 +32,7 @@ body,
 }
 
 body {
-  font-family: 'Manrope', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  font-family: var(--mn-font);
   background-color: rgb(var(--mn-bg));
   color: rgb(var(--mn-fg));
   transition: background-color 250ms ease, color 250ms ease;
@@ -55,7 +58,7 @@ body {
 
 /* Markdown 渲染样式 */
 .prose {
-  line-height: 1.7;
+  line-height: var(--mn-line-height, 1.7);
 }
 .prose h1, .prose h2, .prose h3, .prose h4 {
   font-weight: 700;
@@ -94,9 +97,71 @@ body {
   margin: 0.75em 0;
 }
 
+/* 搜索高亮：客户端全文搜索 v2 命中 token 的 <mark> 标签 */
+/* 编辑器输入区：字体与行高跟随 preferences.font / preferences.density */
+.editor-textarea {
+  font-family: var(--mn-font);
+  line-height: var(--mn-line-height, 1.6);
+}
+
+mark {
+  background: rgb(var(--mn-accent) / 0.25);
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
+}
+.dark mark {
+  background: rgb(var(--mn-accent) / 0.35);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+}
+
+/* ========== 桌面端原生感优化（仅 desktop 平台生效） ========== */
+html[data-platform='desktop'] {
+  /* 禁用文本选择（输入框 / 文本区域 / contenteditable / prose 除外） */
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input,
+  textarea,
+  [contenteditable='true'],
+  .prose {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* 禁用图片 / 链接 / 按钮拖拽 */
+  img,
+  a,
+  button {
+    -webkit-user-drag: none;
+    user-drag: none;
+  }
+
+  /* 原生风格滚动条（WebKit / Edge / Chrome） */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--mn-border));
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--mn-fg-muted));
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
 }

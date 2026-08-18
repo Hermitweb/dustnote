@@ -1,0 +1,45 @@
+# 默认所有文本文件使用 LF 行尾，避免 Windows CRLF 导致本地 format:check 失败
+* text=auto eol=lf
+
+# Windows 专用脚本保留 CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制文件，不做行尾转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.zip binary
+*.gz binary
+*.apk binary
+*.exe binary
+*.msi binary
+*.nupkg binary
+*.AppImage binary
+*.dmg binary
+*.deb binary
+*.rpm binary
+
+# linguist 语言检测优化（GitHub 显示语言占比更准确）
+*.ts linguist-language=TypeScript
+*.tsx linguist-language=TypeScript
+*.kt linguist-language=Kotlin
+*.rs linguist-language=Rust
+
+# 自动检测文本/二进制，避免误转换
+*.svg text
+*.md text
+*.json text
+*.yml text
+*.yaml text
+*.toml text
+*.gradle text

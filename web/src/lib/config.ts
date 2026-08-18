@@ -30,10 +30,13 @@ let cached: AppConfig | null = null;
 export async function loadConfig(): Promise<AppConfig> {
   if (cached) return cached;
 
-  // 1. 尝试加载 public/config.json
+  // 1. 尝试加载 public/config.json（3 秒超时，避免 Tauri webview 卡死）
   let remote: Partial<AppConfig> = {};
   try {
-    const r = await fetch('/config.json');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const r = await fetch('/config.json', { signal: controller.signal });
+    clearTimeout(timeoutId);
     if (r.ok) remote = (await r.json()) as Partial<AppConfig>;
   } catch {
     /* 无 config.json，用默认 */

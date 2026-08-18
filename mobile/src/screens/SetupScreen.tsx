@@ -11,7 +11,9 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native';
+import logoImage from '../assets/logo.png';
 import { useAuthStore } from '../state/auth';
 import { theme } from '../theme';
 
@@ -21,6 +23,7 @@ export function SetupScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const setup = useAuthStore((s) => s.setup);
+  const confirmSetupComplete = useAuthStore((s) => s.confirmSetupComplete);
 
   const strength = (() => {
     if (password.length < 8) return { level: 0, text: '至少 8 位' };
@@ -62,7 +65,13 @@ export function SetupScreen() {
         <View style={styles.codeBox}>
           <Text style={styles.codeText}>{recoveryCode}</Text>
         </View>
-        <TouchableOpacity style={styles.button} onPress={() => setRecoveryCode(null)}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => {
+            // setup 未设 authState='unlocked'，此处由用户确认后手动触发
+            confirmSetupComplete();
+          }}
+        >
           <Text style={styles.buttonText}>我已保存，继续</Text>
         </TouchableOpacity>
       </View>
@@ -71,7 +80,7 @@ export function SetupScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.emoji}>🌿</Text>
+      <Image source={logoImage} style={styles.logo} />
       <Text style={styles.title}>创建主密码</Text>
       <Text style={styles.subtitle}>主密码是您访问笔记的唯一凭据。我们无法找回，请妥善保管。</Text>
 
@@ -117,6 +126,7 @@ export function SetupScreen() {
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 24, justifyContent: 'center', backgroundColor: theme.bgLight },
   emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
+  logo: { width: 64, height: 64, alignSelf: 'center', marginBottom: 16 },
   title: {
     fontSize: 24,
     fontWeight: '700',

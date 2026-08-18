@@ -10,15 +10,21 @@
     "core:window:allow-set-focus",
     "core:window:allow-show",
     "core:window:allow-hide",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-is-fullscreen",
+    "core:window:allow-set-content-protected",
     "core:tray:default",
     "core:menu:default",
     "core:app:default",
     "core:event:default",
     "core:path:default",
+    "core:webview:allow-set-webview-zoom",
     "autostart:default",
     "notification:default",
     "store:default",
     "os:default",
-    "global-shortcut:default"
+    "global-shortcut:default",
+    "opener:default",
+    "dialog:default"
   ]
 }

@@ -1,17 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isValidRecoveryCode } from '@dustnote/shared';
 import { useStore } from '../lib/store';
+import { isTauri } from '../lib/platform';
+import { graceRemainingSec } from '../lib/grace-unlock';
 
 export function UnlockScreen() {
   const { t } = useTranslation();
   const unlock = useStore((s) => s.unlock);
   const recover = useStore((s) => s.recover);
+  const graceUnlock = useStore((s) => s.graceUnlock);
   const [mode, setMode] = useState<'unlock' | 'recover'>('unlock');
   const [password, setPassword] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [graceAvailable, setGraceAvailable] = useState(false);
+  const [graceSec, setGraceSec] = useState(0);
+
+  // 宽限期免密解锁：仅在桌面端启用
+  useEffect(() => {
+    if (!isTauri()) return;
+    const check = () => {
+      setGraceAvailable(useStore.getState().hasGraceUnlock());
+      setGraceSec(graceRemainingSec());
+    };
+    check();
+    const timer = setInterval(check, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  function handleGraceUnlock() {
+    void graceUnlock().then((ok) => {
+      if (!ok) setGraceAvailable(false);
+    });
+  }
 
   async function handleUnlock() {
     if (!password) return;
@@ -27,7 +51,7 @@ export function UnlockScreen() {
   }
 
   async function handleRecover() {
-    if (recoveryCode.length !== 6 || newPassword.length < 8) return;
+    if (!isValidRecoveryCode(recoveryCode) || newPassword.length < 8) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -67,6 +91,15 @@ export function UnlockScreen() {
             }}
             className="space-y-4"
           >
+            {graceAvailable && (
+              <button
+                type="button"
+                onClick={handleGraceUnlock}
+                className="w-full rounded-lg border border-mint-500 bg-mint-50 px-6 py-3 text-sm font-semibold text-mint-700 transition-colors hover:bg-mint-100 dark:bg-mint-900/20 dark:text-mint-300"
+              >
+                ⚡ {t('auth.grace_unlock')}（{Math.floor(graceSec / 60)}:{String(graceSec % 60).padStart(2, '0')}）
+              </button>
+            )}
             <div>
               <label className="mb-1 block text-xs font-medium text-surface-fg">
                 {t('auth.unlock_password')}
@@ -118,9 +151,11 @@ export function UnlockScreen() {
               <input
                 type="text"
                 value={recoveryCode}
-                onChange={(e) => setRecoveryCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(e) => setRecoveryCode(e.target.value.slice(0, 16))}
                 autoFocus
-                inputMode="numeric"
+                autoCapitalize="characters"
+                placeholder="A7K2M-9PQR3"
+                spellCheck={false}
                 className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-center font-mono text-2xl tracking-widest focus:border-mint-500 focus:outline-none"
               />
             </div>
@@ -142,7 +177,7 @@ export function UnlockScreen() {
             )}
             <button
               type="submit"
-              disabled={recoveryCode.length !== 6 || newPassword.length < 8 || submitting}
+              disabled={!isValidRecoveryCode(recoveryCode) || newPassword.length < 8 || submitting}
               className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700 disabled:opacity-50"
             >
               {submitting ? '...' : t('auth.recover_btn')}

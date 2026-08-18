@@ -1,6 +1,6 @@
 # DustNote 产品需求文档 (PRD)
 
-> 文档版本：v1.0.0
+> 文档版本：v2.0.0
 > 适用产品：DustNote · 尘心笔记
 > 目标读者：产品 / 设计 / 开发 / 测试
 
@@ -246,3 +246,175 @@ flowchart TD
 - 协同编辑不在 v1.x 范围
 - 端到端加密同步在 v1.5 评估
 - 小程序审核与内容安全合规需单独评估（避免外链导出 PDF 大文件）
+
+---
+
+## 9. v2.0.0 双模式架构需求
+
+> 本章节为 v2.0.0 重大架构变更需求，详细技术实现见 [standalone-mode.md](./standalone-mode.md) 与 [tech-architecture.md](./tech-architecture.md)。
+
+### 9.1 背景与动机
+
+DustNote v0.1.0\~v1.5 全栈跨端能力已交付，但**所有端硬依赖服务端**（如 [mobile/src/api.ts](file:///e:/workspace/dustnote/mobile/src/api.ts) 硬编码 `localhost:3210`），用户在没有服务器的情况下无法使用任何客户端。
+
+v2.0.0 引入**单机/联机双模式架构**：
+
+- **单机模式（standalone）**：无服务器，数据本地存储，主密码本地校验，零依赖即可使用
+- **联机模式（online）**：服务器作为线上中心，解锁跨设备同步、在线分享、协作等高级功能
+
+### 9.2 核心需求
+
+| 需求 ID | 需求描述 | 优先级 |
+|---------|---------|--------|
+| DM-1 | 首次启动提供模式选择 UI，明确告知两种模式差异 | P0 |
+| DM-2 | 单机模式支持完整 CRUD（笔记/文件夹/标签/偏好） | P0 |
+| DM-3 | 单机模式主密码 setup/unlock/recover 全流程 | P0 |
+| DM-4 | 单机模式客户端锁定（6 次失败锁 15 分钟） | P0 |
+| DM-5 | 单机模式数据备份（exportBackup/importBackup） | P0 |
+| DM-6 | 单机模式文件导出分享（txt/md/html/pdf） | P0 |
+| DM-7 | 模式切换数据迁移（standalone ↔ online）原子化 + 失败回滚 | P0 |
+| DM-8 | masterKey 随机生成 + 双重包装（改密码/recover 不重加密笔记） | P0 |
+| DM-9 | 单机模式隐藏不支持的入口（设备管理/在线分享） | P1 |
+| DM-10 | 单机 → 联机一键迁移不丢数据 | P0 |
+
+### 9.3 能力矩阵（单机 vs 联机）
+
+| 能力                 | 单机模式                                                          | 联机模式                              |
+| -------------------- | ----------------------------------------------------------------- | ------------------------------------- |
+| 主密码 setup/unlock   | 本地 Argon2id + 比对（无 JWT）                                    | 调 `/auth/setup`、`/auth/unlock`       |
+| 笔记/文件夹/标签 CRUD | LocalRepository（IndexedDB / AsyncStorage / Taro.setStorage）     | RemoteRepository（API + 离线队列）    |
+| 偏好设置             | 仅本地                                                            | API + 本地双写                        |
+| 分享                 | **仅文件导出**（txt / md / html / pdf）                           | 在线分享链接 + 文件导出               |
+| 设备管理             | **不支持**（UI 隐藏）                                             | 支持                                  |
+| 跨设备同步           | **不支持**                                                        | WebSocket + 离线队列                  |
+| 在线备份             | **不支持**（仅本地导出 ZIP）                                      | 支持（服务端定期备份）                |
+| 自动更新             | GitHub Release（Velopack）                                        | 同上 + `/update-manifest` 双重检查    |
+| 服务端依赖           | 无                                                                | 必需                                  |
+
+### 9.4 模式选择 UI 设计
+
+#### 9.4.1 触发时机
+
+仅在 `mode-store.initialized === false` 时显示（首次启动或清除本地存储后）。
+
+#### 9.4.2 UI 元素
+
+```
+┌─────────────────────────────────────────────┐
+│            欢迎使用 DustNote                 │
+│         请选择使用模式以继续                 │
+├─────────────────────────────────────────────┤
+│  ┌─────────────┐    ┌─────────────┐         │
+│  │  🏠 单机使用  │    │ 🌐 连接服务器│         │
+│  └─────────────┘    └─────────────┘         │
+│                                             │
+│  单机模式：                                  │
+│  • 数据仅存在本设备                          │
+│  • 无需服务器，开箱即用                      │
+│  • 不支持跨设备同步与在线分享                │
+│  • 适合隐私敏感或试用场景                    │
+│                                             │
+│  联机模式：                                  │
+│  • 数据同步到服务器                          │
+│  • 跨设备同步、在线分享                      │
+│  • 需部署或连接 DustNote 服务器              │
+│  • 适合多设备使用                            │
+└─────────────────────────────────────────────┘
+```
+
+#### 9.4.3 选择联机模式
+
+需额外输入服务器地址，UI 提供：
+
+- 文本输入框（占位：`https://your-domain.com`）
+- 「测试连接」按钮 → 调 `/api/v1/health` 验证可达
+- 连接成功后进入联机 setup 流程
+
+#### 9.4.4 各端 UI 实现
+
+| 端           | 组件文件                                                                                        |
+| ------------ | ----------------------------------------------------------------------------------------------- |
+| Web/Desktop  | [web/src/components/ModeSelectDialog.tsx](file:///e:/workspace/dustnote/web/src/components/ModeSelectDialog.tsx) |
+| Mobile       | [mobile/src/screens/ModeSelectScreen.tsx](file:///e:/workspace/dustnote/mobile/src/screens/ModeSelectScreen.tsx) |
+| Miniprogram  | [miniprogram/src/pages/mode-select/index.tsx](file:///e:/workspace/dustnote/miniprogram/src/pages/mode-select/index.tsx) |
+
+### 9.5 数据迁移需求
+
+#### 9.5.1 触发方式
+
+**显式触发**：用户在 Settings 中点击「迁移数据」按钮，弹窗确认后执行。**不自动迁移**。
+
+#### 9.5.2 standalone → online 流程
+
+1. 弹窗确认 + 输入服务器地址 + 主密码
+2. `/auth/status` 检查服务器是否已 setup
+3. `/auth/setup` 完成联机鉴权
+4. 遍历 LocalRepository 调用 RemoteRepository.createXxx 批量上传
+5. 验证数据完整性
+6. LocalRepository.clearBusinessData() 清空业务数据
+7. mode-store.switchMode('online', serverUrl)
+8. 重启 App
+
+#### 9.5.3 online → standalone 流程
+
+1. 弹窗确认 + 输入新主密码 + 恢复码
+2. setupLocalAuth(newPassword)
+3. RemoteRepository.exportBackup() 拉全量密文
+4. 写入 LocalRepository
+5. 验证数据完整性
+6. mode-store.switchMode('standalone')
+7. 重启 App
+
+#### 9.5.4 失败回滚
+
+任一步骤失败：已写入的目标 Repository 调用 `clearBusinessData()` 回滚，不修改 `mode-store`，用户仍处于原模式。
+
+### 9.6 鉴权设计要点
+
+#### 9.6.1 masterKey 双重包装
+
+> **v2.0.0 关键改进**：masterKey 随机生成（不从密码派生），双重包装为：
+> - `passwordWrappedMasterKey`：主密码 KEK 加密，用于 unlock
+> - `wrappedMasterKey`：恢复码 KEK 加密，用于 recover
+
+**优势**：改密码或 recover 时 masterKey 不变，**笔记密文无需重加密**。
+
+#### 9.6.2 recover 后 masterKey 保留
+
+recover 流程用恢复码解封原 masterKey → 用新密码重新包装，**masterKey 不变**，历史密文继续可用。
+
+### 9.7 单机模式限制说明（用户教育）
+
+UI 与文档中需明确告知用户：
+
+- 数据仅存在本设备，**设备丢失则数据丢失**
+- 不支持跨设备同步
+- 不支持在线分享链接（仅文件导出）
+- 请定期通过「设置 → 数据 → 导出备份」保存 ZIP
+- 未来可一键迁移到联机模式，不丢数据
+
+### 9.8 平台支持矩阵
+
+| 平台           | 单机模式存储后端       | 备注                                        |
+| -------------- | ---------------------- | ------------------------------------------- |
+| Web            | IndexedDB              | 容量大（GB 级）                              |
+| Desktop        | IndexedDB（复用 Web）  | Tauri 复用 Web 端代码                       |
+| Android        | AsyncStorage           | 项目未安装 MMKV，使用 AsyncStorage 替代      |
+| iOS            | AsyncStorage           | 同 Android（代码已编写，但 iOS 构建硬件限制） |
+| 微信小程序     | Taro.setStorage        | 单 key 10MB 上限，仅推荐轻量试用            |
+
+### 9.9 跳过项
+
+| 跳过项                  | 原因                          | 影响                                            |
+| ----------------------- | ----------------------------- | ----------------------------------------------- |
+| iOS 构建                | 需 macOS + Xcode + Apple 签名 | iOS 无安装包；RN 代码已编写，未来可构建         |
+| macOS 桌面 vpk pack 实测 | 需 macOS 硬件                 | release.yml 已有 `continue-on-error: true`      |
+
+### 9.10 关联文档
+
+- [standalone-mode.md](./standalone-mode.md) — 单机模式完整说明
+- [tech-architecture.md](./tech-architecture.md) — 双模式架构技术细节
+- [security.md](./security.md) — 单机模式安全模型
+- [data-flow.md](./data-flow.md) — 单机模式数据流
+- [update-strategy.md](./update-strategy.md) — 双模式更新策略
+- [roadmap.md](./roadmap.md) — v2.0.0 里程碑（M8）

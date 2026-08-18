@@ -14,6 +14,7 @@
 
 import { WebSocketServer, type WebSocket } from 'ws';
 import { verifyToken } from '../auth/jwt.js';
+import { getDb } from '../db.js';
 import { logger } from '../logger.js';
 
 interface AuthedSocket extends WebSocket {
@@ -23,46 +24,64 @@ interface AuthedSocket extends WebSocket {
   channels: Set<string>;
 }
 
+// DoS 防护常量
+const MAX_PAYLOAD_BYTES = 64 * 1024; // 单帧上限 64KB（ws 默认 100MB，可被单连接灌爆内存）
+const MAX_CHANNELS = 8; // 单连接最多订阅频道数
+const MAX_MSG_PER_SECOND = 10; // 单连接消息频率上限
+const ALLOWED_CHANNELS = new Set(['notes', 'shares', 'preferences']);
+const MAX_CONNECTIONS_PER_USER = 5; // 单用户同时活跃 WS 连接数
+
 const clientsByUser = new Map<string, Set<AuthedSocket>>();
 let wss: WebSocketServer | null = null;
 
 export function setupSyncWss(httpServer: import('node:http').Server): WebSocketServer {
   if (wss) return wss;
 
-  wss = new WebSocketServer({ noServer: true, path: '/api/v1/sync/ws' });
+  wss = new WebSocketServer({
+    noServer: true,
+    path: '/api/v1/sync/ws',
+    maxPayload: MAX_PAYLOAD_BYTES,
+    // 客户端用子协议 ['dustnote', <token>] 携带 access token。
+    // 服务端必须回显客户端已提供的子协议之一，浏览器握手才会成功。
+    handleProtocols: (protocols) => (protocols.has('dustnote') ? 'dustnote' : false),
+  });
 
   httpServer.on('upgrade', (req, socket, head) => {
-    if (!req.url?.startsWith('/api/v1/sync/ws')) {
+    const reqPath = req.url?.split('?')[0];
+    if (reqPath !== '/api/v1/sync/ws') {
       socket.destroy();
       return;
     }
 
-    // 解析 token：从 query ?token=xxx 或从 Cookie dustnote_refresh
-    const url = new URL(req.url, 'http://localhost');
-    const tokenParam = url.searchParams.get('token');
-    const cookieHeader = req.headers.cookie ?? '';
-    const cookies = Object.fromEntries(
-      cookieHeader.split(';').map((p) => {
-        const idx = p.indexOf('=');
-        if (idx < 0) return [p.trim(), ''];
-        return [p.slice(0, idx).trim(), decodeURIComponent(p.slice(idx + 1).trim())];
-      })
-    );
-
-    const token = tokenParam ?? cookies.dustnote_refresh;
+    // 解析 token：通过 Sec-WebSocket-Protocol 子协议携带（"dustnote, <token>"）。
+    // 不放 URL query：access token 会原样进入 nginx/Caddy access log，
+    // 一旦日志泄露即会话劫持（pino-http 的 URL 脱敏只覆盖 HTTP 链路，upgrade 事件不经它）。
+    const protoHeader = req.headers['sec-websocket-protocol'] ?? '';
+    const protocols = protoHeader.split(',').map((s) => s.trim()).filter(Boolean);
+    const token = protocols[0] === 'dustnote' ? protocols[1] : undefined;
     if (!token) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();
       return;
     }
     const payload = verifyToken(token);
-    if (!payload) {
+    if (!payload || payload.type !== 'access') {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();
       return;
     }
 
     wss!.handleUpgrade(req, socket, head, (ws) => {
+      // 设备吊销检查：verifyToken 只校验签名，不查库。
+      // 设备被吊销后 refresh_token_hash 被清空，但已签发的 access token
+      // 在过期前仍有效。这里补一次库查询，阻止被吊销设备建 WS。
+      const device = getDb()
+        .prepare('SELECT 1 FROM devices WHERE id = ? AND user_id = ? AND refresh_token_hash IS NOT NULL')
+        .get(payload.device, payload.sub);
+      if (!device) {
+        ws.close(4001, 'device_revoked');
+        return;
+      }
       const authed = ws as AuthedSocket;
       authed.userId = payload.sub;
       authed.deviceId = payload.device;
@@ -76,6 +95,11 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
     logger.info({ userId: ws.userId, deviceId: ws.deviceId }, 'WS 连接已建立');
 
     let set = clientsByUser.get(ws.userId);
+    // 单用户连接数限制，防止单账号开大量连接做内存 DoS
+    if (set && set.size >= MAX_CONNECTIONS_PER_USER) {
+      ws.close(1008, 'too many connections');
+      return;
+    }
     if (!set) {
       set = new Set();
       clientsByUser.set(ws.userId, set);
@@ -86,13 +110,26 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
       ws.isAlive = true;
     });
 
+    // 简单令牌桶限流：每秒最多 MAX_MSG_PER_SECOND 条消息
+    let msgCount = 0;
+    let msgWindowStart = Date.now();
     ws.on('message', (raw) => {
+      const now = Date.now();
+      if (now - msgWindowStart >= 1000) { msgWindowStart = now; msgCount = 0; }
+      if (++msgCount > MAX_MSG_PER_SECOND) {
+        ws.close(1008, 'rate limit');
+        return;
+      }
       try {
         const msg = JSON.parse(raw.toString()) as { type: string; channels?: string[] };
         if (msg.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong', serverTime: new Date().toISOString() }));
         } else if (msg.type === 'subscribe' && Array.isArray(msg.channels)) {
-          msg.channels.forEach((c) => ws.channels.add(c));
+          for (const c of msg.channels) {
+            if (typeof c === 'string' && c.length <= 32 && ALLOWED_CHANNELS.has(c) && ws.channels.size < MAX_CHANNELS) {
+              ws.channels.add(c);
+            }
+          }
           ws.send(JSON.stringify({ type: 'subscribed', channels: Array.from(ws.channels) }));
         }
       } catch (err) {
