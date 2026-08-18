@@ -5,7 +5,7 @@
   "description": "DustNote · 尘心笔记 - 极简跨端个人笔记系统",
   "license": "MIT",
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=20.0.0 <24.0.0",
     "pnpm": ">=9.0.0"
   },
   "packageManager": "pnpm@9.12.0",

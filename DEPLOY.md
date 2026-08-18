@@ -8,7 +8,7 @@ DustNote 服务端基于 **Fastify + SQLite**，单进程即可运行，无需�
 | --- | --- | --- | --- |
 | Docker Compose（HTTP） | ⭐ | 本地 / 内网 / 反代已有 Nginx | ❌ |
 | Docker Compose + Caddy（HTTPS） | ⭐⭐ | 公网 VPS / 自有域名 | ✅ Let's Encrypt |
-| 手动部署（Node.js 20+） | ⭐⭐⭐ | 无 Docker 环境 / 嵌入式设备 | ❌ |
+| 手动部署（Node.js 20/22） | ⭐⭐⭐ | 无 Docker 环境 / 嵌入式设备 | ❌ |
 
 ---
 
@@ -58,7 +58,7 @@ dustnote-server-v<version>/
 | 方式 | 依赖 |
 | --- | --- |
 | Docker Compose | Docker 24+，Docker Compose v2+ |
-| 手动部署 | Node.js 20+，pnpm 9+，构建工具链（`python3` / `make` / `g++` 用于 better-sqlite3 原生编译） |
+| 手动部署 | Node.js 20/22（**勿用 24**），pnpm 9+，构建工具链（`python3` / `make` / `g++` 用于 better-sqlite3 原生编译） |
 
 ---
 
@@ -175,17 +175,21 @@ docker compose down -v
 
 ---
 
-## 四、方式二：手动部署（Node.js 20+）
+## 四、方式二：手动部署（Node.js 20/22）
 
 适用于无 Docker 或希望直接以 systemd 管理进程的场景。
+
+> ⚠️ **必须使用 Node.js 20 或 22**。Node 24 下 better-sqlite3 11.x 会在首个请求后
+> 触发 `Statement::~Statement()` 断言崩溃（`node::RemoveEnvironmentCleanupHook`），
+> 进程直接退出。宝塔等面板默认安装的 Node 24 需手动降级到 22 LTS。
 
 ### 4.1 安装依赖
 
 ```bash
-# Node.js 20+（推荐用 nvm）
+# Node.js 20/22（推荐用 nvm，勿用 24）
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-nvm install 20
-nvm use 20
+nvm install 22
+nvm use 22
 
 # pnpm 9+
 corepack enable

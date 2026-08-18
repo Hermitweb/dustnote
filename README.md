@@ -97,7 +97,7 @@ DustNote 提供两种使用模式，无需任何配置即可选择：
 
 ### 前置条件（开发者）
 
-- [Node.js](https://nodejs.org) 20 LTS+（已在 Node.js 20/24 上验证）
+- [Node.js](https://nodejs.org) 20 LTS 或 22 LTS（**勿用 Node 24**：better-sqlite3 11.x 未适配其 V8 API，运行时崩溃）
 - [pnpm](https://pnpm.io) 9.x+
 - Windows 开发需安装 Python 3 与 Visual Studio Build Tools（用于编译 `better-sqlite3`）
 - 构建 Android 需安装 [Android Studio](https://developer.android.com/studio) 与 Android SDK 34（详见 [mobile/README.md](./mobile/README.md)）
