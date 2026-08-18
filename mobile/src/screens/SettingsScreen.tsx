@@ -49,7 +49,7 @@ import { savePendingMigration, clearPendingMigration } from '../lib/migration';
 import { clearLocalAuthBlob, clearLockoutState } from '../lib/local-auth-storage';
 import type { CheckUpdateResult } from '@dustnote/shared';
 
-const APP_VERSION = '2.5.1';
+const APP_VERSION = '2.5.3';
 const LANG_OPTIONS: Array<{ lang: AppLanguage; key: string }> = [
   { lang: 'zh-CN', key: 'settings.lang_zh' },
   { lang: 'en', key: 'settings.lang_en' },

@@ -13,6 +13,19 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.3] - 2026-08-18
+
+### 新增 — 跨平台一键部署
+
+- **一键部署脚本**：新增 `deploy/deploy.sh`（Linux / macOS）与 `deploy/deploy.ps1`（Windows），一条命令完成「检测/安装 Docker → 配置镜像源 → 生成随机 `JWT_SECRET` → 构建启动 → 等待健康检查 → 输出访问地址」。
+- **中国网络镜像源**：`--cn` / `-Cn` 参数自动切换 aliyun apk 源、npmmirror npm 源、docker 镜像加速。
+
+### 修复 — 部署与版本声明
+
+- **Node 版本声明收紧**：`engines.node` 改为 `>=20 <24`，明确禁止 Node 24（better-sqlite3 11.x 不兼容导致 `Statement::~Statement()` 崩溃）。
+- **Docker 一体化部署**：`docker-compose.yml` 默认使用根 Dockerfile（web + nginx + API 单容器），Caddy 反代到 `dustnote:80`。
+- **镜像源参数化**：Dockerfile 新增 `APK_MIRROR` / `NPM_REGISTRY` 构建参数，`--cn` 下自动注入国内源。
+
 ## [2.5.1] - 2026-08-13
 
 ### 修复 — 跨端环境差异导致的加密功能缺失（恢复码页不显示/崩溃）
