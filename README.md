@@ -76,10 +76,14 @@ DustNote 提供两种使用模式，无需任何配置即可选择：
 1. **部署服务器**（详见 [DEPLOY.md](./DEPLOY.md)）：
 
    ```bash
-   cp .env.example .env
-   # 编辑 .env，填写 JWT_SECRET 和你的域名
-   docker compose up -d --build
-   curl http://localhost:8080/api/v1/health
+   # 一条命令完成部署（自动装 Docker、生成随机 JWT_SECRET、构建启动、健康检查）
+   ./deploy/deploy.sh
+
+   # 中国网络：自动切换国内镜像源
+   ./deploy/deploy.sh --cn
+
+   # 公网 + 域名（Caddy 自动 HTTPS）
+   ./deploy/deploy.sh --domain notes.example.com
    ```
 
 2. **客户端连接**：首次启动选择「🌐 连接服务器」→ 输入服务器地址 → 设置主密码
@@ -123,15 +127,24 @@ pnpm dev:h5
 
 ### 生产部署（Docker）
 
+**推荐：一键部署脚本**（自动检测/安装 Docker、生成随机 `JWT_SECRET`、构建启动、健康检查）：
+
 ```bash
-# 1. 配置环境变量
-cp .env.example .env
-# 编辑 .env，填写你的域名
+# Linux / macOS
+./deploy/deploy.sh                 # HTTP（默认 8080 端口）
+./deploy/deploy.sh --cn            # 中国网络镜像源
+./deploy/deploy.sh --domain notes.example.com   # 公网 + Caddy 自动 HTTPS
 
-# 2. 一键启动
+# Windows（PowerShell）
+powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
+powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1 -Cn
+```
+
+**手动方式**（需已安装 Docker）：
+
+```bash
+cp .env.example .env               # 编辑 .env，填写你的域名
 docker compose up -d --build
-
-# 3. 检查服务
 curl http://localhost:8080/api/v1/health
 ```
 

@@ -656,11 +656,22 @@ jobs:
             - `DEPLOY.md` —— 完整部署文档
             - `VERSION` —— 版本元信息
 
-            ### 快速开始（Docker Compose，推荐）
+            ### 快速开始（一键部署，推荐）
 
             ```bash
             unzip dustnote-server-${{ env.RELEASE_TAG }}.zip
             cd dustnote-server-${{ env.RELEASE_TAG }}
+
+            # 一条命令完成部署（自动装 Docker、生成随机 JWT_SECRET、构建启动、健康检查）
+            ./deploy/deploy.sh
+            # 中国网络：./deploy/deploy.sh --cn
+            # 公网 HTTPS：./deploy/deploy.sh --domain notes.example.com
+            # Windows：powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
+            ```
+
+            ### 手动 Docker Compose
+
+            ```bash
             cp .env.example .env          # 修改 JWT_SECRET / WEB_ORIGIN
             docker compose up -d --build
             curl http://localhost:8080/api/v1/health
