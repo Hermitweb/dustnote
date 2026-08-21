@@ -305,7 +305,7 @@ setCryptoBackend(customBackend)  // 替换为 native/polyfill 实现
 
 ## 5. 注意事项
 
-1. **Node 版本**：client-core 构建需 Node 20–23（`engines` 锁定 >=20 <24，Node 24 会让 better-sqlite3 崩溃）。CI 用 Node 20。
+1. **Node 版本**：client-core 构建需 Node 20–24（`engines` 锁定 >=20 <25；better-sqlite3 已升级 12.x，原生支持 Node 24）。CI 用 Node 20。
 2. **exactOptionalPropertyTypes**：`conflictCtx` 是可选属性，传 `undefined` 会报错。用条件展开：`...(ctx ? { conflictCtx: ctx } : {})`。
 3. **队列 key 兼容**：web 的 `IndexedDbQueueStorage` 默认参数与 idb-keyval 一致，无缝继承。mobile 的 AsyncStorage key 不同（下划线 vs 冒号），需显式传旧 key 或做一次性迁移。
 4. **409 响应格式**：服务端 PATCH /notes/:id 的 409 响应体包含 `current`（完整 NoteRow 含密文），client-core 依赖此格式做解密 + 合并。服务端无需改动。

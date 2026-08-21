@@ -100,7 +100,7 @@ dustnote-server-v<version>/
 | 方式 | 依赖 |
 | --- | --- |
 | Docker Compose | Docker 24+，Docker Compose v2+ |
-| 手动部署 | Node.js 20/22（**勿用 24**），pnpm 9+，构建工具链（`python3` / `make` / `g++` 用于 better-sqlite3 原生编译） |
+| 手动部署 | Node.js 20/22/24（better-sqlite3 12.x 原生支持 Node 24），pnpm 9+，构建工具链（`python3` / `make` / `g++` 用于 better-sqlite3 原生编译） |
 
 ---
 
@@ -217,18 +217,19 @@ docker compose down -v
 
 ---
 
-## 四、方式二：手动部署（Node.js 20/22）
+## 四、方式二：手动部署（Node.js 20/22/24）
 
 适用于无 Docker 或希望直接以 systemd 管理进程的场景。
 
-> ⚠️ **必须使用 Node.js 20 或 22**。Node 24 下 better-sqlite3 11.x 会在首个请求后
-> 触发 `Statement::~Statement()` 断言崩溃（`node::RemoveEnvironmentCleanupHook`），
-> 进程直接退出。宝塔等面板默认安装的 Node 24 需手动降级到 22 LTS。
+> ℹ️ **Node 24 已支持**：better-sqlite3 已升级到 12.x，原生兼容 Node 24
+> （v2.5.4+ 实测通过）。仅旧版 better-sqlite3 11.x 存在 Node 24 下
+> `Statement::~Statement()` 断言崩溃问题——仍在运行旧版本的用户请升级，
+> 或降级 Node 到 22 LTS。
 
 ### 4.1 安装依赖
 
 ```bash
-# Node.js 20/22（推荐用 nvm，勿用 24）
+# Node.js 20/22/24（推荐用 nvm）
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 nvm install 22
 nvm use 22
