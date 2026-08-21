@@ -13,6 +13,47 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.5] - 2026-08-21
+
+### 新增 — @dustnote/client-core 跨端内核 + 目录结构范式 + 全端功能对齐
+
+#### 架构：client-core 跨端客户端内核（新包）
+
+把 web/mobile/miniprogram 各自维护的离线队列、同步编排、加密信封、409 冲突合并抽成框架无关的纯逻辑包（`offline-queue` / `sync-engine` / `envelope` / `conflict` / `crypto-backend`），四端共享同一套同步与冲突语义：
+
+- **409 冲突处理升级**：旧版静默丢弃（多设备离线编辑同一笔记会静默丢数据）→ 字段级 3-way 合并；无歧义字段自动合并并静默 re-PATCH，有歧义字段由全局 ConflictDialog 让用户裁决（local / server / merged），三端 + desktop 全部接入
+- **miniprogram 新增离线队列**（此前网络失败直接丢失请求）
+- **mobile 队列旧 key 无缝迁移**（dustnote_offline_queue → 新格式，load 时兼容转换）
+
+#### 目录结构范式（v2.5.5 规范落地）
+
+按 `docs/note-system-folder-structure-spec.md` 落地「扁平优先、浅嵌套、容器隔离」：
+
+- 顶层二元隔离：文件夹必属 work（💼 业务·项目）/ personal（🌿 个人·沉淀）分支，子文件夹继承父分支
+- 最大嵌套深度 2 级，服务端代码层拦截；新增 `renameFolder` / `moveFolder` API
+- web Sidebar 按新范式重写；mobile / miniprogram 文件夹页补齐新范式 UI（分支选择、深度拦截、重命名/移动菜单、移动合法性校验）
+- server folders 路由 handler 具名导出，新增数据层单测
+
+#### 功能对齐（以 web 为基准）
+
+- **删除账户 UI（GDPR Article 17）**：服务端 DELETE /account 早已就绪，本次补齐 web / mobile / miniprogram 三端入口（两步确认 + 成功后自动回到初始化流程）
+- **设备管理 UI**：mobile / miniprogram 补齐（服务端 GET/DELETE /devices 已就绪，web 原有）
+- **miniprogram 搜索升级**：标题搜索 → 标题 + 内容全文搜索
+- **miniprogram 历史版本**：编辑页新增版本列表 + 恢复（拉密文解密 → 服务端 restore，与 mobile 同路径）
+- 标签独立页从三端移除（检索交由搜索/筛选）
+
+### 修复 — 测试与工具链
+
+- **web 组件测试 React 双实例修复**：hoisted 布局下 web react@18.3.1 与 RN 钉死的 react@18.2.0 共存导致 useState 崩溃（30 项测试失败）。web 的 react/react-dom 统一钉到 18.2.0，全仓单一物理 react；删除永远 no-op 的 ensure-react-junction pretest 脚本
+- **offline-queue 测试迁移**：mock 从 idb-keyval 迁到 client-core（MemoryQueueStorage 替换 IndexedDB）
+- **better-sqlite3 ^11 → ^12**：原生支持 Node 24（11.x 在 Node 24 下 `Statement::~Statement()` 崩溃），删除本地 patch，engines 放宽 node <25，.nvmrc 钉 Node 20
+- **CI Android 构建改硬门禁**（移除 continue-on-error）
+- 修复 3 个未定义 i18n key（common.continue / import_export.file_too_large / settings.save_fail），i18n 450 keys 全部通过校验
+
+### 版本号同步
+
+全端版本号同步至 2.5.5（package.json ×8 含 client-core、tauri.conf.json、Cargo.toml、Android versionCode 27→28 / versionName、server env/update-manifest、mobile/miniprogram 源码内嵌 APP_VERSION、release.yml、sw.js、.env.example、docker-compose、deploy 脚本与文档）。
+
 ## [2.5.4] - 2026-08-18
 
 ### 新增 — 一条命令安装部署（从 GitHub 拉取）

@@ -15,7 +15,7 @@
 #   --cn          中国网络加速（apk/npm/docker 均切国内镜像源）
 #   --port N      宿主机端口（默认 8080）
 #   --domain D    域名（设置后启用 Caddy 自动 HTTPS）
-#   --version TAG 指定版本（默认自动获取 GitHub 最新 Release，如 v2.5.4）
+#   --version TAG 指定版本（默认自动获取 GitHub 最新 Release，如 v2.5.5）
 #   --dir PATH    部署包解压目录（默认当前目录）
 #   --no-build    跳过重新构建镜像（复用已构建镜像）
 #   -h/--help     帮助

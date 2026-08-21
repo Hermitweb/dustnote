@@ -137,8 +137,8 @@ if [[ -f .env ]]; then
   info "检测到已存在 .env，跳过生成（如需重置请删除后重跑）"
 else
   info "生成 .env 配置…"
-  VERSION="$(grep -m1 '"version"' package.json 2>/dev/null | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || echo "2.5.4")"
-  [[ -n "${VERSION}" ]] || VERSION="2.5.4"
+  VERSION="$(grep -m1 '"version"' package.json 2>/dev/null | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || echo "2.5.5")"
+  [[ -n "${VERSION}" ]] || VERSION="2.5.5"
   JWT_SECRET="$(openssl rand -hex 32 2>/dev/null || od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
 
   WEB_ORIGIN="http://localhost"

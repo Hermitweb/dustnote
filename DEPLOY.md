@@ -29,7 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fi
 powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.ps1 | iex"
 ```
 
-> 指定版本：追加 `--version v2.5.4`（Linux/macOS）或 `-Version v2.5.4`（Windows）；默认自动获取 GitHub 最新 Release。
+> 指定版本：追加 `--version v2.5.5`（Linux/macOS）或 `-Version v2.5.5`（Windows）；默认自动获取 GitHub 最新 Release。
 
 ### 已有部署包 / 仓库：本地一键部署
 
@@ -222,7 +222,7 @@ docker compose down -v
 适用于无 Docker 或希望直接以 systemd 管理进程的场景。
 
 > ℹ️ **Node 24 已支持**：better-sqlite3 已升级到 12.x，原生兼容 Node 24
-> （v2.5.4+ 实测通过）。仅旧版 better-sqlite3 11.x 存在 Node 24 下
+> （v2.5.5+ 实测通过）。仅旧版 better-sqlite3 11.x 存在 Node 24 下
 > `Statement::~Statement()` 断言崩溃问题——仍在运行旧版本的用户请升级，
 > 或降级 Node 到 22 LTS。
 
