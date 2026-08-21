@@ -548,6 +548,32 @@ page {
   color: var(--fg);
 }
 .folder-row { cursor: default; }
+/* 目录结构范式 chips（v2.5.5：父级/分支选择） */
+.folder-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12rpx;
+  padding: 16rpx 24rpx;
+  background: var(--bg-elevated);
+  border-bottom: 1rpx solid var(--border);
+}
+.folder-chip {
+  padding: 8rpx 20rpx;
+  border: 1rpx solid var(--border);
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  color: var(--fg);
+  max-width: 300rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folder-chip-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
 .tag-row { padding: 24rpx 32rpx; }
 .tag-hash {
   color: var(--primary-strong);
@@ -1006,6 +1032,44 @@ html[data-mode="dark"] .fab {
   font-weight: 800;
   margin-bottom: 24rpx;
   color: var(--fg);
+}
+.modal-text {
+  display: block;
+  font-size: 26rpx;
+  color: var(--fg-muted);
+  text-align: center;
+  padding: 24rpx 0;
+}
+/* 设备管理浮层（v2.5.5） */
+.device-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 8rpx;
+  border-bottom: 1rpx solid var(--border);
+}
+.device-item-info {
+  flex: 1;
+  min-width: 0;
+}
+.device-item-name {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--fg);
+}
+.device-item-meta {
+  display: block;
+  font-size: 22rpx;
+  color: var(--fg-muted);
+  margin-top: 4rpx;
+}
+.device-item-kick {
+  padding: 8rpx 24rpx;
+  background: var(--danger);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  font-size: 24rpx;
 }
 .expiry-chip {
   padding: 12rpx 22rpx;

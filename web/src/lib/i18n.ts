@@ -268,6 +268,16 @@ const resources = {
         device_kicked: '✅ 设备已踢出',
         device_kick_fail: '踢出失败：{{reason}}',
         device_last_active: '最后活跃 {{time}}',
+        delete_account: '删除账户',
+        delete_account_desc:
+          '永久删除账户及服务器上的全部数据（GDPR 被遗忘权）。操作不可恢复，建议先在「数据管理」导出备份。',
+        delete_account_confirm_1:
+          '将永久删除服务器上的全部数据：笔记、文件夹、标签、分享、设备、偏好。此操作不可恢复！强烈建议先导出备份。确定继续？',
+        delete_account_confirm_2:
+          '最后确认：真的要删除账户吗？服务器数据将被彻底擦除，任何人都无法恢复（包括你自己）。',
+        delete_account_success: '✅ 账户已删除，服务器数据已擦除',
+        delete_account_fail: '删除失败：{{reason}}',
+        save_fail: '保存失败',
         change_password: '修改主密码',
         change_password_btn: '修改密码',
         cur_password: '当前密码',
@@ -308,6 +318,7 @@ const resources = {
       common: {
         cancel: '取消',
         confirm: '确认',
+        continue: '继续',
         delete: '删除',
         save: '保存',
         close: '关闭',
@@ -317,6 +328,7 @@ const resources = {
         title: '📥📤 导入 / 导出',
         import_title: '导入',
         import_hint: '支持 .txt / .md / .docx',
+        file_too_large: '文件过大：{{name}}（超过 50MB 限制）',
         import_btn: '选择文件并导入',
         importing: '导入中…',
         start_import: '开始导入 {{count}} 个文件…',
@@ -835,6 +847,16 @@ const resources = {
         device_kicked: '✅ Device kicked',
         device_kick_fail: 'Kick failed: {{reason}}',
         device_last_active: 'Last active {{time}}',
+        delete_account: 'Delete Account',
+        delete_account_desc:
+          'Permanently delete your account and all server-side data (GDPR right to erasure). This cannot be undone — export a backup first.',
+        delete_account_confirm_1:
+          'This will permanently delete ALL server data: notes, folders, tags, shares, devices, preferences. This cannot be undone! Export a backup first. Continue?',
+        delete_account_confirm_2:
+          'Final confirmation: really delete your account? Server data will be erased beyond recovery — for anyone, including you.',
+        delete_account_success: '✅ Account deleted, server data erased',
+        delete_account_fail: 'Delete failed: {{reason}}',
+        save_fail: 'Save failed',
         change_password: 'Change Master Password',
         change_password_btn: 'Change Password',
         cur_password: 'Current password',
@@ -875,6 +897,7 @@ const resources = {
       common: {
         cancel: 'Cancel',
         confirm: 'Confirm',
+        continue: 'Continue',
         delete: 'Delete',
         save: 'Save',
         close: 'Close',
@@ -884,6 +907,7 @@ const resources = {
         title: '📥📤 Import / Export',
         import_title: 'Import',
         import_hint: 'Supports .txt / .md / .docx',
+        file_too_large: 'File too large: {{name}} (exceeds 50MB limit)',
         import_btn: 'Choose files & import',
         importing: 'Importing…',
         start_import: 'Importing {{count}} files…',

@@ -48,6 +48,16 @@ import { checkUpdateOnce, resetUpdateCache } from '../lib/use-update-check';
 import { savePendingMigration, clearPendingMigration } from '../lib/migration';
 import { clearLocalAuthBlob, clearLockoutState } from '../lib/local-auth-storage';
 import type { CheckUpdateResult } from '@dustnote/shared';
+import { resolveBaseUrl } from '../lib/mode-store';
+
+/** 服务端设备列表项（GET /devices 返回结构） */
+interface DeviceItem {
+  id: string;
+  name: string;
+  platform: string;
+  isCurrent: boolean;
+  lastActiveAt: string;
+}
 
 const APP_VERSION = '2.5.4';
 const LANG_OPTIONS: Array<{ lang: AppLanguage; key: string }> = [
@@ -101,7 +111,105 @@ export function SettingsScreen() {
   const [pwConfirm, setPwConfirm] = useState('');
   const [pwBusy, setPwBusy] = useState(false);
 
+  // 设备管理 Modal（联机模式）
+  const [showDevices, setShowDevices] = useState(false);
+  const [devices, setDevices] = useState<DeviceItem[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  // 删除账户（联机模式，GDPR Article 17）
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
   const styles = makeStyles(colors);
+
+  // ========== 设备管理（联机模式） ==========
+  const loadDevices = async () => {
+    setDevicesLoading(true);
+    try {
+      const baseUrl = resolveBaseUrl();
+      const token = useAuthStore.getState().accessToken;
+      const r = await fetch(`${baseUrl}/devices`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = (await r.json()) as { devices: DeviceItem[] };
+      setDevices(data.devices ?? []);
+    } catch (err) {
+      Alert.alert(t('settings.devices_load_failed'), err instanceof Error ? err.message : String(err));
+    } finally {
+      setDevicesLoading(false);
+    }
+  };
+
+  const openDevices = () => {
+    setShowDevices(true);
+    void loadDevices();
+  };
+
+  const kickDevice = (device: DeviceItem) => {
+    Alert.alert(t('settings.device_kick'), t('settings.device_kick_confirm', { name: device.name }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('settings.device_kick'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const baseUrl = resolveBaseUrl();
+            const token = useAuthStore.getState().accessToken;
+            const r = await fetch(`${baseUrl}/devices/${device.id}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            setDevices((prev) => prev.filter((d) => d.id !== device.id));
+            Alert.alert(t('settings.device_kicked'));
+          } catch (err) {
+            Alert.alert(t('settings.device_kick_failed'), err instanceof Error ? err.message : String(err));
+          }
+        },
+      },
+    ]);
+  };
+
+  // ========== 删除账户（GDPR Article 17，两步确认） ==========
+  const onDeleteAccountStep1 = () => {
+    Alert.alert(t('settings.delete_account'), t('settings.delete_account_confirm_1'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.confirm'), style: 'destructive', onPress: onDeleteAccountStep2 },
+    ]);
+  };
+
+  const onDeleteAccountStep2 = () => {
+    Alert.alert(t('settings.delete_account'), t('settings.delete_account_confirm_2'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('settings.delete_account'),
+        style: 'destructive',
+        onPress: async () => {
+          setDeleteBusy(true);
+          try {
+            const baseUrl = resolveBaseUrl();
+            const token = useAuthStore.getState().accessToken;
+            const r = await fetch(`${baseUrl}/account`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ confirm: true }),
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            Alert.alert(t('settings.delete_account_success'));
+            // 锁定清密钥 → 重新探测（服务端已无账户 → uninitialized → Setup 页）
+            lock();
+            void useAuthStore.getState().init();
+          } catch (err) {
+            Alert.alert(t('settings.delete_account_failed'), err instanceof Error ? err.message : String(err));
+          } finally {
+            setDeleteBusy(false);
+          }
+        },
+      },
+    ]);
+  };
 
   // ========== 更新检查 ==========
   const onCheckUpdate = async () => {
@@ -766,7 +874,22 @@ export function SettingsScreen() {
             colors={colors}
           />
         )}
+        {appMode === 'online' && (
+          <Row
+            label={t('settings.devices')}
+            onPress={openDevices}
+            colors={colors}
+          />
+        )}
         <Row label="🧹 清空数据" onPress={onClearData} colors={colors} />
+        {appMode === 'online' && (
+          <Row
+            label={t('settings.delete_account')}
+            onPress={onDeleteAccountStep1}
+            colors={colors}
+            danger
+          />
+        )}
         <Row
           label={t('settings.lock')}
           onPress={() => {
@@ -809,6 +932,52 @@ export function SettingsScreen() {
           )}
         </TouchableOpacity>
       </Section>
+
+      {/* 设备管理 Modal（联机模式） */}
+      <Modal visible={showDevices} animationType="slide" transparent={false}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t('settings.devices')}</Text>
+            <TouchableOpacity onPress={() => setShowDevices(false)}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          {devicesLoading ? (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <ActivityIndicator color={colors.mint600} />
+            </View>
+          ) : (
+            <ScrollView>
+              {devices.length === 0 && (
+                <Text style={[styles.modalHint, { textAlign: 'center', marginTop: 24 }]}>
+                  {t('settings.devices_empty')}
+                </Text>
+              )}
+              {devices.map((d) => (
+                <View key={d.id} style={styles.deviceRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.deviceName}>
+                      {d.name}
+                      {d.isCurrent ? `（${t('settings.device_current')}）` : ''}
+                    </Text>
+                    <Text style={styles.deviceMeta}>
+                      {d.platform} · {new Date(d.lastActiveAt).toLocaleString()}
+                    </Text>
+                  </View>
+                  {!d.isCurrent && (
+                    <TouchableOpacity
+                      style={styles.kickBtn}
+                      onPress={() => kickDevice(d)}
+                    >
+                      <Text style={styles.kickBtnText}>{t('settings.device_kick')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
 
       {/* 导入 Modal */}
       <Modal visible={showImport} animationType="slide" transparent={false}>
@@ -987,16 +1156,18 @@ function Row({
   detail,
   onPress,
   colors,
+  danger,
 }: {
   label: string;
   detail?: string;
   onPress?: () => void;
   colors: ReturnType<typeof useColors>;
+  danger?: boolean;
 }) {
   const styles = makeStyles(colors);
   return (
     <TouchableOpacity style={styles.row} onPress={onPress} disabled={!onPress}>
-      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={[styles.rowLabel, danger && { color: colors.danger }]}>{label}</Text>
       {detail && <Text style={styles.rowDetail}>{detail}</Text>}
     </TouchableOpacity>
   );
@@ -1101,6 +1272,35 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       color: c.muted,
       lineHeight: 20,
       marginBottom: 12,
+    },
+    deviceRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+      gap: 12,
+    },
+    deviceName: {
+      fontSize: 15,
+      color: c.fg,
+      fontWeight: '500',
+    },
+    deviceMeta: {
+      fontSize: 12,
+      color: c.muted,
+      marginTop: 2,
+    },
+    kickBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      backgroundColor: c.danger,
+    },
+    kickBtnText: {
+      color: 'white',
+      fontSize: 13,
     },
     modalInput: {
       flex: 1,

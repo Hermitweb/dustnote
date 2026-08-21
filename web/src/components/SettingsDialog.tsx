@@ -106,6 +106,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [devicesLoading, setDevicesLoading] = useState(false);
   const [devicesError, setDevicesError] = useState<string | null>(null);
   const [kickTargetId, setKickTargetId] = useState<string | null>(null);
+  // 删除账户（联机模式，GDPR Article 17）：两步确认
+  const [deleteConfirmStep, setDeleteConfirmStep] = useState<1 | 2 | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   // 修改主密码
   const [curPw, setCurPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -198,6 +201,37 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       toast.success(t('settings.device_kicked'));
     } catch (err) {
       toast.error(t('settings.device_kick_fail', { reason: (err as Error).message }));
+    }
+  };
+
+  // ========== 删除账户（GDPR Article 17） ==========
+  const deleteAccount = async () => {
+    setDeleteBusy(true);
+    try {
+      const token = useStore.getState().accessToken;
+      const r = await fetch(`${settingsApiBase()}/account`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-Version': __APP_VERSION__,
+          'X-Client-Platform': 'web',
+          'X-Client-Channel': 'stable',
+          'X-Client-Device-Id': getDeviceId(),
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      onClose();
+      toast.success(t('settings.delete_account_success'));
+      // 锁定清密钥 → checkStatus 探测到服务端账户已不存在 → 回到 Setup 页
+      useStore.getState().lock();
+      void useStore.getState().checkStatus();
+    } catch (err) {
+      toast.error(t('settings.delete_account_fail', { reason: (err as Error).message }));
+    } finally {
+      setDeleteBusy(false);
+      setDeleteConfirmStep(null);
     }
   };
 
@@ -589,6 +623,25 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
+            {/* 危险区：删除账户（仅联机模式，GDPR Article 17） */}
+            {appMode === 'online' && (
+              <div className="rounded-lg border-2 border-red-200 p-3 dark:border-red-900/50">
+                <label className="mb-1 block text-xs font-semibold text-red-600 dark:text-red-400">
+                  {t('settings.delete_account')}
+                </label>
+                <p className="mb-2 text-xs text-surface-muted">
+                  {t('settings.delete_account_desc')}
+                </p>
+                <button
+                  onClick={() => setDeleteConfirmStep(1)}
+                  disabled={deleteBusy}
+                  className="w-full rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {t('settings.delete_account')}
+                </button>
+              </div>
+            )}
+
             {/* 单机/联机模式切换 */}
             <div>
               <label className="mb-2 block text-xs font-semibold text-surface-muted">
@@ -862,6 +915,28 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             void kickDevice(id);
           }}
           onCancel={() => setKickTargetId(null)}
+        />
+      )}
+
+      {deleteConfirmStep === 1 && (
+        <ConfirmDialog
+          title={t('settings.delete_account')}
+          message={t('settings.delete_account_confirm_1')}
+          confirmLabel={t('common.continue')}
+          variant="danger"
+          onConfirm={() => setDeleteConfirmStep(2)}
+          onCancel={() => setDeleteConfirmStep(null)}
+        />
+      )}
+
+      {deleteConfirmStep === 2 && (
+        <ConfirmDialog
+          title={t('settings.delete_account')}
+          message={t('settings.delete_account_confirm_2')}
+          confirmLabel={deleteBusy ? t('common.loading') : t('settings.delete_account')}
+          variant="danger"
+          onConfirm={() => void deleteAccount()}
+          onCancel={() => setDeleteConfirmStep(null)}
         />
       )}
 

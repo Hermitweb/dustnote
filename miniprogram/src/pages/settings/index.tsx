@@ -7,13 +7,22 @@
  * - 导入导出 / 分享管理 / 修改密码 —— 占位提示「该功能即将上线」
  */
 import React, { useState } from 'react';
-import { View, Text, Input } from '@tarojs/components';
+import { View, Text, Input, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import { useAuthStore, APP_VERSION } from '../../state/auth';
+import { useAuthStore, APP_VERSION, getApi } from '../../state/auth';
 import { useThemeStore, type Theme } from '../../state/theme';
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo, resetRepoCache } from '../../lib/get-repo';
 import { clearStandaloneMasterKey } from '../../lib/standalone-session';
+
+/** 服务端设备列表项（GET /devices 返回结构） */
+interface DeviceItem {
+  id: string;
+  name: string;
+  platform: string;
+  isCurrent: boolean;
+  lastActiveAt: string;
+}
 
 /** 项目 GitHub 仓库地址 */
 const GITHUB_URL = 'https://github.com/Hermitweb/dustnote';
@@ -69,6 +78,79 @@ export default function Settings() {
   };
 
   const changePassword = useAuthStore((s) => s.changePassword);
+
+  // ========== 设备管理（联机模式，页面内浮层） ==========
+  const [devicesOpen, setDevicesOpen] = useState(false);
+  const [devices, setDevices] = useState<DeviceItem[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+
+  const openDevices = async () => {
+    setDevicesOpen(true);
+    setDevicesLoading(true);
+    try {
+      const r = await getApi().get<{ devices: DeviceItem[] }>('/devices');
+      setDevices(r.devices ?? []);
+    } catch {
+      Taro.showToast({ title: '加载设备失败', icon: 'none' });
+      setDevicesOpen(false);
+    } finally {
+      setDevicesLoading(false);
+    }
+  };
+
+  const kickDevice = async (device: DeviceItem) => {
+    const confirm = await Taro.showModal({
+      title: '踢出设备',
+      content: `确定踢出「${device.name}」？该设备将无法继续同步。`,
+      confirmText: '踢出',
+      confirmColor: '#E07B6C',
+    });
+    if (!confirm.confirm) return;
+    try {
+      await getApi().request('DELETE', `/devices/${device.id}`);
+      setDevices((prev) => prev.filter((d) => d.id !== device.id));
+      Taro.showToast({ title: '已踢出', icon: 'success' });
+    } catch {
+      Taro.showToast({ title: '踢出失败', icon: 'none' });
+    }
+  };
+
+  // ========== 删除账户（联机模式，GDPR Article 17，两步确认） ==========
+  const onDeleteAccount = async () => {
+    const step1 = await Taro.showModal({
+      title: '删除账户',
+      content:
+        '将永久删除服务器上的全部数据：笔记、文件夹、标签、分享、设备、偏好。\n此操作不可恢复！建议先导出备份。',
+      confirmText: '继续',
+      confirmColor: '#E07B6C',
+    });
+    if (!step1.confirm) return;
+    const step2 = await Taro.showModal({
+      title: '最后确认',
+      content: '真的要删除账户吗？服务器数据将被彻底擦除，无法恢复。',
+      confirmText: '确认删除',
+      confirmColor: '#E07B6C',
+    });
+    if (!step2.confirm) return;
+    try {
+      await getApi().request('DELETE', '/account', { confirm: true });
+      Taro.showToast({ title: '账户已删除', icon: 'success' });
+      // 清本地数据 + 锁定 → 重新探测（服务端已无账户 → setup 页）
+      try {
+        await getRepo().clearBusinessData();
+      } catch {
+        /* 本地清理失败不阻塞 */
+      }
+      resetRepoCache();
+      useAuthStore.getState().lock();
+      setTimeout(() => {
+        void useAuthStore.getState().init();
+        Taro.reLaunch({ url: '/pages/index/index' });
+      }, 600);
+    } catch {
+      Taro.showToast({ title: '删除失败', icon: 'none' });
+    }
+  };
 
   // 修改密码弹窗状态
   const [pwdOpen, setPwdOpen] = useState(false);
@@ -261,6 +343,14 @@ export default function Settings() {
             <Text className="settings-row-value">›</Text>
           </View>
         )}
+        {mode === 'online' && (
+          <View className="settings-row" onClick={() => void openDevices()}>
+            <View className="settings-row-label">
+              <Text>💻 设备管理</Text>
+            </View>
+            <Text className="settings-row-value">›</Text>
+          </View>
+        )}
         <View
           className="settings-row"
           onClick={() => {
@@ -295,6 +385,14 @@ export default function Settings() {
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
+        {mode === 'online' && (
+          <View className="settings-row" onClick={() => void onDeleteAccount()}>
+            <View className="settings-row-label">
+              <Text className="text-danger">🗑️ 删除账户</Text>
+            </View>
+            <Text className="settings-row-value">›</Text>
+          </View>
+        )}
         <View
           className="settings-row"
           onClick={() => {
@@ -384,6 +482,44 @@ export default function Settings() {
                 onClick={onPwdSubmit}
               >
                 {changing ? '修改中…' : '确认修改'}
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
+      {devicesOpen && (
+        <View className="modal-mask" onClick={() => setDevicesOpen(false)}>
+          <View className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <Text className="modal-title">设备管理</Text>
+            {devicesLoading ? (
+              <Text className="modal-text">加载中…</Text>
+            ) : devices.length === 0 ? (
+              <Text className="modal-text">暂无设备</Text>
+            ) : (
+              <ScrollView scrollY style={{ maxHeight: '500rpx' }}>
+                {devices.map((d) => (
+                  <View key={d.id} className="device-item">
+                    <View className="device-item-info">
+                      <Text className="device-item-name">
+                        {d.name}
+                        {d.isCurrent ? '（当前）' : ''}
+                      </Text>
+                      <Text className="device-item-meta">
+                        {d.platform} · {new Date(d.lastActiveAt).toLocaleString()}
+                      </Text>
+                    </View>
+                    {!d.isCurrent && (
+                      <Text className="device-item-kick" onClick={() => void kickDevice(d)}>
+                        踢出
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+            <View className="row gap-m">
+              <View className="mint-btn mint-btn-ghost flex-1" onClick={() => setDevicesOpen(false)}>
+                关闭
               </View>
             </View>
           </View>
