@@ -4,25 +4,25 @@ on:
   push:
     branches: [main, dev]
     paths-ignore:
-        - '**.md'
-        - 'docs/**'
-        - '.trae/**'
-        - '*.yml'
-        - 'scripts/**'
-        - 'deploy/**'
-        - 'docker-compose.yml'
-        - 'Dockerfile'
+      - '**.md'
+      - 'docs/**'
+      - '.trae/**'
+      - '*.yml'
+      - 'scripts/**'
+      - 'deploy/**'
+      - 'docker-compose.yml'
+      - 'Dockerfile'
   pull_request:
     branches: [main, dev]
     paths-ignore:
-        - '**.md'
-        - 'docs/**'
-        - '.trae/**'
-        - '*.yml'
-        - 'scripts/**'
-        - 'deploy/**'
-        - 'docker-compose.yml'
-        - 'Dockerfile'
+      - '**.md'
+      - 'docs/**'
+      - '.trae/**'
+      - '*.yml'
+      - 'scripts/**'
+      - 'deploy/**'
+      - 'docker-compose.yml'
+      - 'Dockerfile'
   workflow_dispatch:
 
 permissions:
@@ -111,9 +111,20 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      # GHSA-hmx5-qpq5-p643 (swiper) is ignored because Taro 3.6's @tarojs/components
-      # depends on swiper 6.x and cannot be safely upgraded without breaking the build.
-      # All other high/critical findings will fail the job.
+      # 审计豁免清单（显式登记，附理由；未登记的 high/critical 仍会 fail）。
+      # 历史：2026-08 安全治理后，B 类 16 项传递依赖漏洞已通过 pnpm.overrides
+      # 精确锁版本修复（vm2/minimatch/nanoid/postcss×2/autoprefixer/js-yaml×2/
+      # svgo/form-data/serialize-javascript/tmp/http-cache-semantics/adm-zip/glob），
+      # 豁免清单已收缩至仅剩无补丁项：
+      #
+      # C 类 · 无补丁 / 包已废弃（官方无修复版本，只能豁免，待 Taro 主版本升级替换）：
+      #   swiper        @tarojs/components 钉死 swiper 6.x（运行时依赖，无法单独升级）
+      #   decompress    @tarojs/cli > download-git-repo（模板下载链路，包已废弃）
+      #   git-clone     @tarojs/cli > download-git-repo
+      #   html-minifier @tarojs/webpack5-runner（包已废弃）
+      #   image-size ×2 desktop vite>less 与 mobile metro 传递依赖，<=2.0.2 全线无修复
+      # 上述漏洞均位于构建期工具链（image-size 除外，但同样无修复版本可升），
+      # 不进入发往用户的运行时产物。
       - name: Security Audit
         run: |
           set +e
@@ -122,7 +133,14 @@ jobs:
           node -e "
             const fs = require('fs');
             const audit = JSON.parse(fs.readFileSync('audit.json', 'utf8'));
-            const ignored = new Set(['GHSA-hmx5-qpq5-p643']);
+            const ignored = new Set([
+              // C 类：无补丁 / 已废弃，待 Taro 主版本升级根治
+              'GHSA-hmx5-qpq5-p643', // swiper critical：@tarojs/components 钉死 6.x
+              'GHSA-mp2f-45pm-3cg9', // decompress critical：download-git-repo 链路
+              'GHSA-8jmw-wjr8-2x66', // git-clone：download-git-repo 链路
+              'GHSA-pfq8-rq6v-vf5m', // html-minifier：webpack5-runner
+              'GHSA-w3rx-r6r6-pgpr', 'GHSA-5p2g-fcmc-qvqq', // image-size：less/metro
+            ]);
             const bad = Object.values(audit.advisories || {})
               .filter(a => (a.severity === 'high' || a.severity === 'critical') && !ignored.has(a.github_advisory_id));
             if (bad.length) {
@@ -351,7 +369,7 @@ jobs:
       - name: Build Android Debug APK
         working-directory: mobile/android
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.network.timeout=300000"
+          GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.network.timeout=300000'
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon

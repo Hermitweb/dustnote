@@ -38,6 +38,6 @@
     "pino-pretty": "^11.0.0",
     "tsx": "^4.11.0",
     "typescript": "^5.4.0",
-    "vitest": "^1.6.0"
+    "vitest": "^3.2.6"
   }
 }
