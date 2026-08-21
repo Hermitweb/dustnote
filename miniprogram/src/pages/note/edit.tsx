@@ -40,6 +40,13 @@ interface NoteData {
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'unsaved';
 
+/** 服务端历史版本元数据（GET /notes/:id/versions 返回项） */
+interface NoteVersionMeta {
+  id: string;
+  version: number;
+  createdAt: string;
+}
+
 /** 分享有效期选项（seconds：秒；0 = 永久） */
 const SHARE_EXPIRY_OPTIONS = [
   { key: '1d', label: '1 天', seconds: 86400 },
@@ -68,6 +75,10 @@ export default function NoteEdit() {
   const [sharePwd, setSharePwd] = useState('');
   const [shareExpiry, setShareExpiry] = useState<ShareExpiryKey>('forever');
   const [sharing, setSharing] = useState(false);
+  // 历史版本弹窗（联机模式）
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [versions, setVersions] = useState<NoteVersionMeta[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // 用于追踪是否已初始化加载，避免初始 load 触发自动保存
   const loadedRef = useRef(false);
@@ -359,6 +370,68 @@ export default function NoteEdit() {
     }
   };
 
+  // ========== 历史版本（联机模式） ==========
+
+  /** 打开历史版本弹窗并加载列表 */
+  const openHistory = async () => {
+    if (mode !== 'online') {
+      Taro.showToast({ title: '单机模式不支持历史版本', icon: 'none' });
+      return;
+    }
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    try {
+      const r = await getApi().get<{ versions: NoteVersionMeta[] }>(
+        `/notes/${id}/versions`
+      );
+      setVersions(r.versions ?? []);
+    } catch {
+      Taro.showToast({ title: '加载历史失败', icon: 'none' });
+      setHistoryOpen(false);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  /** 恢复指定历史版本：拉密文 → 解密 → 服务端 restore → 更新编辑器 */
+  const onRestoreVersion = async (v: NoteVersionMeta) => {
+    const confirm = await Taro.showModal({
+      title: '恢复历史版本',
+      content: `恢复到 v${v.version}（${new Date(v.createdAt).toLocaleString()}）？\n当前内容会先自动保存为一个新版本。`,
+      confirmText: '恢复',
+    });
+    if (!confirm.confirm) return;
+    try {
+      if (!masterKey) throw new Error('未解锁');
+      // 1. 拉取版本密文
+      const r = await getApi().get<{ ciphertext: string }>(
+        `/notes/${id}/versions/${v.id}`
+      );
+      // 2. 解密（新密文 AAD 绑定 noteId||userId）
+      const env = parseEnvelope(r.ciphertext);
+      const aad = noteAad(id ?? '', useAuthStore.getState().userId ?? '');
+      const json = await decryptNote(masterKey, env, env.payload.a === 1 ? aad : undefined);
+      // 3. 服务端 restore（乐观锁：带当前 version）
+      const restoreR = await getApi().request('POST', `/notes/${id}/versions/${v.id}/restore`, {
+        version: noteRef.current?.version,
+      });
+      const restored = restoreR as { version: number };
+      // 4. 更新编辑器 + 本地 note（防止下次保存 409）
+      setTitle(json.title);
+      setContent(json.content);
+      if (noteRef.current) {
+        setNote({ ...noteRef.current, version: restored.version ?? noteRef.current.version + 1 });
+      }
+      setHistoryOpen(false);
+      Taro.showToast({ title: `已恢复到 v${v.version}`, icon: 'success' });
+    } catch (err) {
+      Taro.showToast({
+        title: `恢复失败：${err instanceof Error ? err.message : '未知错误'}`,
+        icon: 'none',
+      });
+    }
+  };
+
   const statusText = (() => {
     switch (saveStatus) {
       case 'saving':
@@ -406,6 +479,11 @@ export default function NoteEdit() {
           {mode === 'online' && (
             <Text className="icon-btn" onClick={openShare}>
               🔗
+            </Text>
+          )}
+          {mode === 'online' && (
+            <Text className="icon-btn" onClick={() => void openHistory()}>
+              🕘
             </Text>
           )}
           <Text className="icon-btn" onClick={onDelete}>
@@ -477,6 +555,42 @@ export default function NoteEdit() {
                 onClick={doCreateShare}
               >
                 {sharing ? '生成中…' : '生成链接'}
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
+      {historyOpen && (
+        <View className="modal-mask" onClick={() => setHistoryOpen(false)}>
+          <View className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <Text className="modal-title">历史版本</Text>
+            {historyLoading ? (
+              <Text className="modal-text">加载中…</Text>
+            ) : versions.length === 0 ? (
+              <Text className="modal-text">暂无历史版本</Text>
+            ) : (
+              <ScrollView scrollY style={{ maxHeight: '600rpx' }}>
+                {versions.map((v) => (
+                  <View key={v.id} className="device-item">
+                    <View className="device-item-info">
+                      <Text className="device-item-name">v{v.version}</Text>
+                      <Text className="device-item-meta">
+                        {new Date(v.createdAt).toLocaleString()}
+                      </Text>
+                    </View>
+                    <Text
+                      className="mint-btn mint-btn-sm"
+                      onClick={() => void onRestoreVersion(v)}
+                    >
+                      恢复
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+            <View className="row gap-m">
+              <View className="mint-btn mint-btn-ghost flex-1" onClick={() => setHistoryOpen(false)}>
+                关闭
               </View>
             </View>
           </View>

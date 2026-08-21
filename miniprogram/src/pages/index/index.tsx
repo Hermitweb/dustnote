@@ -55,7 +55,7 @@ export default function Index() {
   const mode = useModeStore((s) => s.mode);
   const modeInitialized = useModeStore((s) => s.initialized);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [titles, setTitles] = useState<Record<string, string>>({});
+  const [plains, setPlains] = useState<Record<string, { title: string; content: string }>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
@@ -98,7 +98,7 @@ export default function Index() {
       setNotes(snapshot.notes as Note[]);
       setFolders(snapshot.folders as Folder[]);
       if (masterKey) {
-        const t: Record<string, string> = {};
+        const t: Record<string, { title: string; content: string }> = {};
         for (const n of snapshot.notes) {
           if (n.deletedAt) continue;
           try {
@@ -108,12 +108,13 @@ export default function Index() {
               e,
               noteAad(n.id, useAuthStore.getState().userId ?? '')
             );
-            t[n.id] = pt.title;
+            // 保留 title + content：列表标题显示 + 全文搜索（v2.5.5 升级为标题+内容）
+            t[n.id] = { title: pt.title, content: pt.content };
           } catch {
-            t[n.id] = '🔒 解密失败';
+            t[n.id] = { title: '🔒 解密失败', content: '' };
           }
         }
-        setTitles(t);
+        setPlains(t);
       }
     } catch {
       Taro.showToast({ title: '加载失败', icon: 'none' });
@@ -136,7 +137,9 @@ export default function Index() {
     .filter((n) => {
       const q = searchQuery.trim().toLowerCase();
       if (!q) return true;
-      return (titles[n.id] || '').toLowerCase().includes(q);
+      // 全文搜索：标题 + 内容（解密后的明文）
+      const p = plains[n.id];
+      return `${p?.title ?? ''}\n${p?.content ?? ''}`.toLowerCase().includes(q);
     })
     .sort((a, b) =>
       viewMode === 'trash'
@@ -437,7 +440,7 @@ export default function Index() {
         <View className="search-box">
           <Input
             className="search-input"
-            placeholder="搜索标题"
+            placeholder="搜索笔记"
             value={searchQuery}
             onInput={(e) => setSearchQuery((e.detail as { value: string }).value)}
           />
@@ -518,7 +521,7 @@ export default function Index() {
           </View>
         )}
         {visibleNotes.map((n) => {
-          const title = titles[n.id] || '🌿 未命名笔记';
+          const title = plains[n.id]?.title || '🌿 未命名笔记';
           const checked = selectedIds.has(n.id);
           return (
             <View
