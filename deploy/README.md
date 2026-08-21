@@ -2,15 +2,15 @@
 
 ## 脚本分类（按平台）
 
-| 脚本 | 平台 | 职责 |
-| --- | --- | --- |
-| `install.sh` | Linux / macOS | **一条命令入口**：从 GitHub 拉取部署包 + 部署 |
-| `install.ps1` | Windows | **一条命令入口**：从 GitHub 拉取部署包 + 部署 |
-| `deploy.sh` | Linux / macOS | 部署执行：装 Docker → 生成 `.env` → `compose up` |
-| `deploy.ps1` | Windows | 部署执行（同上） |
-| `nginx.conf` | 通用 | 反代参考（裸机 / 已有 nginx） |
-| `Caddyfile` | 通用 | TLS 反代（自动 HTTPS） |
-| `supervisord.conf` | 通用 | 容器内进程管理 |
+| 脚本               | 平台          | 职责                                             |
+| ------------------ | ------------- | ------------------------------------------------ |
+| `install.sh`       | Linux / macOS | **一条命令入口**：从 GitHub 拉取部署包 + 部署    |
+| `install.ps1`      | Windows       | **一条命令入口**：从 GitHub 拉取部署包 + 部署    |
+| `deploy.sh`        | Linux / macOS | 部署执行：装 Docker → 生成 `.env` → `compose up` |
+| `deploy.ps1`       | Windows       | 部署执行（同上）                                 |
+| `nginx.conf`       | 通用          | 反代参考（裸机 / 已有 nginx）                    |
+| `Caddyfile`        | 通用          | TLS 反代（自动 HTTPS）                           |
+| `supervisord.conf` | 通用          | 容器内进程管理                                   |
 
 ## 一条命令安装部署（推荐）
 
@@ -34,7 +34,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fi
 powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.ps1 | iex"
 ```
 
-> 指定版本：追加 `--version v2.5.5`（Linux/macOS）或 `-Version v2.5.5`（Windows）；默认自动获取 GitHub 最新 Release。
+> 指定版本：追加 `--version v2.5.6`（Linux/macOS）或 `-Version v2.5.6`（Windows）；默认自动获取 GitHub 最新 Release。
 
 ## 已有仓库 / 部署包：本地一键部署
 

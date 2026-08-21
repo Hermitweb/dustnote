@@ -67,7 +67,7 @@ import {
 } from '../lib/standalone-session';
 
 // 与 package.json 同步（全端版本统一，见 release 流程）
-export const APP_VERSION = '2.5.5';
+export const APP_VERSION = '2.5.6';
 
 // 设备 ID：首次生成后持久化到本地存储
 let deviceId = '';
@@ -162,9 +162,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
     // 联机模式：检查服务端状态
     try {
-      const r = await getApi().get<{ initialized: boolean; pwSalt: string | null }>(
-        '/auth/status'
-      );
+      const r = await getApi().get<{ initialized: boolean; pwSalt: string | null }>('/auth/status');
       set({ pwSalt: r.pwSalt });
       if (!r.initialized) {
         set({ authState: 'uninitialized' });
@@ -316,9 +314,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       saveLockoutStateSync(newState);
       set({ lockoutState: newState });
       if (isLocked(newState)) {
-        throw new Error(
-          `密码错误次数过多，账号已锁定 ${LOCAL_LOCKOUT_DURATION_MS / 60000} 分钟`
-        );
+        throw new Error(`密码错误次数过多，账号已锁定 ${LOCAL_LOCKOUT_DURATION_MS / 60000} 分钟`);
       }
       throw new Error('主密码错误');
     }

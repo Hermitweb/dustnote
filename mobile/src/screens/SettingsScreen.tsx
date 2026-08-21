@@ -36,11 +36,7 @@ import { useLanguageStore, type AppLanguage } from '../lib/i18n';
 import { createRepository } from '../lib/repository';
 import { useColors, useThemeStore, type ThemeMode, THEMES, type ThemeId } from '../theme';
 import type { BackupPayload, AppMode, Preferences } from '@dustnote/shared';
-import {
-  decryptString,
-  encryptString,
-  type Ciphertext,
-} from '@dustnote/shared';
+import { decryptString, encryptString, type Ciphertext } from '@dustnote/shared';
 import RNFS from 'react-native-fs';
 import RNShare from 'react-native-share';
 import DocumentPicker from 'react-native-document-picker';
@@ -59,7 +55,7 @@ interface DeviceItem {
   lastActiveAt: string;
 }
 
-const APP_VERSION = '2.5.5';
+const APP_VERSION = '2.5.6';
 const LANG_OPTIONS: Array<{ lang: AppLanguage; key: string }> = [
   { lang: 'zh-CN', key: 'settings.lang_zh' },
   { lang: 'en', key: 'settings.lang_en' },
@@ -133,7 +129,10 @@ export function SettingsScreen() {
       const data = (await r.json()) as { devices: DeviceItem[] };
       setDevices(data.devices ?? []);
     } catch (err) {
-      Alert.alert(t('settings.devices_load_failed'), err instanceof Error ? err.message : String(err));
+      Alert.alert(
+        t('settings.devices_load_failed'),
+        err instanceof Error ? err.message : String(err)
+      );
     } finally {
       setDevicesLoading(false);
     }
@@ -145,28 +144,35 @@ export function SettingsScreen() {
   };
 
   const kickDevice = (device: DeviceItem) => {
-    Alert.alert(t('settings.device_kick'), t('settings.device_kick_confirm', { name: device.name }), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('settings.device_kick'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const baseUrl = resolveBaseUrl();
-            const token = useAuthStore.getState().accessToken;
-            const r = await fetch(`${baseUrl}/devices/${device.id}`, {
-              method: 'DELETE',
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            setDevices((prev) => prev.filter((d) => d.id !== device.id));
-            Alert.alert(t('settings.device_kicked'));
-          } catch (err) {
-            Alert.alert(t('settings.device_kick_failed'), err instanceof Error ? err.message : String(err));
-          }
+    Alert.alert(
+      t('settings.device_kick'),
+      t('settings.device_kick_confirm', { name: device.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.device_kick'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const baseUrl = resolveBaseUrl();
+              const token = useAuthStore.getState().accessToken;
+              const r = await fetch(`${baseUrl}/devices/${device.id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              if (!r.ok) throw new Error(`HTTP ${r.status}`);
+              setDevices((prev) => prev.filter((d) => d.id !== device.id));
+              Alert.alert(t('settings.device_kicked'));
+            } catch (err) {
+              Alert.alert(
+                t('settings.device_kick_failed'),
+                err instanceof Error ? err.message : String(err)
+              );
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   // ========== 删除账户（GDPR Article 17，两步确认） ==========
@@ -202,7 +208,10 @@ export function SettingsScreen() {
             lock();
             void useAuthStore.getState().init();
           } catch (err) {
-            Alert.alert(t('settings.delete_account_failed'), err instanceof Error ? err.message : String(err));
+            Alert.alert(
+              t('settings.delete_account_failed'),
+              err instanceof Error ? err.message : String(err)
+            );
           } finally {
             setDeleteBusy(false);
           }
@@ -221,14 +230,10 @@ export function SettingsScreen() {
       const r = await checkUpdateOnce();
       setUpdateResult(r);
       if (r.status === 'force_update' && r.updateUrl) {
-        Alert.alert(
-          '发现新版本',
-          `当前版本已过期，请升级到最新版本。\n\n${r.message ?? ''}`,
-          [
-            { text: '稍后', style: 'cancel' },
-            { text: '去下载', onPress: () => void Share.share({ message: r.updateUrl! }) },
-          ]
-        );
+        Alert.alert('发现新版本', `当前版本已过期，请升级到最新版本。\n\n${r.message ?? ''}`, [
+          { text: '稍后', style: 'cancel' },
+          { text: '去下载', onPress: () => void Share.share({ message: r.updateUrl! }) },
+        ]);
       } else if (r.status === 'ok' && r.manifest) {
         const latest = r.manifest.latest.version;
         if (latest !== APP_VERSION) {
@@ -350,7 +355,12 @@ export function SettingsScreen() {
                       lock();
                       navigation.reset({
                         index: 0,
-                        routes: [{ name: appMode === 'standalone' ? ('StandaloneUnlock' as never) : 'Unlock' }],
+                        routes: [
+                          {
+                            name:
+                              appMode === 'standalone' ? ('StandaloneUnlock' as never) : 'Unlock',
+                          },
+                        ],
                       });
                     },
                   },
@@ -393,14 +403,17 @@ export function SettingsScreen() {
       let ok = 0;
       for (const note of activeNotes) {
         try {
-          const env = JSON.parse(note.ciphertext) as { v?: number; payload?: Ciphertext } | Ciphertext;
+          const env = JSON.parse(note.ciphertext) as
+            | { v?: number; payload?: Ciphertext }
+            | Ciphertext;
           const payload: Ciphertext =
             env && typeof env === 'object' && 'payload' in env ? env.payload! : (env as Ciphertext);
           const json = await decryptString(masterKey, payload);
           const pt = JSON.parse(json) as { title: string; content: string; tags?: string[] };
-          const tagsLine = Array.isArray(pt.tags) && pt.tags.length > 0
-            ? `\n\n> 标签：${pt.tags.map((t) => `#${t}`).join(' ')}`
-            : '';
+          const tagsLine =
+            Array.isArray(pt.tags) && pt.tags.length > 0
+              ? `\n\n> 标签：${pt.tags.map((t) => `#${t}`).join(' ')}`
+              : '';
           parts.push(`# ${pt.title || '无标题'}\n\n${pt.content}${tagsLine}\n\n---\n`);
           ok++;
         } catch {
@@ -486,7 +499,12 @@ export function SettingsScreen() {
                         lock();
                         navigation.reset({
                           index: 0,
-                          routes: [{ name: appMode === 'standalone' ? ('StandaloneUnlock' as never) : 'Unlock' }],
+                          routes: [
+                            {
+                              name:
+                                appMode === 'standalone' ? ('StandaloneUnlock' as never) : 'Unlock',
+                            },
+                          ],
                         });
                       },
                     },
@@ -502,7 +520,10 @@ export function SettingsScreen() {
         );
       } else {
         // Markdown/TXT 格式 — 按 --- 分隔符拆分为多篇笔记
-        const sections = content.split(/\n---+\n/).map((s) => s.trim()).filter((s) => s.length > 0);
+        const sections = content
+          .split(/\n---+\n/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
         if (sections.length === 0) {
           Alert.alert('导入失败', '文件内容为空');
           return;
@@ -543,7 +564,10 @@ export function SettingsScreen() {
                     let tags: string[] = [];
                     let cleanContent = noteContent;
                     if (tagMatch) {
-                      tags = tagMatch[1].split(/\s+/).map((t) => t.replace(/^#/, '')).filter(Boolean);
+                      tags = tagMatch[1]
+                        .split(/\s+/)
+                        .map((t) => t.replace(/^#/, ''))
+                        .filter(Boolean);
                       cleanContent = noteContent.replace(/>\s*标签：.+\n?/, '').trim();
                     }
                     const json = JSON.stringify({ title, content: cleanContent, tags });
@@ -759,7 +783,10 @@ export function SettingsScreen() {
               >
                 <Text style={styles.themeEmoji}>{opt.emoji}</Text>
                 <Text
-                  style={[styles.themeChipText, active && { color: colors.accent, fontWeight: '700' }]}
+                  style={[
+                    styles.themeChipText,
+                    active && { color: colors.accent, fontWeight: '700' },
+                  ]}
                 >
                   {opt.name}
                 </Text>
@@ -780,9 +807,7 @@ export function SettingsScreen() {
                 ]}
                 onPress={() => setMode(opt.mode)}
               >
-                <Text style={[styles.modeChipText, active && { color: 'white' }]}>
-                  {opt.label}
-                </Text>
+                <Text style={[styles.modeChipText, active && { color: 'white' }]}>{opt.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -814,7 +839,9 @@ export function SettingsScreen() {
       <Section title={t('settings.app_mode_section')} colors={colors}>
         <Row
           label={t('settings.current_mode')}
-          detail={appMode === 'standalone' ? t('settings.mode_standalone') : t('settings.mode_online')}
+          detail={
+            appMode === 'standalone' ? t('settings.mode_standalone') : t('settings.mode_online')
+          }
           colors={colors}
         />
         <Row
@@ -830,16 +857,8 @@ export function SettingsScreen() {
       </Section>
 
       <Section title={t('settings.data_section')} colors={colors}>
-        <Row
-          label={t('settings.export')}
-          onPress={onExport}
-          colors={colors}
-        />
-        <Row
-          label="📄 导出为 Markdown"
-          onPress={onExportMarkdown}
-          colors={colors}
-        />
+        <Row label={t('settings.export')} onPress={onExport} colors={colors} />
+        <Row label="📄 导出为 Markdown" onPress={onExportMarkdown} colors={colors} />
         <Row
           label={t('settings.import')}
           onPress={() => {
@@ -848,11 +867,7 @@ export function SettingsScreen() {
           }}
           colors={colors}
         />
-        <Row
-          label="📁 从文件导入 (.md/.txt/.json)"
-          onPress={onImportFile}
-          colors={colors}
-        />
+        <Row label="📁 从文件导入 (.md/.txt/.json)" onPress={onImportFile} colors={colors} />
         <Text style={styles.modeHint}>{t('settings.data_hint')}</Text>
       </Section>
 
@@ -875,11 +890,7 @@ export function SettingsScreen() {
           />
         )}
         {appMode === 'online' && (
-          <Row
-            label={t('settings.devices')}
-            onPress={openDevices}
-            colors={colors}
-          />
+          <Row label={t('settings.devices')} onPress={openDevices} colors={colors} />
         )}
         <Row label="🧹 清空数据" onPress={onClearData} colors={colors} />
         {appMode === 'online' && (
@@ -907,11 +918,19 @@ export function SettingsScreen() {
 
       <Section title={t('settings.about_section')} colors={colors}>
         <Row label={t('settings.version')} detail={APP_VERSION} colors={colors} />
-        <Row label={t('settings.encryption')} detail={t('settings.encryption_value')} colors={colors} />
+        <Row
+          label={t('settings.encryption')}
+          detail={t('settings.encryption_value')}
+          colors={colors}
+        />
         <Row label={t('settings.client')} detail={t('settings.client_value')} colors={colors} />
         <Row
           label={t('settings.mode_label')}
-          detail={appMode === 'standalone' ? t('settings.mode_detail_standalone') : t('settings.mode_detail_online')}
+          detail={
+            appMode === 'standalone'
+              ? t('settings.mode_detail_standalone')
+              : t('settings.mode_detail_online')
+          }
           colors={colors}
         />
         {/* 更新检查（仅联机模式可用） */}
@@ -920,9 +939,7 @@ export function SettingsScreen() {
           onPress={() => void onCheckUpdate()}
           disabled={updateChecking || appMode === 'standalone'}
         >
-          <Text style={styles.rowLabel}>
-            {updateChecking ? '检查更新中…' : '🔍 检查更新'}
-          </Text>
+          <Text style={styles.rowLabel}>{updateChecking ? '检查更新中…' : '🔍 检查更新'}</Text>
           {appMode === 'standalone' ? (
             <Text style={styles.rowDetail}>单机模式不可用</Text>
           ) : updateResult?.status === 'ok' && updateResult.manifest ? (
@@ -965,10 +982,7 @@ export function SettingsScreen() {
                     </Text>
                   </View>
                   {!d.isCurrent && (
-                    <TouchableOpacity
-                      style={styles.kickBtn}
-                      onPress={() => kickDevice(d)}
-                    >
+                    <TouchableOpacity style={styles.kickBtn} onPress={() => kickDevice(d)}>
                       <Text style={styles.kickBtnText}>{t('settings.device_kick')}</Text>
                     </TouchableOpacity>
                   )}
@@ -988,9 +1002,7 @@ export function SettingsScreen() {
               <Text style={styles.modalClose}>✕</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.modalHint}>
-            粘贴备份 JSON 内容（导出时获得的 JSON 字符串）：
-          </Text>
+          <Text style={styles.modalHint}>粘贴备份 JSON 内容（导出时获得的 JSON 字符串）：</Text>
           <TextInput
             style={styles.modalInput}
             multiline
@@ -1025,29 +1037,43 @@ export function SettingsScreen() {
           </View>
           <Text style={styles.modalHint}>
             当前模式：{appMode === 'standalone' ? '单机' : '联机'}
-            {'\n'}目标模式：{switchTarget === 'standalone' ? '单机（本地存储）' : '联机（服务器同步）'}
+            {'\n'}目标模式：
+            {switchTarget === 'standalone' ? '单机（本地存储）' : '联机（服务器同步）'}
             {'\n\n'}将迁移所有数据（笔记、文件夹、标签、偏好）。
           </Text>
           <View style={styles.switchModeRow}>
             <TouchableOpacity
               style={[
                 styles.switchModeChip,
-                switchTarget === 'standalone' && { backgroundColor: colors.mint600, borderColor: colors.mint600 },
+                switchTarget === 'standalone' && {
+                  backgroundColor: colors.mint600,
+                  borderColor: colors.mint600,
+                },
               ]}
               onPress={() => setSwitchTarget('standalone')}
             >
-              <Text style={[styles.switchModeChipText, switchTarget === 'standalone' && { color: 'white' }]}>
+              <Text
+                style={[
+                  styles.switchModeChipText,
+                  switchTarget === 'standalone' && { color: 'white' },
+                ]}
+              >
                 📱 单机
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.switchModeChip,
-                switchTarget === 'online' && { backgroundColor: colors.mint600, borderColor: colors.mint600 },
+                switchTarget === 'online' && {
+                  backgroundColor: colors.mint600,
+                  borderColor: colors.mint600,
+                },
               ]}
               onPress={() => setSwitchTarget('online')}
             >
-              <Text style={[styles.switchModeChipText, switchTarget === 'online' && { color: 'white' }]}>
+              <Text
+                style={[styles.switchModeChipText, switchTarget === 'online' && { color: 'white' }]}
+              >
                 🌐 联机
               </Text>
             </TouchableOpacity>

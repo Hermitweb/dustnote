@@ -4,11 +4,11 @@
 
 DustNote 服务端基于 **Fastify + SQLite**，单进程即可运行，无需额外数据库。部署包已包含全部依赖源码与 Docker 编排文件，可任选以下方式部署：
 
-| 部署方式 | 难度 | 推荐场景 | 自动更新证书 |
-| --- | --- | --- | --- |
-| Docker Compose（HTTP） | ⭐ | 本地 / 内网 / 反代已有 Nginx | ❌ |
-| Docker Compose + Caddy（HTTPS） | ⭐⭐ | 公网 VPS / 自有域名 | ✅ Let's Encrypt |
-| 手动部署（Node.js 20/22） | ⭐⭐⭐ | 无 Docker 环境 / 嵌入式设备 | ❌ |
+| 部署方式                        | 难度   | 推荐场景                     | 自动更新证书     |
+| ------------------------------- | ------ | ---------------------------- | ---------------- |
+| Docker Compose（HTTP）          | ⭐     | 本地 / 内网 / 反代已有 Nginx | ❌               |
+| Docker Compose + Caddy（HTTPS） | ⭐⭐   | 公网 VPS / 自有域名          | ✅ Let's Encrypt |
+| 手动部署（Node.js 20/22）       | ⭐⭐⭐ | 无 Docker 环境 / 嵌入式设备  | ❌               |
 
 ---
 
@@ -29,7 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fi
 powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.ps1 | iex"
 ```
 
-> 指定版本：追加 `--version v2.5.5`（Linux/macOS）或 `-Version v2.5.5`（Windows）；默认自动获取 GitHub 最新 Release。
+> 指定版本：追加 `--version v2.5.6`（Linux/macOS）或 `-Version v2.5.6`（Windows）；默认自动获取 GitHub 最新 Release。
 
 ### 已有部署包 / 仓库：本地一键部署
 
@@ -97,10 +97,10 @@ dustnote-server-v<version>/
 
 ### 软件依赖
 
-| 方式 | 依赖 |
-| --- | --- |
-| Docker Compose | Docker 24+，Docker Compose v2+ |
-| 手动部署 | Node.js 20/22/24（better-sqlite3 12.x 原生支持 Node 24），pnpm 9+，构建工具链（`python3` / `make` / `g++` 用于 better-sqlite3 原生编译） |
+| 方式           | 依赖                                                                                                                                     |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Docker Compose | Docker 24+，Docker Compose v2+                                                                                                           |
+| 手动部署       | Node.js 20/22/24（better-sqlite3 12.x 原生支持 Node 24），pnpm 9+，构建工具链（`python3` / `make` / `g++` 用于 better-sqlite3 原生编译） |
 
 ---
 
@@ -159,6 +159,7 @@ docker compose logs -f caddy
 访问 `https://notes.your-domain.com` 即可。
 
 > ⚠️ **前置条件**：
+>
 > - 域名 DNS 已 A 记录指向服务器公网 IP
 > - 服务器 80 / 443 端口对公网开放（Let's Encrypt HTTP-01 校验需要）
 > - 完成证书申请前请勿频繁重启，否则可能触发 Let's Encrypt 限频（每小时 5 次）
@@ -343,22 +344,23 @@ sudo journalctl -u dustnote -f
 
 所有变量在 `.env`（Docker Compose / 手动启动均可读取），或在 systemd `EnvironmentFile` 中定义。
 
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `NODE_ENV` | `production` | 运行环境（`production` 关闭热重载与详细日志） |
-| `PORT` | `3210` | 容器内监听端口；宿主机映射见 `docker-compose.yml` 中 `${PORT:-8080}` |
-| `DB_PATH` | `/app/server/data/dustnote.db` | SQLite 数据库路径（容器内绝对路径） |
-| `WEB_ORIGIN` | `http://localhost` | Web 前端 origin，用于 CORS 白名单（生产必须改为实际域名） |
-| `SERVER_VERSION` | `2.0.0` | 服务端版本号（**与 package.json 一致**，客户端校验用） |
-| `JWT_SECRET` | `dev-secret-change-me` | JWT 签名密钥（**生产必须修改**，建议 `openssl rand -hex 32`） |
-| `LOG_LEVEL` | `info` | 日志级别：`trace` / `debug` / `info` / `warn` / `error` |
-| `MIN_CLIENT_VERSION` | `0.1.0` | 客户端最低支持版本（低于此版本将拒绝连接） |
-| `RECOMMENDED_CLIENT_VERSION` | `0.1.0` | 推荐客户端版本（低于此版本将提示升级） |
-| `FORCE_UPDATE_VERSION` | （空） | 强制升级版本（设置后低于此版本的客户端必须升级才能使用） |
-| `EOL_DATE_FOR_V0` | （空） | 旧 MAJOR 版本客户端 EOL 日期 |
-| `DOMAIN` | `localhost` | 仅 TLS 模式：Caddy 反向代理域名 |
+| 变量                         | 默认值                         | 说明                                                                 |
+| ---------------------------- | ------------------------------ | -------------------------------------------------------------------- |
+| `NODE_ENV`                   | `production`                   | 运行环境（`production` 关闭热重载与详细日志）                        |
+| `PORT`                       | `3210`                         | 容器内监听端口；宿主机映射见 `docker-compose.yml` 中 `${PORT:-8080}` |
+| `DB_PATH`                    | `/app/server/data/dustnote.db` | SQLite 数据库路径（容器内绝对路径）                                  |
+| `WEB_ORIGIN`                 | `http://localhost`             | Web 前端 origin，用于 CORS 白名单（生产必须改为实际域名）            |
+| `SERVER_VERSION`             | `2.0.0`                        | 服务端版本号（**与 package.json 一致**，客户端校验用）               |
+| `JWT_SECRET`                 | `dev-secret-change-me`         | JWT 签名密钥（**生产必须修改**，建议 `openssl rand -hex 32`）        |
+| `LOG_LEVEL`                  | `info`                         | 日志级别：`trace` / `debug` / `info` / `warn` / `error`              |
+| `MIN_CLIENT_VERSION`         | `0.1.0`                        | 客户端最低支持版本（低于此版本将拒绝连接）                           |
+| `RECOMMENDED_CLIENT_VERSION` | `0.1.0`                        | 推荐客户端版本（低于此版本将提示升级）                               |
+| `FORCE_UPDATE_VERSION`       | （空）                         | 强制升级版本（设置后低于此版本的客户端必须升级才能使用）             |
+| `EOL_DATE_FOR_V0`            | （空）                         | 旧 MAJOR 版本客户端 EOL 日期                                         |
+| `DOMAIN`                     | `localhost`                    | 仅 TLS 模式：Caddy 反向代理域名                                      |
 
 > ⚠️ **安全提示**：
+>
 > - `JWT_SECRET` 必须为 32+ 字符的随机串
 > - `WEB_ORIGIN` 必须改为实际访问域名，否则可能被 CSRF 利用
 > - 生产环境将 `LOG_LEVEL` 设为 `info` 或 `warn`，不要用 `trace` / `debug`（会记录敏感字段）
@@ -686,12 +688,12 @@ docker compose logs dustnote
 
 常见原因：
 
-| 错误 | 原因 | 解决方案 |
-| --- | --- | --- |
-| `EADDRINUSE: address already in use` | 端口被占用 | 修改 `.env` 中的 `PORT` |
-| `SQLITE_CANTOPEN` | 数据卷权限问题 | `docker compose down && docker volume rm dustnote-data && docker compose up -d --build`（注意会丢数据） |
-| `better-sqlite3 ... NODE_MODULE_VERSION mismatch` | Node ABI 不匹配 | 手动部署时重新 `pnpm rebuild better-sqlite3` |
-| `ECONNREFUSED 127.0.0.1:3210` | 服务未启动 | `docker compose ps` 查看状态 |
+| 错误                                              | 原因            | 解决方案                                                                                                |
+| ------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------- |
+| `EADDRINUSE: address already in use`              | 端口被占用      | 修改 `.env` 中的 `PORT`                                                                                 |
+| `SQLITE_CANTOPEN`                                 | 数据卷权限问题  | `docker compose down && docker volume rm dustnote-data && docker compose up -d --build`（注意会丢数据） |
+| `better-sqlite3 ... NODE_MODULE_VERSION mismatch` | Node ABI 不匹配 | 手动部署时重新 `pnpm rebuild better-sqlite3`                                                            |
+| `ECONNREFUSED 127.0.0.1:3210`                     | 服务未启动      | `docker compose ps` 查看状态                                                                            |
 
 ### 11.2 数据库锁定
 

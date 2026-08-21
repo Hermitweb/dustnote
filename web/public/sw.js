@@ -10,7 +10,7 @@
  * 前端可通过 controllerchange 事件提示用户刷新。
  */
 
-const SW_VERSION = 'dustnote-v2.5.5-001';
+const SW_VERSION = 'dustnote-v2.5.6-001';
 const CACHE_PREFIX = 'dustnote';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${SW_VERSION}`;
 const RUNTIME_CACHE = `${CACHE_PREFIX}-runtime`;
@@ -37,7 +37,7 @@ self.addEventListener('install', (event) => {
       .open(STATIC_CACHE)
       .then((cache) => cache.addAll(PRECACHE_URLS))
       .then(() => self.skipWaiting())
-      .catch((err) => console.warn('[SW] precache failed:', err)),
+      .catch((err) => console.warn('[SW] precache failed:', err))
   );
 });
 
@@ -51,11 +51,13 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key.startsWith(CACHE_PREFIX) && key !== STATIC_CACHE && key !== RUNTIME_CACHE)
-            .map((key) => caches.delete(key)),
-        ),
+            .filter(
+              (key) => key.startsWith(CACHE_PREFIX) && key !== STATIC_CACHE && key !== RUNTIME_CACHE
+            )
+            .map((key) => caches.delete(key))
+        )
       )
-      .then(() => self.clients.claim()),
+      .then(() => self.clients.claim())
   );
 });
 

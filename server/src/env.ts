@@ -26,9 +26,9 @@ export const config = {
   logLevel: getEnv('LOG_LEVEL', 'info'),
   dbPath: getEnv('DB_PATH', './data/dustnote.db'),
   webOrigin: getEnv('WEB_ORIGIN', 'http://localhost:5173'),
-  serverVersion: getEnv('SERVER_VERSION', '2.5.5'),
+  serverVersion: getEnv('SERVER_VERSION', '2.5.6'),
   minClientVersion: getEnv('MIN_CLIENT_VERSION', '2.0.2'),
-  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.5.5'),
+  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.5.6'),
   forceUpdateVersion: getEnvOpt('FORCE_UPDATE_VERSION') ?? null,
   eolDateForV0: getEnvOpt('EOL_DATE_FOR_V0'),
   jwtSecret: getEnv('JWT_SECRET', DEFAULT_JWT_SECRET),
@@ -65,7 +65,7 @@ if (config.nodeEnv === 'production') {
   }
   if (config.jwtSecret.length < 32) {
     throw new Error(
-      `生产环境 JWT_SECRET 长度不足（当前 ${config.jwtSecret.length} 字符，要求 ≥ 32）`,
+      `生产环境 JWT_SECRET 长度不足（当前 ${config.jwtSecret.length} 字符，要求 ≥ 32）`
     );
   }
 }

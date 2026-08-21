@@ -13,6 +13,49 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.6] - 2026-08-21
+
+### 安全 — 依赖漏洞治理（high/critical 33 → 6 项无补丁豁免）
+
+pnpm audit 全量扫描后系统性治理：**修复 27 项、豁免 6 项（全部为官方无修复版本）**，运行时依赖漏洞清零，CI 审计豁免清单从 27 收缩至 6。
+
+#### 直依赖升级（A 类）
+
+- **vitest ^1.6.0 → ^3.2.6**（critical GHSA-5xrq-8626-4rwp）：全 workspace 6 包（shared/client-core/server/web/desktop/miniprogram），264 项测试全部通过
+- **vite ^5.3.1 → ^6.4.3**（high GHSA-fx2h-pf6j-xcff 等 3 项）：web + desktop，构建产物验证一致
+
+#### 传递依赖精确锁版本（B 类 16 项，pnpm.overrides 精确版本键）
+
+采用精确版本键（如 `vm2@3.11.5: ^3.11.6`）只重定向漏洞实例，不触碰同包健康实例与旧 major 线（minimatch@3 / glob@7 等 15 个老实例不受影响）：
+
+- **vm2 3.11.5 → 3.11.6**（critical ×3 + high ×2，@tarojs/webpack5-runner）：原维护者 2026-08-14 发布的真实补丁（此前报告误判为空头版本）
+- **form-data 2.3.3 → 2.5.6**（critical + high，@tarojs/cli > request）
+- minimatch 9.0.3 → 9.0.9（×3）/ nanoid 3.3.15 → 3.3.18（×2）/ js-yaml 3.15.0 → 3.15.1 与 4.3.0 → 4.3.1 / svgo 2.8.2 → 2.8.3 / serialize-javascript 6.0.2 → 7.0.7 / tmp 0.0.33 → 0.2.7 / http-cache-semantics 3.8.1 → 4.1.1 / adm-zip 0.4.16 → 0.6.0 / glob 10.2.6 → 10.5.0
+- **postcss 困局破解**：postcss 8 移除 `postcss.plugin()`（Taro 的 autoprefixer 9 依赖），成对替换 postcss@7 → 8.5.26 + autoprefixer@9 → 10.4.27，Taro H5/WeApp 双构建 CSS 产物字节级一致
+- 已有 override 上调：brace-expansion ^1.1.16 → ^1.1.18、fast-uri ^3.1.4 → ^3.1.5
+
+#### moderate 顺手修复（运行时漏洞清零）
+
+- **body-parser 1.20.5 → 1.20.6**（全项目唯一运行时依赖漏洞，express 链路）
+- qs 6.5.5 → 6.15.3、esbuild 0.19.12/0.14.54 → 0.25.12（与 vite 6 链路统一）
+
+#### 审计豁免清单（ci.yml，27 → 6 项，全部无补丁）
+
+swiper（Taro 3.6 钉死 6.x）、decompress / git-clone（download-git-repo 废弃链路）、html-minifier（webpack5-runner）、image-size ×2（less / metro，<=2.0.2 全线无修复）——均位于构建期工具链，不进入运行时产物，待 Taro 主版本升级根治。
+
+### 工具链 — CI 门禁修复
+
+- **prettier 全仓统一**（246 文件纯格式化）：修复 format:check 在 dev 分支长期红门禁（stash 对照验证为历史遗留）
+- 清理被 stderr 污染的 audit-raw.json；audit.json / audit-raw.json 加入 .gitignore（CI 审计步骤会生成 audit.json，防止误提交）
+
+### 回归验证
+
+264 项单测、typecheck、lint（0 errors）、format:check、web/desktop（vite 6）构建、miniprogram H5/WeApp（Taro webpack）构建、CI 审计门禁模拟全部通过。
+
+### 版本号同步
+
+全端版本号同步至 2.5.6（package.json ×8、tauri.conf.json、Cargo.toml + Cargo.lock、Android versionCode 28→29、server env/update-manifest、mobile/miniprogram 源码内嵌 APP_VERSION、release.yml、sw.js、.env.example、docker-compose、deploy 脚本与文档）。
+
 ## [2.5.5] - 2026-08-21
 
 ### 新增 — @dustnote/client-core 跨端内核 + 目录结构范式 + 全端功能对齐
@@ -582,6 +625,7 @@ pnpm `node-linker=hoisted` 布局下存在两份不同的 React 物理副本：
 ### 修复
 
 #### 安全加固
+
 - **JWT 非对称签名**：服务端 JWT 从 HS256 对称密钥迁移到 EdDSA / Ed25519 非对称签名，降低密钥泄露风险；保留双算法向后兼容（[server/src/auth/jwt.ts](./server/src/auth/jwt.ts)）
 - **E2EE 端到端加密分享**：分享内容以 AES-256-GCM 加密上传，shareKey 由 masterKey 包装，仅持密钥链接可本地解密（[server/src/routes/shares.ts](./server/src/routes/shares.ts)、[web/src/components/SharesManager.tsx](./web/src/components/SharesManager.tsx)）
 - **分享密码 POST Body 传输**：分享密码从查询字符串改为 POST body，避免 URL 泄露（[server/src/routes/shares.ts](./server/src/routes/shares.ts)）
@@ -591,17 +635,20 @@ pnpm `node-linker=hoisted` 布局下存在两份不同的 React 物理副本：
 - **XSS 防护**：新增 sanitize-html 白名单净化，HTML 预览与分享渲染均经 DOMParser 过滤（[web/src/lib/sanitize-html.ts](./web/src/lib/sanitize-html.ts)）
 
 #### 移动端增强
+
 - **i18n 国际化**：移动端接入 react-i18next，支持中英双语 + AsyncStorage 持久化（[mobile/src/lib/i18n.ts](./mobile/src/lib/i18n.ts)）
 - **笔记模板**：编辑页新增模板选择入口
 - **版本历史**：编辑页新增历史版本查看与恢复入口
 
 #### Web 质量
+
 - **密码强度计**：实时评估密码强度（长度/字符类型/弱口令黑名单）
 - **Toast 通知**：统一用户操作反馈
 - **无障碍**：分享管理对话框增加 ARIA 语义、焦点陷阱、Esc 关闭
 - **移动端响应式**：侧边栏适配窄屏
 
 #### 构建 / 类型修复
+
 - **jest-dom 类型声明**：补充 `toBeInTheDocument` / `toHaveAttribute` 匹配器编译期类型，修复 `tsc -b --noEmit`（[web/src/test/jest-dom.d.ts](./web/src/test/jest-dom.d.ts)）
 - **Tauri 防截屏方法名**：`set_protected` → `set_content_protected`（Tauri 2.11 实际 API），修复 cargo check（[desktop/src-tauri/src/lib.rs](./desktop/src-tauri/src/lib.rs)）
 - **Tauri 权限名**：`core:window:allow-set-protected` → `core:window:allow-set-content-protected`（[desktop/src-tauri/capabilities/default.json](./desktop/src-tauri/capabilities/default.json)）
@@ -764,7 +811,7 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 - [web/src/lib/store.ts](./web/src/lib/store.ts)：支持双模式，添加 mode/repository/localAuthBlob/lockoutState 等
 - [web/src/App.tsx](./web/src/App.tsx)：根据 mode 显示不同鉴权流程
 - [web/src/lib/i18n.ts](./web/src/lib/i18n.ts)：添加 mode_select 和 settings.app_mode 翻译键
-- [web/src/screens/PublicShareView.tsx](./web/src/screens/PublicShareView.tsx)：硬编码 '0.1.0' 改为 __APP_VERSION__
+- [web/src/screens/PublicShareView.tsx](./web/src/screens/PublicShareView.tsx)：硬编码 '0.1.0' 改为 **APP_VERSION**
 
 #### 修改 — Desktop 端
 
@@ -809,10 +856,10 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 
 ### 跳过项
 
-| 跳过项                  | 原因                          | 影响                                            |
-| ----------------------- | ----------------------------- | ----------------------------------------------- |
-| iOS 构建                | 需 macOS + Xcode + Apple 签名 | iOS 无安装包；RN 代码已编写，未来可构建         |
-| macOS 桌面 vpk pack 实测 | 需 macOS 硬件                 | release.yml 已有 `continue-on-error: true`      |
+| 跳过项                   | 原因                          | 影响                                       |
+| ------------------------ | ----------------------------- | ------------------------------------------ |
+| iOS 构建                 | 需 macOS + Xcode + Apple 签名 | iOS 无安装包；RN 代码已编写，未来可构建    |
+| macOS 桌面 vpk pack 实测 | 需 macOS 硬件                 | release.yml 已有 `continue-on-error: true` |
 
 ### 安全改进
 
