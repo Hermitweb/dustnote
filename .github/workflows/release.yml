@@ -140,11 +140,13 @@ jobs:
       - name: Add vpk to PATH (Unix)
         if: matrix.os != 'windows-latest'
         run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-      - name: Install dependencies (desktop tree only)
-        # --filter @dustnote/desktop... 只装 desktop 及其依赖（web/shared/client-core），
-        # 排除 server —— better-sqlite3 12.x 在 Windows CI 无预编译产物时回退
-        # node-gyp 源码编译，无 VS 工具链直接失败。desktop 构建不需要 server。
-        run: pnpm install --frozen-lockfile --filter @dustnote/desktop...
+      - name: Install dependencies (skip native build scripts)
+        # --ignore-scripts：desktop/web 构建树（vite/esbuild/tauri-cli）全部经平台
+        # 二进制包分发，不依赖 install 脚本。跳过脚本可绕开 server 依赖
+        # better-sqlite3 12.x 在 Windows CI 上 prebuilt 未命中 → node-gyp 源码
+        # 编译（gyp 10 RangeError / 无 VS 工具链）失败的问题。
+        # server 产物由 build-server-zip job 单独构建（正常 install）。
+        run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - name: Build Tauri binary (no bundle — Velopack handles installer)
         # macOS/Linux 缺少签名证书与 .app bundle 资源，硬件平台受限，允许失败以保留 Release 流程

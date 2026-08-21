@@ -3,13 +3,14 @@ const fs = require('fs');
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 
 const sharedPkg = path.resolve(__dirname, '..', 'shared');
+const clientCorePkg = path.resolve(__dirname, '..', 'client-core');
 const rootNodeModules = path.resolve(__dirname, '..', 'node_modules');
 
 // pnpm's virtual store only exists in the default (symlinked) layout.
 // With node-linker=hoisted (used in CI) there is no .pnpm directory, so we
 // only add it to watchFolders when present to avoid Metro failing on a
 // non-existent path.
-const watchFolders = [sharedPkg, rootNodeModules];
+const watchFolders = [sharedPkg, clientCorePkg, rootNodeModules];
 const pnpmStore = path.resolve(rootNodeModules, '.pnpm');
 if (fs.existsSync(pnpmStore)) {
   watchFolders.push(pnpmStore);
@@ -25,6 +26,11 @@ const config = {
     // subpath imports like @babel/runtime/helpers/interopRequireDefault.
     extraNodeModules: {
       '@dustnote/shared': path.resolve(sharedPkg, 'src'),
+      // client-core 同 shared：映射到 src（Metro 直接编译 TS 源码）。
+      // 不映射时 Metro 走 node_modules 解析 package.json main=dist/index.js，
+      // hoisted 布局下该链接不存在；且 Metro 默认不跟随 symlink，
+      // CI 的手工 symlink 兜底也无效。
+      '@dustnote/client-core': path.resolve(clientCorePkg, 'src'),
       react: path.resolve(rootNodeModules, 'react'),
     },
     // 强制所有 react / react/* 导入解析到 workspace root 的同一份实例。
