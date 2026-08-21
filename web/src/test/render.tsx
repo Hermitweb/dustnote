@@ -2,10 +2,14 @@
  * 轻量级 React 组件渲染测试工具
  *
  * 为什么不直接用 @testing-library/react：
- *   pnpm hoisted node-linker + 虚拟 store 让 react-dom@18.3.1 在 .pnpm 中配对
- *   react@18.3.1，而组件经 Vite 解析的是另一份 react 实例，导致
- *   ReactSharedInternals 不一致、useState 抛 "Cannot read null"。
- *   直接用 react-dom/client + act + flushSync（与正常渲染同路径）可绕开该问题。
+ *   本仓库 .npmrc 使用 node-linker=hoisted（RN 兼容），hoist 布局曾让
+ *   react@18.3.1（web）与 react@18.2.0（RN 钉死）共存，externalized
+ *   react-dom 内部 require('react') 与组件实例分裂。现 web 已把
+ *   react / react-dom 钉到 18.2.0（见 vitest.config.ts 注释），全仓单一
+ *   react 实例，这里直接用 react-dom/client + act + flushSync
+ *   （与正常渲染同路径）即可。
+ *   act 从 react-dom/test-utils 导入（react 18.2.x 无 act 导出，
+ *   React 18.3.0 起 react 才提供 act）。
  *
  * 提供 render / screen / fireEvent / waitFor / act / cleanup，
  * 覆盖组件测试常用场景。API 风格对齐 @testing-library/react，便于后续迁移。
@@ -14,7 +18,7 @@
 import { createElement, type ReactElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
-import { act } from 'react';
+import { act } from 'react-dom/test-utils';
 
 export interface RenderResult {
   container: HTMLElement;

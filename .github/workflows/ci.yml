@@ -321,8 +321,7 @@ jobs:
     timeout-minutes: 35
     needs: [lint, typecheck, test, audit]
     # Android 构建较慢且对 RN 升级敏感，作为 mobile 端回归保护。
-    # 失败不阻塞 web/server 端 PR 合并（continue-on-error），但会发出明确信号。
-    continue-on-error: true
+    # 硬性门禁：Android 构建失败必须阻塞合并，避免破坏性变更静默通过。
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4

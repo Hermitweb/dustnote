@@ -9,11 +9,6 @@ overrides:
   fast-uri: ^3.1.4
   brace-expansion: ^1.1.16
 
-patchedDependencies:
-  better-sqlite3@11.10.0:
-    hash: dpq7v4xhsdhzhona3ortddrkse
-    path: patches/better-sqlite3@11.10.0.patch
-
 importers:
 
   .:
@@ -49,6 +44,19 @@ importers:
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
+
+  client-core:
+    dependencies:
+      '@dustnote/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.19.43)(jsdom@21.1.2)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)
 
   desktop:
     dependencies:
@@ -131,6 +139,9 @@ importers:
 
   miniprogram:
     dependencies:
+      '@dustnote/client-core':
+        specifier: workspace:*
+        version: link:../client-core
       '@dustnote/shared':
         specifier: workspace:*
         version: link:../shared
@@ -249,6 +260,9 @@ importers:
 
   mobile:
     dependencies:
+      '@dustnote/client-core':
+        specifier: workspace:*
+        version: link:../client-core
       '@dustnote/shared':
         specifier: workspace:*
         version: link:../shared
@@ -377,8 +391,8 @@ importers:
         specifier: ^10.68.0
         version: 10.68.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))
       better-sqlite3:
-        specifier: ^11.0.0
-        version: 11.10.0(patch_hash=dpq7v4xhsdhzhona3ortddrkse)
+        specifier: ^12.0.0
+        version: 12.11.1
       cookie-parser:
         specifier: ^1.4.6
         version: 1.4.7
@@ -407,6 +421,9 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.10
+        version: 7.6.13
       '@types/cookie-parser':
         specifier: ^1.4.7
         version: 1.4.10(@types/express@4.17.25)
@@ -459,12 +476,15 @@ importers:
 
   web:
     dependencies:
+      '@dustnote/client-core':
+        specifier: workspace:*
+        version: link:../client-core
       '@dustnote/shared':
         specifier: workspace:*
         version: link:../shared
       '@sentry/react':
         specifier: ^10.68.0
-        version: 10.68.0(react@18.3.1)
+        version: 10.68.0(react@18.2.0)
       dompurify:
         specifier: ^3.1.0
         version: 3.4.13
@@ -484,24 +504,24 @@ importers:
         specifier: ^13.0.2
         version: 13.0.3
       react:
-        specifier: ^18.3.1
-        version: 18.3.1
+        specifier: 18.2.0
+        version: 18.2.0
       react-dom:
-        specifier: ^18.3.1
-        version: 18.3.1(react@18.3.1)
+        specifier: 18.2.0
+        version: 18.2.0(react@18.2.0)
       react-i18next:
         specifier: ^14.1.2
-        version: 14.1.3(i18next@23.16.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 14.1.3(i18next@23.16.8)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       zustand:
         specifier: ^4.5.4
-        version: 4.5.7(@types/react@18.3.31)(react@18.3.1)
+        version: 4.5.7(@types/react@18.3.31)(react@18.2.0)
     devDependencies:
       '@testing-library/jest-dom':
         specifier: ^6.4.0
         version: 6.9.1
       '@testing-library/react':
         specifier: ^14.0.0
-        version: 14.3.1(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 14.3.1(@types/react@18.3.31)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@types/dompurify':
         specifier: ^3.0.5
         version: 3.2.0
@@ -3020,6 +3040,9 @@ packages:
   '@types/babel__traverse@7.28.0':
     resolution: {integrity: sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q==}
 
+  '@types/better-sqlite3@7.6.13':
+    resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
+
   '@types/body-parser@1.19.6':
     resolution: {integrity: sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==}
 
@@ -3881,8 +3904,9 @@ packages:
   bcrypt-pbkdf@1.0.2:
     resolution: {integrity: sha512-qeFIXtP4MSoi6NLqO12WfqARWWuCKi2Rn/9hJLEmtB5yTNr9DqFWkJRCf2qShWzPeAMRnOgCrq0sg/KLv5ES9w==}
 
-  better-sqlite3@11.10.0:
-    resolution: {integrity: sha512-EwhOpyXiOEL/lKzHz9AW1msWFNzGc/z+LzeB3/jnFJpxu+th2yqvzsSWas1v9jgs9+xiXJcD5A8CJxAG2TaghQ==}
+  better-sqlite3@12.11.1:
+    resolution: {integrity: sha512-dq9AtApgg5PGFtBzPFSBl3HZQjHok5gaQCM6zh2Yk0aSmDCs1CbnVI8/HgASQkNKsWFpseIO9beg5xxpYhbIfA==}
+    engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x || 26.x}
 
   big.js@5.2.2:
     resolution: {integrity: sha512-vyL2OymJxmarO8gxMr0mhChsO9QGwhynfuu4+MHTAW6czfq9humCB7rKpUjDd9YUiDPU4mzpyupFSvOClAwbmQ==}
@@ -8262,6 +8286,11 @@ packages:
   react-devtools-core@5.3.2:
     resolution: {integrity: sha512-crr9HkVrDiJ0A4zot89oS0Cgv0Oa4OG1Em4jit3P3ZxZSKPMYyMjfwMqgcJna9o625g8oN87rBm8SWWrSTBZxg==}
 
+  react-dom@18.2.0:
+    resolution: {integrity: sha512-6IMTriUmvsjHUjNtEDudZfuDQUoWXVxKHhlEGSk81n4YFS+r/Kl99wXiwlVXtPBtJenozv2P+hxDsw9eA7Xo6g==}
+    peerDependencies:
+      react: ^18.2.0
+
   react-dom@18.3.1:
     resolution: {integrity: sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==}
     peerDependencies:
@@ -12231,12 +12260,12 @@ snapshots:
       '@sentry/conventions': 0.16.0
       '@sentry/core': 10.68.0
 
-  '@sentry/react@10.68.0(react@18.3.1)':
+  '@sentry/react@10.68.0(react@18.2.0)':
     dependencies:
       '@sentry/browser': 10.68.0
       '@sentry/conventions': 0.16.0
       '@sentry/core': 10.68.0
-      react: 18.3.1
+      react: 18.2.0
 
   '@sentry/replay-canvas@10.68.0':
     dependencies:
@@ -13026,13 +13055,13 @@ snapshots:
       picocolors: 1.1.1
       redent: 3.0.0
 
-  '@testing-library/react@14.3.1(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@testing-library/react@14.3.1(@types/react@18.3.31)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
       '@babel/runtime': 7.29.7
       '@testing-library/dom': 9.3.4
       '@types/react-dom': 18.3.7(@types/react@18.3.31)
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
     transitivePeerDependencies:
       - '@types/react'
 
@@ -13062,6 +13091,10 @@ snapshots:
   '@types/babel__traverse@7.28.0':
     dependencies:
       '@babel/types': 7.29.7
+
+  '@types/better-sqlite3@7.6.13':
+    dependencies:
+      '@types/node': 20.19.43
 
   '@types/body-parser@1.19.6':
     dependencies:
@@ -14197,7 +14230,7 @@ snapshots:
     dependencies:
       tweetnacl: 0.14.5
 
-  better-sqlite3@11.10.0(patch_hash=dpq7v4xhsdhzhona3ortddrkse):
+  better-sqlite3@12.11.1:
     dependencies:
       bindings: 1.5.0
       prebuild-install: 7.1.3
@@ -19172,6 +19205,12 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
+  react-dom@18.2.0(react@18.2.0):
+    dependencies:
+      loose-envify: 1.4.0
+      react: 18.2.0
+      scheduler: 0.23.2
+
   react-dom@18.3.1(react@18.3.1):
     dependencies:
       loose-envify: 1.4.0
@@ -19181,6 +19220,15 @@ snapshots:
   react-freeze@1.0.4(react@18.2.0):
     dependencies:
       react: 18.2.0
+
+  react-i18next@14.1.3(i18next@23.16.8)(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
+    dependencies:
+      '@babel/runtime': 7.29.7
+      html-parse-stringify: 3.0.1
+      i18next: 23.16.8
+      react: 18.2.0
+    optionalDependencies:
+      react-dom: 18.2.0(react@18.2.0)
 
   react-i18next@14.1.3(i18next@23.16.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
