@@ -140,7 +140,11 @@ jobs:
       - name: Add vpk to PATH (Unix)
         if: matrix.os != 'windows-latest'
         run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies (desktop tree only)
+        # --filter @dustnote/desktop... 只装 desktop 及其依赖（web/shared/client-core），
+        # 排除 server —— better-sqlite3 12.x 在 Windows CI 无预编译产物时回退
+        # node-gyp 源码编译，无 VS 工具链直接失败。desktop 构建不需要 server。
+        run: pnpm install --frozen-lockfile --filter @dustnote/desktop...
       - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - name: Build Tauri binary (no bundle — Velopack handles installer)
         # macOS/Linux 缺少签名证书与 .app bundle 资源，硬件平台受限，允许失败以保留 Release 流程
@@ -305,6 +309,15 @@ jobs:
             [ -e "$pkg" ] || continue
             name=$(basename "$pkg")
             rm -f "mobile/node_modules/$name" && ln -s "$(pwd)/$pkg" "mobile/node_modules/$name"
+          done
+          # @dustnote workspace 包（shared / client-core）：hoisted 布局下
+          # pnpm install 未必在 mobile/node_modules/@dustnote 建立链接，
+          # 缺失时 Metro 解析 @dustnote/client-core 失败（createBundleRelease 失败）。
+          mkdir -p mobile/node_modules/@dustnote
+          for ws_pkg in shared client-core; do
+            [ -d "$ws_pkg" ] || continue
+            rm -f "mobile/node_modules/@dustnote/$ws_pkg"
+            ln -s "$(pwd)/$ws_pkg" "mobile/node_modules/@dustnote/$ws_pkg"
           done
       - run: chmod +x mobile/android/gradlew
       - name: Decode release keystore
