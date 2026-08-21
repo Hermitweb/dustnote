@@ -220,7 +220,11 @@ export class RemoteRepository implements DataRepository {
     };
     for (const folder of payload.folders ?? []) {
       try {
-        await this.createFolder({ name: folder.name, parentId: folder.parentId, icon: folder.icon });
+        await this.createFolder({
+          name: folder.name,
+          parentId: folder.parentId,
+          icon: folder.icon,
+        });
       } catch (err) {
         if (!isConflict(err)) throw err;
       }

@@ -38,10 +38,7 @@ export interface PendingConflict {
 interface ConflictStoreState {
   pendingConflicts: PendingConflict[];
   enqueueConflict: (c: PendingConflict) => void;
-  resolveConflictChoice: (
-    noteId: string,
-    choice: 'local' | 'server' | 'merged'
-  ) => Promise<void>;
+  resolveConflictChoice: (noteId: string, choice: 'local' | 'server' | 'merged') => Promise<void>;
   dismissConflict: (noteId: string) => void;
 }
 

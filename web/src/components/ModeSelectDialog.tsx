@@ -70,7 +70,13 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
     (selectedMode === 'online' && urlInput.trim().length > 0 && connState === 'ok');
 
   return (
-    <div className={isInitial ? 'fixed inset-0 z-50 flex items-center justify-center bg-surface-bg p-6' : 'fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6'}>
+    <div
+      className={
+        isInitial
+          ? 'fixed inset-0 z-50 flex items-center justify-center bg-surface-bg p-6'
+          : 'fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6'
+      }
+    >
       <div className="w-full max-w-2xl rounded-2xl border border-surface-border bg-surface-card p-8 shadow-2xl">
         {/* 标题 */}
         <div className="mb-6 text-center">
@@ -99,9 +105,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
             <h2 className="mb-1 text-lg font-semibold text-surface-fg">
               {t('mode_select.standalone_title')}
             </h2>
-            <p className="mb-3 text-xs text-surface-muted">
-              {t('mode_select.standalone_desc')}
-            </p>
+            <p className="mb-3 text-xs text-surface-muted">{t('mode_select.standalone_desc')}</p>
             <p className="text-xs font-medium text-mint-600 dark:text-mint-400">
               {t('mode_select.standalone_features')}
             </p>

@@ -26,18 +26,18 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在**完全
 
 ## 1. 能力矩阵（单机 vs 联机）
 
-| 能力                 | 单机模式（standalone）                                            | 联机模式（online）                          |
-| -------------------- | ----------------------------------------------------------------- | ------------------------------------------- |
-| 主密码 setup/unlock   | 本地 Argon2id + 比对（无 JWT）                                    | 调 `/auth/setup`、`/auth/unlock`             |
-| 笔记/文件夹/标签 CRUD | `LocalRepository`（IndexedDB / AsyncStorage / Taro.setStorage）   | `RemoteRepository`（API + 离线队列）        |
-| 偏好设置             | 仅本地                                                            | API + 本地双写                              |
-| 分享                 | **仅文件导出**（txt / md / html / pdf）                           | 在线分享链接 + 文件导出                     |
-| 设备管理             | **不支持**（UI 隐藏）                                             | 支持（踢出、查看会话）                      |
-| 跨设备同步           | **不支持**                                                        | WebSocket + 离线队列                        |
-| 在线备份             | **不支持**（仅本地导出 ZIP）                                      | 支持（服务端定期备份）                      |
-| 自动更新             | GitHub Release（Velopack）                                        | 同上 + `/update-manifest` 双重检查          |
-| 服务端依赖           | 无                                                                | 必需                                        |
-| 数据存储位置         | 设备本地                                                          | 设备本地 + 服务器                           |
+| 能力                  | 单机模式（standalone）                                          | 联机模式（online）                   |
+| --------------------- | --------------------------------------------------------------- | ------------------------------------ |
+| 主密码 setup/unlock   | 本地 Argon2id + 比对（无 JWT）                                  | 调 `/auth/setup`、`/auth/unlock`     |
+| 笔记/文件夹/标签 CRUD | `LocalRepository`（IndexedDB / AsyncStorage / Taro.setStorage） | `RemoteRepository`（API + 离线队列） |
+| 偏好设置              | 仅本地                                                          | API + 本地双写                       |
+| 分享                  | **仅文件导出**（txt / md / html / pdf）                         | 在线分享链接 + 文件导出              |
+| 设备管理              | **不支持**（UI 隐藏）                                           | 支持（踢出、查看会话）               |
+| 跨设备同步            | **不支持**                                                      | WebSocket + 离线队列                 |
+| 在线备份              | **不支持**（仅本地导出 ZIP）                                    | 支持（服务端定期备份）               |
+| 自动更新              | GitHub Release（Velopack）                                      | 同上 + `/update-manifest` 双重检查   |
+| 服务端依赖            | 无                                                              | 必需                                 |
+| 数据存储位置          | 设备本地                                                        | 设备本地 + 服务器                    |
 
 > **用户决策记录**：单机版本"分享"功能限定为文件导出（txt/md/html/pdf），不提供在线分享链接。
 
@@ -47,11 +47,11 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在**完全
 
 各端 `LocalRepository` 实现使用不同的本地存储后端，但接口契约完全一致（由 [shared/src/repository.ts](file:///e:/workspace/dustnote/shared/src/repository.ts) 统一约束）。
 
-| 端           | 存储后端                 | 实现文件                                                                        | 备注                                                                              |
-| ------------ | ------------------------ | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Web / Desktop | IndexedDB（Dexie 风格） | [web/src/lib/local-repo.ts](file:///e:/workspace/dustnote/web/src/lib/local-repo.ts)        | 桌面端复用 Web 代码，自动获得 IndexedDB；容量大（GB 级）                         |
-| Mobile       | AsyncStorage             | [mobile/src/lib/local-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-repo.ts)  | **项目未安装 react-native-mmkv**，使用 AsyncStorage 替代；JSON 序列化存储        |
-| Miniprogram  | Taro.setStorage          | [miniprogram/src/lib/local-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-repo.ts) | 单 key 10MB 上限；适合轻量试用                                                   |
+| 端            | 存储后端                | 实现文件                                                                                             | 备注                                                                      |
+| ------------- | ----------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Web / Desktop | IndexedDB（Dexie 风格） | [web/src/lib/local-repo.ts](file:///e:/workspace/dustnote/web/src/lib/local-repo.ts)                 | 桌面端复用 Web 代码，自动获得 IndexedDB；容量大（GB 级）                  |
+| Mobile        | AsyncStorage            | [mobile/src/lib/local-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-repo.ts)           | **项目未安装 react-native-mmkv**，使用 AsyncStorage 替代；JSON 序列化存储 |
+| Miniprogram   | Taro.setStorage         | [miniprogram/src/lib/local-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-repo.ts) | 单 key 10MB 上限；适合轻量试用                                            |
 
 ### 2.1 存储结构
 
@@ -86,20 +86,25 @@ auth:
 
 各端通过 `createRepository(mode, opts)` 工厂函数注入：
 
-| 端           | 工厂文件                                                                                |
-| ------------ | --------------------------------------------------------------------------------------- |
-| Web          | [web/src/lib/repository.ts](file:///e:/workspace/dustnote/web/src/lib/repository.ts)    |
-| Mobile       | [mobile/src/lib/repository.ts](file:///e:/workspace/dustnote/mobile/src/lib/repository.ts) |
-| Miniprogram  | [miniprogram/src/lib/repository.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/repository.ts) |
+| 端          | 工厂文件                                                                                             |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| Web         | [web/src/lib/repository.ts](file:///e:/workspace/dustnote/web/src/lib/repository.ts)                 |
+| Mobile      | [mobile/src/lib/repository.ts](file:///e:/workspace/dustnote/mobile/src/lib/repository.ts)           |
+| Miniprogram | [miniprogram/src/lib/repository.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/repository.ts) |
 
 ```typescript
 // shared/src/repository.ts（简化示意）
 export interface DataRepository {
-  loadAll(): Promise<{ notes: NoteRow[]; folders: Folder[]; tags: Tag[]; preferences: Preferences }>;
+  loadAll(): Promise<{
+    notes: NoteRow[];
+    folders: Folder[];
+    tags: Tag[];
+    preferences: Preferences;
+  }>;
   createNote(input): Promise<NoteRow>;
   updateNote(id, patch): Promise<NoteRow>;
   moveNote(id, folderId): Promise<NoteRow>;
-  deleteNote(id): Promise<void>;          // 软删除
+  deleteNote(id): Promise<void>; // 软删除
   permanentDeleteNote(id): Promise<void>;
   emptyTrash(): Promise<void>;
   restoreNote(id): Promise<NoteRow>;
@@ -111,7 +116,7 @@ export interface DataRepository {
   setPreferences(patch): Promise<Preferences>;
   exportBackup(): Promise<Blob>;
   importBackup(blob): Promise<void>;
-  clearBusinessData(): Promise<void>;     // 模式切换迁移后清空
+  clearBusinessData(): Promise<void>; // 模式切换迁移后清空
 }
 ```
 
@@ -123,19 +128,19 @@ export interface DataRepository {
 
 每端独立的 `mode-store`（Zustand）维护模式判定结果，与 `auth-store` 解耦：
 
-| 端           | 模式状态文件                                                                              | 持久化后端                  |
-| ------------ | ----------------------------------------------------------------------------------------- | --------------------------- |
-| Web          | [web/src/lib/mode-store.ts](file:///e:/workspace/dustnote/web/src/lib/mode-store.ts)       | localStorage                |
-| Mobile       | [mobile/src/lib/mode-store.ts](file:///e:/workspace/dustnote/mobile/src/lib/mode-store.ts) | AsyncStorage                |
-| Miniprogram  | [miniprogram/src/lib/mode-store.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/mode-store.ts) | Taro.setStorageSync         |
+| 端          | 模式状态文件                                                                                         | 持久化后端          |
+| ----------- | ---------------------------------------------------------------------------------------------------- | ------------------- |
+| Web         | [web/src/lib/mode-store.ts](file:///e:/workspace/dustnote/web/src/lib/mode-store.ts)                 | localStorage        |
+| Mobile      | [mobile/src/lib/mode-store.ts](file:///e:/workspace/dustnote/mobile/src/lib/mode-store.ts)           | AsyncStorage        |
+| Miniprogram | [miniprogram/src/lib/mode-store.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/mode-store.ts) | Taro.setStorageSync |
 
 ### 3.1 状态字段
 
 ```typescript
 interface ModeState {
   mode: 'standalone' | 'online';
-  serverUrl: string | null;       // 联机模式下的服务器地址
-  initialized: boolean;            // 是否已完成首次模式选择
+  serverUrl: string | null; // 联机模式下的服务器地址
+  initialized: boolean; // 是否已完成首次模式选择
   chooseStandalone(): Promise<void>;
   chooseOnline(serverUrl: string): Promise<void>;
   switchMode(mode: 'standalone' | 'online', serverUrl?: string): Promise<void>;
@@ -199,24 +204,24 @@ interface ModeState {
 
 ```typescript
 interface LocalAuthBlob {
-  passwordHash: string;            // Argon2id(password) 用于 unlock 比对
-  masterSalt: string;              // 主密码派生 KEK 的盐
-  clientMasterSalt: string;        // 客户端派生 KEK 的盐（与 masterSalt 区分）
+  passwordHash: string; // Argon2id(password) 用于 unlock 比对
+  masterSalt: string; // 主密码派生 KEK 的盐
+  clientMasterSalt: string; // 客户端派生 KEK 的盐（与 masterSalt 区分）
   passwordWrappedMasterKey: string; // 主密码 KEK 加密的 masterKey
-  wrappedMasterKey: string;        // 恢复码 KEK 加密的 masterKey（用于 recover）
-  recoveryHash: string;            // Argon2id(recoveryCode) 用于 recover 校验
-  recoverySalt: string;            // 恢复码派生 KEK 的盐
-  kdfParams: { m: number; t: number; p: number };  // Argon2id 参数
+  wrappedMasterKey: string; // 恢复码 KEK 加密的 masterKey（用于 recover）
+  recoveryHash: string; // Argon2id(recoveryCode) 用于 recover 校验
+  recoverySalt: string; // 恢复码派生 KEK 的盐
+  kdfParams: { m: number; t: number; p: number }; // Argon2id 参数
 }
 ```
 
 各端持久化实现：
 
-| 端           | 持久化文件                                                                                            |
-| ------------ | ----------------------------------------------------------------------------------------------------- |
-| Web          | [web/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/web/src/lib/local-auth-storage.ts)  |
-| Mobile       | [mobile/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-auth-storage.ts) |
-| Miniprogram  | [miniprogram/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-auth-storage.ts) |
+| 端          | 持久化文件                                                                                                           |
+| ----------- | -------------------------------------------------------------------------------------------------------------------- |
+| Web         | [web/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/web/src/lib/local-auth-storage.ts)                 |
+| Mobile      | [mobile/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-auth-storage.ts)           |
+| Miniprogram | [miniprogram/src/lib/local-auth-storage.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-auth-storage.ts) |
 
 ### 4.3 setup（首次设置）
 
@@ -299,20 +304,20 @@ UI 入口：
 
 为防止离线爆破，单机模式在客户端实现锁定：
 
-| 配置项         | 值           | 说明                                       |
-| -------------- | ------------ | ------------------------------------------ |
-| 失败阈值       | 6 次         | 连续 6 次密码错误触发锁定                  |
-| 锁定时长       | 15 分钟      | 锁定期间无法尝试解锁                       |
-| 计数器         | 本地存储     | `LocalLockoutState` 持久化到本地存储       |
-| 重置条件       | 成功解锁     | 解锁成功后失败计数清零                     |
+| 配置项   | 值       | 说明                                 |
+| -------- | -------- | ------------------------------------ |
+| 失败阈值 | 6 次     | 连续 6 次密码错误触发锁定            |
+| 锁定时长 | 15 分钟  | 锁定期间无法尝试解锁                 |
+| 计数器   | 本地存储 | `LocalLockoutState` 持久化到本地存储 |
+| 重置条件 | 成功解锁 | 解锁成功后失败计数清零               |
 
 ### 5.1 LocalLockoutState 结构
 
 ```typescript
 interface LocalLockoutState {
-  failedAttempts: number;          // 当前失败次数
-  lockedUntil: number | null;      // 锁定截止时间戳（ms），null 表示未锁定
-  lastFailedAt: number | null;     // 上次失败时间戳
+  failedAttempts: number; // 当前失败次数
+  lockedUntil: number | null; // 锁定截止时间戳（ms），null 表示未锁定
+  lastFailedAt: number | null; // 上次失败时间戳
 }
 ```
 
@@ -356,11 +361,11 @@ async importBackup(blob: Blob): Promise<void>
 
 ### 6.3 各端实现
 
-| 端           | 导入导出实现                                                                          |
-| ------------ | ------------------------------------------------------------------------------------- |
-| Web/Desktop  | [web/src/lib/local-repo.ts](file:///e:/workspace/dustnote/web/src/lib/local-repo.ts)  |
-| Mobile       | [mobile/src/lib/io.ts](file:///e:/workspace/dustnote/mobile/src/lib/io.ts)（RNFS + Share） |
-| Miniprogram  | [miniprogram/src/lib/local-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-repo.ts) |
+| 端          | 导入导出实现                                                                                         |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| Web/Desktop | [web/src/lib/local-repo.ts](file:///e:/workspace/dustnote/web/src/lib/local-repo.ts)                 |
+| Mobile      | [mobile/src/lib/io.ts](file:///e:/workspace/dustnote/mobile/src/lib/io.ts)（RNFS + Share）           |
+| Miniprogram | [miniprogram/src/lib/local-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-repo.ts) |
 
 > Mobile 端通过 `react-native-fs` 写入临时文件，再通过 `react-native-share` 调起系统分享菜单导出。导入则通过文件选择器读取。
 
@@ -419,27 +424,29 @@ async importBackup(blob: Blob): Promise<void>
 
 单机模式由于不依赖服务器，存在以下限制：
 
-| 限制项                     | 说明                                                                                |
-| -------------------------- | ----------------------------------------------------------------------------------- |
-| 跨设备同步                 | **不支持**。同一账户在不同设备上是完全独立的数据集                                  |
-| 在线分享                   | **不支持**。仅支持文件导出（txt/md/html/pdf），无法生成在线分享链接                 |
-| 在线备份                   | **不支持**。仅支持本地导出 ZIP（用户需自行管理备份）                                |
-| 设备管理                   | **不支持**。UI 中隐藏设备管理入口                                                   |
-| 服务器推送通知             | **不支持**                                                                          |
-| 多端协同编辑               | **不支持**（联机模式 v2.0 也不支持，未来评估）                                      |
-| 小程序单机 10MB 上限       | 受微信平台限制，单 key 10MB；H5 / weapp 端单机模式仅推荐轻量试用                    |
-| 数据丢失风险               | 设备丢失 / App 卸载 / 浏览器清理缓存 → 数据全部丢失，**强烈建议定期导出 ZIP 备份** |
+| 限制项               | 说明                                                                               |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| 跨设备同步           | **不支持**。同一账户在不同设备上是完全独立的数据集                                 |
+| 在线分享             | **不支持**。仅支持文件导出（txt/md/html/pdf），无法生成在线分享链接                |
+| 在线备份             | **不支持**。仅支持本地导出 ZIP（用户需自行管理备份）                               |
+| 设备管理             | **不支持**。UI 中隐藏设备管理入口                                                  |
+| 服务器推送通知       | **不支持**                                                                         |
+| 多端协同编辑         | **不支持**（联机模式 v2.0 也不支持，未来评估）                                     |
+| 小程序单机 10MB 上限 | 受微信平台限制，单 key 10MB；H5 / weapp 端单机模式仅推荐轻量试用                   |
+| 数据丢失风险         | 设备丢失 / App 卸载 / 浏览器清理缓存 → 数据全部丢失，**强烈建议定期导出 ZIP 备份** |
 
 ### 8.1 用户教育文案
 
 模式选择 UI 中明确告知用户：
 
 > **单机模式适合**：
+>
 > - 隐私敏感，不希望数据离开设备
 > - 仅在单一设备上使用
 > - 想先试用 DustNote 核心功能
 >
 > **单机模式注意事项**：
+>
 > - 数据仅存在本设备，**设备丢失则数据丢失**
 > - 不支持跨设备同步
 > - 不支持在线分享链接
@@ -452,34 +459,34 @@ async importBackup(blob: Blob): Promise<void>
 
 ### 9.1 离线爆破成本
 
-| 资源             | 攻击者能力                        | DustNote 防护                                              |
-| ---------------- | --------------------------------- | ---------------------------------------------------------- |
-| 设备物理接触     | 离线爆破 LocalAuthBlob            | Argon2id(m=64MB, t=3, p=4) + 客户端锁定 6 次/15 分钟       |
-| 备份文件泄露     | 爆破 exportBackup ZIP             | 用户自定义备份密码（与主密码不同），AES-256-GCM + Argon2id |
-| 浏览器存储读取   | XSS 或本地木马读取 IndexedDB      | 所有敏感字段均为密文/哈希，无明文密码                      |
-| 内存 dump        | 进程运行时抓取内存                | masterKey 仅在闭包/Web Worker，使用后清零；不写入全局      |
+| 资源           | 攻击者能力                   | DustNote 防护                                              |
+| -------------- | ---------------------------- | ---------------------------------------------------------- |
+| 设备物理接触   | 离线爆破 LocalAuthBlob       | Argon2id(m=64MB, t=3, p=4) + 客户端锁定 6 次/15 分钟       |
+| 备份文件泄露   | 爆破 exportBackup ZIP        | 用户自定义备份密码（与主密码不同），AES-256-GCM + Argon2id |
+| 浏览器存储读取 | XSS 或本地木马读取 IndexedDB | 所有敏感字段均为密文/哈希，无明文密码                      |
+| 内存 dump      | 进程运行时抓取内存           | masterKey 仅在闭包/Web Worker，使用后清零；不写入全局      |
 
 ### 9.2 Argon2id 参数
 
-| 参数 | 值       | 含义                                   |
-| ---- | -------- | -------------------------------------- |
-| m    | 64 MB    | 内存占用，限制 GPU/ASIC 并行爆破       |
-| t    | 3        | 迭代次数                               |
-| p    | 4        | 并行度                                 |
+| 参数 | 值    | 含义                             |
+| ---- | ----- | -------------------------------- |
+| m    | 64 MB | 内存占用，限制 GPU/ASIC 并行爆破 |
+| t    | 3     | 迭代次数                         |
+| p    | 4     | 并行度                           |
 
 参数来源：OWASP 2023 推荐，与联机模式服务端密码哈希一致。
 
 ### 9.3 与联机模式的安全差异
 
-| 维度         | 单机模式                              | 联机模式                                          |
-| ------------ | ------------------------------------- | ------------------------------------------------- |
-| 主密码校验   | 客户端 Argon2id 比对                  | 服务端 Argon2id 比对 + JWT 下发                   |
-| 锁定策略     | 客户端本地（6 次/15 分钟）            | 服务端 IP + 指纹（5/15/60/240/1440 min 递增）     |
-| 备份责任     | 用户完全自主                          | 服务端定期备份 + 用户可导出                       |
-| 数据可达性   | 仅设备本地                            | 服务器 + 本地双副本                               |
-| 设备丢失风险 | 高（无备份则数据丢失）                | 低（重新登录即可恢复）                            |
-| 跨端攻击面   | 仅本设备                              | 网络传输 + 服务端存储（但 E2EE 保证密文安全）     |
-| 服务端信任   | **不需要**                            | 必须信任（仅信任密文存储）                        |
+| 维度         | 单机模式                   | 联机模式                                      |
+| ------------ | -------------------------- | --------------------------------------------- |
+| 主密码校验   | 客户端 Argon2id 比对       | 服务端 Argon2id 比对 + JWT 下发               |
+| 锁定策略     | 客户端本地（6 次/15 分钟） | 服务端 IP + 指纹（5/15/60/240/1440 min 递增） |
+| 备份责任     | 用户完全自主               | 服务端定期备份 + 用户可导出                   |
+| 数据可达性   | 仅设备本地                 | 服务器 + 本地双副本                           |
+| 设备丢失风险 | 高（无备份则数据丢失）     | 低（重新登录即可恢复）                        |
+| 跨端攻击面   | 仅本设备                   | 网络传输 + 服务端存储（但 E2EE 保证密文安全） |
+| 服务端信任   | **不需要**                 | 必须信任（仅信任密文存储）                    |
 
 完整安全模型见 [security.md](./security.md)。
 

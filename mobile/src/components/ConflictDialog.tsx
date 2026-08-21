@@ -7,14 +7,7 @@
  */
 
 import React, { useState } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
+import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useColors } from '../theme';
 import { useConflictStore, type PendingConflict } from '../state/conflict-store';
@@ -85,7 +78,10 @@ export function ConflictDialog(): React.JSX.Element {
               {current.conflicts.map((c, i) => (
                 <View
                   key={i}
-                  style={[styles.conflictBox, { backgroundColor: colors.bg, borderColor: colors.border }]}
+                  style={[
+                    styles.conflictBox,
+                    { backgroundColor: colors.bg, borderColor: colors.border },
+                  ]}
                 >
                   <Text style={[styles.fieldLabel, { color: colors.fg }]}>
                     {FIELD_LABEL[c.field] ?? c.field}

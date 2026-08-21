@@ -100,7 +100,9 @@ export default function Trash() {
     });
     if (!r.confirm) return;
     try {
-      const result = (await getRepo().emptyTrash()) as unknown as { deleted: number; failed: number } | undefined;
+      const result = (await getRepo().emptyTrash()) as unknown as
+        | { deleted: number; failed: number }
+        | undefined;
       const deleted = result?.deleted ?? 0;
       const failed = result?.failed ?? 0;
       if (failed > 0) {

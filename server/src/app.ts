@@ -101,7 +101,12 @@ export function createApp(): Application {
       serializers: {
         // 自定义 req 序列化：脱敏 URL 中的密码/token 等敏感查询参数，避免明文落盘日志
         req(req) {
-          return { id: req.id, method: req.method, url: redactSensitiveUrl(req.url), remoteAddress: req.remoteAddress };
+          return {
+            id: req.id,
+            method: req.method,
+            url: redactSensitiveUrl(req.url),
+            remoteAddress: req.remoteAddress,
+          };
         },
       },
       customLogLevel: (_req, res, err) => {

@@ -36,10 +36,12 @@ const en = {
     welcome: 'Welcome to DustNote',
     subtitle: 'Choose your mode — switchable anytime in Settings',
     standalone_title: 'Standalone',
-    standalone_desc: 'No server needed. Data stored locally on your device. Best for personal use; data never leaves your device.',
+    standalone_desc:
+      'No server needed. Data stored locally on your device. Best for personal use; data never leaves your device.',
     standalone_features: 'Local encrypted storage · Offline ready · Privacy first',
     online_title: 'Online',
-    online_desc: 'Connect to a server for all features: cross-device sync, online sharing, collaboration. Requires a DustNote server.',
+    online_desc:
+      'Connect to a server for all features: cross-device sync, online sharing, collaboration. Requires a DustNote server.',
     online_features: 'Cross-device sync · Online sharing · Real-time collaboration',
     server_url: 'Server URL',
     server_url_placeholder: 'https://your-server.com',
@@ -154,11 +156,13 @@ const en = {
     mode_standalone: 'Standalone',
     mode_online: 'Online',
     switch_mode: '🔄 Switch Mode',
-    switch_mode_hint: 'Switching mode migrates all your data (notes, folders, tags, preferences).\nStandalone → Online: upload to server; Online → Standalone: download to local.',
+    switch_mode_hint:
+      'Switching mode migrates all your data (notes, folders, tags, preferences).\nStandalone → Online: upload to server; Online → Standalone: download to local.',
     data_section: 'Data',
     export: '📤 Export backup',
     import: '📥 Import backup',
-    data_hint: 'Export: generate a JSON backup file and share it.\nImport: paste a backup JSON to overwrite current data (use with caution).',
+    data_hint:
+      'Export: generate a JSON backup file and share it.\nImport: paste a backup JSON to overwrite current data (use with caution).',
     account_section: 'Account',
     lock: '🔒 Lock',
     shares: '🔗 Shares',
@@ -171,8 +175,10 @@ const en = {
     device_kicked: 'Device kicked',
     device_kick_failed: 'Failed to kick',
     delete_account: '🗑 Delete Account',
-    delete_account_confirm_1: 'This will permanently delete ALL server data: notes, folders, tags, shares, devices, preferences.\nThis cannot be undone! Export a backup first.\n\nContinue?',
-    delete_account_confirm_2: 'Final confirmation: really delete your account?\nServer data will be erased beyond recovery.',
+    delete_account_confirm_1:
+      'This will permanently delete ALL server data: notes, folders, tags, shares, devices, preferences.\nThis cannot be undone! Export a backup first.\n\nContinue?',
+    delete_account_confirm_2:
+      'Final confirmation: really delete your account?\nServer data will be erased beyond recovery.',
     delete_account_success: 'Account deleted, server data erased',
     delete_account_failed: 'Failed to delete account',
     about_section: 'About',
@@ -192,7 +198,8 @@ const en = {
     import_hint: 'Paste the backup JSON (the JSON string from export):',
     import_confirm: 'Confirm import (overwrites current data)',
     import_confirm_title: 'Confirm import',
-    import_confirm_detail: 'This will overwrite all current data:\nNotes: {{notes}}\nFolders: {{folders}}\nTags: {{tags}}\n\nContinue?',
+    import_confirm_detail:
+      'This will overwrite all current data:\nNotes: {{notes}}\nFolders: {{folders}}\nTags: {{tags}}\n\nContinue?',
     import_success: 'Import succeeded',
     import_success_detail: 'Data restored. Please reload the app.',
     import_parse_failed: 'Parse failed',

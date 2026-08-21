@@ -34,16 +34,17 @@ import { useStore } from '../../web/src/lib/store';
 function registerDesktopApis() {
   // 1. 打开外部 URL（GitHub 链接等）：使用 opener 插件调用系统默认浏览器
   void import('@tauri-apps/plugin-opener').then(({ openUrl }) => {
-    (window as unknown as { __dustnoteOpenUrl: (url: string) => Promise<void> }).__dustnoteOpenUrl = (
-      url: string
-    ) => openUrl(url);
+    (window as unknown as { __dustnoteOpenUrl: (url: string) => Promise<void> }).__dustnoteOpenUrl =
+      (url: string) => openUrl(url);
   });
 
   // 2. 原生保存对话框 + 写文件：供导出备份/批量导出使用
   void import('@tauri-apps/api/core').then(({ invoke }) => {
-    (window as unknown as {
-      __dustnoteSaveFile: (filename: string, content: Uint8Array) => Promise<string | null>;
-    }).__dustnoteSaveFile = async (filename: string, content: Uint8Array) => {
+    (
+      window as unknown as {
+        __dustnoteSaveFile: (filename: string, content: Uint8Array) => Promise<string | null>;
+      }
+    ).__dustnoteSaveFile = async (filename: string, content: Uint8Array) => {
       // Uint8Array → Vec<u8>：Tauri invoke 要求 plain object，先转 Array
       const result = await invoke<string | null>('save_file_dialog', {
         filename,
@@ -57,9 +58,9 @@ function registerDesktopApis() {
 /** 注册托盘 tooltip 更新能力（roadmap M4「托盘显示已同步 N 条」） */
 function registerTrayApi() {
   void import('@tauri-apps/api/core').then(({ invoke }) => {
-    (window as unknown as { __dustnoteSetTrayTooltip: (tooltip: string) => void }).__dustnoteSetTrayTooltip = (
-      tooltip: string
-    ) => {
+    (
+      window as unknown as { __dustnoteSetTrayTooltip: (tooltip: string) => void }
+    ).__dustnoteSetTrayTooltip = (tooltip: string) => {
       void invoke('set_tray_tooltip', { tooltip }).catch(() => undefined);
     };
   });

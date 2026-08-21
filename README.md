@@ -28,14 +28,14 @@
 
 DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全没有服务器的情况下也能独立运行。
 
-| 能力                 | 单机模式（standalone）                                            | 联机模式（online）                          |
-| -------------------- | ----------------------------------------------------------------- | ------------------------------------------- |
-| 主密码 setup/unlock   | 本地 Argon2id + 比对（无 JWT）                                    | 调 `/auth/setup`、`/auth/unlock`             |
-| 笔记/文件夹/标签 CRUD | LocalRepository（IndexedDB / AsyncStorage / Taro.setStorage）     | RemoteRepository（API + 离线队列）          |
-| 分享                 | **仅文件导出**（txt / md / html / pdf）                           | 在线分享链接 + 文件导出                     |
-| 跨设备同步           | **不支持**                                                        | WebSocket + 离线队列                        |
-| 设备管理             | **不支持**（UI 隐藏）                                             | 支持                                        |
-| 服务端依赖           | 无                                                                | 必需                                        |
+| 能力                  | 单机模式（standalone）                                        | 联机模式（online）                 |
+| --------------------- | ------------------------------------------------------------- | ---------------------------------- |
+| 主密码 setup/unlock   | 本地 Argon2id + 比对（无 JWT）                                | 调 `/auth/setup`、`/auth/unlock`   |
+| 笔记/文件夹/标签 CRUD | LocalRepository（IndexedDB / AsyncStorage / Taro.setStorage） | RemoteRepository（API + 离线队列） |
+| 分享                  | **仅文件导出**（txt / md / html / pdf）                       | 在线分享链接 + 文件导出            |
+| 跨设备同步            | **不支持**                                                    | WebSocket + 离线队列               |
+| 设备管理              | **不支持**（UI 隐藏）                                         | 支持                               |
+| 服务端依赖            | 无                                                            | 必需                               |
 
 **模式切换**：支持 standalone ↔ online 一键迁移，数据不丢失（详见 [standalone-mode.md](./.trae/documents/standalone-mode.md)）。
 
@@ -47,14 +47,14 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 
 ## 平台覆盖
 
-| 平台               | 状态 | 构建方式                 | 分发                  |
-| ------------------ | ---- | ------------------------ | --------------------- |
-| **Web**（PWA）     | ✅   | Vite                     | 静态文件 / Docker / PWA 安装 |
-| **桌面** (Tauri 2) | ✅   | `pnpm build:desktop`     | Windows MSI + Setup.exe / Linux 桌面集成包 |
-| **微信小程序**     | ✅   | `pnpm build:miniprogram` | 微信审核上传          |
-| **H5 移动版**      | ✅   | `pnpm build:h5`          | 静态文件部署          |
-| **Android**        | ✅   | `pnpm build:android`     | APK 分发              |
-| **iOS**            | ⚠️ 跳过 | 需 macOS + Xcode        | RN 代码已编写，未来可构建 |
+| 平台               | 状态    | 构建方式                 | 分发                                       |
+| ------------------ | ------- | ------------------------ | ------------------------------------------ |
+| **Web**（PWA）     | ✅      | Vite                     | 静态文件 / Docker / PWA 安装               |
+| **桌面** (Tauri 2) | ✅      | `pnpm build:desktop`     | Windows MSI + Setup.exe / Linux 桌面集成包 |
+| **微信小程序**     | ✅      | `pnpm build:miniprogram` | 微信审核上传                               |
+| **H5 移动版**      | ✅      | `pnpm build:h5`          | 静态文件部署                               |
+| **Android**        | ✅      | `pnpm build:android`     | APK 分发                                   |
+| **iOS**            | ⚠️ 跳过 | 需 macOS + Xcode         | RN 代码已编写，未来可构建                  |
 
 > macOS 桌面 vpk pack 实测需 macOS 硬件，release.yml 已有 `continue-on-error: true`。
 

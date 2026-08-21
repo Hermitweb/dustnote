@@ -16,10 +16,7 @@ import { getStorageUsage, cleanupCache } from '../lib/db';
 import { exportDiagnostics } from '../lib/diagnostics';
 import { getLastBackupTime } from '../lib/auto-backup';
 import { isTauri } from '../lib/platform';
-import {
-  getGraceUnlockMin,
-  setGraceUnlockMin,
-} from '../lib/grace-unlock';
+import { getGraceUnlockMin, setGraceUnlockMin } from '../lib/grace-unlock';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -122,7 +119,9 @@ export function DiagnosticsPanel() {
         </button>
       </div>
       {cleanFailed && (
-        <div className="mt-1 text-red-600 dark:text-red-400">{t('settings.cache_clean_failed')}</div>
+        <div className="mt-1 text-red-600 dark:text-red-400">
+          {t('settings.cache_clean_failed')}
+        </div>
       )}
 
       {/* 桌面端免密解锁宽限期（S-1） */}

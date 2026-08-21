@@ -101,11 +101,7 @@ export class IndexedDbQueueStorage implements QueueStorage {
   private readonly key: string;
   private dbPromise: Promise<IDBDatabase> | null = null;
 
-  constructor(
-    key = 'dustnote:offline-queue',
-    dbName = 'keyval-store',
-    storeName = 'keyval'
-  ) {
+  constructor(key = 'dustnote:offline-queue', dbName = 'keyval-store', storeName = 'keyval') {
     this.key = key;
     this.dbName = dbName;
     this.storeName = storeName;
@@ -186,9 +182,7 @@ export class OfflineQueue {
   }
 
   /** 入队 */
-  async enqueue(
-    op: Omit<QueuedOp, 'id' | 'createdAt' | 'retries'>
-  ): Promise<QueuedOp> {
+  async enqueue(op: Omit<QueuedOp, 'id' | 'createdAt' | 'retries'>): Promise<QueuedOp> {
     const queue = await this.ensureLoaded();
     const full: QueuedOp = {
       ...op,

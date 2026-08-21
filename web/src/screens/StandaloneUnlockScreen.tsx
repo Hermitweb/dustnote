@@ -89,7 +89,8 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
               onClick={handleGraceUnlock}
               className="w-full rounded-lg border border-mint-500 bg-mint-50 px-6 py-3 text-sm font-semibold text-mint-700 transition-colors hover:bg-mint-100 dark:bg-mint-900/20 dark:text-mint-300"
             >
-              ⚡ {t('auth.grace_unlock')}（{Math.floor(graceSec / 60)}:{String(graceSec % 60).padStart(2, '0')}）
+              ⚡ {t('auth.grace_unlock')}（{Math.floor(graceSec / 60)}:
+              {String(graceSec % 60).padStart(2, '0')}）
             </button>
           )}
 

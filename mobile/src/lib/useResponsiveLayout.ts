@@ -82,11 +82,7 @@ export function useResponsiveLayout(): ResponsiveLayout {
   const isTablet = width >= 600;
   const isLargeTablet = width >= 840;
 
-  const base = isLargeTablet
-    ? LARGE_TABLET_LAYOUT
-    : isTablet
-      ? TABLET_LAYOUT
-      : PHONE_LAYOUT;
+  const base = isLargeTablet ? LARGE_TABLET_LAYOUT : isTablet ? TABLET_LAYOUT : PHONE_LAYOUT;
 
   return {
     isTablet,

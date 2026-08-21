@@ -10,17 +10,17 @@
 
 DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"的渐进交付策略。每个里程碑交付一个**可独立运行、可被用户感知价值**的版本。
 
-| 阶段 | 版本   | 主题           | 目标                             | 状态     |
-| ---- | ------ | -------------- | -------------------------------- | -------- |
-| M0   | v0.1.0 | 项目骨架       | 仓库搭建、技术验证、主题系统跑通 | ✅ 已完成 |
-| M1   | v1.0.0 | Web 端 MVP     | 核心 CRUD + 主题 + 主密码        | ✅ 已完成 |
-| M2   | v1.1.0 | 导入导出       | .txt / .md / .docx，多格式导出   | ✅ 已完成 |
-| M3   | v1.2.0 | 分享           | 可控分享                         | ✅ 已完成 |
-| M4   | v1.3.0 | 桌面端         | Tauri 打包                       | ✅ 已完成 |
-| M5   | v1.4.0 | Android 端     | RN 打包                          | ✅ 已完成 |
-| M6   | v1.5.0 | 小程序端       | Taro 多端编译                    | ✅ 已完成 |
-| M7   | v1.6.0 | 完善           | 端到端加密、性能优化、协同草稿   | ✅ 已完成 |
-| M8   | v2.0.0 | 双模式架构     | 单机/联机双模式 + 全文档更新     | ✅ 已完成 |
+| 阶段 | 版本   | 主题       | 目标                             | 状态      |
+| ---- | ------ | ---------- | -------------------------------- | --------- |
+| M0   | v0.1.0 | 项目骨架   | 仓库搭建、技术验证、主题系统跑通 | ✅ 已完成 |
+| M1   | v1.0.0 | Web 端 MVP | 核心 CRUD + 主题 + 主密码        | ✅ 已完成 |
+| M2   | v1.1.0 | 导入导出   | .txt / .md / .docx，多格式导出   | ✅ 已完成 |
+| M3   | v1.2.0 | 分享       | 可控分享                         | ✅ 已完成 |
+| M4   | v1.3.0 | 桌面端     | Tauri 打包                       | ✅ 已完成 |
+| M5   | v1.4.0 | Android 端 | RN 打包                          | ✅ 已完成 |
+| M6   | v1.5.0 | 小程序端   | Taro 多端编译                    | ✅ 已完成 |
+| M7   | v1.6.0 | 完善       | 端到端加密、性能优化、协同草稿   | ✅ 已完成 |
+| M8   | v2.0.0 | 双模式架构 | 单机/联机双模式 + 全文档更新     | ✅ 已完成 |
 
 ---
 
@@ -231,7 +231,7 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 
 - [x] [desktop/src-tauri/tauri.conf.json](file:///e:/workspace/dustnote/desktop/src-tauri/tauri.conf.json)、[Cargo.toml](file:///e:/workspace/dustnote/desktop/src-tauri/Cargo.toml)、[package.json](file:///e:/workspace/dustnote/desktop/package.json)：版本号 2.0.0
 - [x] Velopack 更新机制正常，GITHUB_REPO_URL = "https://github.com/Hermitweb/dustnote"
-- [x] [web/src/screens/PublicShareView.tsx](file:///e:/workspace/dustnote/web/src/screens/PublicShareView.tsx)：硬编码 '0.1.0' 改为 __APP_VERSION__
+- [x] [web/src/screens/PublicShareView.tsx](file:///e:/workspace/dustnote/web/src/screens/PublicShareView.tsx)：硬编码 '0.1.0' 改为 **APP_VERSION**
 
 #### 8.6 server 端 ✅
 
@@ -264,11 +264,11 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 
 #### 8.9 跳过项（硬件限制） ⚠️
 
-| 跳过项                   | 原因                          | 影响                                                  |
-| ------------------------ | ----------------------------- | ----------------------------------------------------- |
-| iOS 构建                 | 需 macOS + Xcode + Apple 签名 | iOS 无安装包；RN 代码已编写，未来可构建               |
-| macOS 桌面 vpk pack 实测 | 需 macOS 硬件                 | release.yml 已有 `continue-on-error: true`            |
-| iOS MMKV 实测            | 同上                          | AsyncStorage 跨平台一致，代码层面已支持               |
+| 跳过项                   | 原因                          | 影响                                       |
+| ------------------------ | ----------------------------- | ------------------------------------------ |
+| iOS 构建                 | 需 macOS + Xcode + Apple 签名 | iOS 无安装包；RN 代码已编写，未来可构建    |
+| macOS 桌面 vpk pack 实测 | 需 macOS 硬件                 | release.yml 已有 `continue-on-error: true` |
+| iOS MMKV 实测            | 同上                          | AsyncStorage 跨平台一致，代码层面已支持    |
 
 **不跳过**：iOS 代码编写（RN 跨平台）、release.yml macOS job（GitHub Actions 提供 macos-latest runner）。
 
@@ -279,7 +279,7 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 3. **保留现有 offline-first**：联机模式下 IndexedDB 缓存 + 离线队列不变
 4. **单机模式不用离线队列**：所有操作直接写本地
 5. **数据迁移显式触发**：用户点按钮才迁移，避免意外覆盖
-6. **Velopack 资产命名只改用户入口**：内部文件（releases.*.json + delta 包）保留原名
+6. **Velopack 资产命名只改用户入口**：内部文件（releases.\*.json + delta 包）保留原名
 7. **mobile 用 AsyncStorage 而非 MMKV**：项目未安装 MMKV，AsyncStorage 跨平台一致
 8. **小程序单机作轻量试用**：受 10MB 限制，文档明确
 
@@ -300,16 +300,16 @@ DustNote 采用"**Web 优先、桌面其次、移动再后、小程序最后**"�
 
 ## 4. 风险与应对
 
-| 风险               | 影响       | 概率 | 应对                              |
-| ------------------ | ---------- | ---- | --------------------------------- |
-| Tauri 跨平台差异   | 桌面端延期 | 中   | 提前在 macOS / Windows 双环境验证 |
-| 小程序审核         | 微信驳回   | 中   | 提前研究《小程序运营规范》        |
-| 端到端加密实现复杂 | v1.6 延期  | 高   | 推迟到 v2.0 评估                  |
-| .docx 复杂样式解析 | 导入效果差 | 中   | v1.1 限制支持基础样式             |
-| 单用户性能瓶颈     | v1.5+      | 低   | 单用户场景下 SQLite 足够          |
-| 单机模式离线爆破   | 数据泄露   | 中   | Argon2id(m=64MB) + 客户端锁定 6/15min |
-| 模式切换数据迁移冲突 | 数据丢失 | 中   | 显式触发 + 原子化 + 失败回滚       |
-| MMKV 原生模块编译   | Mobile 延期 | 中   | 改用 AsyncStorage，已落地         |
+| 风险                 | 影响        | 概率 | 应对                                  |
+| -------------------- | ----------- | ---- | ------------------------------------- |
+| Tauri 跨平台差异     | 桌面端延期  | 中   | 提前在 macOS / Windows 双环境验证     |
+| 小程序审核           | 微信驳回    | 中   | 提前研究《小程序运营规范》            |
+| 端到端加密实现复杂   | v1.6 延期   | 高   | 推迟到 v2.0 评估                      |
+| .docx 复杂样式解析   | 导入效果差  | 中   | v1.1 限制支持基础样式                 |
+| 单用户性能瓶颈       | v1.5+       | 低   | 单用户场景下 SQLite 足够              |
+| 单机模式离线爆破     | 数据泄露    | 中   | Argon2id(m=64MB) + 客户端锁定 6/15min |
+| 模式切换数据迁移冲突 | 数据丢失    | 中   | 显式触发 + 原子化 + 失败回滚          |
+| MMKV 原生模块编译    | Mobile 延期 | 中   | 改用 AsyncStorage，已落地             |
 
 ---
 

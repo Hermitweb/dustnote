@@ -99,7 +99,9 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
               className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20"
               autoComplete="off"
             />
-            {tooWeak && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{t('auth.too_weak')}</p>}
+            {tooWeak && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{t('auth.too_weak')}</p>
+            )}
           </div>
 
           <div>
@@ -113,7 +115,9 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
               className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20"
               autoComplete="off"
             />
-            {mismatch && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{t('auth.mismatch')}</p>}
+            {mismatch && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{t('auth.mismatch')}</p>
+            )}
           </div>
 
           {error && (
@@ -124,7 +128,12 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
 
           <button
             type="submit"
-            disabled={submitting || !isValidRecoveryCode(recoveryCode) || newPassword.length < 8 || newPassword !== confirm}
+            disabled={
+              submitting ||
+              !isValidRecoveryCode(recoveryCode) ||
+              newPassword.length < 8 ||
+              newPassword !== confirm
+            }
             className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700 disabled:opacity-50"
           >
             {submitting ? '...' : t('auth.recover_btn')}

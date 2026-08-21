@@ -230,7 +230,9 @@ function App() {
     return (
       <div className="flex h-full items-center justify-center bg-surface-bg text-surface-muted">
         <div className="text-center">
-          <div className="mb-2 text-3xl"><Logo className="mx-auto h-10 w-10" /></div>
+          <div className="mb-2 text-3xl">
+            <Logo className="mx-auto h-10 w-10" />
+          </div>
           <div className="text-sm">加载中...</div>
         </div>
       </div>
@@ -244,9 +246,7 @@ function App() {
         <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
           <div className="mb-4 text-4xl">⚠️</div>
           <h2 className="mb-2 text-lg font-semibold text-surface-fg">无法连接到服务器</h2>
-          <p className="mb-1 text-sm text-surface-muted">
-            请确认服务器已启动且地址正确。
-          </p>
+          <p className="mb-1 text-sm text-surface-muted">请确认服务器已启动且地址正确。</p>
           {serverError && (
             <p className="mb-6 break-all rounded-lg bg-surface-bg px-3 py-2 text-xs text-red-600 dark:text-red-400">
               {serverError}
@@ -284,13 +284,9 @@ function App() {
     }
     if (authState === 'needs_unlock') {
       if (standaloneView === 'recover') {
-        return (
-          <StandaloneRecoverScreen onBack={() => setStandaloneView('unlock')} />
-        );
+        return <StandaloneRecoverScreen onBack={() => setStandaloneView('unlock')} />;
       }
-      return (
-        <StandaloneUnlockScreen onRecover={() => setStandaloneView('recover')} />
-      );
+      return <StandaloneUnlockScreen onRecover={() => setStandaloneView('recover')} />;
     }
   } else {
     // 联机模式鉴权流程
@@ -302,9 +298,7 @@ function App() {
   return (
     <div className="flex h-full">
       {/* 页面隐藏时全屏遮挡（§3.6），防任务切换预览/截图泄露笔记内容 */}
-      {pageHidden && (
-        <div className="fixed inset-0 z-[9999] bg-surface-bg" aria-hidden="true" />
-      )}
+      {pageHidden && <div className="fixed inset-0 z-[9999] bg-surface-bg" aria-hidden="true" />}
       {!sidebarHidden && <Sidebar />}
       <div className="flex flex-1 flex-col">
         {/* 顶部操作条 */}

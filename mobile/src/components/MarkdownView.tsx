@@ -71,7 +71,11 @@ function InlineText({ text, colors }: { text: string; colors: ThemeColors }) {
             return (
               <Text
                 key={i}
-                style={{ fontFamily: 'monospace', backgroundColor: colors.accentSoft, color: colors.fg }}
+                style={{
+                  fontFamily: 'monospace',
+                  backgroundColor: colors.accentSoft,
+                  color: colors.fg,
+                }}
               >
                 {s.text}
               </Text>
@@ -148,7 +152,10 @@ export function MarkdownView({
     if (heading) {
       const level = heading[1].length;
       blocks.push(
-        <Text key={key++} style={[styles.heading, { fontSize: Math.max(16, 24 - (level - 1) * 2) }]}>
+        <Text
+          key={key++}
+          style={[styles.heading, { fontSize: Math.max(16, 24 - (level - 1) * 2) }]}
+        >
           {heading[2]}
         </Text>
       );
@@ -173,7 +180,9 @@ export function MarkdownView({
     if (list) {
       blocks.push(
         <View key={key++} style={styles.listRow}>
-          <Text style={styles.listBullet}>{/^\d/.test(list[1]) ? `${list[1].replace(/[.)]/, '')}.` : '•'}</Text>
+          <Text style={styles.listBullet}>
+            {/^\d/.test(list[1]) ? `${list[1].replace(/[.)]/, '')}.` : '•'}
+          </Text>
           <View style={styles.listTextWrap}>
             <InlineText text={list[2]} colors={colors} />
           </View>

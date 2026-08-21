@@ -175,14 +175,14 @@ flowchart TD
 
 #### 1.4.1 关键组件
 
-| 组件              | shared 层定义                                                                  | 各端实现                                                                                                                              |
-| ----------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| DataRepository    | [shared/src/repository.ts](file:///e:/workspace/dustnote/shared/src/repository.ts) | LocalRepository + RemoteRepository                                                                                                    |
-| LocalAuth         | [shared/src/local-auth.ts](file:///e:/workspace/dustnote/shared/src/local-auth.ts) | 各端通过 local-auth-storage 持久化                                                                                                    |
-| mode-store        | -                                                                              | [web/src/lib/mode-store.ts](file:///e:/workspace/dustnote/web/src/lib/mode-store.ts)、[mobile/src/lib/mode-store.ts](file:///e:/workspace/dustnote/mobile/src/lib/mode-store.ts)、[miniprogram/src/lib/mode-store.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/mode-store.ts) |
-| LocalRepository   | -                                                                              | [web/src/lib/local-repo.ts](file:///e:/workspace/dustnote/web/src/lib/local-repo.ts)（IndexedDB）、[mobile/src/lib/local-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-repo.ts)（AsyncStorage）、[miniprogram/src/lib/local-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-repo.ts)（Taro.setStorage） |
-| RemoteRepository  | -                                                                              | [web/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/web/src/lib/remote-repo.ts)、[mobile/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/remote-repo.ts)、[miniprogram/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/remote-repo.ts) |
-| 工厂 createRepository | -                                                                          | 各端 `repository.ts`                                                                                                                  |
+| 组件                  | shared 层定义                                                                      | 各端实现                                                                                                                                                                                                                                                                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DataRepository        | [shared/src/repository.ts](file:///e:/workspace/dustnote/shared/src/repository.ts) | LocalRepository + RemoteRepository                                                                                                                                                                                                                                                                                                     |
+| LocalAuth             | [shared/src/local-auth.ts](file:///e:/workspace/dustnote/shared/src/local-auth.ts) | 各端通过 local-auth-storage 持久化                                                                                                                                                                                                                                                                                                     |
+| mode-store            | -                                                                                  | [web/src/lib/mode-store.ts](file:///e:/workspace/dustnote/web/src/lib/mode-store.ts)、[mobile/src/lib/mode-store.ts](file:///e:/workspace/dustnote/mobile/src/lib/mode-store.ts)、[miniprogram/src/lib/mode-store.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/mode-store.ts)                                                 |
+| LocalRepository       | -                                                                                  | [web/src/lib/local-repo.ts](file:///e:/workspace/dustnote/web/src/lib/local-repo.ts)（IndexedDB）、[mobile/src/lib/local-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-repo.ts)（AsyncStorage）、[miniprogram/src/lib/local-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-repo.ts)（Taro.setStorage） |
+| RemoteRepository      | -                                                                                  | [web/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/web/src/lib/remote-repo.ts)、[mobile/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/remote-repo.ts)、[miniprogram/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/remote-repo.ts)                                           |
+| 工厂 createRepository | -                                                                                  | 各端 `repository.ts`                                                                                                                                                                                                                                                                                                                   |
 
 #### 1.4.2 模式判定与切换
 
@@ -225,13 +225,18 @@ interface ModeState {
 ```typescript
 export interface DataRepository {
   // 加载全量
-  loadAll(): Promise<{ notes: NoteRow[]; folders: Folder[]; tags: Tag[]; preferences: Preferences }>;
+  loadAll(): Promise<{
+    notes: NoteRow[];
+    folders: Folder[];
+    tags: Tag[];
+    preferences: Preferences;
+  }>;
 
   // 笔记 CRUD
   createNote(input): Promise<NoteRow>;
   updateNote(id, patch): Promise<NoteRow>;
   moveNote(id, folderId): Promise<NoteRow>;
-  deleteNote(id): Promise<void>;             // 软删除
+  deleteNote(id): Promise<void>; // 软删除
   permanentDeleteNote(id): Promise<void>;
   emptyTrash(): Promise<void>;
   restoreNote(id): Promise<NoteRow>;
@@ -265,11 +270,11 @@ export interface DataRepository {
 
 各端实现：
 
-| 端           | 存储后端       | 文件                                                                                                |
-| ------------ | -------------- | --------------------------------------------------------------------------------------------------- |
-| Web/Desktop  | IndexedDB      | [web/src/lib/local-repo.ts](file:///e:/workspace/dustnote/web/src/lib/local-repo.ts)                |
-| Mobile       | AsyncStorage   | [mobile/src/lib/local-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-repo.ts)          |
-| Miniprogram  | Taro.setStorage | [miniprogram/src/lib/local-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-repo.ts) |
+| 端          | 存储后端        | 文件                                                                                                 |
+| ----------- | --------------- | ---------------------------------------------------------------------------------------------------- |
+| Web/Desktop | IndexedDB       | [web/src/lib/local-repo.ts](file:///e:/workspace/dustnote/web/src/lib/local-repo.ts)                 |
+| Mobile      | AsyncStorage    | [mobile/src/lib/local-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/local-repo.ts)           |
+| Miniprogram | Taro.setStorage | [miniprogram/src/lib/local-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/local-repo.ts) |
 
 实现要点：
 
@@ -281,11 +286,11 @@ export interface DataRepository {
 
 各端实现：
 
-| 端           | 文件                                                                                                |
-| ------------ | --------------------------------------------------------------------------------------------------- |
-| Web/Desktop  | [web/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/web/src/lib/remote-repo.ts)              |
-| Mobile       | [mobile/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/remote-repo.ts)        |
-| Miniprogram  | [miniprogram/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/remote-repo.ts) |
+| 端          | 文件                                                                                                   |
+| ----------- | ------------------------------------------------------------------------------------------------------ |
+| Web/Desktop | [web/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/web/src/lib/remote-repo.ts)                 |
+| Mobile      | [mobile/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/mobile/src/lib/remote-repo.ts)           |
+| Miniprogram | [miniprogram/src/lib/remote-repo.ts](file:///e:/workspace/dustnote/miniprogram/src/lib/remote-repo.ts) |
 
 实现要点：
 
@@ -313,13 +318,13 @@ export function createRepository(mode: AppMode, opts?: { serverUrl?: string }): 
 
 ```typescript
 interface LocalAuthBlob {
-  passwordHash: string;            // Argon2id(password) 用于 unlock 比对
-  masterSalt: string;              // 主密码派生 KEK 的盐
-  clientMasterSalt: string;        // 客户端派生 KEK 的盐
+  passwordHash: string; // Argon2id(password) 用于 unlock 比对
+  masterSalt: string; // 主密码派生 KEK 的盐
+  clientMasterSalt: string; // 客户端派生 KEK 的盐
   passwordWrappedMasterKey: string; // 主密码 KEK 加密的 masterKey
-  wrappedMasterKey: string;        // 恢复码 KEK 加密的 masterKey
-  recoveryHash: string;            // Argon2id(recoveryCode) 用于 recover 校验
-  recoverySalt: string;            // 恢复码派生 KEK 的盐
+  wrappedMasterKey: string; // 恢复码 KEK 加密的 masterKey
+  recoveryHash: string; // Argon2id(recoveryCode) 用于 recover 校验
+  recoverySalt: string; // 恢复码派生 KEK 的盐
   kdfParams: { m: number; t: number; p: number };
 }
 ```
@@ -348,8 +353,8 @@ interface LocalAuthBlob {
 
 ```typescript
 interface LocalLockoutState {
-  failedAttempts: number;          // 当前失败次数
-  lockedUntil: number | null;      // 锁定截止时间戳（ms）
+  failedAttempts: number; // 当前失败次数
+  lockedUntil: number | null; // 锁定截止时间戳（ms）
   lastFailedAt: number | null;
 }
 ```

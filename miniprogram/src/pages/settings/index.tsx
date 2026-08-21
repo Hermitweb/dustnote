@@ -308,9 +308,7 @@ export default function Settings() {
           <View className="settings-row-label">
             <Text>📱 当前模式</Text>
           </View>
-          <Text className="settings-row-value">
-            {mode === 'standalone' ? '单机' : '联机'} ›
-          </Text>
+          <Text className="settings-row-value">{mode === 'standalone' ? '单机' : '联机'} ›</Text>
         </View>
         <View className="settings-row" onClick={onSwitchMode}>
           <View className="settings-row-label">
@@ -518,7 +516,10 @@ export default function Settings() {
               </ScrollView>
             )}
             <View className="row gap-m">
-              <View className="mint-btn mint-btn-ghost flex-1" onClick={() => setDevicesOpen(false)}>
+              <View
+                className="mint-btn mint-btn-ghost flex-1"
+                onClick={() => setDevicesOpen(false)}
+              >
                 关闭
               </View>
             </View>

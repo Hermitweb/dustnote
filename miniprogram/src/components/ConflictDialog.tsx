@@ -154,7 +154,9 @@ export default function ConflictDialog(): React.JSX.Element {
                   {formatValue(cf.field, cf.localValue)}
                 </Text>
                 <Text style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>服务器版本</Text>
-                <Text style={{ fontSize: 13, color: c.fg }}>{formatValue(cf.field, cf.serverValue)}</Text>
+                <Text style={{ fontSize: 13, color: c.fg }}>
+                  {formatValue(cf.field, cf.serverValue)}
+                </Text>
               </View>
             ))}
           </ScrollView>
@@ -191,10 +193,7 @@ export default function ConflictDialog(): React.JSX.Element {
               {resolving === 'merged' ? '处理中…' : '使用合并结果'}
             </Text>
           </View>
-          <View
-            style={{ ...btnBase, backgroundColor: 'transparent' }}
-            onClick={onDismiss}
-          >
+          <View style={{ ...btnBase, backgroundColor: 'transparent' }} onClick={onDismiss}>
             <Text style={{ color: c.muted, fontSize: 14 }}>暂不处理</Text>
           </View>
         </View>

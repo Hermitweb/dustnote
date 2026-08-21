@@ -62,7 +62,10 @@ export function ModeSelectScreen() {
       // 临时写入 store，让 api 拦截器使用新 baseUrl
       setServerUrl(serverUrl.trim());
       const r = await api.get<{ initialized: boolean }>('/auth/status');
-      Alert.alert(t('mode_select.connection_ok'), t('mode_select.connection_ok_detail', { yesno: r.initialized ? t('common.ok') : '—' }));
+      Alert.alert(
+        t('mode_select.connection_ok'),
+        t('mode_select.connection_ok_detail', { yesno: r.initialized ? t('common.ok') : '—' })
+      );
     } catch (err) {
       Alert.alert(t('mode_select.connection_failed'), (err as Error).message);
     } finally {
@@ -99,10 +102,7 @@ export function ModeSelectScreen() {
 
       {/* 单机模式卡片 */}
       <TouchableOpacity
-        style={[
-          styles.card,
-          selected === 'standalone' && styles.cardActive,
-        ]}
+        style={[styles.card, selected === 'standalone' && styles.cardActive]}
         onPress={onSelectStandalone}
       >
         <Text style={styles.cardEmoji}>📱</Text>
@@ -113,10 +113,7 @@ export function ModeSelectScreen() {
 
       {/* 联机模式卡片 */}
       <TouchableOpacity
-        style={[
-          styles.card,
-          selected === 'online' && styles.cardActive,
-        ]}
+        style={[styles.card, selected === 'online' && styles.cardActive]}
         onPress={onSelectOnline}
       >
         <Text style={styles.cardEmoji}>🌐</Text>

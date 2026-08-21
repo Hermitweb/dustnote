@@ -180,4 +180,3 @@ describe('jwt (EdDSA / Ed25519)', () => {
     expect(header.alg).toBe('EdDSA');
   });
 });
-

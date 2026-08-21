@@ -16,7 +16,14 @@ export function PasswordStrengthMeter({ password }: { password: string }) {
   const color = STRENGTH_COLORS[strength];
 
   return (
-    <div className="mt-1" role="meter" aria-valuemin={0} aria-valuemax={4} aria-valuenow={strength} aria-label={label}>
+    <div
+      className="mt-1"
+      role="meter"
+      aria-valuemin={0}
+      aria-valuemax={4}
+      aria-valuenow={strength}
+      aria-label={label}
+    >
       <div className="flex gap-1">
         {[0, 1, 2, 3, 4].map((i) => (
           <div

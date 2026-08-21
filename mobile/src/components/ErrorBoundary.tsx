@@ -11,7 +11,15 @@
  */
 
 import React, { Component, type ReactNode } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, BackHandler } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  StyleSheet,
+  BackHandler,
+} from 'react-native';
 
 interface Props {
   children: ReactNode;
@@ -74,9 +82,7 @@ export class ErrorBoundary extends Component<Props, State> {
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontSize: 48, textAlign: 'center', marginBottom: 16 }}>
-            ⚠️
-          </Text>
+          <Text style={{ fontSize: 48, textAlign: 'center', marginBottom: 16 }}>⚠️</Text>
           <Text
             style={{
               fontSize: 18,
@@ -207,9 +213,7 @@ export class ErrorBoundary extends Component<Props, State> {
               onPress={this.handleCopyLog}
               style={{ flex: 1, padding: 10, borderRadius: 8, alignItems: 'center' }}
             >
-              <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '500' }}>
-                输出日志
-              </Text>
+              <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '500' }}>输出日志</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

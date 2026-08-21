@@ -101,7 +101,11 @@ export default function NoteEdit() {
         // 解析信封并解密明文
         try {
           const envelope = parseEnvelope(n.ciphertext);
-          const pt = await decryptNote(masterKey, envelope, noteAad(id, useAuthStore.getState().userId ?? ''));
+          const pt = await decryptNote(
+            masterKey,
+            envelope,
+            noteAad(id, useAuthStore.getState().userId ?? '')
+          );
           setTitle(pt.title);
           setContent(pt.content);
           setTags(pt.tags);
@@ -290,8 +294,7 @@ export default function NoteEdit() {
       Taro.showToast({ title: '密码需为 4-64 位', icon: 'none' });
       return;
     }
-    const opt =
-      SHARE_EXPIRY_OPTIONS.find((o) => o.key === shareExpiry) ?? SHARE_EXPIRY_OPTIONS[3]!;
+    const opt = SHARE_EXPIRY_OPTIONS.find((o) => o.key === shareExpiry) ?? SHARE_EXPIRY_OPTIONS[3]!;
     setSharing(true);
     try {
       // shareKey 只在本地生成，服务端只收到密文
@@ -381,9 +384,7 @@ export default function NoteEdit() {
     setHistoryOpen(true);
     setHistoryLoading(true);
     try {
-      const r = await getApi().get<{ versions: NoteVersionMeta[] }>(
-        `/notes/${id}/versions`
-      );
+      const r = await getApi().get<{ versions: NoteVersionMeta[] }>(`/notes/${id}/versions`);
       setVersions(r.versions ?? []);
     } catch {
       Taro.showToast({ title: '加载历史失败', icon: 'none' });
@@ -404,9 +405,7 @@ export default function NoteEdit() {
     try {
       if (!masterKey) throw new Error('未解锁');
       // 1. 拉取版本密文
-      const r = await getApi().get<{ ciphertext: string }>(
-        `/notes/${id}/versions/${v.id}`
-      );
+      const r = await getApi().get<{ ciphertext: string }>(`/notes/${id}/versions/${v.id}`);
       // 2. 解密（新密文 AAD 绑定 noteId||userId）
       const env = parseEnvelope(r.ciphertext);
       const aad = noteAad(id ?? '', useAuthStore.getState().userId ?? '');
@@ -578,10 +577,7 @@ export default function NoteEdit() {
                         {new Date(v.createdAt).toLocaleString()}
                       </Text>
                     </View>
-                    <Text
-                      className="mint-btn mint-btn-sm"
-                      onClick={() => void onRestoreVersion(v)}
-                    >
+                    <Text className="mint-btn mint-btn-sm" onClick={() => void onRestoreVersion(v)}>
                       恢复
                     </Text>
                   </View>
@@ -589,7 +585,10 @@ export default function NoteEdit() {
               </ScrollView>
             )}
             <View className="row gap-m">
-              <View className="mint-btn mint-btn-ghost flex-1" onClick={() => setHistoryOpen(false)}>
+              <View
+                className="mint-btn mint-btn-ghost flex-1"
+                onClick={() => setHistoryOpen(false)}
+              >
                 关闭
               </View>
             </View>

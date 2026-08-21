@@ -37,10 +37,12 @@ function isWebCryptoAvailable(): boolean {
     if (!subtle) return false;
     // 检查关键方法是否存在（不调用，避免触发权限弹窗）
     const s = subtle as Record<string, unknown>;
-    return typeof s.importKey === 'function' &&
+    return (
+      typeof s.importKey === 'function' &&
       typeof s.encrypt === 'function' &&
       typeof s.decrypt === 'function' &&
-      typeof s.sign === 'function';
+      typeof s.sign === 'function'
+    );
   } catch {
     return false;
   }
@@ -99,7 +101,9 @@ export default function ModeSelect() {
     if (!modeInitialized) return;
     if (currentMode === 'standalone') {
       Taro.reLaunch({
-        url: hasLocalAuthSync() ? '/pages/standalone-unlock/index' : '/pages/standalone-setup/index',
+        url: hasLocalAuthSync()
+          ? '/pages/standalone-unlock/index'
+          : '/pages/standalone-setup/index',
       });
     } else {
       // 联机模式：跳转到 index 页面，由 useAuthStore.init 判断状态
@@ -114,7 +118,8 @@ export default function ModeSelect() {
     if (!cryptoAvailable) {
       Taro.showModal({
         title: '当前环境不支持单机模式',
-        content: '当前小程序运行时未提供完整的 WebCrypto API，本地加解密无法工作。请改用联机模式连接服务器，或使用 DustNote Web / 桌面端。',
+        content:
+          '当前小程序运行时未提供完整的 WebCrypto API，本地加解密无法工作。请改用联机模式连接服务器，或使用 DustNote Web / 桌面端。',
         showCancel: false,
         confirmText: '我知道了',
       });

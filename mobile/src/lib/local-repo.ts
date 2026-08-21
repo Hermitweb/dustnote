@@ -151,10 +151,8 @@ export class LocalRepository implements DataRepository {
       keyVersion: input.keyVersion ?? cur.keyVersion,
       isPinned: input.isPinned ?? cur.isPinned,
       isFavorite: input.isFavorite ?? cur.isFavorite,
-      folderId:
-        input.folderId !== undefined ? input.folderId : cur.folderId,
-      deletedAt:
-        input.deletedAt !== undefined ? input.deletedAt : cur.deletedAt,
+      folderId: input.folderId !== undefined ? input.folderId : cur.folderId,
+      deletedAt: input.deletedAt !== undefined ? input.deletedAt : cur.deletedAt,
       version: nextVersion,
       clientUpdatedAt: nowIso(),
       serverUpdatedAt: nowIso(),
@@ -236,9 +234,7 @@ export class LocalRepository implements DataRepository {
       icon: input.icon ?? null,
       sortOrder: 0,
       createdAt: ts,
-      depth: input.parentId
-        ? (folders.find((f) => f.id === input.parentId)?.depth ?? 1) + 1
-        : 1,
+      depth: input.parentId ? (folders.find((f) => f.id === input.parentId)?.depth ?? 1) + 1 : 1,
       branch: input.parentId
         ? (folders.find((f) => f.id === input.parentId)?.branch ?? null)
         : (input.branch ?? null),

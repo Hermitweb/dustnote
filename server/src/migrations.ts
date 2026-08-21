@@ -395,9 +395,10 @@ export const migrations: Migration[] = [
       `);
 
       // 回填 depth：按 parent 链向上计数。深度很浅（规范限制 ≤2），简单循环即可。
-      const all = db
-        .prepare('SELECT id, parent_id FROM folders')
-        .all() as { id: string; parent_id: string | null }[];
+      const all = db.prepare('SELECT id, parent_id FROM folders').all() as {
+        id: string;
+        parent_id: string | null;
+      }[];
       const byId = new Map(all.map((f) => [f.id, f]));
       const computeDepth = (start: { id: string; parent_id: string | null }): number => {
         let d = 1;
@@ -417,7 +418,9 @@ export const migrations: Migration[] = [
       }
 
       // 既有顶层文件夹若无分支，默认归为 'work'（保持向后兼容；新创建强制分支）。
-      db.prepare(`UPDATE folders SET branch = 'work' WHERE parent_id IS NULL AND branch IS NULL`).run();
+      db.prepare(
+        `UPDATE folders SET branch = 'work' WHERE parent_id IS NULL AND branch IS NULL`
+      ).run();
       db.exec(`UPDATE meta SET value = '12' WHERE key = 'schema_version';`);
     },
   },

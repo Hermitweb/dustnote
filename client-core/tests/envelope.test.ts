@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  encryptNote,
-  decryptNote,
-  parseEnvelope,
-  ENVELOPE_VERSION,
-} from '../src/envelope.js';
+import { encryptNote, decryptNote, parseEnvelope, ENVELOPE_VERSION } from '../src/envelope.js';
 import type { CryptoBackend } from '../src/crypto-backend.js';
 import type { Ciphertext } from '@dustnote/shared';
 

@@ -9,4 +9,4 @@
  * vitest 的 Assertion / AsymmetricMatchersContaining 接口追加
  * TestingLibraryMatchers，import 该模块即应用类型增强。
  */
-import '@testing-library/jest-dom/vitest'
+import '@testing-library/jest-dom/vitest';

@@ -25,11 +25,7 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
-import {
-  noteAad,
-  type NoteRow,
-  type Folder,
-} from '@dustnote/shared';
+import { noteAad, type NoteRow, type Folder } from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
@@ -68,7 +64,13 @@ export function NotesListScreen() {
   // 创建 Repository（按当前模式分流）
   // mode 可能因 hydrated 延迟而短暂为 null，使用 ?? 'online' 兜底避免类型错误
   const repo = useMemo(
-    () => createRepository({ mode: mode ?? 'online', serverUrl: null, accessToken: null, deviceId: null }),
+    () =>
+      createRepository({
+        mode: mode ?? 'online',
+        serverUrl: null,
+        accessToken: null,
+        deviceId: null,
+      }),
     [mode]
   );
 
@@ -155,7 +157,16 @@ export function NotesListScreen() {
   return (
     <View style={styles.container}>
       {/* 顶部搜索栏 + 快捷入口 */}
-      <View style={[styles.searchBar, layout.isTablet && { maxWidth: layout.maxContentWidth, alignSelf: 'center', width: '100%' }]}>
+      <View
+        style={[
+          styles.searchBar,
+          layout.isTablet && {
+            maxWidth: layout.maxContentWidth,
+            alignSelf: 'center',
+            width: '100%',
+          },
+        ]}
+      >
         <TextInput
           style={styles.searchInput}
           placeholder="🔍 搜索笔记…"
@@ -177,16 +188,51 @@ export function NotesListScreen() {
       {/* 筛选 / 排序栏（v2.4.4 新增） */}
       <View style={styles.filterBar}>
         <View style={styles.chipRow}>
-          <FilterChip label="全部" active={tab === 'all'} onPress={() => setTab('all')} colors={colors} />
-          <FilterChip label="⭐ 收藏" active={tab === 'fav'} onPress={() => setTab('fav')} colors={colors} />
+          <FilterChip
+            label="全部"
+            active={tab === 'all'}
+            onPress={() => setTab('all')}
+            colors={colors}
+          />
+          <FilterChip
+            label="⭐ 收藏"
+            active={tab === 'fav'}
+            onPress={() => setTab('fav')}
+            colors={colors}
+          />
           <View style={{ flex: 1 }} />
-          <FilterChip label="⏱ 时间" active={sortBy === 'time'} onPress={() => setSortBy('time')} colors={colors} />
-          <FilterChip label="🔤 标题" active={sortBy === 'title'} onPress={() => setSortBy('title')} colors={colors} />
-          <FilterChip label="🔢 字数" active={sortBy === 'words'} onPress={() => setSortBy('words')} colors={colors} />
+          <FilterChip
+            label="⏱ 时间"
+            active={sortBy === 'time'}
+            onPress={() => setSortBy('time')}
+            colors={colors}
+          />
+          <FilterChip
+            label="🔤 标题"
+            active={sortBy === 'title'}
+            onPress={() => setSortBy('title')}
+            colors={colors}
+          />
+          <FilterChip
+            label="🔢 字数"
+            active={sortBy === 'words'}
+            onPress={() => setSortBy('words')}
+            colors={colors}
+          />
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderRow}>
-          <FilterChip label="📂 全部文件夹" active={folderFilter === 'all'} onPress={() => setFolderFilter('all')} colors={colors} />
-          <FilterChip label="📄 未分类" active={folderFilter === 'none'} onPress={() => setFolderFilter('none')} colors={colors} />
+          <FilterChip
+            label="📂 全部文件夹"
+            active={folderFilter === 'all'}
+            onPress={() => setFolderFilter('all')}
+            colors={colors}
+          />
+          <FilterChip
+            label="📄 未分类"
+            active={folderFilter === 'none'}
+            onPress={() => setFolderFilter('none')}
+            colors={colors}
+          />
           {folders.map((f) => (
             <FilterChip
               key={f.id}
@@ -241,7 +287,9 @@ export function NotesListScreen() {
         contentContainerStyle={{
           paddingBottom: 80,
           // 平板：限制内容宽度并居中，提升阅读体验
-          ...(layout.isTablet ? { maxWidth: layout.maxContentWidth, alignSelf: 'center', width: '100%' } : {}),
+          ...(layout.isTablet
+            ? { maxWidth: layout.maxContentWidth, alignSelf: 'center', width: '100%' }
+            : {}),
         }}
       />
 
@@ -294,10 +342,7 @@ export function NotesListScreen() {
 }
 
 // 根据当前颜色和响应式布局生成样式；仅在 isDark / 屏幕尺寸变化时重新创建
-function makeStyles(
-  c: ReturnType<typeof useColors>,
-  l: ReturnType<typeof useResponsiveLayout>
-) {
+function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useResponsiveLayout>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.bg },
     searchBar: {
@@ -359,7 +404,13 @@ function makeStyles(
     emptyEmoji: { fontSize: 48, marginBottom: 12 },
     emptyText: { fontSize: l.bodyFontSize + 2, color: c.fg, marginBottom: 4 },
     emptyHint: { fontSize: 12, color: c.muted },
-    retryBtn: { marginTop: 12, paddingHorizontal: 20, paddingVertical: 8, backgroundColor: c.mint600, borderRadius: 8 },
+    retryBtn: {
+      marginTop: 12,
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+      backgroundColor: c.mint600,
+      borderRadius: 8,
+    },
     retryText: { color: 'white', fontSize: l.bodyFontSize, fontWeight: '600' },
     fab: {
       position: 'absolute',
@@ -395,10 +446,7 @@ function FilterChip({
 }) {
   const styles = makeStyles(colors, useResponsiveLayout());
   return (
-    <TouchableOpacity
-      style={[styles.chip, active && styles.chipActive]}
-      onPress={onPress}
-    >
+    <TouchableOpacity style={[styles.chip, active && styles.chipActive]} onPress={onPress}>
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </TouchableOpacity>
   );

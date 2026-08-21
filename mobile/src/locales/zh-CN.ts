@@ -164,7 +164,8 @@ const zhCN = {
     mode_standalone: '单机模式',
     mode_online: '联机模式',
     switch_mode: '🔄 切换模式',
-    switch_mode_hint: '切换模式会迁移你的所有数据（笔记、文件夹、标签、偏好）。\n单机→联机：上传到服务器；联机→单机：下载到本地。',
+    switch_mode_hint:
+      '切换模式会迁移你的所有数据（笔记、文件夹、标签、偏好）。\n单机→联机：上传到服务器；联机→单机：下载到本地。',
     data_section: '数据',
     export: '📤 导出备份',
     import: '📥 导入备份',
@@ -181,7 +182,8 @@ const zhCN = {
     device_kicked: '设备已踢出',
     device_kick_failed: '踢出失败',
     delete_account: '🗑 删除账户',
-    delete_account_confirm_1: '将永久删除服务器上的全部数据：笔记、文件夹、标签、分享、设备、偏好。\n此操作不可恢复！建议先导出备份。\n\n确定继续？',
+    delete_account_confirm_1:
+      '将永久删除服务器上的全部数据：笔记、文件夹、标签、分享、设备、偏好。\n此操作不可恢复！建议先导出备份。\n\n确定继续？',
     delete_account_confirm_2: '最后确认：真的要删除账户吗？\n服务器数据将被彻底擦除，无法恢复。',
     delete_account_success: '账户已删除，服务器数据已擦除',
     delete_account_failed: '删除账户失败',
@@ -202,7 +204,8 @@ const zhCN = {
     import_hint: '粘贴备份 JSON 内容（导出时获得的 JSON 字符串）：',
     import_confirm: '确认导入（覆盖现有数据）',
     import_confirm_title: '确认导入',
-    import_confirm_detail: '将覆盖当前所有数据：\n笔记 {{notes}} 条\n文件夹 {{folders}} 个\n标签 {{tags}} 个\n\n继续？',
+    import_confirm_detail:
+      '将覆盖当前所有数据：\n笔记 {{notes}} 条\n文件夹 {{folders}} 个\n标签 {{tags}} 个\n\n继续？',
     import_success: '导入成功',
     import_success_detail: '数据已恢复，请重新加载应用',
     import_parse_failed: '解析失败',

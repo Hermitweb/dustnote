@@ -26,11 +26,11 @@
 
 DustNote 在 Windows 上提供三种安装方式，按需选择：
 
-| 方式 | 安装位置 | 管理员权限 | 适用场景 |
-|------|---------|-----------|---------|
-| MSI 安装包（推荐） | `Program Files\DustNote` | 需要 | 默认系统目录、企业批量部署、需自定义路径 |
-| 一键 Setup.exe | `%LocalAppData%\DustNote` | 不需要 | 无 UAC 权限、个人快速安装 |
-| 便携版 | 任意目录 | 不需要 | U 盘携带、免安装 |
+| 方式               | 安装位置                  | 管理员权限 | 适用场景                                 |
+| ------------------ | ------------------------- | ---------- | ---------------------------------------- |
+| MSI 安装包（推荐） | `Program Files\DustNote`  | 需要       | 默认系统目录、企业批量部署、需自定义路径 |
+| 一键 Setup.exe     | `%LocalAppData%\DustNote` | 不需要     | 无 UAC 权限、个人快速安装                |
+| 便携版             | 任意目录                  | 不需要     | U 盘携带、免安装                         |
 
 #### 方式一：MSI 安装包（推荐，默认 Program Files）
 
@@ -69,6 +69,7 @@ msiexec /i DustNote_2.4.4_x64-setup.msi /qn /L*v "C:\Logs\dustnote-install.log"
 ```
 
 > `msiexec` 常用参数：
+>
 > - `/i <msi>`：安装
 > - `/qn`：完全静默（无 UI）；`/qb`：仅显示进度条
 > - `/L*v <log>`：输出详细安装日志
@@ -133,18 +134,21 @@ msiexec /x DustNote_2.4.4_x64-setup.msi /qn
 ### 卸载后清理
 
 **MSI 卸载**（Windows Installer）会删除：
+
 - ✅ 程序文件（`C:\Program Files\DustNote\`）
 - ✅ 桌面与开始菜单快捷方式
 - ✅ HKLM 注册表卸载条目
 - ✅ 自动更新服务（Update.exe）
 
 **Setup.exe 卸载**（Velopack `Update.exe uninstall`）会删除：
+
 - ✅ 程序文件（`%LocalAppData%\DustNote\`）
 - ✅ 桌面与开始菜单快捷方式
 - ✅ HKCU 注册表卸载条目
 - ✅ 自动更新服务（Update.exe 自身）
 
 两种方式均需手动清理（按需）：
+
 - 用户数据：`%AppData%\DustNote\`（IndexedDB、本地密钥）
 - 系统托盘设置：Windows 通知中心缓存
 
@@ -255,11 +259,11 @@ rm -rf ~/.local/share/dustnote/
 
 #### 需要的权限
 
-| 权限 | 用途 | 何时申请 |
-|------|------|---------|
-| INTERNET | 联机模式同步数据 | 安装时声明 |
-| ACCESS_NETWORK_STATE | 检测网络状态 | 安装时声明 |
-| USE_BIOMETRIC | 生物识别解锁 | 首次使用时 |
+| 权限                  | 用途                        | 何时申请   |
+| --------------------- | --------------------------- | ---------- |
+| INTERNET              | 联机模式同步数据            | 安装时声明 |
+| ACCESS_NETWORK_STATE  | 检测网络状态                | 安装时声明 |
+| USE_BIOMETRIC         | 生物识别解锁                | 首次使用时 |
 | READ_EXTERNAL_STORAGE | 导入文件（Android 12 以下） | 首次导入时 |
 
 ### 卸载
@@ -268,6 +272,7 @@ rm -rf ~/.local/share/dustnote/
 2. 或：设置 → 应用 → DustNote → 卸载
 
 卸载后系统自动清除：
+
 - ✅ 应用沙盒内所有数据
 - ✅ 应用缓存
 - ✅ 应用权限
@@ -303,6 +308,7 @@ DustNote Web 端支持 PWA 安装，安装后可作为独立应用使用。
 3. 或：Chrome → `chrome://apps` → 右键 DustNote → 移除
 
 卸载后清理缓存：
+
 ```
 Chrome → 设置 → 隐私和安全 → 清除浏览数据 → 缓存的图片和文件
 ```
@@ -314,6 +320,7 @@ Chrome → 设置 → 隐私和安全 → 清除浏览数据 → 缓存的图片
 详见 [DEPLOY.md](../DEPLOY.md) 和 [docs/self-hosting.md](self-hosting.md)。
 
 快速部署：
+
 ```bash
 docker-compose up -d
 ```
@@ -338,6 +345,7 @@ DustNote 桌面端使用 [Velopack](https://velopack.io/) 实现自动更新：
 ### Web 端
 
 Service Worker 自动管理缓存更新：
+
 1. 发布新版本后，SW_VERSION 变更触发缓存更新
 2. 用户下次访问时自动加载新版本
 3. 前端检测到 SW 更新后提示用户刷新
@@ -350,13 +358,13 @@ Android 端通过设置 → 检查更新功能检查 GitHub Releases 上的新�
 
 ## 数据存储位置
 
-| 平台 | 单机模式数据 | 联机模式缓存 | 配置/偏好 |
-|------|------------|------------|----------|
-| Windows | `%AppData%\DustNote\` (IndexedDB) | 同左 | 同左 |
-| Linux | `~/.config/dustnote/` | 同左 | 同左 |
-| macOS | `~/Library/Application Support/DustNote/` | 同左 | 同左 |
-| Android | 应用沙盒 (AsyncStorage) | 同左 | 同左 |
-| Web | IndexedDB | IndexedDB | localStorage |
+| 平台    | 单机模式数据                              | 联机模式缓存 | 配置/偏好    |
+| ------- | ----------------------------------------- | ------------ | ------------ |
+| Windows | `%AppData%\DustNote\` (IndexedDB)         | 同左         | 同左         |
+| Linux   | `~/.config/dustnote/`                     | 同左         | 同左         |
+| macOS   | `~/Library/Application Support/DustNote/` | 同左         | 同左         |
+| Android | 应用沙盒 (AsyncStorage)                   | 同左         | 同左         |
+| Web     | IndexedDB                                 | IndexedDB    | localStorage |
 
 ### 加密密钥
 
@@ -374,25 +382,30 @@ Android 端通过设置 → 检查更新功能检查 GitHub Releases 上的新�
 如需在卸载后完全清除所有残留数据：
 
 #### Windows
+
 ```powershell
 Remove-Item -Recurse -Force "$env:APPDATA\DustNote"
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\DustNote"
 ```
 
 #### Linux
+
 ```bash
 rm -rf ~/.config/dustnote/
 rm -rf ~/.local/share/dustnote/
 ```
 
 #### macOS
+
 ```bash
 rm -rf ~/Library/Application\ Support/DustNote/
 rm -rf ~/Library/Caches/app.dustnote.desktop/
 ```
 
 #### Android
+
 卸载即自动清除所有数据（`allowBackup=false`）。
 
 #### Web
+
 清除浏览器中 DustNote 站点的所有数据（IndexedDB、localStorage、Cache Storage）。

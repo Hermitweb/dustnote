@@ -67,7 +67,14 @@ export async function verifyPassword(password: string, stored: string): Promise<
       const N = Number(nStr);
       const r = Number(rStr);
       const p = Number(pStr);
-      if (!Number.isInteger(N) || !Number.isInteger(r) || !Number.isInteger(p) || N < 2 || r < 1 || p < 1) {
+      if (
+        !Number.isInteger(N) ||
+        !Number.isInteger(r) ||
+        !Number.isInteger(p) ||
+        N < 2 ||
+        r < 1 ||
+        p < 1
+      ) {
         return false;
       }
       const salt = Buffer.from(saltB64, 'base64url');

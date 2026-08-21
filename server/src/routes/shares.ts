@@ -195,13 +195,7 @@ sharesRouter.delete('/shares/:id', (req, res) => {
     // 审计：分享吊销
     db.prepare(
       'INSERT INTO audit_log (user_id, device_id, event, ip_hash, meta) VALUES (?, ?, ?, ?, ?)'
-    ).run(
-      user.userId,
-      user.deviceId,
-      'share_revoke',
-      ipHash(req),
-      JSON.stringify({ shareId: id })
-    );
+    ).run(user.userId, user.deviceId, 'share_revoke', ipHash(req), JSON.stringify({ shareId: id }));
     return { ok: true as const };
   })();
   if (!result.ok) {
@@ -243,7 +237,10 @@ function readPassword(req: { query: unknown; body: unknown; method: string }): s
   return undefined;
 }
 
-async function handlePublicShareAccess(req: import('express').Request, res: import('express').Response): Promise<void> {
+async function handlePublicShareAccess(
+  req: import('express').Request,
+  res: import('express').Response
+): Promise<void> {
   try {
     const token = req.params.token;
     if (!token) {
@@ -317,12 +314,14 @@ async function handlePublicShareAccess(req: import('express').Request, res: impo
         // 先读后写在 await 两侧会被并发请求丢失更新，绕过锁定阈值。
         const next = recordFailureAtomic(db, 'shares', share.id);
         logger.warn(
-          { shareId: share.id, attempts: next.failedAttempts, locked: next.failedAttempts >= MAX_FAILED_ATTEMPTS },
+          {
+            shareId: share.id,
+            attempts: next.failedAttempts,
+            locked: next.failedAttempts >= MAX_FAILED_ATTEMPTS,
+          },
           '分享密码错误'
         );
-        const retryAfterMs = next.lockedUntil && isLocked(next)
-          ? LOCK_DURATION_MS
-          : 0;
+        const retryAfterMs = next.lockedUntil && isLocked(next) ? LOCK_DURATION_MS : 0;
         res.status(401).json({
           error: 'invalid_password',
           message: '密码错误',
@@ -331,9 +330,9 @@ async function handlePublicShareAccess(req: import('express').Request, res: impo
         return;
       }
       // 成功：清零失败计数
-      db.prepare(
-        'UPDATE shares SET failed_attempts = 0, locked_until = NULL WHERE id = ?'
-      ).run(share.id);
+      db.prepare('UPDATE shares SET failed_attempts = 0, locked_until = NULL WHERE id = ?').run(
+        share.id
+      );
     }
 
     // 更新查看次数
@@ -352,5 +351,11 @@ async function handlePublicShareAccess(req: import('express').Request, res: impo
   }
 }
 
-publicSharesRouter.get('/share/public/:token', (req, res) => void handlePublicShareAccess(req, res));
-publicSharesRouter.post('/share/public/:token', (req, res) => void handlePublicShareAccess(req, res));
+publicSharesRouter.get(
+  '/share/public/:token',
+  (req, res) => void handlePublicShareAccess(req, res)
+);
+publicSharesRouter.post(
+  '/share/public/:token',
+  (req, res) => void handlePublicShareAccess(req, res)
+);

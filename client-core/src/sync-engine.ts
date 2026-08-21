@@ -67,12 +67,7 @@ export interface FlushSummary {
 function defaultClassifyError(err: unknown): ErrorClass | null {
   // web ApiException: { err: { status, data } }
   const maybe = err as { err?: { status?: number; data?: unknown } };
-  if (
-    maybe &&
-    typeof maybe === 'object' &&
-    maybe.err &&
-    typeof maybe.err.status === 'number'
-  ) {
+  if (maybe && typeof maybe === 'object' && maybe.err && typeof maybe.err.status === 'number') {
     return { status: maybe.err.status, data: maybe.err.data };
   }
   // 网络故障（fetch 抛 TypeError）：无 HTTP 状态码

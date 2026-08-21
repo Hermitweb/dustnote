@@ -319,9 +319,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                   {/* 密钥藏在 fragment 里，这里只作示意——务必用「复制链接」拿完整地址 */}
                   <div className="mb-2 truncate font-mono text-xs text-surface-muted">
                     {location.origin}/share/{s.token}
-                    <span className="opacity-60">
-                      #&lt;{t('shares.link_hint_placeholder')}&gt;
-                    </span>
+                    <span className="opacity-60">#&lt;{t('shares.link_hint_placeholder')}&gt;</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-surface-muted">
                     <span>{t('shares.view_count', { count: s.viewCount })}</span>

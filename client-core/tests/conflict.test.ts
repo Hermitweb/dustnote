@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  resolveConflict,
-  toMergeable,
-  type MergeableNote,
-} from '../src/conflict.js';
+import { resolveConflict, toMergeable, type MergeableNote } from '../src/conflict.js';
 
 function mk(
   id: string,

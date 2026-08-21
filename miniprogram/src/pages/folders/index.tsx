@@ -81,9 +81,7 @@ export default function Folders() {
   const moving = movingId ? findFolder(movingId) : undefined;
   const movingHasChildren = moving ? folders.some((f) => f.parentId === moving.id) : false;
   const moveTargets = moving
-    ? folders.filter(
-        (f) => !isSelfOrDescendant(f.id, moving.id) && (f.depth ?? 1) < MAX_DEPTH
-      )
+    ? folders.filter((f) => !isSelfOrDescendant(f.id, moving.id) && (f.depth ?? 1) < MAX_DEPTH)
     : [];
 
   const handleCreate = async () => {
@@ -331,7 +329,10 @@ export default function Folders() {
               onConfirm={() => void submitRename()}
             />
             <View className="row gap-m">
-              <View className="mint-btn mint-btn-ghost flex-1" onClick={() => setRenameTarget(null)}>
+              <View
+                className="mint-btn mint-btn-ghost flex-1"
+                onClick={() => setRenameTarget(null)}
+              >
                 取消
               </View>
               <View

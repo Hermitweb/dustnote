@@ -27,10 +27,7 @@
  * （例如多实例 ApiClient），当前实现不直接使用。
  */
 
-import type {
-  DataRepository,
-  RepositoryFactoryOptions,
-} from '@dustnote/shared';
+import type { DataRepository, RepositoryFactoryOptions } from '@dustnote/shared';
 import { LocalRepository } from './local-repo';
 import { RemoteRepository } from './remote-repo';
 

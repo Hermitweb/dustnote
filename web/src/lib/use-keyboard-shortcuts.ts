@@ -17,11 +17,7 @@ import type { AuthState } from './store';
 function isInInput(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName.toLowerCase();
-  return (
-    tag === 'input' ||
-    tag === 'textarea' ||
-    target.isContentEditable
-  );
+  return tag === 'input' || tag === 'textarea' || target.isContentEditable;
 }
 
 /** 快捷键定义 */
@@ -134,7 +130,8 @@ export function useKeyboardShortcuts(authState: AuthState): void {
 
     // capture 阶段拦截，优先于 React 合成事件
     window.addEventListener('keydown', onKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', onKeyDown, { capture: true } as EventListenerOptions);
+    return () =>
+      window.removeEventListener('keydown', onKeyDown, { capture: true } as EventListenerOptions);
   }, [authState, desktop]);
 
   // 监听 Tauri 菜单事件（仅桌面端）

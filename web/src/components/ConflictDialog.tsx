@@ -98,19 +98,26 @@ export function ConflictDialog() {
         {/* 字段级 diff 列表 */}
         <div className="mb-4 space-y-3">
           {conflict.conflicts.map((c: FieldConflict, i: number) => (
-            <div key={`${c.field}-${i}`} className="rounded-xl border border-surface-border bg-surface-bg p-3">
+            <div
+              key={`${c.field}-${i}`}
+              className="rounded-xl border border-surface-border bg-surface-bg p-3"
+            >
               <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-muted">
                 {fieldLabel(c.field)}
               </div>
               <div className="space-y-1.5 text-sm">
                 <div className="flex gap-2">
-                  <span className="w-20 shrink-0 text-xs text-surface-muted">{t('conflict.my_version')}</span>
+                  <span className="w-20 shrink-0 text-xs text-surface-muted">
+                    {t('conflict.my_version')}
+                  </span>
                   <span className="flex-1 break-words rounded bg-mint-100/70 px-2 py-1 text-surface-fg dark:bg-mint-900/20">
                     {formatValue(c.field, c.localValue, t)}
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="w-20 shrink-0 text-xs text-surface-muted">{t('conflict.server_version')}</span>
+                  <span className="w-20 shrink-0 text-xs text-surface-muted">
+                    {t('conflict.server_version')}
+                  </span>
                   <span className="flex-1 break-words rounded bg-surface-card px-2 py-1 text-surface-fg ring-1 ring-surface-border">
                     {formatValue(c.field, c.serverValue, t)}
                   </span>
@@ -143,7 +150,9 @@ export function ConflictDialog() {
             disabled={resolving !== null}
             className="w-full rounded-lg border border-mint-400 px-4 py-2.5 text-sm font-medium text-mint-700 hover:bg-mint-50 disabled:opacity-50 dark:text-mint-300 dark:hover:bg-mint-900/20"
           >
-            {resolving === 'merged' ? t('conflict.resolving') : `${t('conflict.use_merged')} · ${t('conflict.merged_hint')}`}
+            {resolving === 'merged'
+              ? t('conflict.resolving')
+              : `${t('conflict.use_merged')} · ${t('conflict.merged_hint')}`}
           </button>
           <button
             onClick={() => dismissConflict(conflict.noteId)}

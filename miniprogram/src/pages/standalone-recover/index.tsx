@@ -135,10 +135,7 @@ export default function StandaloneRecover() {
         恢复成功后，旧恢复码和旧主密码都将失效
       </Text>
 
-      <View
-        className="hint-mint mt-l"
-        onClick={() => Taro.navigateBack({ delta: 1 })}
-      >
+      <View className="hint-mint mt-l" onClick={() => Taro.navigateBack({ delta: 1 })}>
         ← 返回解锁
       </View>
     </View>

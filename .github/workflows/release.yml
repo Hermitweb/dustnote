@@ -171,7 +171,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.5' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.6' }}
         run: |
           $ver = $env:VPK_VERSION -replace '^v', ''
           $stagingPath = 'desktop/src-tauri/staging'
@@ -194,7 +194,7 @@ jobs:
         # macOS/Linux vpk pack 依赖 .app bundle 或额外运行时资源，硬件平台受限
         continue-on-error: ${{ matrix.os != 'windows-latest' }}
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.5' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.6' }}
         # 一键 Setup.exe（PerUser，无需管理员）：
         #   - 安装位置：%LocalAppData%\DustNote
         #   - 快捷方式：--shortcuts 默认 "Desktop,StartMenuRoot"（桌面 + 开始菜单）
@@ -222,7 +222,7 @@ jobs:
         shell: bash
         continue-on-error: true
         env:
-          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.5' }}
+          VPK_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.6' }}
         # --msi                      生成 .msi（vpk 内置 WiX 5，无需单独安装）
         # --instLocation PerMachine  默认 Program Files\{publisher}\{packTitle}（HKLM，需提权）
         # -o Releases-msi            输出到独立目录，避免覆盖第一步的 RELEASES/delta.nupkg

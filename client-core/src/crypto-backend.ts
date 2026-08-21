@@ -43,11 +43,7 @@ export interface CryptoBackend {
     aad?: Uint8Array
   ): Promise<Ciphertext>;
   /** AES-GCM 解密字符串；AAD 不匹配抛错 */
-  decryptString(
-    key: Uint8Array,
-    blob: Ciphertext,
-    aad?: Uint8Array
-  ): Promise<string>;
+  decryptString(key: Uint8Array, blob: Ciphertext, aad?: Uint8Array): Promise<string>;
   /** 构造 AAD：`entityId||userId`，防密文重排 */
   noteAad(entityId: string, userId: string): Uint8Array;
 }

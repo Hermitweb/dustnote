@@ -15,12 +15,48 @@ import {
 
 type PlatformId = 'web' | 'desktop' | 'miniprogram' | 'android' | 'ios';
 
-const PLATFORMS: { id: PlatformId; icon: string; file: string; nameKey: string; descKey: string }[] = [
-  { id: 'web', icon: '🌐', file: 'dustnote-web-config.json', nameKey: 'admin.plat_web', descKey: 'admin.desc_web' },
-  { id: 'desktop', icon: '💻', file: 'dustnote-desktop-config.json', nameKey: 'admin.plat_desktop', descKey: 'admin.desc_desktop' },
-  { id: 'miniprogram', icon: '📱', file: 'dustnote-miniprogram.txt', nameKey: 'admin.plat_miniprogram', descKey: 'admin.desc_miniprogram' },
-  { id: 'android', icon: '🤖', file: 'dustnote-android-config.json', nameKey: 'admin.plat_android', descKey: 'admin.desc_android' },
-  { id: 'ios', icon: '🍎', file: 'dustnote-ios-config.json', nameKey: 'admin.plat_ios', descKey: 'admin.desc_ios' },
+const PLATFORMS: {
+  id: PlatformId;
+  icon: string;
+  file: string;
+  nameKey: string;
+  descKey: string;
+}[] = [
+  {
+    id: 'web',
+    icon: '🌐',
+    file: 'dustnote-web-config.json',
+    nameKey: 'admin.plat_web',
+    descKey: 'admin.desc_web',
+  },
+  {
+    id: 'desktop',
+    icon: '💻',
+    file: 'dustnote-desktop-config.json',
+    nameKey: 'admin.plat_desktop',
+    descKey: 'admin.desc_desktop',
+  },
+  {
+    id: 'miniprogram',
+    icon: '📱',
+    file: 'dustnote-miniprogram.txt',
+    nameKey: 'admin.plat_miniprogram',
+    descKey: 'admin.desc_miniprogram',
+  },
+  {
+    id: 'android',
+    icon: '🤖',
+    file: 'dustnote-android-config.json',
+    nameKey: 'admin.plat_android',
+    descKey: 'admin.desc_android',
+  },
+  {
+    id: 'ios',
+    icon: '🍎',
+    file: 'dustnote-ios-config.json',
+    nameKey: 'admin.plat_ios',
+    descKey: 'admin.desc_ios',
+  },
 ];
 
 export function AdminConfig({ onClose }: { onClose: () => void }) {
@@ -159,7 +195,9 @@ export function AdminConfig({ onClose }: { onClose: () => void }) {
                 <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
                   {t('admin.mp_warning_title')}
                 </p>
-                <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">{t('admin.mp_warning')}</p>
+                <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                  {t('admin.mp_warning')}
+                </p>
               </div>
 
               <div className="space-y-3">

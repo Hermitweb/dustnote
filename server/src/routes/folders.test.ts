@@ -81,12 +81,7 @@ afterAll(() => {
 });
 
 // 必须在 vi.mock 之后导入，才能拿到 mock 后的 getDb
-import {
-  resolveFolderMeta,
-  createFolder,
-  deleteFolder,
-  collectDescendantIds,
-} from './folders.js';
+import { resolveFolderMeta, createFolder, deleteFolder, collectDescendantIds } from './folders.js';
 
 describe('resolveFolderMeta（纯逻辑）', () => {
   it('顶层缺省分支为 null（无预设分支，由用户自由创建）', () => {
@@ -108,9 +103,10 @@ describe('createFolder（深度封顶 + 二元隔离）', () => {
     const res = mockRes();
     createFolder(mockReq({ name: '工作' }), res as never);
     expect(res.statusCode).toBe(201);
-    const row = testDb
-      .prepare('SELECT depth, branch FROM folders WHERE name = ?')
-      .get('工作') as { depth: number; branch: string | null };
+    const row = testDb.prepare('SELECT depth, branch FROM folders WHERE name = ?').get('工作') as {
+      depth: number;
+      branch: string | null;
+    };
     expect(row.depth).toBe(1);
     expect(row.branch).toBeNull();
   });
@@ -120,9 +116,10 @@ describe('createFolder（深度封顶 + 二元隔离）', () => {
     const res = mockRes();
     createFolder(mockReq({ name: '子夹', parentId: 'p1' }), res as never);
     expect(res.statusCode).toBe(201);
-    const row = testDb
-      .prepare('SELECT depth, branch FROM folders WHERE name = ?')
-      .get('子夹') as { depth: number; branch: string | null };
+    const row = testDb.prepare('SELECT depth, branch FROM folders WHERE name = ?').get('子夹') as {
+      depth: number;
+      branch: string | null;
+    };
     expect(row.depth).toBe(2);
     expect(row.branch).toBe('personal');
   });

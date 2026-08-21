@@ -183,12 +183,12 @@
 
 ## 7. 签字栏
 
-| 阶段       | 责任人         | 状态         | 日期       |
-| ---------- | -------------- | ------------ | ---------- |
-| 文档完整性 | PM + Tech Lead | ✅           | 2026-06-27 |
-| 工程实现   | 开发团队       | ✅ v2.0.0    | 2026-07-26 |
-| 安全审计   | 安全负责人     | ⏳ 待安排    | -          |
-| GA 决策    | 全员           | ⏳ 待 v2.0.0 GA | -       |
+| 阶段       | 责任人         | 状态            | 日期       |
+| ---------- | -------------- | --------------- | ---------- |
+| 文档完整性 | PM + Tech Lead | ✅              | 2026-06-27 |
+| 工程实现   | 开发团队       | ✅ v2.0.0       | 2026-07-26 |
+| 安全审计   | 安全负责人     | ⏳ 待安排       | -          |
+| GA 决策    | 全员           | ⏳ 待 v2.0.0 GA | -          |
 
 ---
 
@@ -200,14 +200,14 @@
 
 **理由**：
 
-| 维度         | MMKV                                          | AsyncStorage                              |
-| ------------ | --------------------------------------------- | ----------------------------------------- |
-| 性能         | 高（C++ 实现，同步 API）                      | 中（异步 API，JSON 序列化）               |
-| 原生模块编译 | 需 C++ 编译环境，Android NDK 配置复杂         | RN 内置，无需额外编译                     |
-| 跨平台一致性 | iOS / Android / HarmonyOS 均支持              | RN 全平台一致                             |
-| 安装成本     | 需 `react-native-mmkv` 依赖                   | RN 内置                                   |
-| 容量限制     | 无（基于 mmap）                               | 无（基于 SQLite / RocksDB）               |
-| 加密支持     | 内置 AES-256                                  | 不加密，依赖业务层加密                    |
+| 维度         | MMKV                                  | AsyncStorage                |
+| ------------ | ------------------------------------- | --------------------------- |
+| 性能         | 高（C++ 实现，同步 API）              | 中（异步 API，JSON 序列化） |
+| 原生模块编译 | 需 C++ 编译环境，Android NDK 配置复杂 | RN 内置，无需额外编译       |
+| 跨平台一致性 | iOS / Android / HarmonyOS 均支持      | RN 全平台一致               |
+| 安装成本     | 需 `react-native-mmkv` 依赖           | RN 内置                     |
+| 容量限制     | 无（基于 mmap）                       | 无（基于 SQLite / RocksDB） |
+| 加密支持     | 内置 AES-256                          | 不加密，依赖业务层加密      |
 
 **项目实际情况**：
 
@@ -257,7 +257,7 @@
   - [ ] [desktop/src-tauri/Cargo.toml](file:///e:/workspace/dustnote/desktop/src-tauri/Cargo.toml) version 2.0.0
   - [ ] [desktop/package.json](file:///e:/workspace/dustnote/desktop/package.json) version 2.0.0
   - [ ] Velopack GITHUB_REPO_URL = "https://github.com/Hermitweb/dustnote"
-  - [ ] [web/src/screens/PublicShareView.tsx](file:///e:/workspace/dustnote/web/src/screens/PublicShareView.tsx) 硬编码 '0.1.0' 改为 __APP_VERSION__
+  - [ ] [web/src/screens/PublicShareView.tsx](file:///e:/workspace/dustnote/web/src/screens/PublicShareView.tsx) 硬编码 '0.1.0' 改为 **APP_VERSION**
 
 - [ ] **Server 端**
   - [ ] [server/src/env.ts](file:///e:/workspace/dustnote/server/src/env.ts) serverVersion/minClientVersion/recommendedClientVersion 默认 2.0.0
@@ -295,8 +295,8 @@
 
 ### 8.3 跳过项（硬件限制）
 
-| 跳过项                   | 原因                          | 影响                                                  |
-| ------------------------ | ----------------------------- | ----------------------------------------------------- |
-| iOS 构建                 | 需 macOS + Xcode + Apple 签名 | iOS 无安装包；RN 代码已编写，未来可构建               |
-| macOS 桌面 vpk pack 实测 | 需 macOS 硬件                 | release.yml 已有 `continue-on-error: true`            |
-| iOS MMKV 实测            | 同上                          | AsyncStorage 跨平台一致，代码层面已支持               |
+| 跳过项                   | 原因                          | 影响                                       |
+| ------------------------ | ----------------------------- | ------------------------------------------ |
+| iOS 构建                 | 需 macOS + Xcode + Apple 签名 | iOS 无安装包；RN 代码已编写，未来可构建    |
+| macOS 桌面 vpk pack 实测 | 需 macOS 硬件                 | release.yml 已有 `continue-on-error: true` |
+| iOS MMKV 实测            | 同上                          | AsyncStorage 跨平台一致，代码层面已支持    |

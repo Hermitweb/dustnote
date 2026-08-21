@@ -463,614 +463,617 @@ export function Sidebar() {
         aria-hidden="true"
       />
       <aside className="fixed inset-y-0 left-0 z-40 flex h-full w-72 max-w-[85vw] flex-col border-r border-surface-border bg-surface-card sm:static sm:z-auto sm:max-w-none">
-      {/* 顶栏 */}
-      <div className="border-b border-surface-border p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-mint-100 dark:bg-mint-900/30">
-            <Logo className="h-6 w-6" alt="" />
-          </div>
-          <h1 className="flex-1 text-base font-bold text-surface-fg">{t('app.name')}</h1>
-          {/* 离线徽章：断网或有待同步操作时显示 */}
-          {(!isOnline || pendingCount > 0) && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-              title={
-                !isOnline
-                  ? `${t('sidebar.offline')} · ${pendingCount} ${t('sidebar.pending_sync')}`
-                  : `${pendingCount} ${t('sidebar.pending_sync')}`
-              }
-            >
-              {!isOnline && <span aria-hidden>⚠</span>}
-              <span>
-                {!isOnline
-                  ? `${t('sidebar.offline')}${pendingCount > 0 ? ` · ${pendingCount}` : ''}`
-                  : `${pendingCount} ${t('sidebar.pending_sync')}`}
-              </span>
-            </span>
-          )}
-        </div>
-        {!selecting && (
-          <div className="flex gap-1">
-            <button
-              onClick={() => {
-                void createNote(selectedFolderId);
-              }}
-              className="flex-1 rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
-            >
-              {t('app_bar.new_note')}
-            </button>
-            <button
-              onClick={() => setShowTemplatePicker(true)}
-              className="rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg transition-colors hover:bg-surface-sunken"
-              title={t('templates.open')}
-              aria-label={t('templates.open')}
-            >
-              📋
-            </button>
-          </div>
-        )}
-        {selecting && (
-          <button
-            onClick={exitSelect}
-            className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg hover:bg-surface-sunken"
-          >
-            {t('sidebar.exit_select')}
-          </button>
-        )}
-      </div>
-
-      <nav className="flex-1 overflow-y-auto p-2">
-        {/* 搜索框：客户端全文搜索（E2EE 下服务端无法检索密文） */}
-        <div className="mb-2 px-1">
-          <div className="relative">
-            <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-surface-muted">
-              🔍
-            </span>
-            <input
-              ref={searchInputRef}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t('app_bar.search')}
-              className="w-full rounded-lg border border-surface-border bg-surface-bg py-1.5 pl-7 pr-7 text-sm text-surface-fg placeholder-surface-muted focus:border-mint-400 focus:outline-none focus:ring-1 focus:ring-mint-400"
-              type="search"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-xs text-surface-muted hover:bg-surface-sunken hover:text-surface-fg"
-                title={t('common.cancel')}
-                type="button"
+        {/* 顶栏 */}
+        <div className="border-b border-surface-border p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-mint-100 dark:bg-mint-900/30">
+              <Logo className="h-6 w-6" alt="" />
+            </div>
+            <h1 className="flex-1 text-base font-bold text-surface-fg">{t('app.name')}</h1>
+            {/* 离线徽章：断网或有待同步操作时显示 */}
+            {(!isOnline || pendingCount > 0) && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                title={
+                  !isOnline
+                    ? `${t('sidebar.offline')} · ${pendingCount} ${t('sidebar.pending_sync')}`
+                    : `${pendingCount} ${t('sidebar.pending_sync')}`
+                }
               >
-                ✕
-              </button>
+                {!isOnline && <span aria-hidden>⚠</span>}
+                <span>
+                  {!isOnline
+                    ? `${t('sidebar.offline')}${pendingCount > 0 ? ` · ${pendingCount}` : ''}`
+                    : `${pendingCount} ${t('sidebar.pending_sync')}`}
+                </span>
+              </span>
             )}
           </div>
-          {normalizedQuery && (
-            <p className="mt-1 px-1 text-xs text-surface-muted">
-              {visibleNotes.length > 0
-                ? t('sidebar.matched', { count: visibleNotes.length })
-                : t('sidebar.no_match')}
-            </p>
+          {!selecting && (
+            <div className="flex gap-1">
+              <button
+                onClick={() => {
+                  void createNote(selectedFolderId);
+                }}
+                className="flex-1 rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
+              >
+                {t('app_bar.new_note')}
+              </button>
+              <button
+                onClick={() => setShowTemplatePicker(true)}
+                className="rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg transition-colors hover:bg-surface-sunken"
+                title={t('templates.open')}
+                aria-label={t('templates.open')}
+              >
+                📋
+              </button>
+            </div>
+          )}
+          {selecting && (
+            <button
+              onClick={exitSelect}
+              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg hover:bg-surface-sunken"
+            >
+              {t('sidebar.exit_select')}
+            </button>
           )}
         </div>
 
-        {/* 文件夹（用户自建，无预设分支）+ 扁平优先 + 层级拦截 */}
-        {viewMode !== 'trash' && (
-          <div className="mt-4">
-            <div className="mb-1 flex items-center justify-between px-2 text-xs font-semibold text-surface-muted">
-              <span>{t('sidebar.folders')}</span>
-              <button
-                onClick={() => {
-                  setNewFolderName('');
-                  setNewSubParent(null);
-                  setShowNewFolder(true);
-                }}
-                className="text-mint-600 hover:text-mint-700"
-                title={t('sidebar.add_folder')}
-              >
-                ＋
-              </button>
-            </div>
-
-            {/* 新建顶层文件夹输入框 */}
-            {showNewFolder && (
-              <div className="mb-2 flex gap-1 px-2">
-                <input
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  autoFocus
-                  placeholder={t('sidebar.folder_name_placeholder')}
-                  className="flex-1 rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void doCreateFolder(null);
-                    if (e.key === 'Escape') cancelNewFolder();
-                  }}
-                />
+        <nav className="flex-1 overflow-y-auto p-2">
+          {/* 搜索框：客户端全文搜索（E2EE 下服务端无法检索密文） */}
+          <div className="mb-2 px-1">
+            <div className="relative">
+              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-surface-muted">
+                🔍
+              </span>
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('app_bar.search')}
+                className="w-full rounded-lg border border-surface-border bg-surface-bg py-1.5 pl-7 pr-7 text-sm text-surface-fg placeholder-surface-muted focus:border-mint-400 focus:outline-none focus:ring-1 focus:ring-mint-400"
+                type="search"
+              />
+              {searchQuery && (
                 <button
-                  onClick={() => void doCreateFolder(null)}
-                  className="rounded bg-mint-600 px-2 py-1 text-xs font-medium text-white hover:bg-mint-700"
-                >
-                  ✓
-                </button>
-                <button
-                  onClick={cancelNewFolder}
-                  className="rounded border border-surface-border px-2 py-1 text-xs text-surface-muted hover:bg-surface-bg"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-xs text-surface-muted hover:bg-surface-sunken hover:text-surface-fg"
+                  title={t('common.cancel')}
+                  type="button"
                 >
                   ✕
                 </button>
+              )}
+            </div>
+            {normalizedQuery && (
+              <p className="mt-1 px-1 text-xs text-surface-muted">
+                {visibleNotes.length > 0
+                  ? t('sidebar.matched', { count: visibleNotes.length })
+                  : t('sidebar.no_match')}
+              </p>
+            )}
+          </div>
+
+          {/* 文件夹（用户自建，无预设分支）+ 扁平优先 + 层级拦截 */}
+          {viewMode !== 'trash' && (
+            <div className="mt-4">
+              <div className="mb-1 flex items-center justify-between px-2 text-xs font-semibold text-surface-muted">
+                <span>{t('sidebar.folders')}</span>
+                <button
+                  onClick={() => {
+                    setNewFolderName('');
+                    setNewSubParent(null);
+                    setShowNewFolder(true);
+                  }}
+                  className="text-mint-600 hover:text-mint-700"
+                  title={t('sidebar.add_folder')}
+                >
+                  ＋
+                </button>
               </div>
-            )}
 
-            {topFolders.length === 0 && !showNewFolder && (
-              <p className="px-2 text-xs text-surface-muted">{t('sidebar.empty_folders')}</p>
-            )}
-
-            {topFolders.map((f) => {
-              const children = childFolders(f.id);
-              const fNotes = directNotes(f.id);
-              const expanded = folderExpanded.has(f.id);
-              const hasContent = children.length > 0 || fNotes.length > 0;
-              const isActive = viewMode === 'all' && selectedFolderId === f.id;
-              return (
-                <div key={f.id}>
-                  <div
-                    className={`flex items-center rounded transition-colors ${
-                      isActive ? 'bg-mint-50 dark:bg-mint-900/30' : 'hover:bg-surface-bg'
-                    }`}
+              {/* 新建顶层文件夹输入框 */}
+              {showNewFolder && (
+                <div className="mb-2 flex gap-1 px-2">
+                  <input
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    autoFocus
+                    placeholder={t('sidebar.folder_name_placeholder')}
+                    className="flex-1 rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void doCreateFolder(null);
+                      if (e.key === 'Escape') cancelNewFolder();
+                    }}
+                  />
+                  <button
+                    onClick={() => void doCreateFolder(null)}
+                    className="rounded bg-mint-600 px-2 py-1 text-xs font-medium text-white hover:bg-mint-700"
                   >
-                    {hasContent && (
-                      <button
-                        onClick={() => toggleExpand(f.id)}
-                        className="flex h-7 w-6 flex-shrink-0 items-center justify-center text-surface-muted hover:text-surface-fg"
-                      >
-                        <Chevron expanded={expanded} />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        selectFolder(f.id);
-                        toggleExpand(f.id);
-                      }}
-                      onContextMenu={(e) =>
-                        openCtxMenu(e, {
-                          type: 'folder',
-                          id: f.id,
-                          name: f.name,
-                          parentId: f.parentId,
-                          depth: f.depth ?? 1,
-                        })
-                      }
-                      className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-left text-sm ${
-                        isActive
-                          ? 'font-semibold text-mint-700 dark:text-mint-300'
-                          : 'text-surface-fg'
+                    ✓
+                  </button>
+                  <button
+                    onClick={cancelNewFolder}
+                    className="rounded border border-surface-border px-2 py-1 text-xs text-surface-muted hover:bg-surface-bg"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {topFolders.length === 0 && !showNewFolder && (
+                <p className="px-2 text-xs text-surface-muted">{t('sidebar.empty_folders')}</p>
+              )}
+
+              {topFolders.map((f) => {
+                const children = childFolders(f.id);
+                const fNotes = directNotes(f.id);
+                const expanded = folderExpanded.has(f.id);
+                const hasContent = children.length > 0 || fNotes.length > 0;
+                const isActive = viewMode === 'all' && selectedFolderId === f.id;
+                return (
+                  <div key={f.id}>
+                    <div
+                      className={`flex items-center rounded transition-colors ${
+                        isActive ? 'bg-mint-50 dark:bg-mint-900/30' : 'hover:bg-surface-bg'
                       }`}
                     >
-                      <span>{f.icon ?? '📁'}</span>
-                      <span className="truncate">{f.name}</span>
-                      {fNotes.length > 0 && (
-                        <span className="text-xs text-surface-muted">{fNotes.length}</span>
+                      {hasContent && (
+                        <button
+                          onClick={() => toggleExpand(f.id)}
+                          className="flex h-7 w-6 flex-shrink-0 items-center justify-center text-surface-muted hover:text-surface-fg"
+                        >
+                          <Chevron expanded={expanded} />
+                        </button>
                       )}
-                    </button>
-                    {/* 仅一级文件夹可建子文件夹（二级即最深层，规范 §2.1） */}
-                    {(f.depth ?? 1) < 2 && (
                       <button
                         onClick={() => {
-                          setNewFolderName('');
-                          setShowNewFolder(false);
-                          setNewSubParent(f.id);
+                          selectFolder(f.id);
+                          toggleExpand(f.id);
                         }}
-                        className="flex-shrink-0 px-1.5 text-xs text-mint-600 hover:text-mint-700"
-                        title={t('sidebar.add_subfolder')}
-                      >
-                        ＋
-                      </button>
-                    )}
-                  </div>
-
-                  {/* 子文件夹新建输入框 */}
-                  {newSubParent === f.id && (
-                    <div className="mb-1 flex gap-1 px-2 pl-8">
-                      <input
-                        value={newFolderName}
-                        onChange={(e) => setNewFolderName(e.target.value)}
-                        autoFocus
-                        placeholder={t('sidebar.folder_name_placeholder')}
-                        className="flex-1 rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') void doCreateFolder(f.id);
-                          if (e.key === 'Escape') cancelNewFolder();
-                        }}
-                      />
-                      <button
-                        onClick={() => void doCreateFolder(f.id)}
-                        className="rounded bg-mint-600 px-2 py-1 text-xs font-medium text-white hover:bg-mint-700"
-                      >
-                        ✓
-                      </button>
-                      <button
-                        onClick={cancelNewFolder}
-                        className="rounded border border-surface-border px-2 py-1 text-xs text-surface-muted hover:bg-surface-bg"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-
-                  {/* 展开：直接笔记（平铺）+ 二级子文件夹 */}
-                  {expanded && (
-                    <>
-                      {fNotes.map((n) => renderNoteLeaf(n, 'pl-8'))}
-                      {children.map((c) => {
-                        const subNotes = directNotes(c.id);
-                        const subExpanded = folderExpanded.has(c.id);
-                        return (
-                          <div key={c.id}>
-                            <div className="flex items-center rounded pl-8 transition-colors hover:bg-surface-bg">
-                              {subNotes.length > 0 && (
-                                <button
-                                  onClick={() => toggleExpand(c.id)}
-                                  className="flex h-7 w-6 flex-shrink-0 items-center justify-center text-surface-muted hover:text-surface-fg"
-                                >
-                                  <Chevron expanded={subExpanded} />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  selectFolder(c.id);
-                                  toggleExpand(c.id);
-                                }}
-                                onContextMenu={(e) =>
-                                  openCtxMenu(e, {
-                                    type: 'folder',
-                                    id: c.id,
-                                    name: c.name,
-                                    parentId: c.parentId,
-                                    depth: c.depth ?? 2,
-                                  })
-                                }
-                                className={`flex min-w-0 flex-1 items-center gap-1.5 rounded py-1.5 pr-2 text-left text-sm ${
-                                  viewMode === 'all' && selectedFolderId === c.id
-                                    ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
-                                    : 'text-surface-fg'
-                                }`}
-                              >
-                                <span>{c.icon ?? '📁'}</span>
-                                <span className="truncate">{c.name}</span>
-                                {subNotes.length > 0 && (
-                                  <span className="text-xs text-surface-muted">
-                                    {subNotes.length}
-                                  </span>
-                                )}
-                              </button>
-                            </div>
-                            {subExpanded && subNotes.map((n) => renderNoteLeaf(n, 'pl-12'))}
-                          </div>
-                        );
-                      })}
-                    </>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* 未分类笔记 */}
-            {unfiledNotes.length > 0 && (
-              <div className="mt-2">
-                <div className="mb-1 px-2 text-xs font-semibold text-surface-muted">
-                  {t('sidebar.unfiled')}
-                </div>
-                {unfiledNotes.map((n) => renderNoteLeaf(n, 'pl-6'))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 笔记列表（仅在收藏/回收站/搜索时显示） */}
-        {showNoteList && (
-        <div className="mt-4">
-          <div className="mb-1 flex items-center justify-between gap-2 px-2">
-            <span className="text-xs font-semibold text-surface-muted">
-              {normalizedQuery
-                ? `${t('sidebar.matched')} (${visibleNotes.length})`
-                : isTrash
-                  ? `${t('sidebar.trash')} (${visibleNotes.length})`
-                  : `${t('sidebar.favorites')} (${visibleNotes.length})`}
-            </span>
-            {!isTrash && visibleNotes.length > 0 && (
-              <select
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value as 'updated' | 'title' | 'words')}
-                className="rounded border border-surface-border bg-surface-bg px-1 py-0.5 text-xs text-surface-fg focus:outline-none"
-                title={t('sidebar.sort_label')}
-              >
-                <option value="updated">{t('sidebar.sort_updated')}</option>
-                <option value="title">{t('sidebar.sort_title')}</option>
-                <option value="words">{t('sidebar.sort_words')}</option>
-              </select>
-            )}
-            {visibleNotes.length > 0 && (
-              <button
-                onClick={() => {
-                  if (selecting) exitSelect();
-                  else setSelecting(true);
-                  toggleAll();
-                }}
-                className="text-xs text-mint-600 hover:text-mint-700"
-              >
-                {selecting
-                  ? hasAll
-                    ? t('sidebar.deselect_all')
-                    : t('sidebar.select_all')
-                  : t('sidebar.select')}
-              </button>
-            )}
-          </div>
-          {visibleNotes.length === 0 ? (
-            <p className="px-2 text-xs text-surface-muted">
-              {isTrash
-                ? t('sidebar.trash_empty')
-                : viewMode === 'favorites'
-                  ? t('sidebar.favorites_empty')
-                  : t('sidebar.notes_empty')}
-            </p>
-          ) : (
-            visibleNotes.slice(0, 50).map((n) => {
-              const plain = notesPlain.get(n.id);
-              const checked = selectedIds.has(n.id);
-              return (
-                <div
-                  key={n.id}
-                  className={`group relative rounded ${checked ? 'bg-mint-100/80 dark:bg-mint-900/20' : ''}`}
-                >
-                  <div className="flex items-center">
-                    {selecting && (
-                      <button
-                        onClick={() => toggleSelect(n.id)}
-                        className={`ml-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${
-                          checked
-                            ? 'border-mint-600 bg-mint-600 text-white'
-                            : 'border-surface-border hover:border-mint-400'
+                        onContextMenu={(e) =>
+                          openCtxMenu(e, {
+                            type: 'folder',
+                            id: f.id,
+                            name: f.name,
+                            parentId: f.parentId,
+                            depth: f.depth ?? 1,
+                          })
+                        }
+                        className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-left text-sm ${
+                          isActive
+                            ? 'font-semibold text-mint-700 dark:text-mint-300'
+                            : 'text-surface-fg'
                         }`}
                       >
-                        {checked && '✓'}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => (selecting ? toggleSelect(n.id) : selectNote(n.id))}
-                      className={`block w-full truncate rounded px-2 py-1.5 text-left text-sm transition-colors ${
-                        !selecting && selectedNoteId === n.id
-                          ? 'bg-mint-50 dark:bg-mint-900/30'
-                          : 'hover:bg-surface-bg'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        {n.isPinned && <span className="text-xs">📌</span>}
-                        {n.isFavorite && <span className="text-xs">⭐</span>}
-                        {plain ? (
-                          <HighlightedTitle
-                            title={plain.title}
-                            matchedTokens={searchHits.get(n.id)}
-                          />
-                        ) : (
-                          <span className="truncate text-surface-fg">...</span>
+                        <span>{f.icon ?? '📁'}</span>
+                        <span className="truncate">{f.name}</span>
+                        {fNotes.length > 0 && (
+                          <span className="text-xs text-surface-muted">{fNotes.length}</span>
                         )}
-                      </div>
-                    </button>
-                  </div>
-                  {!selecting && isTrash && (
-                    <div className="absolute right-1 top-1 hidden gap-1 group-hover:flex">
-                      <button
-                        title={t('sidebar.restore')}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void restoreNote(n.id);
-                        }}
-                        className="rounded bg-surface-bg p-1 text-xs text-mint-600 hover:bg-mint-50 dark:hover:bg-mint-900/30"
-                      >
-                        ↩️
                       </button>
-                      <button
-                        title={t('sidebar.perm_delete')}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // 弹样式化确认弹窗（替代原生 confirm()）
-                          setPermDeleteNoteId(n.id);
-                        }}
-                        className="rounded bg-surface-bg p-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
-                      >
-                        🗑️
-                      </button>
+                      {/* 仅一级文件夹可建子文件夹（二级即最深层，规范 §2.1） */}
+                      {(f.depth ?? 1) < 2 && (
+                        <button
+                          onClick={() => {
+                            setNewFolderName('');
+                            setShowNewFolder(false);
+                            setNewSubParent(f.id);
+                          }}
+                          className="flex-shrink-0 px-1.5 text-xs text-mint-600 hover:text-mint-700"
+                          title={t('sidebar.add_subfolder')}
+                        >
+                          ＋
+                        </button>
+                      )}
                     </div>
-                  )}
+
+                    {/* 子文件夹新建输入框 */}
+                    {newSubParent === f.id && (
+                      <div className="mb-1 flex gap-1 px-2 pl-8">
+                        <input
+                          value={newFolderName}
+                          onChange={(e) => setNewFolderName(e.target.value)}
+                          autoFocus
+                          placeholder={t('sidebar.folder_name_placeholder')}
+                          className="flex-1 rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void doCreateFolder(f.id);
+                            if (e.key === 'Escape') cancelNewFolder();
+                          }}
+                        />
+                        <button
+                          onClick={() => void doCreateFolder(f.id)}
+                          className="rounded bg-mint-600 px-2 py-1 text-xs font-medium text-white hover:bg-mint-700"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          onClick={cancelNewFolder}
+                          className="rounded border border-surface-border px-2 py-1 text-xs text-surface-muted hover:bg-surface-bg"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+
+                    {/* 展开：直接笔记（平铺）+ 二级子文件夹 */}
+                    {expanded && (
+                      <>
+                        {fNotes.map((n) => renderNoteLeaf(n, 'pl-8'))}
+                        {children.map((c) => {
+                          const subNotes = directNotes(c.id);
+                          const subExpanded = folderExpanded.has(c.id);
+                          return (
+                            <div key={c.id}>
+                              <div className="flex items-center rounded pl-8 transition-colors hover:bg-surface-bg">
+                                {subNotes.length > 0 && (
+                                  <button
+                                    onClick={() => toggleExpand(c.id)}
+                                    className="flex h-7 w-6 flex-shrink-0 items-center justify-center text-surface-muted hover:text-surface-fg"
+                                  >
+                                    <Chevron expanded={subExpanded} />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    selectFolder(c.id);
+                                    toggleExpand(c.id);
+                                  }}
+                                  onContextMenu={(e) =>
+                                    openCtxMenu(e, {
+                                      type: 'folder',
+                                      id: c.id,
+                                      name: c.name,
+                                      parentId: c.parentId,
+                                      depth: c.depth ?? 2,
+                                    })
+                                  }
+                                  className={`flex min-w-0 flex-1 items-center gap-1.5 rounded py-1.5 pr-2 text-left text-sm ${
+                                    viewMode === 'all' && selectedFolderId === c.id
+                                      ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
+                                      : 'text-surface-fg'
+                                  }`}
+                                >
+                                  <span>{c.icon ?? '📁'}</span>
+                                  <span className="truncate">{c.name}</span>
+                                  {subNotes.length > 0 && (
+                                    <span className="text-xs text-surface-muted">
+                                      {subNotes.length}
+                                    </span>
+                                  )}
+                                </button>
+                              </div>
+                              {subExpanded && subNotes.map((n) => renderNoteLeaf(n, 'pl-12'))}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* 未分类笔记 */}
+              {unfiledNotes.length > 0 && (
+                <div className="mt-2">
+                  <div className="mb-1 px-2 text-xs font-semibold text-surface-muted">
+                    {t('sidebar.unfiled')}
+                  </div>
+                  {unfiledNotes.map((n) => renderNoteLeaf(n, 'pl-6'))}
                 </div>
-              );
-            })
-          )}
-        </div>
-        )}
-
-      </nav>
-
-      {/* 收藏 / 回收站：固定在左侧栏底部，一左一右 */}
-      <div className="border-t border-surface-border p-2">
-        <div className="flex gap-1">
-          <button
-            onClick={() => setViewMode('favorites')}
-            className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
-              viewMode === 'favorites'
-                ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
-                : 'text-surface-fg hover:bg-surface-bg'
-            }`}
-          >
-            <span>⭐</span>
-            <span>{t('sidebar.favorites')}</span>
-          </button>
-          <button
-            onClick={() => setViewMode('trash')}
-            className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
-              viewMode === 'trash'
-                ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
-                : 'text-surface-fg hover:bg-surface-bg'
-            }`}
-          >
-            <span>🗑️</span>
-            <span>
-              {t('sidebar.trash')}
-              {trashCount > 0 ? ` (${trashCount})` : ''}
-            </span>
-          </button>
-        </div>
-        {isTrash && trashCount > 0 && (
-          <button
-            onClick={() => setShowEmptyTrashConfirm(true)}
-            className="mt-1 w-full rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300"
-          >
-            {t('sidebar.empty_trash')}
-          </button>
-        )}
-      </div>
-
-      {/* 批量操作栏 */}
-      {selecting && selCount > 0 && (
-        <div className="border-t border-surface-border bg-surface-card p-2">
-          <div className="mb-2 text-center text-xs text-surface-muted">
-            {t('sidebar.selected_count', { count: selCount })}
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {viewMode !== 'trash' && (
-              <>
-                <BatchBtn
-                  label={t('sidebar.batch.move')}
-                  onClick={() => setShowMoveDialog(true)}
-                />
-                <BatchBtn label={t('sidebar.batch.pin')} onClick={() => batchAction('pin')} />
-                <BatchBtn label={t('sidebar.batch.unpin')} onClick={() => batchAction('unpin')} />
-                <BatchBtn label={t('sidebar.batch.fav')} onClick={() => batchAction('fav')} />
-                <BatchBtn label={t('sidebar.batch.unfav')} onClick={() => batchAction('unfav')} />
-              </>
-            )}
-            {isTrash ? (
-              <>
-                <BatchBtn
-                  label={t('sidebar.batch.restore')}
-                  onClick={() => batchAction('restore')}
-                  variant="mint"
-                />
-                <BatchBtn
-                  label={t('sidebar.batch.perm_delete')}
-                  onClick={() => batchAction('permdelete')}
-                  variant="danger"
-                />
-              </>
-            ) : (
-              <BatchBtn
-                label={t('sidebar.batch.delete')}
-                onClick={() => batchAction('delete')}
-                variant="danger"
-              />
-            )}
-          </div>
-        </div>
-      )}
-
-      {showTemplatePicker && (
-        <TemplatePicker onClose={() => setShowTemplatePicker(false)} />
-      )}
-
-      {showMoveDialog && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
-          onClick={() => setShowMoveDialog(false)}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl bg-surface-card p-4 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="mb-3 text-sm font-semibold text-surface-fg">
-              {t('sidebar.batch.move')} ({selCount})
-            </h3>
-            <div className="max-h-60 space-y-1 overflow-y-auto">
-              <button
-                onClick={() => {
-                  void batchAction('move', null);
-                  setShowMoveDialog(false);
-                }}
-                className="block w-full rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
-              >
-                📝 {t('editor.unfiled')}
-              </button>
-              {folders.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => {
-                    void batchAction('move', f.id);
-                    setShowMoveDialog(false);
-                  }}
-                  className="block w-full truncate rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
-                >
-                  {f.icon ?? '📁'} {f.name}
-                </button>
-              ))}
+              )}
             </div>
+          )}
+
+          {/* 笔记列表（仅在收藏/回收站/搜索时显示） */}
+          {showNoteList && (
+            <div className="mt-4">
+              <div className="mb-1 flex items-center justify-between gap-2 px-2">
+                <span className="text-xs font-semibold text-surface-muted">
+                  {normalizedQuery
+                    ? `${t('sidebar.matched')} (${visibleNotes.length})`
+                    : isTrash
+                      ? `${t('sidebar.trash')} (${visibleNotes.length})`
+                      : `${t('sidebar.favorites')} (${visibleNotes.length})`}
+                </span>
+                {!isTrash && visibleNotes.length > 0 && (
+                  <select
+                    value={sortKey}
+                    onChange={(e) => setSortKey(e.target.value as 'updated' | 'title' | 'words')}
+                    className="rounded border border-surface-border bg-surface-bg px-1 py-0.5 text-xs text-surface-fg focus:outline-none"
+                    title={t('sidebar.sort_label')}
+                  >
+                    <option value="updated">{t('sidebar.sort_updated')}</option>
+                    <option value="title">{t('sidebar.sort_title')}</option>
+                    <option value="words">{t('sidebar.sort_words')}</option>
+                  </select>
+                )}
+                {visibleNotes.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (selecting) exitSelect();
+                      else setSelecting(true);
+                      toggleAll();
+                    }}
+                    className="text-xs text-mint-600 hover:text-mint-700"
+                  >
+                    {selecting
+                      ? hasAll
+                        ? t('sidebar.deselect_all')
+                        : t('sidebar.select_all')
+                      : t('sidebar.select')}
+                  </button>
+                )}
+              </div>
+              {visibleNotes.length === 0 ? (
+                <p className="px-2 text-xs text-surface-muted">
+                  {isTrash
+                    ? t('sidebar.trash_empty')
+                    : viewMode === 'favorites'
+                      ? t('sidebar.favorites_empty')
+                      : t('sidebar.notes_empty')}
+                </p>
+              ) : (
+                visibleNotes.slice(0, 50).map((n) => {
+                  const plain = notesPlain.get(n.id);
+                  const checked = selectedIds.has(n.id);
+                  return (
+                    <div
+                      key={n.id}
+                      className={`group relative rounded ${checked ? 'bg-mint-100/80 dark:bg-mint-900/20' : ''}`}
+                    >
+                      <div className="flex items-center">
+                        {selecting && (
+                          <button
+                            onClick={() => toggleSelect(n.id)}
+                            className={`ml-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${
+                              checked
+                                ? 'border-mint-600 bg-mint-600 text-white'
+                                : 'border-surface-border hover:border-mint-400'
+                            }`}
+                          >
+                            {checked && '✓'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => (selecting ? toggleSelect(n.id) : selectNote(n.id))}
+                          className={`block w-full truncate rounded px-2 py-1.5 text-left text-sm transition-colors ${
+                            !selecting && selectedNoteId === n.id
+                              ? 'bg-mint-50 dark:bg-mint-900/30'
+                              : 'hover:bg-surface-bg'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            {n.isPinned && <span className="text-xs">📌</span>}
+                            {n.isFavorite && <span className="text-xs">⭐</span>}
+                            {plain ? (
+                              <HighlightedTitle
+                                title={plain.title}
+                                matchedTokens={searchHits.get(n.id)}
+                              />
+                            ) : (
+                              <span className="truncate text-surface-fg">...</span>
+                            )}
+                          </div>
+                        </button>
+                      </div>
+                      {!selecting && isTrash && (
+                        <div className="absolute right-1 top-1 hidden gap-1 group-hover:flex">
+                          <button
+                            title={t('sidebar.restore')}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void restoreNote(n.id);
+                            }}
+                            className="rounded bg-surface-bg p-1 text-xs text-mint-600 hover:bg-mint-50 dark:hover:bg-mint-900/30"
+                          >
+                            ↩️
+                          </button>
+                          <button
+                            title={t('sidebar.perm_delete')}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // 弹样式化确认弹窗（替代原生 confirm()）
+                              setPermDeleteNoteId(n.id);
+                            }}
+                            className="rounded bg-surface-bg p-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </nav>
+
+        {/* 收藏 / 回收站：固定在左侧栏底部，一左一右 */}
+        <div className="border-t border-surface-border p-2">
+          <div className="flex gap-1">
             <button
-              onClick={() => setShowMoveDialog(false)}
-              className="mt-3 w-full rounded-lg border border-surface-border px-3 py-2 text-xs text-surface-muted hover:bg-surface-bg"
+              onClick={() => setViewMode('favorites')}
+              className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
+                viewMode === 'favorites'
+                  ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
+                  : 'text-surface-fg hover:bg-surface-bg'
+              }`}
             >
-              {t('common.cancel')}
+              <span>⭐</span>
+              <span>{t('sidebar.favorites')}</span>
+            </button>
+            <button
+              onClick={() => setViewMode('trash')}
+              className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
+                viewMode === 'trash'
+                  ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
+                  : 'text-surface-fg hover:bg-surface-bg'
+              }`}
+            >
+              <span>🗑️</span>
+              <span>
+                {t('sidebar.trash')}
+                {trashCount > 0 ? ` (${trashCount})` : ''}
+              </span>
             </button>
           </div>
+          {isTrash && trashCount > 0 && (
+            <button
+              onClick={() => setShowEmptyTrashConfirm(true)}
+              className="mt-1 w-full rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300"
+            >
+              {t('sidebar.empty_trash')}
+            </button>
+          )}
         </div>
-      )}
 
-      {/* 批量删除/永久删除确认弹窗（替代原生 confirm()） */}
-      {pendingBatchAction && (
-        <ConfirmDialog
-          title={pendingBatchAction === 'permdelete' ? t('sidebar.perm_delete') : t('sidebar.batch.delete')}
-          message={batchConfirmMsg}
-          confirmLabel={pendingBatchAction === 'permdelete' ? t('sidebar.perm_delete') : t('common.delete')}
-          variant="danger"
-          onConfirm={() => {
-            const action = pendingBatchAction;
-            setPendingBatchAction(null);
-            void doBatchAction(action);
-          }}
-          onCancel={() => setPendingBatchAction(null)}
-        />
-      )}
+        {/* 批量操作栏 */}
+        {selecting && selCount > 0 && (
+          <div className="border-t border-surface-border bg-surface-card p-2">
+            <div className="mb-2 text-center text-xs text-surface-muted">
+              {t('sidebar.selected_count', { count: selCount })}
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {viewMode !== 'trash' && (
+                <>
+                  <BatchBtn
+                    label={t('sidebar.batch.move')}
+                    onClick={() => setShowMoveDialog(true)}
+                  />
+                  <BatchBtn label={t('sidebar.batch.pin')} onClick={() => batchAction('pin')} />
+                  <BatchBtn label={t('sidebar.batch.unpin')} onClick={() => batchAction('unpin')} />
+                  <BatchBtn label={t('sidebar.batch.fav')} onClick={() => batchAction('fav')} />
+                  <BatchBtn label={t('sidebar.batch.unfav')} onClick={() => batchAction('unfav')} />
+                </>
+              )}
+              {isTrash ? (
+                <>
+                  <BatchBtn
+                    label={t('sidebar.batch.restore')}
+                    onClick={() => batchAction('restore')}
+                    variant="mint"
+                  />
+                  <BatchBtn
+                    label={t('sidebar.batch.perm_delete')}
+                    onClick={() => batchAction('permdelete')}
+                    variant="danger"
+                  />
+                </>
+              ) : (
+                <BatchBtn
+                  label={t('sidebar.batch.delete')}
+                  onClick={() => batchAction('delete')}
+                  variant="danger"
+                />
+              )}
+            </div>
+          </div>
+        )}
 
-      {/* 清空回收站确认弹窗 */}
-      {showEmptyTrashConfirm && (
-        <ConfirmDialog
-          title={t('sidebar.empty_trash')}
-          message={t('sidebar.confirm_empty_trash', { count: trashCount })}
-          confirmLabel={t('sidebar.empty_trash')}
-          variant="danger"
-          onConfirm={() => {
-            setShowEmptyTrashConfirm(false);
-            void emptyTrash();
-          }}
-          onCancel={() => setShowEmptyTrashConfirm(false)}
-        />
-      )}
+        {showTemplatePicker && <TemplatePicker onClose={() => setShowTemplatePicker(false)} />}
 
-      {/* 单条永久删除确认弹窗 */}
-      {permDeleteNoteId && (
-        <ConfirmDialog
-          title={t('sidebar.perm_delete')}
-          message={t('sidebar.confirm_permdelete', { count: 1 })}
-          confirmLabel={t('sidebar.perm_delete')}
-          variant="danger"
-          onConfirm={() => {
-            const id = permDeleteNoteId;
-            setPermDeleteNoteId(null);
-            void permanentDeleteNote(id);
-          }}
-          onCancel={() => setPermDeleteNoteId(null)}
-        />
-      )}
+        {showMoveDialog && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+            onClick={() => setShowMoveDialog(false)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="w-full max-w-sm rounded-2xl bg-surface-card p-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="mb-3 text-sm font-semibold text-surface-fg">
+                {t('sidebar.batch.move')} ({selCount})
+              </h3>
+              <div className="max-h-60 space-y-1 overflow-y-auto">
+                <button
+                  onClick={() => {
+                    void batchAction('move', null);
+                    setShowMoveDialog(false);
+                  }}
+                  className="block w-full rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
+                >
+                  📝 {t('editor.unfiled')}
+                </button>
+                {folders.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => {
+                      void batchAction('move', f.id);
+                      setShowMoveDialog(false);
+                    }}
+                    className="block w-full truncate rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
+                  >
+                    {f.icon ?? '📁'} {f.name}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowMoveDialog(false)}
+                className="mt-3 w-full rounded-lg border border-surface-border px-3 py-2 text-xs text-surface-muted hover:bg-surface-bg"
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 批量删除/永久删除确认弹窗（替代原生 confirm()） */}
+        {pendingBatchAction && (
+          <ConfirmDialog
+            title={
+              pendingBatchAction === 'permdelete'
+                ? t('sidebar.perm_delete')
+                : t('sidebar.batch.delete')
+            }
+            message={batchConfirmMsg}
+            confirmLabel={
+              pendingBatchAction === 'permdelete' ? t('sidebar.perm_delete') : t('common.delete')
+            }
+            variant="danger"
+            onConfirm={() => {
+              const action = pendingBatchAction;
+              setPendingBatchAction(null);
+              void doBatchAction(action);
+            }}
+            onCancel={() => setPendingBatchAction(null)}
+          />
+        )}
+
+        {/* 清空回收站确认弹窗 */}
+        {showEmptyTrashConfirm && (
+          <ConfirmDialog
+            title={t('sidebar.empty_trash')}
+            message={t('sidebar.confirm_empty_trash', { count: trashCount })}
+            confirmLabel={t('sidebar.empty_trash')}
+            variant="danger"
+            onConfirm={() => {
+              setShowEmptyTrashConfirm(false);
+              void emptyTrash();
+            }}
+            onCancel={() => setShowEmptyTrashConfirm(false)}
+          />
+        )}
+
+        {/* 单条永久删除确认弹窗 */}
+        {permDeleteNoteId && (
+          <ConfirmDialog
+            title={t('sidebar.perm_delete')}
+            message={t('sidebar.confirm_permdelete', { count: 1 })}
+            confirmLabel={t('sidebar.perm_delete')}
+            variant="danger"
+            onConfirm={() => {
+              const id = permDeleteNoteId;
+              setPermDeleteNoteId(null);
+              void permanentDeleteNote(id);
+            }}
+            onCancel={() => setPermDeleteNoteId(null)}
+          />
+        )}
       </aside>
 
       {/* 右键菜单 */}
@@ -1139,7 +1142,11 @@ export function Sidebar() {
                 />
                 <MenuItem label={t('sidebar.ctx.export')} onClick={() => void doExportTarget()} />
                 <div className="my-1 border-t border-surface-border" />
-                <MenuItem label={t('sidebar.ctx.delete')} danger onClick={() => void doDeleteTarget()} />
+                <MenuItem
+                  label={t('sidebar.ctx.delete')}
+                  danger
+                  onClick={() => void doDeleteTarget()}
+                />
               </>
             )}
             {ctxMenu.target.type === 'note' && (
@@ -1161,7 +1168,11 @@ export function Sidebar() {
                 />
                 <MenuItem label={t('sidebar.ctx.export')} onClick={() => void doExportTarget()} />
                 <div className="my-1 border-t border-surface-border" />
-                <MenuItem label={t('sidebar.ctx.delete')} danger onClick={() => void doDeleteTarget()} />
+                <MenuItem
+                  label={t('sidebar.ctx.delete')}
+                  danger
+                  onClick={() => void doDeleteTarget()}
+                />
               </>
             )}
           </div>
@@ -1219,9 +1230,7 @@ export function Sidebar() {
             className="w-full max-w-sm rounded-2xl bg-surface-card p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="mb-3 text-sm font-semibold text-surface-fg">
-              {t('sidebar.ctx.move')}
-            </h3>
+            <h3 className="mb-3 text-sm font-semibold text-surface-fg">{t('sidebar.ctx.move')}</h3>
             <div className="max-h-64 space-y-1 overflow-y-auto">
               <button
                 onClick={() => void doMoveTarget(null)}
@@ -1312,12 +1321,19 @@ function Chevron({ expanded }: { expanded: boolean }) {
 
 /** 清理文件名非法字符 */
 function safeFileName(name: string): string {
-  const s = name.replace(/[\\/:*?"<>|]/g, '-').replace(/\.\.+/g, '.').replace(/^\.+/, '').slice(0, 60);
+  const s = name
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/\.\.+/g, '.')
+    .replace(/^\.+/, '')
+    .slice(0, 60);
   return s || 'untitled';
 }
 
 /** 收集某文件夹及其后代的所有 id（含自身） */
-function collectFolderIds(folders: { id: string; parentId: string | null }[], rootId: string): Set<string> {
+function collectFolderIds(
+  folders: { id: string; parentId: string | null }[],
+  rootId: string
+): Set<string> {
   const set = new Set<string>([rootId]);
   const stack = [rootId];
   while (stack.length) {

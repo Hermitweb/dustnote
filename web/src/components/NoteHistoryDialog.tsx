@@ -63,7 +63,11 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
       if (!r.headers.get('content-type')?.includes('application/json')) {
         throw new Error('unexpected_response');
       }
-      const data = (await r.json()) as { versions?: VersionRow[]; error?: string; message?: string };
+      const data = (await r.json()) as {
+        versions?: VersionRow[];
+        error?: string;
+        message?: string;
+      };
       if (!r.ok) {
         throw new Error(data.message ?? data.error ?? r.statusText);
       }
@@ -143,23 +147,20 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
     setSuccess(null);
     try {
       const { accessToken } = useStore.getState();
-      const r = await fetch(
-        `${apiBase()}/notes/${noteId}/versions/${selectedId}/restore`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Client-Platform': 'web',
-            'X-Client-Version': __APP_VERSION__,
-            'X-Client-Device-Id': getDeviceId(),
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            version: currentVersion,
-            clientUpdatedAt: new Date().toISOString(),
-          }),
-        }
-      );
+      const r = await fetch(`${apiBase()}/notes/${noteId}/versions/${selectedId}/restore`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-Platform': 'web',
+          'X-Client-Version': __APP_VERSION__,
+          'X-Client-Device-Id': getDeviceId(),
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          version: currentVersion,
+          clientUpdatedAt: new Date().toISOString(),
+        }),
+      });
       const data = (await r.json()) as { error?: string; message?: string; version?: number };
       if (!r.ok) {
         throw new Error(data.message ?? data.error ?? r.statusText);
@@ -196,7 +197,9 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
           {/* 版本列表 */}
           <div className="w-56 overflow-y-auto border-r border-surface-border p-2">
             {loadingList ? (
-              <div className="p-4 text-center text-sm text-surface-muted">{t('history.loading')}</div>
+              <div className="p-4 text-center text-sm text-surface-muted">
+                {t('history.loading')}
+              </div>
             ) : versions && versions.length > 0 ? (
               versions.map((v) => (
                 <button

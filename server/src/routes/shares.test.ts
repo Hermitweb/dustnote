@@ -72,7 +72,7 @@ beforeEach(() => {
 
 describe('shares schema (migration id=11)', () => {
   it('failed_attempts and locked_until columns exist', () => {
-    const cols = testDb.prepare("PRAGMA table_info(shares)").all() as { name: string }[];
+    const cols = testDb.prepare('PRAGMA table_info(shares)').all() as { name: string }[];
     const names = cols.map((c) => c.name);
     expect(names).toContain('failed_attempts');
     expect(names).toContain('locked_until');
@@ -81,18 +81,25 @@ describe('shares schema (migration id=11)', () => {
 
 describe('share creation + audit_log', () => {
   it('writes audit_log entry with share_create event on INSERT', () => {
-    testDb.prepare(
-      `INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key)
+    testDb
+      .prepare(
+        `INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key)
        VALUES (?, ?, ?, ?, ?, ?)`
-    ).run('share-1', 'note-1', 'user-1', 'tok-1', 'cipher', 'wrapped');
+      )
+      .run('share-1', 'note-1', 'user-1', 'tok-1', 'cipher', 'wrapped');
 
-    testDb.prepare(
-      'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
-    ).run('user-1', 'dev-1', 'share_create', JSON.stringify({ shareId: 'share-1', hasPassword: false }));
+    testDb
+      .prepare('INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)')
+      .run(
+        'user-1',
+        'dev-1',
+        'share_create',
+        JSON.stringify({ shareId: 'share-1', hasPassword: false })
+      );
 
-    const log = testDb.prepare('SELECT event, meta FROM audit_log WHERE event = ?').get('share_create') as
-      | { event: string; meta: string }
-      | undefined;
+    const log = testDb
+      .prepare('SELECT event, meta FROM audit_log WHERE event = ?')
+      .get('share_create') as { event: string; meta: string } | undefined;
     expect(log).toBeDefined();
     expect(JSON.parse(log!.meta).shareId).toBe('share-1');
   });
@@ -100,23 +107,29 @@ describe('share creation + audit_log', () => {
 
 describe('share revocation + audit_log', () => {
   it('writes audit_log entry with share_revoke event on UPDATE', () => {
-    testDb.prepare(
-      `INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key)
+    testDb
+      .prepare(
+        `INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key)
        VALUES (?, ?, ?, ?, ?, ?)`
-    ).run('share-2', 'note-1', 'user-1', 'tok-2', 'cipher', 'wrapped');
+      )
+      .run('share-2', 'note-1', 'user-1', 'tok-2', 'cipher', 'wrapped');
 
-    testDb.prepare('UPDATE shares SET revoked = 1 WHERE id = ? AND user_id = ?').run('share-2', 'user-1');
+    testDb
+      .prepare('UPDATE shares SET revoked = 1 WHERE id = ? AND user_id = ?')
+      .run('share-2', 'user-1');
 
-    testDb.prepare(
-      'INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)'
-    ).run('user-1', 'dev-1', 'share_revoke', JSON.stringify({ shareId: 'share-2' }));
+    testDb
+      .prepare('INSERT INTO audit_log (user_id, device_id, event, meta) VALUES (?, ?, ?, ?)')
+      .run('user-1', 'dev-1', 'share_revoke', JSON.stringify({ shareId: 'share-2' }));
 
-    const share = testDb.prepare('SELECT revoked FROM shares WHERE id = ?').get('share-2') as { revoked: number };
+    const share = testDb.prepare('SELECT revoked FROM shares WHERE id = ?').get('share-2') as {
+      revoked: number;
+    };
     expect(share.revoked).toBe(1);
 
-    const log = testDb.prepare('SELECT event FROM audit_log WHERE event = ?').get('share_revoke') as
-      | { event: string }
-      | undefined;
+    const log = testDb
+      .prepare('SELECT event FROM audit_log WHERE event = ?')
+      .get('share_revoke') as { event: string } | undefined;
     expect(log).toBeDefined();
     expect(log!.event).toBe('share_revoke');
   });
@@ -124,24 +137,32 @@ describe('share revocation + audit_log', () => {
 
 describe('share password lockout (migration id=11)', () => {
   it('failed_attempts can be incremented and reset', () => {
-    testDb.prepare(
-      `INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key, password_hash)
+    testDb
+      .prepare(
+        `INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key, password_hash)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run('share-3', 'note-1', 'user-1', 'tok-3', 'cipher', 'wrapped', 'hashed-pw');
+      )
+      .run('share-3', 'note-1', 'user-1', 'tok-3', 'cipher', 'wrapped', 'hashed-pw');
 
     // 模拟 3 次失败
     for (let i = 1; i <= 3; i++) {
       testDb.prepare('UPDATE shares SET failed_attempts = ? WHERE id = ?').run(i, 'share-3');
     }
-    let share = testDb.prepare('SELECT failed_attempts, locked_until FROM shares WHERE id = ?').get('share-3') as {
+    let share = testDb
+      .prepare('SELECT failed_attempts, locked_until FROM shares WHERE id = ?')
+      .get('share-3') as {
       failed_attempts: number;
       locked_until: string | null;
     };
     expect(share.failed_attempts).toBe(3);
 
     // 模拟成功后重置
-    testDb.prepare('UPDATE shares SET failed_attempts = 0, locked_until = NULL WHERE id = ?').run('share-3');
-    share = testDb.prepare('SELECT failed_attempts, locked_until FROM shares WHERE id = ?').get('share-3') as {
+    testDb
+      .prepare('UPDATE shares SET failed_attempts = 0, locked_until = NULL WHERE id = ?')
+      .run('share-3');
+    share = testDb
+      .prepare('SELECT failed_attempts, locked_until FROM shares WHERE id = ?')
+      .get('share-3') as {
       failed_attempts: number;
       locked_until: string | null;
     };
@@ -150,15 +171,21 @@ describe('share password lockout (migration id=11)', () => {
   });
 
   it('locked_until can be set and queried', () => {
-    testDb.prepare(
-      `INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key, password_hash)
+    testDb
+      .prepare(
+        `INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key, password_hash)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run('share-4', 'note-1', 'user-1', 'tok-4', 'cipher', 'wrapped', 'hashed-pw');
+      )
+      .run('share-4', 'note-1', 'user-1', 'tok-4', 'cipher', 'wrapped', 'hashed-pw');
 
     const future = new Date(Date.now() + 15 * 60_000).toISOString();
-    testDb.prepare('UPDATE shares SET failed_attempts = 6, locked_until = ? WHERE id = ?').run(future, 'share-4');
+    testDb
+      .prepare('UPDATE shares SET failed_attempts = 6, locked_until = ? WHERE id = ?')
+      .run(future, 'share-4');
 
-    const share = testDb.prepare('SELECT failed_attempts, locked_until FROM shares WHERE id = ?').get('share-4') as {
+    const share = testDb
+      .prepare('SELECT failed_attempts, locked_until FROM shares WHERE id = ?')
+      .get('share-4') as {
       failed_attempts: number;
       locked_until: string;
     };

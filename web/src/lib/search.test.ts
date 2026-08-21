@@ -35,7 +35,10 @@ describe('tokenize', () => {
 describe('SearchIndex', () => {
   let index: SearchIndex;
   const notes = new Map<string, NotePlaintext>([
-    ['n1', { title: 'React 学习笔记', content: '今天学习了 React hooks', tags: ['react', 'frontend'] }],
+    [
+      'n1',
+      { title: 'React 学习笔记', content: '今天学习了 React hooks', tags: ['react', 'frontend'] },
+    ],
     ['n2', { title: 'Vue 入门', content: 'Vue 是一个渐进式框架', tags: ['vue', 'frontend'] }],
     ['n3', { title: '日记', content: '今天天气真好，去公园散步', tags: ['life'] }],
   ]);

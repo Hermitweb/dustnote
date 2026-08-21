@@ -88,10 +88,7 @@ export function Editor() {
           try {
             const { dataUrl, alt } = await fileToImageDataUrl(file);
             const md = buildMarkdownImage(dataUrl, alt);
-            const { value, selectionStart, selectionEnd } = insertAtCursor(
-              textarea,
-              md
-            );
+            const { value, selectionStart, selectionEnd } = insertAtCursor(textarea, md);
             setContent(value);
             // 等 React 更新 textarea 后恢复光标
             requestAnimationFrame(() => {
@@ -99,9 +96,7 @@ export function Editor() {
               textarea.selectionEnd = selectionEnd;
             });
           } catch (err) {
-            toast.error(
-              t('editor.image_insert_fail', { reason: (err as Error).message })
-            );
+            toast.error(t('editor.image_insert_fail', { reason: (err as Error).message }));
           }
         }
         return true;
@@ -200,7 +195,8 @@ export function Editor() {
       const lineStart = content.lastIndexOf('\n', selectionStart - 1) + 1;
       const lineEnd = content.indexOf('\n', selectionEnd);
       const end = lineEnd === -1 ? content.length : lineEnd;
-      const next = content.slice(0, lineStart) + prefix + content.slice(lineStart, end) + content.slice(end);
+      const next =
+        content.slice(0, lineStart) + prefix + content.slice(lineStart, end) + content.slice(end);
       setContent(next);
       requestAnimationFrame(() => {
         textarea.focus();
@@ -336,12 +332,42 @@ export function Editor() {
         {/* Markdown 格式工具栏（回收站只读时禁用） */}
         {viewMode !== 'trash' && (
           <div className="ml-2 flex items-center gap-0.5 border-l border-surface-border pl-2">
-            <FmtBtn label="B" title={t('editor.format_bold')} disabled={mode === 'preview'} onClick={() => wrapSelection('**', '**', t('editor.fmt_bold_text'))} />
-            <FmtBtn label="I" title={t('editor.format_italic')} disabled={mode === 'preview'} onClick={() => wrapSelection('*', '*', t('editor.fmt_italic_text'))} />
-            <FmtBtn label="🔗" title={t('editor.format_link')} disabled={mode === 'preview'} onClick={() => wrapSelection('[', '](url)', t('editor.fmt_link_text'))} />
-            <FmtBtn label="•" title={t('editor.format_list')} disabled={mode === 'preview'} onClick={() => insertLinePrefix('- ')} />
-            <FmtBtn label="❝" title={t('editor.format_quote')} disabled={mode === 'preview'} onClick={() => insertLinePrefix('> ')} />
-            <FmtBtn label="</>" title={t('editor.format_code')} disabled={mode === 'preview'} onClick={() => insertBlock('```\n', '\n```\n')} />
+            <FmtBtn
+              label="B"
+              title={t('editor.format_bold')}
+              disabled={mode === 'preview'}
+              onClick={() => wrapSelection('**', '**', t('editor.fmt_bold_text'))}
+            />
+            <FmtBtn
+              label="I"
+              title={t('editor.format_italic')}
+              disabled={mode === 'preview'}
+              onClick={() => wrapSelection('*', '*', t('editor.fmt_italic_text'))}
+            />
+            <FmtBtn
+              label="🔗"
+              title={t('editor.format_link')}
+              disabled={mode === 'preview'}
+              onClick={() => wrapSelection('[', '](url)', t('editor.fmt_link_text'))}
+            />
+            <FmtBtn
+              label="•"
+              title={t('editor.format_list')}
+              disabled={mode === 'preview'}
+              onClick={() => insertLinePrefix('- ')}
+            />
+            <FmtBtn
+              label="❝"
+              title={t('editor.format_quote')}
+              disabled={mode === 'preview'}
+              onClick={() => insertLinePrefix('> ')}
+            />
+            <FmtBtn
+              label="</>"
+              title={t('editor.format_code')}
+              disabled={mode === 'preview'}
+              onClick={() => insertBlock('```\n', '\n```\n')}
+            />
           </div>
         )}
 
@@ -425,7 +451,9 @@ export function Editor() {
                         </button>
                       ))}
                       {folders.length === 0 && (
-                        <p className="px-3 py-1.5 text-xs text-surface-muted">{t('editor.no_folders')}</p>
+                        <p className="px-3 py-1.5 text-xs text-surface-muted">
+                          {t('editor.no_folders')}
+                        </p>
                       )}
                     </div>
                   </>
@@ -468,9 +496,7 @@ export function Editor() {
               {/* B-8 语音输入 */}
               <VoiceInputButton onInsert={insertTextAtCursor} />
               {imageProcessing && (
-                <span className="text-xs text-surface-muted">
-                  {t('editor.image_processing')}
-                </span>
+                <span className="text-xs text-surface-muted">{t('editor.image_processing')}</span>
               )}
               <button
                 onClick={() => setShowDeleteConfirm(true)}
@@ -517,7 +543,9 @@ export function Editor() {
               className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
               dangerouslySetInnerHTML={{
                 // 导入的 .md/.docx 也会走到这里，同样按不可信内容处理
-                __html: sanitizeHtml(marked.parse(content || `*${t('editor.empty_content')}*`) as string),
+                __html: sanitizeHtml(
+                  marked.parse(content || `*${t('editor.empty_content')}*`) as string
+                ),
               }}
             />
           </div>

@@ -40,11 +40,11 @@ pnpm build
 
 ## 打包产物
 
-| 平台    | 说明 |
-| ------- | ---- |
+| 平台    | 说明                                                                                                                                                                                                                                    |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Windows | 正式发布由 GitHub Actions `release.yml` 产出：Velopack `DustNote_<版本>_x64-setup.exe`（一键安装 + 内置 Velopack 自动更新）、`DustNote_<版本>_x64-setup.msi`（可选，WiX/MSI 生成失败时缺失）、`DustNote_<版本>_x64-portable.zip` 便携版 |
-| macOS   | 尽力而为构建（CI `continue-on-error`）：仅产出裸二进制 `dustnote-desktop`；`.dmg`/`.app` 打包待完善 |
-| Linux   | 尽力而为构建（CI `continue-on-error`）：仅产出裸二进制 `dustnote-desktop`；`.AppImage`/`.deb` 打包待完善 |
+| macOS   | 尽力而为构建（CI `continue-on-error`）：仅产出裸二进制 `dustnote-desktop`；`.dmg`/`.app` 打包待完善                                                                                                                                     |
+| Linux   | 尽力而为构建（CI `continue-on-error`）：仅产出裸二进制 `dustnote-desktop`；`.AppImage`/`.deb` 打包待完善                                                                                                                                |
 
 > 说明：`tauri.conf.json` 中 `bundle.active = false`，本地 `pnpm build` 仅产出
 > `src-tauri/target/release/dustnote-desktop(.exe)` 可执行文件，不生成安装包；

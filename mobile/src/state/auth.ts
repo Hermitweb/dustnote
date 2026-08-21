@@ -441,9 +441,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       await saveLockoutState(newState);
       set({ lockoutState: newState });
       if (isLocked(newState)) {
-        throw new Error(
-          `密码错误次数过多，账号已锁定 ${LOCAL_LOCKOUT_DURATION_MS / 60000} 分钟`
-        );
+        throw new Error(`密码错误次数过多，账号已锁定 ${LOCAL_LOCKOUT_DURATION_MS / 60000} 分钟`);
       }
       throw new Error('主密码错误');
     }
@@ -740,6 +738,9 @@ async function runPendingMigration(): Promise<void> {
   } catch (err) {
     // 网络等失败：wrappedOldMasterKey 已持久化，下次解锁自动重试
     console.warn('[auth] 待迁移数据导入失败，将在下次解锁时重试', err);
-    Alert.alert('数据迁移', '迁移未完成（' + (err as Error).message + '），将在下次解锁时自动重试。');
+    Alert.alert(
+      '数据迁移',
+      '迁移未完成（' + (err as Error).message + '），将在下次解锁时自动重试。'
+    );
   }
 }

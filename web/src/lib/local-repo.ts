@@ -141,9 +141,7 @@ export class LocalRepository implements DataRepository {
       icon: input.icon ?? null,
       sortOrder: folders.length,
       createdAt: new Date().toISOString(),
-      depth: input.parentId
-        ? (folders.find((f) => f.id === input.parentId)?.depth ?? 1) + 1
-        : 1,
+      depth: input.parentId ? (folders.find((f) => f.id === input.parentId)?.depth ?? 1) + 1 : 1,
       branch: input.parentId
         ? (folders.find((f) => f.id === input.parentId)?.branch ?? null)
         : (input.branch ?? null),
@@ -164,9 +162,7 @@ export class LocalRepository implements DataRepository {
     const parent = parentId ? folders.find((f) => f.id === parentId) : undefined;
     const depth = parent ? (parent.depth ?? 1) + 1 : 1;
     const branch = parent ? (parent.branch ?? null) : null;
-    const next = folders.map((f) =>
-      f.id === id ? { ...f, parentId, depth, branch } : f
-    );
+    const next = folders.map((f) => (f.id === id ? { ...f, parentId, depth, branch } : f));
     await set(KEYS.folders, next);
   }
 
@@ -239,11 +235,6 @@ export class LocalRepository implements DataRepository {
   }
 
   async clearBusinessData(): Promise<void> {
-    await Promise.all([
-      del(KEYS.notes),
-      del(KEYS.folders),
-      del(KEYS.tags),
-      del(KEYS.preferences),
-    ]);
+    await Promise.all([del(KEYS.notes), del(KEYS.folders), del(KEYS.tags), del(KEYS.preferences)]);
   }
 }

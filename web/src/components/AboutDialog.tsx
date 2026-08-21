@@ -15,9 +15,8 @@ import { Logo } from './Logo';
 
 /** 打开外部 URL：Tauri 下走 opener 插件，Web 下走 window.open */
 async function openExternalUrl(url: string): Promise<void> {
-  const openUrlFn = (
-    window as unknown as { __dustnoteOpenUrl?: (url: string) => Promise<void> }
-  ).__dustnoteOpenUrl;
+  const openUrlFn = (window as unknown as { __dustnoteOpenUrl?: (url: string) => Promise<void> })
+    .__dustnoteOpenUrl;
   if (isTauri() && openUrlFn) {
     try {
       await openUrlFn(url);
@@ -69,7 +68,8 @@ export function AboutDialog({ onClose }: Props) {
         <div className="space-y-2 rounded-lg border border-surface-border bg-surface-bg p-3 text-center">
           <div className="text-sm text-surface-fg">{t('settings.about_line')}</div>
           <div className="font-mono text-xs text-surface-muted">
-            {t('settings.version')}: {typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'}
+            {t('settings.version')}:{' '}
+            {typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'}
           </div>
           <div className="text-xs text-surface-muted">{t('settings.tech_stack')}</div>
           <div className="pt-1 text-xs text-surface-muted">© 2026 DustNote Team</div>

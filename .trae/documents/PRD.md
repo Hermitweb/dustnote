@@ -264,32 +264,32 @@ v2.0.0 引入**单机/联机双模式架构**：
 
 ### 9.2 核心需求
 
-| 需求 ID | 需求描述 | 优先级 |
-|---------|---------|--------|
-| DM-1 | 首次启动提供模式选择 UI，明确告知两种模式差异 | P0 |
-| DM-2 | 单机模式支持完整 CRUD（笔记/文件夹/标签/偏好） | P0 |
-| DM-3 | 单机模式主密码 setup/unlock/recover 全流程 | P0 |
-| DM-4 | 单机模式客户端锁定（6 次失败锁 15 分钟） | P0 |
-| DM-5 | 单机模式数据备份（exportBackup/importBackup） | P0 |
-| DM-6 | 单机模式文件导出分享（txt/md/html/pdf） | P0 |
-| DM-7 | 模式切换数据迁移（standalone ↔ online）原子化 + 失败回滚 | P0 |
-| DM-8 | masterKey 随机生成 + 双重包装（改密码/recover 不重加密笔记） | P0 |
-| DM-9 | 单机模式隐藏不支持的入口（设备管理/在线分享） | P1 |
-| DM-10 | 单机 → 联机一键迁移不丢数据 | P0 |
+| 需求 ID | 需求描述                                                     | 优先级 |
+| ------- | ------------------------------------------------------------ | ------ |
+| DM-1    | 首次启动提供模式选择 UI，明确告知两种模式差异                | P0     |
+| DM-2    | 单机模式支持完整 CRUD（笔记/文件夹/标签/偏好）               | P0     |
+| DM-3    | 单机模式主密码 setup/unlock/recover 全流程                   | P0     |
+| DM-4    | 单机模式客户端锁定（6 次失败锁 15 分钟）                     | P0     |
+| DM-5    | 单机模式数据备份（exportBackup/importBackup）                | P0     |
+| DM-6    | 单机模式文件导出分享（txt/md/html/pdf）                      | P0     |
+| DM-7    | 模式切换数据迁移（standalone ↔ online）原子化 + 失败回滚     | P0     |
+| DM-8    | masterKey 随机生成 + 双重包装（改密码/recover 不重加密笔记） | P0     |
+| DM-9    | 单机模式隐藏不支持的入口（设备管理/在线分享）                | P1     |
+| DM-10   | 单机 → 联机一键迁移不丢数据                                  | P0     |
 
 ### 9.3 能力矩阵（单机 vs 联机）
 
-| 能力                 | 单机模式                                                          | 联机模式                              |
-| -------------------- | ----------------------------------------------------------------- | ------------------------------------- |
-| 主密码 setup/unlock   | 本地 Argon2id + 比对（无 JWT）                                    | 调 `/auth/setup`、`/auth/unlock`       |
-| 笔记/文件夹/标签 CRUD | LocalRepository（IndexedDB / AsyncStorage / Taro.setStorage）     | RemoteRepository（API + 离线队列）    |
-| 偏好设置             | 仅本地                                                            | API + 本地双写                        |
-| 分享                 | **仅文件导出**（txt / md / html / pdf）                           | 在线分享链接 + 文件导出               |
-| 设备管理             | **不支持**（UI 隐藏）                                             | 支持                                  |
-| 跨设备同步           | **不支持**                                                        | WebSocket + 离线队列                  |
-| 在线备份             | **不支持**（仅本地导出 ZIP）                                      | 支持（服务端定期备份）                |
-| 自动更新             | GitHub Release（Velopack）                                        | 同上 + `/update-manifest` 双重检查    |
-| 服务端依赖           | 无                                                                | 必需                                  |
+| 能力                  | 单机模式                                                      | 联机模式                           |
+| --------------------- | ------------------------------------------------------------- | ---------------------------------- |
+| 主密码 setup/unlock   | 本地 Argon2id + 比对（无 JWT）                                | 调 `/auth/setup`、`/auth/unlock`   |
+| 笔记/文件夹/标签 CRUD | LocalRepository（IndexedDB / AsyncStorage / Taro.setStorage） | RemoteRepository（API + 离线队列） |
+| 偏好设置              | 仅本地                                                        | API + 本地双写                     |
+| 分享                  | **仅文件导出**（txt / md / html / pdf）                       | 在线分享链接 + 文件导出            |
+| 设备管理              | **不支持**（UI 隐藏）                                         | 支持                               |
+| 跨设备同步            | **不支持**                                                    | WebSocket + 离线队列               |
+| 在线备份              | **不支持**（仅本地导出 ZIP）                                  | 支持（服务端定期备份）             |
+| 自动更新              | GitHub Release（Velopack）                                    | 同上 + `/update-manifest` 双重检查 |
+| 服务端依赖            | 无                                                            | 必需                               |
 
 ### 9.4 模式选择 UI 设计
 
@@ -332,11 +332,11 @@ v2.0.0 引入**单机/联机双模式架构**：
 
 #### 9.4.4 各端 UI 实现
 
-| 端           | 组件文件                                                                                        |
-| ------------ | ----------------------------------------------------------------------------------------------- |
-| Web/Desktop  | [web/src/components/ModeSelectDialog.tsx](file:///e:/workspace/dustnote/web/src/components/ModeSelectDialog.tsx) |
-| Mobile       | [mobile/src/screens/ModeSelectScreen.tsx](file:///e:/workspace/dustnote/mobile/src/screens/ModeSelectScreen.tsx) |
-| Miniprogram  | [miniprogram/src/pages/mode-select/index.tsx](file:///e:/workspace/dustnote/miniprogram/src/pages/mode-select/index.tsx) |
+| 端          | 组件文件                                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Web/Desktop | [web/src/components/ModeSelectDialog.tsx](file:///e:/workspace/dustnote/web/src/components/ModeSelectDialog.tsx)         |
+| Mobile      | [mobile/src/screens/ModeSelectScreen.tsx](file:///e:/workspace/dustnote/mobile/src/screens/ModeSelectScreen.tsx)         |
+| Miniprogram | [miniprogram/src/pages/mode-select/index.tsx](file:///e:/workspace/dustnote/miniprogram/src/pages/mode-select/index.tsx) |
 
 ### 9.5 数据迁移需求
 
@@ -374,6 +374,7 @@ v2.0.0 引入**单机/联机双模式架构**：
 #### 9.6.1 masterKey 双重包装
 
 > **v2.0.0 关键改进**：masterKey 随机生成（不从密码派生），双重包装为：
+>
 > - `passwordWrappedMasterKey`：主密码 KEK 加密，用于 unlock
 > - `wrappedMasterKey`：恢复码 KEK 加密，用于 recover
 
@@ -395,20 +396,20 @@ UI 与文档中需明确告知用户：
 
 ### 9.8 平台支持矩阵
 
-| 平台           | 单机模式存储后端       | 备注                                        |
-| -------------- | ---------------------- | ------------------------------------------- |
-| Web            | IndexedDB              | 容量大（GB 级）                              |
-| Desktop        | IndexedDB（复用 Web）  | Tauri 复用 Web 端代码                       |
-| Android        | AsyncStorage           | 项目未安装 MMKV，使用 AsyncStorage 替代      |
-| iOS            | AsyncStorage           | 同 Android（代码已编写，但 iOS 构建硬件限制） |
-| 微信小程序     | Taro.setStorage        | 单 key 10MB 上限，仅推荐轻量试用            |
+| 平台       | 单机模式存储后端      | 备注                                          |
+| ---------- | --------------------- | --------------------------------------------- |
+| Web        | IndexedDB             | 容量大（GB 级）                               |
+| Desktop    | IndexedDB（复用 Web） | Tauri 复用 Web 端代码                         |
+| Android    | AsyncStorage          | 项目未安装 MMKV，使用 AsyncStorage 替代       |
+| iOS        | AsyncStorage          | 同 Android（代码已编写，但 iOS 构建硬件限制） |
+| 微信小程序 | Taro.setStorage       | 单 key 10MB 上限，仅推荐轻量试用              |
 
 ### 9.9 跳过项
 
-| 跳过项                  | 原因                          | 影响                                            |
-| ----------------------- | ----------------------------- | ----------------------------------------------- |
-| iOS 构建                | 需 macOS + Xcode + Apple 签名 | iOS 无安装包；RN 代码已编写，未来可构建         |
-| macOS 桌面 vpk pack 实测 | 需 macOS 硬件                 | release.yml 已有 `continue-on-error: true`      |
+| 跳过项                   | 原因                          | 影响                                       |
+| ------------------------ | ----------------------------- | ------------------------------------------ |
+| iOS 构建                 | 需 macOS + Xcode + Apple 签名 | iOS 无安装包；RN 代码已编写，未来可构建    |
+| macOS 桌面 vpk pack 实测 | 需 macOS 硬件                 | release.yml 已有 `continue-on-error: true` |
 
 ### 9.10 关联文档
 

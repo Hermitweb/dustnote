@@ -15,9 +15,20 @@
 export type PasswordStrength = 0 | 1 | 2 | 3 | 4;
 
 const COMMON_WEAK = new Set([
-  'password', '12345678', '123456789', '1234567890', 'qwerty123',
-  'abc12345', 'password1', 'iloveyou', 'admin123', 'letmein1',
-  '11111111', '00000000', 'dustnote1', 'dustnote123',
+  'password',
+  '12345678',
+  '123456789',
+  '1234567890',
+  'qwerty123',
+  'abc12345',
+  'password1',
+  'iloveyou',
+  'admin123',
+  'letmein1',
+  '11111111',
+  '00000000',
+  'dustnote1',
+  'dustnote123',
 ]);
 
 export function evalPasswordStrength(pw: string): PasswordStrength {

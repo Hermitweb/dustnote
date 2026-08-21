@@ -108,9 +108,7 @@ export function StandaloneUnlockScreen() {
       <Image source={logoImage} style={styles.logo} />
       <Text style={styles.title}>DustNote（单机）</Text>
       <Text style={styles.subtitle}>
-        {isLocked
-          ? `账号已锁定，请 ${remainingSec} 秒后重试`
-          : '输入主密码解锁本地笔记'}
+        {isLocked ? `账号已锁定，请 ${remainingSec} 秒后重试` : '输入主密码解锁本地笔记'}
       </Text>
 
       <TextInput

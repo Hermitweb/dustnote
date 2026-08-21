@@ -793,15 +793,15 @@ dustnote/
 
 v2.0.0 起，所有 GitHub Release 资产统一命名为 `DustNote-<Platform>-<Version>.<ext>`，便于用户识别与自动化脚本解析：
 
-| 资产类型                     | 命名格式                                  | 示例                                    |
-| ---------------------------- | ----------------------------------------- | --------------------------------------- |
-| Windows 桌面安装包           | `DustNote-Windows-<Version>.exe`          | `DustNote-Windows-2.0.0.exe`            |
-| macOS 桌面安装包             | `DustNote-macOS-<Version>.dmg`            | `DustNote-macOS-2.0.0.dmg`              |
-| Linux 桌面安装包             | `DustNote-Linux-<Version>.AppImage`       | `DustNote-Linux-2.0.0.AppImage`         |
-| Android APK                 | `DustNote-Android-<Version>.apk`          | `DustNote-Android-2.0.0.apk`            |
-| 服务端部署包                 | `DustNote-Server-<Version>.zip`           | `DustNote-Server-2.0.0.zip`             |
-| Web 静态资源包               | `DustNote-Web-<Version>.zip`              | `DustNote-Web-2.0.0.zip`                |
-| Velopack 内部文件（不重命名）| 保留原名                                  | `releases.win.json`、`*.nupkg`、`*.delta` |
+| 资产类型                      | 命名格式                            | 示例                                      |
+| ----------------------------- | ----------------------------------- | ----------------------------------------- |
+| Windows 桌面安装包            | `DustNote-Windows-<Version>.exe`    | `DustNote-Windows-2.0.0.exe`              |
+| macOS 桌面安装包              | `DustNote-macOS-<Version>.dmg`      | `DustNote-macOS-2.0.0.dmg`                |
+| Linux 桌面安装包              | `DustNote-Linux-<Version>.AppImage` | `DustNote-Linux-2.0.0.AppImage`           |
+| Android APK                   | `DustNote-Android-<Version>.apk`    | `DustNote-Android-2.0.0.apk`              |
+| 服务端部署包                  | `DustNote-Server-<Version>.zip`     | `DustNote-Server-2.0.0.zip`               |
+| Web 静态资源包                | `DustNote-Web-<Version>.zip`        | `DustNote-Web-2.0.0.zip`                  |
+| Velopack 内部文件（不重命名） | 保留原名                            | `releases.win.json`、`*.nupkg`、`*.delta` |
 
 > **关键约束**：Velopack 的 `releases.*.json` + delta 包必须**保留原名**，UpdateManager 依赖这些文件名做增量更新匹配。仅重命名 `Setup.exe`（用户入口）。
 
@@ -814,12 +814,12 @@ Release body 按用途分为三个分区，便于不同用户群快速找到所�
 
 > 普通用户下载安装包即可使用，无需部署服务端。
 
-| 平台 | 下载 | 说明 |
-|------|------|------|
-| Windows | DustNote-Windows-2.0.0.exe | 双击安装，支持自动更新 |
-| macOS | DustNote-macOS-2.0.0.dmg | Intel + Apple Silicon |
-| Linux | DustNote-Linux-2.0.0.AppImage | 直接运行，免安装 |
-| Android | DustNote-Android-2.0.0.apk | 侧载安装 |
+| 平台    | 下载                          | 说明                   |
+| ------- | ----------------------------- | ---------------------- |
+| Windows | DustNote-Windows-2.0.0.exe    | 双击安装，支持自动更新 |
+| macOS   | DustNote-macOS-2.0.0.dmg      | Intel + Apple Silicon  |
+| Linux   | DustNote-Linux-2.0.0.AppImage | 直接运行，免安装       |
+| Android | DustNote-Android-2.0.0.apk    | 侧载安装               |
 
 ## 🖥️ 服务端部署
 
@@ -840,6 +840,7 @@ Release body 按用途分为三个分区，便于不同用户群快速找到所�
 - 联机模式额外检查 `/api/v1/update-manifest`（协议兼容性）
 
 ### v2.0.0 变更亮点
+
 - 单机/联机双模式架构（详见 [standalone-mode.md](./standalone-mode.md)）
 - masterKey 双重包装机制
 - 模式切换数据迁移
@@ -850,15 +851,15 @@ Release body 按用途分为三个分区，便于不同用户群快速找到所�
 
 `.github/workflows/release.yml` v2.0.0 改造内容：
 
-| 改动点 | 说明 |
-|--------|------|
-| 资产重命名 | 各平台构建产物统一命名为 `DustNote-<Platform>-<Version>.<ext>` |
-| 三分区 body | Release notes 按客户端/服务端/自动更新三区分组 |
-| 新增 build-server-zip job | 独立打包服务端部署 zip（含 Dockerfile + docker-compose + DEPLOY.md） |
-| Velopack 内部文件保留原名 | `releases.*.json` + delta 包不重命名，仅 Setup.exe 改名 |
-| macOS/Linux 桌面构建 `continue-on-error: true` | macOS 硬件限制（vpk pack 需 macOS） |
-| create-release `if: always()` | 即使 macOS/Linux 失败也创建 Release |
-| iOS 构建跳过 | 需 macOS + Xcode + Apple 签名 |
+| 改动点                                         | 说明                                                                 |
+| ---------------------------------------------- | -------------------------------------------------------------------- |
+| 资产重命名                                     | 各平台构建产物统一命名为 `DustNote-<Platform>-<Version>.<ext>`       |
+| 三分区 body                                    | Release notes 按客户端/服务端/自动更新三区分组                       |
+| 新增 build-server-zip job                      | 独立打包服务端部署 zip（含 Dockerfile + docker-compose + DEPLOY.md） |
+| Velopack 内部文件保留原名                      | `releases.*.json` + delta 包不重命名，仅 Setup.exe 改名              |
+| macOS/Linux 桌面构建 `continue-on-error: true` | macOS 硬件限制（vpk pack 需 macOS）                                  |
+| create-release `if: always()`                  | 即使 macOS/Linux 失败也创建 Release                                  |
+| iOS 构建跳过                                   | 需 macOS + Xcode + Apple 签名                                        |
 
 ### 16.4 单机模式 Velopack 更新策略
 
@@ -898,10 +899,10 @@ flowchart TD
 
 **两套机制职责正交**：
 
-| 机制 | 管什么 | 数据源 | 触发场景 |
-|------|--------|--------|----------|
-| Velopack | 桌面二进制是否有新版 | GitHub Releases | 任意模式 |
-| `/update-manifest` | 服务端协议是否兼容 | DustNote 服务器 | 仅联机模式 |
+| 机制               | 管什么               | 数据源          | 触发场景   |
+| ------------------ | -------------------- | --------------- | ---------- |
+| Velopack           | 桌面二进制是否有新版 | GitHub Releases | 任意模式   |
+| `/update-manifest` | 服务端协议是否兼容   | DustNote 服务器 | 仅联机模式 |
 
 ### 16.6 服务端部署包内容（DustNote-Server-2.0.0.zip）
 
@@ -928,9 +929,9 @@ DustNote-Server-2.0.0/
 
 ### 16.7 版本兼容矩阵（v2.0.0）
 
-| 客户端版本 | 服务端 1.x | 服务端 2.0.x |
-| ---------- | ---------- | ------------ |
-| 1.x        | ✅ 正常    | ❌ 410 Gone  |
+| 客户端版本 | 服务端 1.x  | 服务端 2.0.x |
+| ---------- | ----------- | ------------ |
+| 1.x        | ✅ 正常     | ❌ 410 Gone  |
 | 2.0.x      | ❌ 410 Gone | ✅ 正常      |
 
 详细兼容矩阵见 [docs/compatibility-matrix.md](../../docs/compatibility-matrix.md)。

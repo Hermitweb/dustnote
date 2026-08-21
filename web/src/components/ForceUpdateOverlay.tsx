@@ -27,9 +27,7 @@ export function ForceUpdateOverlay({ result }: { result: CheckUpdateResult }) {
         >
           {t('settings.download')}
         </a>
-        <p className="mt-4 text-xs text-slate-400">
-          {t('settings.force_update_hint')}
-        </p>
+        <p className="mt-4 text-xs text-slate-400">{t('settings.force_update_hint')}</p>
       </div>
     </div>
   );

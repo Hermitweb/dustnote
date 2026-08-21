@@ -42,7 +42,12 @@ import 'react-native-get-random-values';
 //    v2.3.5 诊断增强：把加载状态写入 globalThis.__QCRYPTO_STATUS 便于 UI 显示。
 let quickCryptoInstall = null;
 // @ts-expect-error - 诊断全局变量
-globalThis.__QCRYPTO_STATUS = { requireOk: false, installOk: false, requireError: null, installError: null };
+globalThis.__QCRYPTO_STATUS = {
+  requireOk: false,
+  installOk: false,
+  requireError: null,
+  installError: null,
+};
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const mod = require('react-native-quick-crypto');

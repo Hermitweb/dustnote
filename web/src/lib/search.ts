@@ -132,12 +132,7 @@ export class SearchIndex {
     this.noteTokens.set(noteId, allTokens);
   }
 
-  private indexField(
-    noteId: string,
-    field: Field,
-    text: string,
-    allTokens: Set<string>
-  ): void {
+  private indexField(noteId: string, field: Field, text: string, allTokens: Set<string>): void {
     const tokens = tokenize(text);
     // 统计每个 token 在此字段的出现次数
     const counts = new Map<string, number>();
@@ -229,9 +224,7 @@ export function highlightMatches(text: string, matchedTokens: Set<string>): stri
   if (tokens.length === 0) return escaped;
 
   // 构造正则：token 之间用 | 连接，转义正则特殊字符
-  const pattern = tokens
-    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-    .join('|');
+  const pattern = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
   const re = new RegExp(`(${pattern})`, 'gi');
   return escaped.replace(re, '<mark>$1</mark>');
 }

@@ -66,7 +66,14 @@ import {
   clearCache,
   clearPlainCache,
 } from './db';
-import { enqueue, peekAll, remove, bumpRetries, getRetryDelayForOp, size as queueSize } from './offline-queue';
+import {
+  enqueue,
+  peekAll,
+  remove,
+  bumpRetries,
+  getRetryDelayForOp,
+  size as queueSize,
+} from './offline-queue';
 import type { QueuedOp } from './offline-queue';
 import { useModeStore } from './mode-store';
 import { createRepository } from './repository';
@@ -332,10 +339,7 @@ interface StoreState {
 
   // actions: conflict resolution
   /** 解决冲突：用户选择保留 local / server / merged 后 re-PATCH */
-  resolveConflictChoice: (
-    noteId: string,
-    choice: 'local' | 'server' | 'merged'
-  ) => Promise<void>;
+  resolveConflictChoice: (noteId: string, choice: 'local' | 'server' | 'merged') => Promise<void>;
   /** 忽略冲突：保留当前 store 暂存态，不 re-PATCH，从 pendingConflicts 移除 */
   dismissConflict: (noteId: string) => void;
 }
@@ -819,7 +823,9 @@ export const useStore = create<StoreState>((set, get) => ({
     // ---- 联机模式：/auth/unlock 校验当前密码 → /auth/rewrap 换包装 ----
     let salt = get().serverSalt;
     if (!salt) {
-      const status = await api().get<{ initialized: boolean; pwSalt: string | null }>('/auth/status');
+      const status = await api().get<{ initialized: boolean; pwSalt: string | null }>(
+        '/auth/status'
+      );
       salt = status.pwSalt;
       if (!salt) throw new Error('系统未初始化');
     }
@@ -1102,7 +1108,10 @@ export const useStore = create<StoreState>((set, get) => ({
     return note.id;
   },
 
-  async createNoteFromTemplate(templateId: string, folderId: string | null = null): Promise<string> {
+  async createNoteFromTemplate(
+    templateId: string,
+    folderId: string | null = null
+  ): Promise<string> {
     const masterKey = get().masterKey;
     if (!masterKey) throw new Error('未解锁');
 
@@ -1223,7 +1232,11 @@ export const useStore = create<StoreState>((set, get) => ({
       content: patch.content ?? current?.content ?? '',
       tags: patch.tags ?? current?.tags ?? [],
     };
-    const { json: cipherJson } = await encryptNote(masterKey, merged, noteAad(id, get().userId ?? ''));
+    const { json: cipherJson } = await encryptNote(
+      masterKey,
+      merged,
+      noteAad(id, get().userId ?? '')
+    );
 
     // 单机模式：直接更新 LocalRepository
     const { mode, repository } = get();
@@ -1617,9 +1630,7 @@ export const useStore = create<StoreState>((set, get) => ({
     // 派生 depth / branch（乐观更新用，服务端会再次校验）
     const parent = parentId ? get().folders.find((f) => f.id === parentId) : undefined;
     const depth = parent ? (parent.depth ?? 1) + 1 : 1;
-    const branch = parentId
-      ? (parent?.branch ?? null)
-      : (opts?.branch ?? null);
+    const branch = parentId ? (parent?.branch ?? null) : (opts?.branch ?? null);
 
     // 单机模式：直接创建
     const { mode, repository } = get();
@@ -1719,17 +1730,13 @@ export const useStore = create<StoreState>((set, get) => ({
     if (mode === 'standalone' && repository) {
       await repository.moveFolder(id, parentId);
       set({
-        folders: get().folders.map((f) =>
-          f.id === id ? { ...f, parentId, depth, branch } : f
-        ),
+        folders: get().folders.map((f) => (f.id === id ? { ...f, parentId, depth, branch } : f)),
       });
       return;
     }
     // 联机模式：乐观更新 + API + 离线队列
     set({
-      folders: get().folders.map((f) =>
-        f.id === id ? { ...f, parentId, depth, branch } : f
-      ),
+      folders: get().folders.map((f) => (f.id === id ? { ...f, parentId, depth, branch } : f)),
     });
     const ok = await runOrEnqueue({ method: 'PATCH', path: `/folders/${id}` }, async () => {
       await api().patch(`/folders/${id}`, { parentId });
@@ -1880,7 +1887,12 @@ export const useStore = create<StoreState>((set, get) => ({
     clearLockoutState();
     // 清空宽限期缓存
     clearGraceUnlock();
-    set({ pendingCount: 0, pendingConflicts: [], localAuthBlob: null, lockoutState: INITIAL_LOCKOUT_STATE });
+    set({
+      pendingCount: 0,
+      pendingConflicts: [],
+      localAuthBlob: null,
+      lockoutState: INITIAL_LOCKOUT_STATE,
+    });
   },
 
   // -------- conflict resolution --------
@@ -1905,9 +1917,7 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!masterKey) throw new Error('未解锁');
 
     const chosen =
-      choice === 'local' ? conflict.local
-      : choice === 'server' ? conflict.server
-      : conflict.merged;
+      choice === 'local' ? conflict.local : choice === 'server' ? conflict.server : conflict.merged;
 
     const { json: cipherJson } = await encryptNote(
       masterKey,
@@ -2101,10 +2111,7 @@ async function handleNoteConflict(op: QueuedOp, err: ApiException): Promise<void
     };
     // 同一笔记可能有多个 pending（多次编辑冲突），只保留最新的
     useStore.setState((s) => ({
-      pendingConflicts: [
-        ...s.pendingConflicts.filter((c) => c.noteId !== ctx.noteId),
-        pending,
-      ],
+      pendingConflicts: [...s.pendingConflicts.filter((c) => c.noteId !== ctx.noteId), pending],
     }));
   }
 }

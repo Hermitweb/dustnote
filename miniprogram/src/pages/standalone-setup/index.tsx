@@ -74,7 +74,11 @@ export default function StandaloneSetup() {
 
   return (
     <View className="setup-container">
-      <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px', textAlign: 'center' }} />
+      <Image
+        src={logoUrl}
+        className="hero-logo"
+        style={{ width: '64px', height: '64px', textAlign: 'center' }}
+      />
       <Text className="hero-title text-center">设置主密码（单机模式）</Text>
       <Text className="hero-subtitle mb-l text-center">
         主密码本地验证 · 数据存储在本机 · 无需服务器

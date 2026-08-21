@@ -83,7 +83,9 @@ function buildScreen(container: HTMLElement): Omit<RenderResult, 'rerender' | 'u
       return queryByText(container, matcher);
     },
     getByRole(role: string, opts?: { name?: string | RegExp }): HTMLElement {
-      const candidates = Array.from(container.querySelectorAll(`[role="${role}"],button,a,input,[role]`)) as HTMLElement[];
+      const candidates = Array.from(
+        container.querySelectorAll(`[role="${role}"],button,a,input,[role]`)
+      ) as HTMLElement[];
       const byRole = candidates.filter((el) => {
         const r = el.getAttribute('role') ?? implicitRole(el);
         return r === role;
@@ -95,7 +97,9 @@ function buildScreen(container: HTMLElement): Omit<RenderResult, 'rerender' | 'u
       const nameMatcher = opts.name;
       const hit = byRole.find((el) => {
         const label = el.getAttribute('aria-label') ?? el.textContent ?? '';
-        return typeof nameMatcher === 'string' ? label.includes(nameMatcher) : nameMatcher.test(label);
+        return typeof nameMatcher === 'string'
+          ? label.includes(nameMatcher)
+          : nameMatcher.test(label);
       });
       if (!hit) throw new Error(`getByRole: 未找到 role="${role}" name="${String(nameMatcher)}"`);
       return hit;
@@ -184,7 +188,10 @@ export const fireEvent = {
 };
 
 /** 轮询等待断言通过，超时抛错（对齐 @testing-library waitFor 语义） */
-export async function waitFor<T>(fn: () => T | Promise<T>, opts: { timeout?: number; interval?: number } = {}): Promise<T> {
+export async function waitFor<T>(
+  fn: () => T | Promise<T>,
+  opts: { timeout?: number; interval?: number } = {}
+): Promise<T> {
   const timeout = opts.timeout ?? 2000;
   const interval = opts.interval ?? 16;
   const start = Date.now();
@@ -205,7 +212,9 @@ export async function waitFor<T>(fn: () => T | Promise<T>, opts: { timeout?: num
     });
     if (!threw) return result as T;
     if (Date.now() - start > timeout) {
-      throw new Error(`waitFor 超时（${timeout}ms）：${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
+      throw new Error(
+        `waitFor 超时（${timeout}ms）：${lastErr instanceof Error ? lastErr.message : String(lastErr)}`
+      );
     }
     await new Promise((r) => setTimeout(r, interval));
   }

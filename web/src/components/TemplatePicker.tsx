@@ -149,9 +149,7 @@ export function TemplatePicker({ onClose }: TemplatePickerProps) {
         {/* 底部状态 */}
         {(creating || error) && (
           <div className="border-t border-surface-border px-6 py-3">
-            {creating && (
-              <p className="text-xs text-surface-muted">{t('templates.creating')}</p>
-            )}
+            {creating && <p className="text-xs text-surface-muted">{t('templates.creating')}</p>}
             {error && (
               <p className="text-xs text-red-600 dark:text-red-400">
                 {t('templates.error', { reason: error })}

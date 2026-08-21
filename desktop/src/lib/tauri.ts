@@ -49,9 +49,15 @@ export function getDeviceId(): string {
   return id;
 }
 
-export async function invokeWithTimeout<T>(cmd: string, args?: Record<string, unknown>, timeoutMs = 30_000): Promise<T> {
+export async function invokeWithTimeout<T>(
+  cmd: string,
+  args?: Record<string, unknown>,
+  timeoutMs = 30_000
+): Promise<T> {
   return Promise.race([
     invoke<T>(cmd, args),
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`IPC timeout: ${cmd}`)), timeoutMs)),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`IPC timeout: ${cmd}`)), timeoutMs)
+    ),
   ]);
 }

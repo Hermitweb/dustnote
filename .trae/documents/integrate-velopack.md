@@ -17,9 +17,10 @@ DustNote 桌面端当前使用 Tauri 2 的 NSIS bundler 生成 Windows 安装包
 > **注意**：现有服务端 `/update-manifest` 协议版本检查（`web/src/lib/use-update-check.ts`）**保留不动**——它管"服务端协议是否兼容"，与 Velopack 管的"桌面二进制是否有新版"职责正交。
 
 > **v2.0.0 双模式架构下的更新策略**：
+>
 > - 单机模式：桌面端**仅**通过 Velopack 检查 GitHub Releases（无服务器，无 `/update-manifest`）
 > - 联机模式：桌面端**同时**通过 Velopack + `/update-manifest` 双重检查
-> 详见 [update-strategy.md §16.4-16.5](./update-strategy.md)。
+>   详见 [update-strategy.md §16.4-16.5](./update-strategy.md)。
 
 ---
 
@@ -209,16 +210,16 @@ interface UpdaterApi {
 
 ### 改动要点
 
-| 改动点                                       | 说明                                                                                            |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 资产重命名                                   | 各平台构建产物统一命名为 `DustNote-<Platform>-<Version>.<ext>`（如 `DustNote-Windows-2.0.0.exe`） |
-| Velopack 内部文件保留原名                    | `releases.*.json` + `*.delta` 包不重命名，UpdateManager 依赖文件名做增量匹配                    |
-| 三分区 Release body                          | 按客户端安装包 / 服务端部署 / 自动更新三区分组，便于不同用户群查找                              |
-| 新增 build-server-zip job                    | 独立打包服务端部署 zip（含 Dockerfile + docker-compose.yml + DEPLOY.md + 源码）                 |
-| macOS/Linux 桌面构建 `continue-on-error: true` | macOS 硬件限制（vpk pack 需 macOS 实测）                                                        |
-| create-release `if: always()`                | 即使 macOS/Linux 失败也创建 Release，确保 Windows 资产可下载                                    |
-| iOS 构建跳过                                 | 需 macOS + Xcode + Apple 签名，硬件限制                                                         |
-| 版本号统一                                   | tauri.conf.json / Cargo.toml / package.json / env.ts 全部 2.0.0                                 |
+| 改动点                                         | 说明                                                                                              |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 资产重命名                                     | 各平台构建产物统一命名为 `DustNote-<Platform>-<Version>.<ext>`（如 `DustNote-Windows-2.0.0.exe`） |
+| Velopack 内部文件保留原名                      | `releases.*.json` + `*.delta` 包不重命名，UpdateManager 依赖文件名做增量匹配                      |
+| 三分区 Release body                            | 按客户端安装包 / 服务端部署 / 自动更新三区分组，便于不同用户群查找                                |
+| 新增 build-server-zip job                      | 独立打包服务端部署 zip（含 Dockerfile + docker-compose.yml + DEPLOY.md + 源码）                   |
+| macOS/Linux 桌面构建 `continue-on-error: true` | macOS 硬件限制（vpk pack 需 macOS 实测）                                                          |
+| create-release `if: always()`                  | 即使 macOS/Linux 失败也创建 Release，确保 Windows 资产可下载                                      |
+| iOS 构建跳过                                   | 需 macOS + Xcode + Apple 签名，硬件限制                                                           |
+| 版本号统一                                     | tauri.conf.json / Cargo.toml / package.json / env.ts 全部 2.0.0                                   |
 
 ### 关键决策：仅重命名 Setup.exe
 
@@ -242,20 +243,20 @@ Velopack 内部资产（保持原名）：
 
 ### 单机/联机模式下的 Velopack 行为
 
-| 模式     | Velopack 检查 GitHub Releases | 调用 `/update-manifest` | 备注                                    |
-| -------- | ----------------------------- | ----------------------- | --------------------------------------- |
-| 单机模式 | ✅                            | ❌                       | 无服务器，仅依赖 GitHub Release         |
-| 联机模式 | ✅                            | ✅                       | 双重检查：二进制版本 + 协议兼容性       |
+| 模式     | Velopack 检查 GitHub Releases | 调用 `/update-manifest` | 备注                              |
+| -------- | ----------------------------- | ----------------------- | --------------------------------- |
+| 单机模式 | ✅                            | ❌                      | 无服务器，仅依赖 GitHub Release   |
+| 联机模式 | ✅                            | ✅                      | 双重检查：二进制版本 + 协议兼容性 |
 
 详细策略见 [update-strategy.md §16.4-16.5](./update-strategy.md)。
 
 ### macOS 硬件限制说明
 
-| 项                            | 状态 | 备注                                                       |
-| ----------------------------- | ---- | ---------------------------------------------------------- |
-| macOS vpk pack 实测           | ⚠️ 跳过 | 需 macOS 硬件；release.yml 已有 `continue-on-error: true`  |
-| macOS GitHub Actions runner   | ✅   | GitHub 提供 macos-latest runner                            |
-| macOS 构建 job                | ✅   | 已编写，但 vpk pack 步骤可能失败                           |
-| iOS 构建                      | ⚠️ 跳过 | 需 macOS + Xcode + Apple 签名                              |
+| 项                          | 状态    | 备注                                                      |
+| --------------------------- | ------- | --------------------------------------------------------- |
+| macOS vpk pack 实测         | ⚠️ 跳过 | 需 macOS 硬件；release.yml 已有 `continue-on-error: true` |
+| macOS GitHub Actions runner | ✅      | GitHub 提供 macos-latest runner                           |
+| macOS 构建 job              | ✅      | 已编写，但 vpk pack 步骤可能失败                          |
+| iOS 构建                    | ⚠️ 跳过 | 需 macOS + Xcode + Apple 签名                             |
 
 未来当团队拥有 macOS 硬件后，可移除 `continue-on-error`，并补全 iOS 构建流程。

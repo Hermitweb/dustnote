@@ -458,7 +458,9 @@ async function aesGcmEncrypt(
   if (hasWebCryptoSubtle()) {
     const ck = await importAesKey(key);
     const params: AesGcmParams = { name: 'AES-GCM', iv: nonce as BufferSource };
-    if (aad) (params as AesGcmParams & { additionalData: BufferSource }).additionalData = aad as BufferSource;
+    if (aad)
+      (params as AesGcmParams & { additionalData: BufferSource }).additionalData =
+        aad as BufferSource;
     return new Uint8Array(await crypto.subtle.encrypt(params, ck, plaintext as BufferSource));
   }
   // 纯 JS 回退（微信小程序等无 WebCrypto 环境），输出与 WebCrypto AES-GCM 完全一致
@@ -475,7 +477,9 @@ async function aesGcmDecrypt(
   if (hasWebCryptoSubtle()) {
     const ck = await importAesKey(key);
     const params: AesGcmParams = { name: 'AES-GCM', iv: nonce as BufferSource };
-    if (aad) (params as AesGcmParams & { additionalData: BufferSource }).additionalData = aad as BufferSource;
+    if (aad)
+      (params as AesGcmParams & { additionalData: BufferSource }).additionalData =
+        aad as BufferSource;
     return new Uint8Array(await crypto.subtle.decrypt(params, ck, ciphertext as BufferSource));
   }
   return nobleGcm(key, nonce, aad ?? undefined).decrypt(ciphertext);

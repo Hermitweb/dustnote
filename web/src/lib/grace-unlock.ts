@@ -93,9 +93,10 @@ export function graceRemainingSec(): number {
  * 消费宽限期缓存：成功返回 masterKey 副本，失败返回 null
  * 注意：调用后即清空，确保一次性使用
  */
-export function consumeGraceUnlock():
-  | { masterKey: Uint8Array; wrappedMasterKey: Ciphertext | null }
-  | null {
+export function consumeGraceUnlock(): {
+  masterKey: Uint8Array;
+  wrappedMasterKey: Ciphertext | null;
+} | null {
   if (!peekGraceUnlock()) {
     clearGraceUnlock();
     return null;

@@ -19,10 +19,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /** 密文 blob 上限：单条笔记密文（含 JSON 信封）约 2MB，超出视为异常输入 */
 const MAX_CIPHERTEXT_LENGTH = 2_000_000;
 /** ISO-8601 时间戳（客户端 new Date().toISOString() 产物），拒绝空串/任意字符串 */
-const IsoTimestampSchema = z.string().regex(
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/,
-  '必须为 ISO-8601 时间戳'
-);
+const IsoTimestampSchema = z
+  .string()
+  .regex(
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/,
+    '必须为 ISO-8601 时间戳'
+  );
 
 const CreateNoteSchema = z.object({
   /** 客户端预生成的笔记 ID（用于密文 AAD 绑定 noteId||userId，§2.2）；缺省由服务端生成 */
@@ -59,7 +61,10 @@ notesRouter.get('/notes', (req, res) => {
   const includeDeleted = req.query.includeDeleted === '1';
 
   // since 是增量同步游标，必须为 ISO-8601 且不超长，非法值直接 400
-  if (since !== undefined && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/.test(since)) {
+  if (
+    since !== undefined &&
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/.test(since)
+  ) {
     res.status(400).json({ error: 'invalid_since' });
     return;
   }
@@ -188,16 +193,16 @@ notesRouter.patch('/notes/:id', (req, res) => {
     .get(id, user.userId) as
     | {
         id: string;
-    version: number;
-    is_pinned: number;
-    is_favorite: number;
-    deleted_at: string | null;
-    ciphertext: Buffer | string;
-    key_version: number;
-    client_updated_at: string;
-    server_updated_at: string;
-    folder_id: string | null;
-  }
+        version: number;
+        is_pinned: number;
+        is_favorite: number;
+        deleted_at: string | null;
+        ciphertext: Buffer | string;
+        key_version: number;
+        client_updated_at: string;
+        server_updated_at: string;
+        folder_id: string | null;
+      }
     | undefined;
 
   if (!existing) {
@@ -287,7 +292,9 @@ notesRouter.patch('/notes/:id', (req, res) => {
            )`
       ).run(id, user.userId, id, user.userId);
     }
-    db.prepare(`UPDATE notes SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
+    db.prepare(`UPDATE notes SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(
+      ...params
+    );
   })();
 
   const updated = db
@@ -388,9 +395,7 @@ notesRouter.get('/notes/:id/versions', (req, res) => {
 
   const db = getDb();
   // 先确认笔记属于该用户
-  const note = db
-    .prepare('SELECT id FROM notes WHERE id = ? AND user_id = ?')
-    .get(id, user.userId);
+  const note = db.prepare('SELECT id FROM notes WHERE id = ? AND user_id = ?').get(id, user.userId);
   if (!note) {
     res.status(404).json({ error: 'not_found' });
     return;
@@ -405,12 +410,12 @@ notesRouter.get('/notes/:id/versions', (req, res) => {
        LIMIT 100`
     )
     .all(id, user.userId) as {
-      id: string;
-      note_version: number;
-      key_version: number;
-      client_updated_at: string;
-      created_at: string;
-    }[];
+    id: string;
+    note_version: number;
+    key_version: number;
+    client_updated_at: string;
+    created_at: string;
+  }[];
 
   res.json({
     versions: rows.map((r) => ({
@@ -524,7 +529,9 @@ notesRouter.post('/notes/:id/versions/:versionId/restore', (req, res) => {
 
   // 恢复前先将当前密文存为历史版本（与正常更新一致）
   const currentNote = db
-    .prepare('SELECT ciphertext, key_version, version, client_updated_at FROM notes WHERE id = ? AND user_id = ?')
+    .prepare(
+      'SELECT ciphertext, key_version, version, client_updated_at FROM notes WHERE id = ? AND user_id = ?'
+    )
     .get(id, user.userId) as {
     ciphertext: Buffer | string;
     key_version: number;

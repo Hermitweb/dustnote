@@ -54,7 +54,9 @@ export function UnlockScreen() {
         return;
       }
       // 先用 simplePrompt 让用户确认指纹 / 面容
-      const { success } = await rnb.simplePrompt({ promptMessage: t('auth.unlock_biometric_prompt') });
+      const { success } = await rnb.simplePrompt({
+        promptMessage: t('auth.unlock_biometric_prompt'),
+      });
       if (!success) return;
       // 生物识别通过：从 keychain 读取缓存的 masterKey
       const ok = await unlockWithBiometric();
@@ -90,7 +92,9 @@ export function UnlockScreen() {
         disabled={submitting}
         onPress={onUnlock}
       >
-        <Text style={styles.buttonText}>{submitting ? t('auth.unlocking') : t('auth.unlock_btn')}</Text>
+        <Text style={styles.buttonText}>
+          {submitting ? t('auth.unlocking') : t('auth.unlock_btn')}
+        </Text>
       </TouchableOpacity>
 
       {hasBiometricCache && (

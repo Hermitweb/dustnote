@@ -73,9 +73,7 @@ export class AppErrorBoundary extends Component<Props, State> {
       <div className="flex h-full items-center justify-center bg-surface-bg p-6">
         <div className="w-full max-w-lg rounded-2xl border border-surface-border bg-surface-card p-8 shadow-xl">
           <div className="mb-4 text-center text-5xl">💔</div>
-          <h1 className="mb-2 text-center text-xl font-bold text-surface-fg">
-            应用遇到了问题
-          </h1>
+          <h1 className="mb-2 text-center text-xl font-bold text-surface-fg">应用遇到了问题</h1>
           <p className="mb-4 text-center text-sm text-surface-muted">
             页面渲染时发生异常。你可以重新加载，或导出诊断信息反馈给开发者。
           </p>

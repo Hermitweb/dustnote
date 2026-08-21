@@ -106,7 +106,11 @@ export async function setupLocalAuth(
   const rcSalt = randomBytes(16);
 
   // 2. 密码派生 KEK + authKey（一次 Argon2id）
-  const { kek: passwordKek, authKey: passwordAuthKey } = await deriveSecrets(password, pwSalt, params);
+  const { kek: passwordKek, authKey: passwordAuthKey } = await deriveSecrets(
+    password,
+    pwSalt,
+    params
+  );
   const passwordWrappedMasterKey = await wrapKey(passwordKek, masterKey);
   const passwordHash = toBase64(passwordAuthKey);
 

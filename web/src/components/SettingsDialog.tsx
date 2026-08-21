@@ -351,7 +351,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     let unlisten: (() => void) | null = null;
     try {
       // 注册进度监听（带超时，避免 listen 调用挂起）
-      unlisten = await withTimeout(api.onDownloadProgress((pct) => setUpdateProgress(pct)), 5000);
+      unlisten = await withTimeout(
+        api.onDownloadProgress((pct) => setUpdateProgress(pct)),
+        5000
+      );
       // 下载本身可能较慢，给 10 分钟兜底超时；进度事件会持续刷新，正常下载不会触发
       const ok = await withTimeout(api.downloadUpdates(), 600000);
       setUpdateState(ok ? 'ready' : 'uptodate');
@@ -710,13 +713,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   onClick={() => setShowImportExport(true)}
                   className="w-full rounded-lg border border-surface-border px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
                 >
-                  <span className="mr-2">📥📤</span>{t('settings.import_export')}
+                  <span className="mr-2">📥📤</span>
+                  {t('settings.import_export')}
                 </button>
                 <button
                   onClick={() => setShowShares(true)}
                   className="w-full rounded-lg border border-surface-border px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
                 >
-                  <span className="mr-2">🔗</span>{t('settings.shares_mgmt')}
+                  <span className="mr-2">🔗</span>
+                  {t('settings.shares_mgmt')}
                 </button>
               </div>
             </div>
@@ -769,7 +774,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   <span
                     className={`text-xs font-semibold ${autostartEnabled ? 'text-mint-700' : 'text-surface-muted'}`}
                   >
-                    {autostartBusy ? '…' : autostartEnabled ? t('settings.autostart_on') : t('settings.autostart_off')}
+                    {autostartBusy
+                      ? '…'
+                      : autostartEnabled
+                        ? t('settings.autostart_on')
+                        : t('settings.autostart_off')}
                   </span>
                 </button>
               </div>
@@ -799,7 +808,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   {/* 发现新版本 */}
                   {updateState === 'available' && targetVer && (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-mint-700">{t('settings.new_version', { version: targetVer })}</span>
+                      <span className="text-mint-700">
+                        {t('settings.new_version', { version: targetVer })}
+                      </span>
                       <button
                         onClick={() => void handleDownloadUpdate()}
                         className="rounded bg-mint-600 px-3 py-1 text-xs font-medium text-white hover:bg-mint-700"
@@ -828,7 +839,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   {updateState === 'ready' && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-mint-700">
-                        {t('settings.update_ready')}{targetVer ? ` (v${targetVer})` : ''}
+                        {t('settings.update_ready')}
+                        {targetVer ? ` (v${targetVer})` : ''}
                       </span>
                       <button
                         onClick={() => void handleApplyAndRestart()}
@@ -878,7 +890,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <MigrationWizard onClose={() => {}} />
             </div>
             <div className="rounded-lg border border-surface-border p-3 text-xs text-surface-muted">
-              <div>{t('settings.about')}: {t('settings.about_line')}</div>
+              <div>
+                {t('settings.about')}: {t('settings.about_line')}
+              </div>
               <div className="font-mono">
                 {t('settings.version')}: {__APP_VERSION__}
               </div>
@@ -892,9 +906,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 </button>
               )}
               {pwaInstall.installed && (
-                <div className="mt-2 text-mint-600 dark:text-mint-400">
-                  ✓ 已安装为独立应用
-                </div>
+                <div className="mt-2 text-mint-600 dark:text-mint-400">✓ 已安装为独立应用</div>
               )}
             </div>
           </div>

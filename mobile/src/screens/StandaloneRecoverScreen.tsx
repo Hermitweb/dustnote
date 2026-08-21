@@ -69,15 +69,11 @@ export function StandaloneRecoverScreen() {
       <View style={styles.container}>
         <Text style={styles.emoji}>🔑</Text>
         <Text style={styles.title}>密码已重置</Text>
-        <Text style={styles.subtitle}>
-          这是你的新恢复码，请重新保存。{'\n'}⚠️ 旧恢复码已失效。
-        </Text>
+        <Text style={styles.subtitle}>这是你的新恢复码，请重新保存。{'\n'}⚠️ 旧恢复码已失效。</Text>
         <View style={styles.codeBox}>
           <Text style={styles.codeText}>{newRecoveryCode}</Text>
         </View>
-        <Text style={styles.hint}>
-          masterKey 保持不变，已加密的笔记可继续解密。
-        </Text>
+        <Text style={styles.hint}>masterKey 保持不变，已加密的笔记可继续解密。</Text>
         <TouchableOpacity
           style={styles.button}
           onPress={() => {

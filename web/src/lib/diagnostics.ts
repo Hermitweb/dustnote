@@ -43,7 +43,8 @@ async function persist(): Promise<void> {
 }
 
 /** 敏感字段名（包含匹配，覆盖 accessToken/masterKey/authKey/wrappedMasterKey 等组合名） */
-const SENSITIVE_KEY_PATTERN = /token|secret|password|master|auth|pwd|pass|cookie|key|salt|hash|recovery/i;
+const SENSITIVE_KEY_PATTERN =
+  /token|secret|password|master|auth|pwd|pass|cookie|key|salt|hash|recovery/i;
 
 /** 递归脱敏：对象含敏感字段 → [REDACTED]；超长字符串截断 */
 function sanitizeValue(key: string, value: unknown, depth = 0): unknown {

@@ -84,7 +84,12 @@ export function PublicShareView({ token }: { token: string }) {
         }
         if (res.status === 423) {
           // 单分享密码爆破锁定
-          setState({ kind: 'error', message: data.message ?? t('public_share.locked', { defaultValue: '该分享已被锁定，请稍后再试' }) });
+          setState({
+            kind: 'error',
+            message:
+              data.message ??
+              t('public_share.locked', { defaultValue: '该分享已被锁定，请稍后再试' }),
+          });
           return;
         }
         if (res.status === 410) {
@@ -219,7 +224,9 @@ export function PublicShareView({ token }: { token: string }) {
             className="prose prose-sm max-w-none text-slate-700 dark:prose-invert dark:text-slate-200"
             dangerouslySetInnerHTML={{
               // 访客侧渲染的是别人写的内容，必须净化后再注入
-              __html: sanitizeHtml(marked.parse(state.content || `*${t('public_share.empty')}*`) as string),
+              __html: sanitizeHtml(
+                marked.parse(state.content || `*${t('public_share.empty')}*`) as string
+              ),
             }}
           />
         </article>

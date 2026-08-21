@@ -38,7 +38,8 @@ const KNOWN_WEAK_DEFAULTS = new Set([
 ]);
 
 /** 形如 change-me / your- / secret / random-string 的弱占位模式，生产环境拒绝 */
-const WEAK_SECRET_PATTERN = /(change[-_]?me|your[-_]?(secret|key|token)|random[-_]?(string|key)|placeholder|example[-_]?secret|^secret$)/i;
+const WEAK_SECRET_PATTERN =
+  /(change[-_]?me|your[-_]?(secret|key|token)|random[-_]?(string|key)|placeholder|example[-_]?secret|^secret$)/i;
 
 // 生产环境额外拒绝已知弱默认值；开发/test 环境仅警告
 if (config.nodeEnv === 'production') {
@@ -62,6 +63,8 @@ if (config.nodeEnv === 'production') {
   }
 } else if (config.nodeEnv !== 'test') {
   if (KNOWN_WEAK_DEFAULTS.has(config.jwtSecret)) {
-    console.warn('⚠️  正在使用默认 JWT_SECRET，请勿用于对外暴露的开发环境：export JWT_SECRET="$(openssl rand -base64 48)"');
+    console.warn(
+      '⚠️  正在使用默认 JWT_SECRET，请勿用于对外暴露的开发环境：export JWT_SECRET="$(openssl rand -base64 48)"'
+    );
   }
 }

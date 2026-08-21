@@ -57,7 +57,10 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
     // 不放 URL query：access token 会原样进入 nginx/Caddy access log，
     // 一旦日志泄露即会话劫持（pino-http 的 URL 脱敏只覆盖 HTTP 链路，upgrade 事件不经它）。
     const protoHeader = req.headers['sec-websocket-protocol'] ?? '';
-    const protocols = protoHeader.split(',').map((s) => s.trim()).filter(Boolean);
+    const protocols = protoHeader
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     const token = protocols[0] === 'dustnote' ? protocols[1] : undefined;
     if (!token) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
@@ -76,7 +79,9 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
       // 设备被吊销后 refresh_token_hash 被清空，但已签发的 access token
       // 在过期前仍有效。这里补一次库查询，阻止被吊销设备建 WS。
       const device = getDb()
-        .prepare('SELECT 1 FROM devices WHERE id = ? AND user_id = ? AND refresh_token_hash IS NOT NULL')
+        .prepare(
+          'SELECT 1 FROM devices WHERE id = ? AND user_id = ? AND refresh_token_hash IS NOT NULL'
+        )
         .get(payload.device, payload.sub);
       if (!device) {
         ws.close(4001, 'device_revoked');
@@ -115,7 +120,10 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
     let msgWindowStart = Date.now();
     ws.on('message', (raw) => {
       const now = Date.now();
-      if (now - msgWindowStart >= 1000) { msgWindowStart = now; msgCount = 0; }
+      if (now - msgWindowStart >= 1000) {
+        msgWindowStart = now;
+        msgCount = 0;
+      }
       if (++msgCount > MAX_MSG_PER_SECOND) {
         ws.close(1008, 'rate limit');
         return;
@@ -126,7 +134,12 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
           ws.send(JSON.stringify({ type: 'pong', serverTime: new Date().toISOString() }));
         } else if (msg.type === 'subscribe' && Array.isArray(msg.channels)) {
           for (const c of msg.channels) {
-            if (typeof c === 'string' && c.length <= 32 && ALLOWED_CHANNELS.has(c) && ws.channels.size < MAX_CHANNELS) {
+            if (
+              typeof c === 'string' &&
+              c.length <= 32 &&
+              ALLOWED_CHANNELS.has(c) &&
+              ws.channels.size < MAX_CHANNELS
+            ) {
               ws.channels.add(c);
             }
           }

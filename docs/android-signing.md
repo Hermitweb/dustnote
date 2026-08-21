@@ -5,14 +5,14 @@ DustNote Android 构建使用正式签名证书（RSA 2048-bit，有效期 10000
 
 ## 证书信息
 
-| 项 | 值 |
-| --- | --- |
-| 别名 (alias) | `dustnote` |
-| 算法 | RSA 2048-bit + SHA256withRSA |
-| DN | `CN=DustNote, OU=Mobile App, O=DustNote Project, L=Beijing, ST=Beijing, C=CN` |
-| 有效期 | 2026-07-29 ~ 2053-12-14 |
-| SHA-1 | `F5:CA:7D:07:C5:63:A1:6C:BD:DF:4F:22:36:42:8B:28:BA:BE:DD:EC` |
-| SHA-256 | `85:45:EC:10:64:78:33:A8:C0:53:13:B7:E0:BC:D2:01:CC:19:47:F3:3D:B1:B7:6C:D0:4A:F3:3C:A6:42:51:7D` |
+| 项           | 值                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------- |
+| 别名 (alias) | `dustnote`                                                                                        |
+| 算法         | RSA 2048-bit + SHA256withRSA                                                                      |
+| DN           | `CN=DustNote, OU=Mobile App, O=DustNote Project, L=Beijing, ST=Beijing, C=CN`                     |
+| 有效期       | 2026-07-29 ~ 2053-12-14                                                                           |
+| SHA-1        | `F5:CA:7D:07:C5:63:A1:6C:BD:DF:4F:22:36:42:8B:28:BA:BE:DD:EC`                                     |
+| SHA-256      | `85:45:EC:10:64:78:33:A8:C0:53:13:B7:E0:BC:D2:01:CC:19:47:F3:3D:B1:B7:6C:D0:4A:F3:3C:A6:42:51:7D` |
 
 > ⚠️ **证书一旦用于线上发布，必须妥善保管 keystore 文件与密码。**
 > 丢失后无法为已发布的应用发布更新（Android 要求升级包使用同一证书签名）。
@@ -64,16 +64,17 @@ keyPassword=$password
 `release.yml` 的 `build-mobile` job 从 GitHub Secrets 读取证书。需要在仓库
 **Settings → Secrets and variables → Actions** 中配置以下 Secrets：
 
-| Secret 名 | 值 |
-| --- | --- |
-| `ANDROID_KEYSTORE_BASE64` | keystore 文件的 base64 编码（见下方生成方法） |
-| `ANDROID_KEYSTORE_PASSWORD` | keystore 密码 |
-| `ANDROID_KEY_ALIAS` | `dustnote` |
-| `ANDROID_KEY_PASSWORD` | key 密码（通常与 store 密码相同） |
+| Secret 名                   | 值                                            |
+| --------------------------- | --------------------------------------------- |
+| `ANDROID_KEYSTORE_BASE64`   | keystore 文件的 base64 编码（见下方生成方法） |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore 密码                                 |
+| `ANDROID_KEY_ALIAS`         | `dustnote`                                    |
+| `ANDROID_KEY_PASSWORD`      | key 密码（通常与 store 密码相同）             |
 
 ### 生成 base64 编码
 
 **Windows PowerShell**：
+
 ```powershell
 $bytes = [System.IO.File]::ReadAllBytes("mobile/android/app/dustnote-release.keystore")
 [System.Convert]::ToBase64String($bytes) | Set-Content -Path keystore.b64 -NoNewline
@@ -82,6 +83,7 @@ Get-Content keystore.b64 | Set-Clipboard
 ```
 
 **Linux / macOS**：
+
 ```bash
 base64 -w 0 mobile/android/app/dustnote-release.keystore  # 输出复制到 GitHub Secret
 ```

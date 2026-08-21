@@ -83,13 +83,9 @@ export async function getLastBackupTime(): Promise<string | null> {
 }
 
 /** 获取所有自动备份列表（用于恢复界面） */
-export async function listAutoBackups(): Promise<
-  Array<{ ts: string; noteCount: number }>
-> {
+export async function listAutoBackups(): Promise<Array<{ ts: string; noteCount: number }>> {
   const backups = (await get<AutoBackup[]>(AUTO_BACKUPS_KEY)) ?? [];
-  return backups
-    .map((b) => ({ ts: b.ts, noteCount: b.noteCount }))
-    .reverse();
+  return backups.map((b) => ({ ts: b.ts, noteCount: b.noteCount })).reverse();
 }
 
 /** 恢复指定时间点的备份 */

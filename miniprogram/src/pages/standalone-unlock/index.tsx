@@ -19,7 +19,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Input, Image } from '@tarojs/components';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
-import { isLocked, remainingLockoutMs, INITIAL_LOCKOUT_STATE, type LocalLockoutState } from '@dustnote/shared';
+import {
+  isLocked,
+  remainingLockoutMs,
+  INITIAL_LOCKOUT_STATE,
+  type LocalLockoutState,
+} from '@dustnote/shared';
 import { loadLockoutStateSync } from '../../lib/local-auth-storage';
 import { useAuthStore } from '../../state/auth';
 

@@ -35,7 +35,13 @@ function wsUrl(): string {
   // 必须从 mode-store 读用户配置的 serverUrl 拼绝对地址，否则桌面端联机模式 WS 永远连不上。
   const { serverUrl } = useModeStore.getState();
   const base = serverUrl ? serverUrl.replace(/\/+$/, '') : `${location.protocol}//${location.host}`;
-  const proto = base.startsWith('https') ? 'wss:' : base.startsWith('http') ? 'ws:' : (location.protocol === 'https:' ? 'wss:' : 'ws:');
+  const proto = base.startsWith('https')
+    ? 'wss:'
+    : base.startsWith('http')
+      ? 'ws:'
+      : location.protocol === 'https:'
+        ? 'wss:'
+        : 'ws:';
   return `${proto}//${base.replace(/^https?:\/\//, '')}/api/v1/sync/ws`;
 }
 

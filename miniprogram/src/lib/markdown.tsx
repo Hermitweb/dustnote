@@ -186,7 +186,14 @@ function groupBlocks(lines: string[]): BlockItem[] {
       const para: string[] = [];
       while (i < lines.length) {
         const l = lines[i]!.trim();
-        if (!l || HR_RE.test(l) || UL_ITEM_RE.test(l) || OL_ITEM_RE.test(l) || QUOTE_RE.test(l) || FENCE_RE.test(l)) {
+        if (
+          !l ||
+          HR_RE.test(l) ||
+          UL_ITEM_RE.test(l) ||
+          OL_ITEM_RE.test(l) ||
+          QUOTE_RE.test(l) ||
+          FENCE_RE.test(l)
+        ) {
           break;
         }
         para.push(l);

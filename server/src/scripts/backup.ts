@@ -41,10 +41,7 @@ export async function backupDatabase(): Promise<string> {
   const sourceDb = getDb() as unknown as InstanceType<typeof Database>;
   sourceDb.backup(backupPath);
   const stats = await stat(backupPath);
-  logger.info(
-    { path: backupPath, sizeMB: (stats.size / 1048576).toFixed(2) },
-    'SQLite 备份完成'
-  );
+  logger.info({ path: backupPath, sizeMB: (stats.size / 1048576).toFixed(2) }, 'SQLite 备份完成');
   return backupPath;
 }
 

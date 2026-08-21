@@ -179,10 +179,7 @@ const LINE_HEIGHTS: Record<Preferences['density'], string> = {
 };
 
 /** 应用字体与行高密度：写入 CSS 变量 --mn-font / --mn-line-height，由 index.css 消费 */
-export function applyTypography(
-  font: Preferences['font'],
-  density: Preferences['density']
-): void {
+export function applyTypography(font: Preferences['font'], density: Preferences['density']): void {
   const root = document.documentElement;
   root.style.setProperty('--mn-font', FONT_FAMILIES[font]);
   root.style.setProperty('--mn-line-height', LINE_HEIGHTS[density]);

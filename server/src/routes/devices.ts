@@ -46,7 +46,7 @@ devicesRouter.get('/devices', (req, res) => {
       `SELECT id, user_id, name, platform, fingerprint, refresh_token_hash, last_active_at, created_at
          FROM devices
         WHERE user_id = ?
-        ORDER BY last_active_at DESC`,
+        ORDER BY last_active_at DESC`
     )
     .all(user.userId);
 
@@ -97,7 +97,7 @@ devicesRouter.delete('/devices/:id', (req, res) => {
   // WHERE 同时带 user_id 做纵深防御：即便上层 SELECT 之外有并发变更，也不会误改他用户设备
   db.prepare(`UPDATE devices SET refresh_token_hash = NULL WHERE id = ? AND user_id = ?`).run(
     deviceId,
-    user.userId,
+    user.userId
   );
   // 审计：设备吊销（安全敏感操作，被盗号后自救的关键动作，取证需可追溯）
   db.prepare(
@@ -122,7 +122,7 @@ devicesRouter.delete('/devices', (req, res) => {
     .prepare(
       `UPDATE devices
           SET refresh_token_hash = NULL
-        WHERE user_id = ? AND id != ? AND refresh_token_hash IS NOT NULL`,
+        WHERE user_id = ? AND id != ? AND refresh_token_hash IS NOT NULL`
     )
     .run(user.userId, user.deviceId);
 
@@ -134,11 +134,8 @@ devicesRouter.delete('/devices', (req, res) => {
     user.deviceId,
     'device_revoke_others',
     ipHash(req),
-    JSON.stringify({ revokedCount: result.changes }),
+    JSON.stringify({ revokedCount: result.changes })
   );
-  logger.info(
-    { userId: user.userId, revokedCount: result.changes },
-    '批量吊销其他设备完成',
-  );
+  logger.info({ userId: user.userId, revokedCount: result.changes }, '批量吊销其他设备完成');
   res.json({ ok: true, revokedCount: result.changes });
 });

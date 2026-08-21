@@ -66,11 +66,7 @@ export async function decryptNote(
   if (needsAad && !aad) {
     throw new Error('decryptNote: 此密文绑定了 AAD，但解密时未提供 AAD');
   }
-  const json = await backend.decryptString(
-    key,
-    envelope.payload,
-    needsAad ? aad : undefined
-  );
+  const json = await backend.decryptString(key, envelope.payload, needsAad ? aad : undefined);
   return JSON.parse(json) as NotePlaintext;
 }
 
@@ -83,21 +79,11 @@ export async function decryptNote(
  */
 export function parseEnvelope(raw: string): NoteCipherEnvelope {
   const parsed = JSON.parse(raw) as unknown;
-  if (
-    typeof parsed === 'object' &&
-    parsed !== null &&
-    'v' in parsed &&
-    'payload' in parsed
-  ) {
+  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
     return parsed as NoteCipherEnvelope;
   }
   // 旧格式：直接是 Ciphertext
-  if (
-    typeof parsed === 'object' &&
-    parsed !== null &&
-    'c' in parsed &&
-    'n' in parsed
-  ) {
+  if (typeof parsed === 'object' && parsed !== null && 'c' in parsed && 'n' in parsed) {
     return { v: ENVELOPE_VERSION, payload: parsed as Ciphertext };
   }
   throw new Error('invalid envelope');

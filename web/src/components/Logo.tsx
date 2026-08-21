@@ -19,12 +19,5 @@ export function Logo({ className = 'h-8 w-8', alt = 'DustNote' }: LogoProps) {
     return <span className={`${className} flex items-center justify-center`}>🌿</span>;
   }
 
-  return (
-    <img
-      src="/logo.png"
-      alt={alt}
-      className={className}
-      onError={() => setError(true)}
-    />
-  );
+  return <img src="/logo.png" alt={alt} className={className} onError={() => setError(true)} />;
 }

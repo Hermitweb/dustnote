@@ -113,17 +113,13 @@ export function MigrationWizard({ onClose }: { onClose: () => void }) {
   return (
     <div className="space-y-4">
       <div>
-        <h4 className="mb-1 text-sm font-semibold text-surface-fg">
-          {t('migration.title')}
-        </h4>
+        <h4 className="mb-1 text-sm font-semibold text-surface-fg">{t('migration.title')}</h4>
         <p className="text-xs text-surface-muted">{t('migration.hint')}</p>
       </div>
 
       <div className="rounded-lg border border-surface-border bg-surface-bg p-3">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-medium text-surface-fg">
-            {t('migration.export_title')}
-          </span>
+          <span className="text-xs font-medium text-surface-fg">{t('migration.export_title')}</span>
           <button
             onClick={handleExport}
             className="rounded bg-mint-600 px-3 py-1 text-xs font-semibold text-white hover:bg-mint-700"
@@ -136,9 +132,7 @@ export function MigrationWizard({ onClose }: { onClose: () => void }) {
 
       <div className="rounded-lg border border-surface-border bg-surface-bg p-3">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-medium text-surface-fg">
-            {t('migration.import_title')}
-          </span>
+          <span className="text-xs font-medium text-surface-fg">{t('migration.import_title')}</span>
           <button
             onClick={() => fileRef.current?.click()}
             disabled={importing}
@@ -160,7 +154,6 @@ export function MigrationWizard({ onClose }: { onClose: () => void }) {
           }}
         />
       </div>
-
     </div>
   );
 }

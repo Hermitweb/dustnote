@@ -45,7 +45,10 @@ function loadInitialState(): ModeState {
   try {
     const raw = Taro.getStorageSync(STORAGE_KEY);
     if (raw) {
-      const parsed = typeof raw === 'string' ? (JSON.parse(raw) as Partial<ModeState>) : (raw as Partial<ModeState>);
+      const parsed =
+        typeof raw === 'string'
+          ? (JSON.parse(raw) as Partial<ModeState>)
+          : (raw as Partial<ModeState>);
       return { ...DEFAULT_STATE, ...parsed };
     }
   } catch {

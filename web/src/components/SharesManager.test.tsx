@@ -115,14 +115,20 @@ describe('SharesManager', () => {
   });
 
   it('渲染加载中状态', () => {
-    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {}))
+    );
     const { getByText } = render(createElement(SharesManager, { onClose: () => {} }));
     expect(getByText('shares.loading')).toBeInTheDocument();
     expect(getByText('shares.title')).toBeInTheDocument();
   });
 
   it('渲染空列表', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => fetchOk({ shares: [] })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchOk({ shares: [] }))
+    );
     const { getByText } = render(createElement(SharesManager, { onClose: () => {} }));
     await waitFor(() => {
       expect(getByText('shares.empty')).toBeInTheDocument();
@@ -131,11 +137,31 @@ describe('SharesManager', () => {
 
   it('渲染分享列表（生效 / 已吊销 / 已过期 / 密码标记）', async () => {
     const shares = [
-      makeShare({ id: 's-active', noteId: 'note-1', viewCount: 5, revoked: false, expiresAt: null }),
-      makeShare({ id: 's-revoked', noteId: 'note-1', revoked: true, hasPassword: true, expiresAt: null }),
-      makeShare({ id: 's-expired', noteId: 'note-1', revoked: false, expiresAt: '2020-01-01T00:00:00.000Z' }),
+      makeShare({
+        id: 's-active',
+        noteId: 'note-1',
+        viewCount: 5,
+        revoked: false,
+        expiresAt: null,
+      }),
+      makeShare({
+        id: 's-revoked',
+        noteId: 'note-1',
+        revoked: true,
+        hasPassword: true,
+        expiresAt: null,
+      }),
+      makeShare({
+        id: 's-expired',
+        noteId: 'note-1',
+        revoked: false,
+        expiresAt: '2020-01-01T00:00:00.000Z',
+      }),
     ];
-    vi.stubGlobal('fetch', vi.fn(async () => fetchOk({ shares })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchOk({ shares }))
+    );
     const { getByText } = render(createElement(SharesManager, { onClose: () => {} }));
     await waitFor(() => expect(getByText('shares.status_active')).toBeInTheDocument());
     expect(getByText('shares.status_revoked')).toBeInTheDocument();
@@ -145,7 +171,10 @@ describe('SharesManager', () => {
   });
 
   it('加载失败时显示错误', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => fetchFail(500)));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchFail(500))
+    );
     const { getByText } = render(createElement(SharesManager, { onClose: () => {} }));
     await waitFor(() => {
       expect(getByText(/shares.load_fail/)).toBeInTheDocument();
@@ -153,7 +182,10 @@ describe('SharesManager', () => {
   });
 
   it('Esc 键关闭对话框', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => fetchOk({ shares: [] })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchOk({ shares: [] }))
+    );
     const onClose = vi.fn();
     render(createElement(SharesManager, { onClose }));
     await waitFor(() => {});
@@ -162,7 +194,10 @@ describe('SharesManager', () => {
   });
 
   it('点击关闭按钮调用 onClose', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => fetchOk({ shares: [] })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchOk({ shares: [] }))
+    );
     const onClose = vi.fn();
     const { getByRole } = render(createElement(SharesManager, { onClose }));
     await waitFor(() => {});
@@ -200,16 +235,24 @@ describe('SharesManager', () => {
 
   it('未解锁时点击复制链接提示需先解锁', async () => {
     storeState.masterKey = null;
-    vi.stubGlobal('fetch', vi.fn(async () => fetchOk({ shares: [makeShare({ id: 's-1', noteId: 'note-1' })] })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchOk({ shares: [makeShare({ id: 's-1', noteId: 'note-1' })] }))
+    );
     const { getByText } = render(createElement(SharesManager, { onClose: () => {} }));
     await waitFor(() => expect(getByText('shares.status_active')).toBeInTheDocument());
     const copyBtn = getByText('shares.copy_link');
     await fireEvent.clickAsync(copyBtn);
-    expect(toastCalls.some((c) => c.kind === 'error' && c.message === 'shares.unlock_required')).toBe(true);
+    expect(
+      toastCalls.some((c) => c.kind === 'error' && c.message === 'shares.unlock_required')
+    ).toBe(true);
   });
 
   it('进入批量选择后可退出', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => fetchOk({ shares: [makeShare({ id: 's-1', noteId: 'note-1' })] })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchOk({ shares: [makeShare({ id: 's-1', noteId: 'note-1' })] }))
+    );
     const { getByText, queryByText } = render(createElement(SharesManager, { onClose: () => {} }));
     await waitFor(() => expect(getByText('shares.status_active')).toBeInTheDocument());
     fireEvent.click(getByText('shares.batch_select'));
@@ -219,7 +262,10 @@ describe('SharesManager', () => {
   });
 
   it('暴露无障碍对话框语义', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => fetchOk({ shares: [] })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchOk({ shares: [] }))
+    );
     const { getByRole } = render(createElement(SharesManager, { onClose: () => {} }));
     const dialog = getByRole('dialog');
     expect(dialog).toHaveAttribute('aria-modal', 'true');

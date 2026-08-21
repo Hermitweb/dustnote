@@ -50,9 +50,7 @@ createRoot(root).render(
         <div className="flex h-full items-center justify-center bg-surface-bg p-6">
           <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
             <div className="mb-4 text-4xl">💥</div>
-            <h2 className="mb-2 text-lg font-semibold text-surface-fg">
-              应用遇到了问题
-            </h2>
+            <h2 className="mb-2 text-lg font-semibold text-surface-fg">应用遇到了问题</h2>
             <p className="mb-4 text-sm text-surface-muted">
               {import.meta.env.PROD
                 ? '应用遇到了问题，请刷新页面或重启应用。'

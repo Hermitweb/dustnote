@@ -312,7 +312,10 @@ export function FoldersScreen() {
         renderItem={({ item }) => (
           <View style={styles.row}>
             <Text style={styles.rowIcon}>{BRANCH_ICON[item.branch ?? 'work'] ?? '📁'}</Text>
-            <Text style={[styles.rowName, { paddingLeft: ((item.depth ?? 1) - 1) * 16 }]} numberOfLines={1}>
+            <Text
+              style={[styles.rowName, { paddingLeft: ((item.depth ?? 1) - 1) * 16 }]}
+              numberOfLines={1}
+            >
               {item.name}
             </Text>
             {/* 二级文件夹缩进标记 */}
@@ -369,15 +372,16 @@ export function FoldersScreen() {
               <Text style={styles.modalHint}>{t('folders.has_children_top_only')}</Text>
             )}
             <ScrollView style={{ maxHeight: 300 }}>
-              <TouchableOpacity
-                style={styles.moveRow}
-                onPress={() => void handleMove(null)}
-              >
+              <TouchableOpacity style={styles.moveRow} onPress={() => void handleMove(null)}>
                 <Text style={styles.moveRowIcon}>📁</Text>
                 <Text style={styles.moveRowName}>{t('folders.parent_top')}</Text>
               </TouchableOpacity>
               {moveTargets.map((f) => (
-                <TouchableOpacity key={f.id} style={styles.moveRow} onPress={() => void handleMove(f.id)}>
+                <TouchableOpacity
+                  key={f.id}
+                  style={styles.moveRow}
+                  onPress={() => void handleMove(f.id)}
+                >
                   <Text style={styles.moveRowIcon}>{BRANCH_ICON[f.branch ?? 'work'] ?? '📁'}</Text>
                   <Text style={styles.moveRowName}>{f.name}</Text>
                 </TouchableOpacity>
@@ -402,10 +406,7 @@ function Chip({
   styles: ReturnType<typeof makeStyles>;
 }) {
   return (
-    <TouchableOpacity
-      style={[styles.chip, active && styles.chipActive]}
-      onPress={onPress}
-    >
+    <TouchableOpacity style={[styles.chip, active && styles.chipActive]} onPress={onPress}>
       <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
         {label}
       </Text>

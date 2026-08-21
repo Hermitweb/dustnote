@@ -53,8 +53,7 @@ updateManifestRouter.get('/update-manifest', (req, res) => {
     return;
   }
 
-  const requestedChannel =
-    query.data.channel ?? parseChannelHeader(headers.channel) ?? 'stable';
+  const requestedChannel = query.data.channel ?? parseChannelHeader(headers.channel) ?? 'stable';
 
   const manifest = getManifestForChannel(requestedChannel, {
     clientVersion: headers.version,

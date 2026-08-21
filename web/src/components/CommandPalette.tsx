@@ -39,11 +39,7 @@ export interface Command {
 }
 
 /** 分类展示顺序 */
-const CATEGORY_ORDER: readonly CommandCategory[] = [
-  'navigation',
-  'operations',
-  'about',
-] as const;
+const CATEGORY_ORDER: readonly CommandCategory[] = ['navigation', 'operations', 'about'] as const;
 
 /** 分类标签 i18n key */
 const CATEGORY_LABEL_KEY: Record<CommandCategory, string> = {
@@ -219,7 +215,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         action: () => window.dispatchEvent(new CustomEvent('app:about')),
       },
     ],
-    [],
+    []
   );
 
   const allCommands = commands ?? builtinCommands;
@@ -230,7 +226,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
       if (cmd.titleKey) return t(cmd.titleKey);
       return cmd.title ?? cmd.id;
     },
-    [t],
+    [t]
   );
 
   /** 过滤 + 评分 + 排序 */

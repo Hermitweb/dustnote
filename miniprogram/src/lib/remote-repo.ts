@@ -202,7 +202,11 @@ export class RemoteRepository implements DataRepository {
     // 联机模式：逐条创建笔记/文件夹/标签
     for (const folder of payload.folders) {
       try {
-        await this.createFolder({ name: folder.name, parentId: folder.parentId, icon: folder.icon });
+        await this.createFolder({
+          name: folder.name,
+          parentId: folder.parentId,
+          icon: folder.icon,
+        });
       } catch {
         /* 已存在则跳过 */
       }

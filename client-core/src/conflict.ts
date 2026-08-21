@@ -209,10 +209,20 @@ export function resolveConflict(
     if (serverVal !== null && baseVal === null && localContentChanged) {
       // 删除 vs 编辑：保住本地编辑，不静默删除
       merged.deletedAt = localVal;
-      conflicts.push({ field: 'deletedAt', baseValue: baseVal, localValue: localVal, serverValue: serverVal });
+      conflicts.push({
+        field: 'deletedAt',
+        baseValue: baseVal,
+        localValue: localVal,
+        serverValue: serverVal,
+      });
     } else if (cL && cS && changed(localVal, serverVal)) {
       merged.deletedAt = localVal;
-      conflicts.push({ field: 'deletedAt', baseValue: baseVal, localValue: localVal, serverValue: serverVal });
+      conflicts.push({
+        field: 'deletedAt',
+        baseValue: baseVal,
+        localValue: localVal,
+        serverValue: serverVal,
+      });
     } else if (cL && cS) {
       merged.deletedAt = localVal; // 达成一致
     } else if (cL) {

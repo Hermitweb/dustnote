@@ -38,6 +38,7 @@ v2.0.2 已发布（GitHub Actions run #53 通过，APK 已上线），但用户�
 **作用**：动态读取 `mobile/package.json` 的 `dependencies`，把每个原生依赖的 `root` 显式指向工作区根 `node_modules`。这样 autolinking（`@react-native-community/cli-platform-android` 的 `native_modules.gradle`）不再依赖 `mobile/node_modules` 里的 symlink 是否被识别，而是直接从根 `node_modules` 读取原生模块代码。
 
 逻辑要点：
+
 - 遍历 `pkg.dependencies`，跳过 `@dustnote/shared`（workspace 包，由 Metro `extraNodeModules` 处理，无原生代码）。
 - 对每个依赖，`root = path.resolve(__dirname, '..', 'node_modules', dep)`。
 - 用 `fs.existsSync` 校验 `<root>/package.json` 存在才加入配置（避免 pnpm 布局差异导致路径无效）。
@@ -65,11 +66,11 @@ v2.0.2 已发布（GitHub Actions run #53 通过，APK 已上线），但用户�
 
 ## 涉及文件清单
 
-| 文件 | 操作 |
-|---|---|
-| `web/src/components/SettingsDialog.tsx` | 修改 useEffect（L119-141）：移除自动 checkForUpdates |
-| `mobile/react-native.config.js` | 新增：动态指向根 node_modules 的 autolinking 配置 |
-| `.github/workflows/release.yml` | 新增 build-mobile 的 `Verify autolinked native modules` 步骤 |
+| 文件                                    | 操作                                                         |
+| --------------------------------------- | ------------------------------------------------------------ |
+| `web/src/components/SettingsDialog.tsx` | 修改 useEffect（L119-141）：移除自动 checkForUpdates         |
+| `mobile/react-native.config.js`         | 新增：动态指向根 node_modules 的 autolinking 配置            |
+| `.github/workflows/release.yml`         | 新增 build-mobile 的 `Verify autolinked native modules` 步骤 |
 
 不改动 Rust 端（`desktop/src-tauri/src/lib.rs`）——前端去除自动检查已足够消除卡顿；用户主动点"检查更新"时的 10s `withTimeout` 可接受。
 
@@ -78,11 +79,13 @@ v2.0.2 已发布（GitHub Actions run #53 通过，APK 已上线），但用户�
 ## 验证方式
 
 ### Windows 设置卡顿
+
 1. `pnpm --filter @dustnote/web typecheck` 通过。
 2. 本地 `pnpm --filter @dustnote/desktop tauri dev` 启动桌面端，打开设置页：应**立即响应**，不再显示"检查更新中…"转圈，应用更新区显示"🔍 检查更新"按钮（idle 态）。
 3. 点击"🔍 检查更新"：才发起网络检查，最多 10s 出结果（正常行为）。
 
 ### 安卓 autolinking
+
 1. `mobile/react-native.config.js` 语法校验：`node -e "require('./mobile/react-native.config.js')"` 不报错且 `dependencies` 对象包含 `react-native-safe-area-context` 等键。
 2. 推送 v2.0.2 tag 触发 CI，观察 build-mobile job：
    - `Verify autolinked native modules` 步骤通过（证明 PackageList.java 含全部原生模块）。
@@ -90,6 +93,7 @@ v2.0.2 已发布（GitHub Actions run #53 通过，APK 已上线），但用户�
 3. 下载新 APK 安装到安卓真机：启动**不再闪退**，进入模式选择页/解锁页。
 
 ### 回归
+
 - `pnpm -r typecheck` 与 `pnpm -r lint` 通过。
 - 现有单元测试 `pnpm -r test` 通过（SettingsDialog 改动仅影响 useEffect 副作用，不影响 store/导出逻辑）。
 

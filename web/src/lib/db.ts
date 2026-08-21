@@ -46,9 +46,7 @@ export async function cacheNotes(
  * 读取缓存。明文缓存是 localDEK 加密的 Ciphertext，需 localKey 解密；
  * 无密钥或解密失败（密钥不匹配 / 旧明文格式）时返回空明文（不降级为明文泄露）。
  */
-export async function loadCachedNotes(
-  localKey?: Uint8Array
-): Promise<{
+export async function loadCachedNotes(localKey?: Uint8Array): Promise<{
   notes: Map<string, NoteRow>;
   plain: Map<string, NotePlaintext>;
 }> {

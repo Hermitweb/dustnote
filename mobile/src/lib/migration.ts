@@ -87,7 +87,10 @@ export async function persistWrappedOldMasterKey(
   oldMasterKey: Uint8Array
 ): Promise<void> {
   const wrapped = await wrapKey(currentMasterKey, oldMasterKey);
-  await AsyncStorage.setItem(PENDING_KEY, JSON.stringify({ ...slot, wrappedOldMasterKey: wrapped }));
+  await AsyncStorage.setItem(
+    PENDING_KEY,
+    JSON.stringify({ ...slot, wrappedOldMasterKey: wrapped })
+  );
 }
 
 /** 解密备份中的一条笔记（兼容 AAD 绑定），失败返回 null */

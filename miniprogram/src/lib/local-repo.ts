@@ -183,9 +183,7 @@ export class LocalRepository implements DataRepository {
       icon: input.icon ?? null,
       sortOrder: folders.length,
       createdAt: new Date().toISOString(),
-      depth: input.parentId
-        ? (folders.find((f) => f.id === input.parentId)?.depth ?? 1) + 1
-        : 1,
+      depth: input.parentId ? (folders.find((f) => f.id === input.parentId)?.depth ?? 1) + 1 : 1,
       branch: input.parentId
         ? (folders.find((f) => f.id === input.parentId)?.branch ?? null)
         : (input.branch ?? null),

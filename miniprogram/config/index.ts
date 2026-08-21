@@ -34,7 +34,10 @@ export default {
       // 显式将 react/react-dom 别名到根 node_modules 唯一实例
       chain.resolve.alias
         .set('react', path.resolve(__dirname, '..', '..', 'node_modules', 'react'))
-        .set('react/jsx-runtime', path.resolve(__dirname, '..', '..', 'node_modules', 'react', 'jsx-runtime'))
+        .set(
+          'react/jsx-runtime',
+          path.resolve(__dirname, '..', '..', 'node_modules', 'react', 'jsx-runtime')
+        )
         .set('react-dom', path.resolve(__dirname, '..', '..', 'node_modules', 'react-dom'));
       // 让 babel-loader 处理 @dustnote/shared 中的新语法（数字分隔符等）
       const scriptRule = chain.module.rules.get('script');

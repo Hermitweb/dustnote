@@ -63,9 +63,7 @@ describe('SyncEngine.flush', () => {
   });
 
   it('409 without onConflict hook → still removes op (no crash)', async () => {
-    const { queue, replay } = await setup([
-      { method: 'PATCH', path: '/notes/1', body: {} },
-    ]);
+    const { queue, replay } = await setup([{ method: 'PATCH', path: '/notes/1', body: {} }]);
     replay.mockRejectedValueOnce(apiErr(409, { current: {} }));
     const engine = new SyncEngine(queue, { replayOp: replay });
 
@@ -76,9 +74,7 @@ describe('SyncEngine.flush', () => {
   });
 
   it('other 4xx (e.g. 404) → removes op, hadConflict=true', async () => {
-    const { queue, replay } = await setup([
-      { method: 'DELETE', path: '/notes/1/permanent' },
-    ]);
+    const { queue, replay } = await setup([{ method: 'DELETE', path: '/notes/1/permanent' }]);
     replay.mockRejectedValueOnce(apiErr(404));
     const engine = new SyncEngine(queue, { replayOp: replay });
 
@@ -122,9 +118,7 @@ describe('SyncEngine.flush', () => {
   });
 
   it('unknown error → drops op to avoid blocking', async () => {
-    const { queue, replay } = await setup([
-      { method: 'PATCH', path: '/notes/1', body: {} },
-    ]);
+    const { queue, replay } = await setup([{ method: 'PATCH', path: '/notes/1', body: {} }]);
     replay.mockRejectedValueOnce(new Error('weird'));
     const engine = new SyncEngine(queue, { replayOp: replay });
 
@@ -133,13 +127,9 @@ describe('SyncEngine.flush', () => {
   });
 
   it('reentrancy guard: concurrent flush runs once', async () => {
-    const { queue, replay } = await setup([
-      { method: 'PATCH', path: '/notes/1', body: {} },
-    ]);
+    const { queue, replay } = await setup([{ method: 'PATCH', path: '/notes/1', body: {} }]);
     // 让 replay 慢一点，以便并发触发第二次 flush
-    replay.mockImplementation(
-      () => new Promise((r) => setTimeout(() => r(undefined), 20))
-    );
+    replay.mockImplementation(() => new Promise((r) => setTimeout(() => r(undefined), 20)));
     const engine = new SyncEngine(queue, { replayOp: replay });
 
     const [a, b] = await Promise.all([engine.flush(), engine.flush()]);
@@ -154,9 +144,7 @@ describe('SyncEngine.flush', () => {
   });
 
   it('onConflict failure does not crash flush (op still removed)', async () => {
-    const { queue, replay } = await setup([
-      { method: 'PATCH', path: '/notes/1', body: {} },
-    ]);
+    const { queue, replay } = await setup([{ method: 'PATCH', path: '/notes/1', body: {} }]);
     replay.mockRejectedValueOnce(apiErr(409, { current: {} }));
     const onConflict = vi.fn().mockRejectedValue(new Error('merge boom'));
     const engine = new SyncEngine(queue, { replayOp: replay, onConflict });
@@ -167,9 +155,7 @@ describe('SyncEngine.flush', () => {
   });
 
   it('custom classifyError is respected', async () => {
-    const { queue, replay } = await setup([
-      { method: 'PATCH', path: '/notes/1', body: {} },
-    ]);
+    const { queue, replay } = await setup([{ method: 'PATCH', path: '/notes/1', body: {} }]);
     // 抛一个非标准错误，用自定义分类器把它归为 409
     replay.mockRejectedValueOnce({ kind: 'version_conflict', serverNote: { v: 9 } });
     const onConflict = vi.fn().mockResolvedValue(true);

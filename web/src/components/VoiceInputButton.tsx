@@ -44,11 +44,7 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-export function VoiceInputButton({
-  onInsert,
-}: {
-  onInsert: (text: string) => void;
-}) {
+export function VoiceInputButton({ onInsert }: { onInsert: (text: string) => void }) {
   const { t, i18n } = useTranslation();
   const [listening, setListening] = useState(false);
   const [supported] = useState<boolean>(() => getSpeechRecognitionCtor() !== null);

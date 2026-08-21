@@ -52,15 +52,14 @@ const USER_DATA_TABLES = [
 ] as const;
 const USER_DATA_TABLE_SET = new Set<string>(USER_DATA_TABLES);
 
-function countUserData(
-  db: ReturnType<typeof getDb>,
-  userId: string,
-): Record<string, number> {
+function countUserData(db: ReturnType<typeof getDb>, userId: string): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const t of USER_DATA_TABLES) {
     // t 来自编译期常量集合，非用户输入；二次校验集合成员以做纵深防御
     if (!USER_DATA_TABLE_SET.has(t)) continue;
-    const r = db.prepare(`SELECT COUNT(*) as c FROM ${t} WHERE user_id = ?`).get(userId) as { c: number };
+    const r = db.prepare(`SELECT COUNT(*) as c FROM ${t} WHERE user_id = ?`).get(userId) as {
+      c: number;
+    };
     counts[t] = r.c;
   }
   return counts;
@@ -110,10 +109,7 @@ accountRouter.delete('/account', (req, res) => {
     return;
   }
 
-  logger.info(
-    { userId, countsBefore: result.countsBefore },
-    '账户已删除（GDPR Article 17）',
-  );
+  logger.info({ userId, countsBefore: result.countsBefore }, '账户已删除（GDPR Article 17）');
 
   res.json({
     ok: true,
@@ -140,62 +136,72 @@ accountRouter.get('/account/export', (req, res) => {
     //   泄漏会带来离线爆破风险。保留 wrapped_master_key(_pw/_rc) + pw_salt/rc_salt
     //   主密钥的密文，是迁移后用主密码重新解开笔记的唯一凭证。
     const userRow = db
-      .prepare<unknown[], Record<string, unknown>>(
-        `SELECT id, pw_salt, rc_salt, wrapped_master_key, wrapped_master_key_pw, wrapped_master_key_rc, kdf_version, kdf_params, recovery_code_set, created_at, updated_at FROM users WHERE id = ?`,
-      )
+      .prepare<
+        unknown[],
+        Record<string, unknown>
+      >(`SELECT id, pw_salt, rc_salt, wrapped_master_key, wrapped_master_key_pw, wrapped_master_key_rc, kdf_version, kdf_params, recovery_code_set, created_at, updated_at FROM users WHERE id = ?`)
       .get(userId);
     if (!userRow) return null;
 
     // 显式列：排除 refresh_token_hash（服务端会话密钥哈希，迁移无用，
     //   泄漏有被离线爆破风险；新设备登录会重新生成）。
     const devices = db
-      .prepare<unknown[], Record<string, unknown>[]>(
-        `SELECT id, user_id, name, platform, fingerprint, last_active_at, created_at FROM devices WHERE user_id = ?`,
-      )
+      .prepare<
+        unknown[],
+        Record<string, unknown>[]
+      >(`SELECT id, user_id, name, platform, fingerprint, last_active_at, created_at FROM devices WHERE user_id = ?`)
       .all(userId);
     const notes = db
-      .prepare<unknown[], Record<string, unknown>[]>(
-        `SELECT id, user_id, ciphertext, key_version, is_pinned, is_favorite, deleted_at, version, folder_id, client_updated_at, server_updated_at, created_at, updated_at FROM notes WHERE user_id = ?`,
-      )
+      .prepare<
+        unknown[],
+        Record<string, unknown>[]
+      >(`SELECT id, user_id, ciphertext, key_version, is_pinned, is_favorite, deleted_at, version, folder_id, client_updated_at, server_updated_at, created_at, updated_at FROM notes WHERE user_id = ?`)
       .all(userId);
     // 历史版本：补齐此前遗漏的 note_versions，否则导出后用户无法重建笔记历史。
     const noteVersions = db
-      .prepare<unknown[], Record<string, unknown>[]>(
-        `SELECT id, note_id, ciphertext, key_version, note_version, client_updated_at, created_at FROM note_versions WHERE user_id = ?`,
-      )
+      .prepare<
+        unknown[],
+        Record<string, unknown>[]
+      >(`SELECT id, note_id, ciphertext, key_version, note_version, client_updated_at, created_at FROM note_versions WHERE user_id = ?`)
       .all(userId);
     // 笔记-标签关联：note_tags 无 user_id 列，通过 JOIN notes 限定到当前用户，
     // 否则导出后客户端无法重建笔记与标签的多对多关系。
     const noteTags = db
-      .prepare<unknown[], Record<string, unknown>[]>(
-        `SELECT nt.note_id, nt.tag_id FROM note_tags nt INNER JOIN notes n ON nt.note_id = n.id WHERE n.user_id = ?`,
-      )
+      .prepare<
+        unknown[],
+        Record<string, unknown>[]
+      >(`SELECT nt.note_id, nt.tag_id FROM note_tags nt INNER JOIN notes n ON nt.note_id = n.id WHERE n.user_id = ?`)
       .all(userId);
     // 显式列替代 SELECT *：避免未来给 folders/tags/preferences 增加内部字段时意外泄漏。
     const folders = db
-      .prepare<unknown[], Record<string, unknown>[]>(
-        `SELECT id, user_id, name, parent_id, icon, sort_order, created_at FROM folders WHERE user_id = ?`,
-      )
+      .prepare<
+        unknown[],
+        Record<string, unknown>[]
+      >(`SELECT id, user_id, name, parent_id, icon, sort_order, created_at FROM folders WHERE user_id = ?`)
       .all(userId);
     const tags = db
-      .prepare<unknown[], Record<string, unknown>[]>(
-        `SELECT id, user_id, name, color FROM tags WHERE user_id = ?`,
-      )
+      .prepare<
+        unknown[],
+        Record<string, unknown>[]
+      >(`SELECT id, user_id, name, color FROM tags WHERE user_id = ?`)
       .all(userId);
     const preferences = db
-      .prepare<unknown[], Record<string, unknown>[]>(
-        `SELECT user_id, theme, mode, font, density, auto_lock, language, updated_at FROM preferences WHERE user_id = ?`,
-      )
+      .prepare<
+        unknown[],
+        Record<string, unknown>[]
+      >(`SELECT user_id, theme, mode, font, density, auto_lock, language, updated_at FROM preferences WHERE user_id = ?`)
       .all(userId);
     const shares = db
-      .prepare<unknown[], Record<string, unknown>[]>(
-        `SELECT id, note_id, token, ciphertext, wrapped_share_key, password_hash IS NOT NULL AS has_password, expires_at, view_count, revoked, created_at FROM shares WHERE user_id = ?`,
-      )
+      .prepare<
+        unknown[],
+        Record<string, unknown>[]
+      >(`SELECT id, note_id, token, ciphertext, wrapped_share_key, password_hash IS NOT NULL AS has_password, expires_at, view_count, revoked, created_at FROM shares WHERE user_id = ?`)
       .all(userId);
     const templates = db
-      .prepare<unknown[], Record<string, unknown>[]>(
-        `SELECT id, user_id, name, description, category, icon, content, is_preset, sort_order, created_at, updated_at FROM templates WHERE user_id = ?`,
-      )
+      .prepare<
+        unknown[],
+        Record<string, unknown>[]
+      >(`SELECT id, user_id, name, description, category, icon, content, is_preset, sort_order, created_at, updated_at FROM templates WHERE user_id = ?`)
       .all(userId);
 
     return {

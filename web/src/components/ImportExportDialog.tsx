@@ -63,7 +63,14 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
   // 导入增强：拖拽 / 预览 / 冲突策略
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState<
-    { key: string; name: string; title: string; content: string; tags: string[]; included: boolean }[]
+    {
+      key: string;
+      name: string;
+      title: string;
+      content: string;
+      tags: string[];
+      included: boolean;
+    }[]
   >([]);
   const [conflictStrategy, setConflictStrategy] = useState<'merge' | 'overwrite' | 'skip'>('merge');
 
@@ -76,7 +83,12 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       const f = arr[i];
       if (!f) continue;
       if (f.size > 50 * 1024 * 1024) {
-        setError(t('import_export.file_too_large', { name: f.name, defaultValue: `文件过大：${f.name}（超过 50MB 限制）` }));
+        setError(
+          t('import_export.file_too_large', {
+            name: f.name,
+            defaultValue: `文件过大：${f.name}（超过 50MB 限制）`,
+          })
+        );
         continue;
       }
       try {
@@ -161,7 +173,9 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         await state.updateNote(id, { title: item.title, content: item.content, tags: item.tags });
         ok++;
       } catch (err) {
-        setError(t('import_export.import_fail', { name: item.name, reason: (err as Error).message }));
+        setError(
+          t('import_export.import_fail', { name: item.name, reason: (err as Error).message })
+        );
         fail++;
       }
     }
@@ -182,7 +196,10 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       return;
     }
     const date = new Date().toISOString().slice(0, 10);
-    const safeTitle = (plain.title || 'note').replace(/[\\/:*?"<>|]/g, '-').replace(/\.\.+/g, '.').replace(/^\.+/, '');
+    const safeTitle = (plain.title || 'note')
+      .replace(/[\\/:*?"<>|]/g, '-')
+      .replace(/\.\.+/g, '.')
+      .replace(/^\.+/, '');
     if (fmt === 'md') {
       const blob = exportAsMarkdown(plain.title, plain.content);
       const filename = `${safeTitle}-${date}.md`;
@@ -299,7 +316,11 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       const usedNames = new Set<string>();
 
       for (const [, pt] of entries) {
-        const safeTitle = (pt.title || 'untitled').replace(/[\\/:*?"<>|]/g, '-').replace(/\.\.+/g, '.').replace(/^\.+/, '').slice(0, 60);
+        const safeTitle = (pt.title || 'untitled')
+          .replace(/[\\/:*?"<>|]/g, '-')
+          .replace(/\.\.+/g, '.')
+          .replace(/^\.+/, '')
+          .slice(0, 60);
         // 避免同名文件冲突：若已存在则追加序号
         let filename = `${safeTitle}.md`;
         let n = 2;
@@ -398,7 +419,9 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
                 disabled={mode !== 'main'}
                 className="rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
               >
-                {mode === 'importing' ? status || t('import_export.importing') : t('import_export.import_btn')}
+                {mode === 'importing'
+                  ? status || t('import_export.importing')
+                  : t('import_export.import_btn')}
               </button>
               <p className="mt-2">{t('import_export.drag_hint')}</p>
             </div>
@@ -435,7 +458,9 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
                         className="mt-0.5"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium text-surface-fg">{p.title}</span>
+                        <span className="block truncate font-medium text-surface-fg">
+                          {p.title}
+                        </span>
                         <span className="block truncate text-surface-muted">
                           {p.content.slice(0, 60) || '—'}
                         </span>
@@ -521,7 +546,8 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
               disabled={mode !== 'main'}
               className="w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
             >
-              {mode === 'exporting' && status?.includes(t('import_export.backup_start').split('…')[0] ?? '')
+              {mode === 'exporting' &&
+              status?.includes(t('import_export.backup_start').split('…')[0] ?? '')
                 ? status
                 : t('import_export.backup_btn')}
             </button>
@@ -538,7 +564,8 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
               disabled={mode !== 'main'}
               className="w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
             >
-              {mode === 'exporting' && status?.includes(t('import_export.zip_start').split('…')[0] ?? '')
+              {mode === 'exporting' &&
+              status?.includes(t('import_export.zip_start').split('…')[0] ?? '')
                 ? t('import_export.zipping')
                 : t('import_export.zip_btn')}
             </button>

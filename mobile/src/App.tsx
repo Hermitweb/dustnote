@@ -43,11 +43,18 @@ import { useIsDark, useColors } from './theme';
 
 // 全局 JS 错误兜底：ErrorBoundary 只覆盖渲染错误，不覆盖异步回调错误。
 // 生产环境记录告警日志（内容经 console 过滤，不打印敏感数据），避免崩溃静默。
-const ErrorUtilsApi = (global as { ErrorUtils?: { setGlobalHandler: (h: (e: unknown, isFatal: boolean) => void) => void } })
-  .ErrorUtils;
+const ErrorUtilsApi = (
+  global as {
+    ErrorUtils?: { setGlobalHandler: (h: (e: unknown, isFatal: boolean) => void) => void };
+  }
+).ErrorUtils;
 if (ErrorUtilsApi) {
   ErrorUtilsApi.setGlobalHandler((err, isFatal) => {
-    console.warn('[DustNote] uncaught error:', isFatal, err instanceof Error ? err.message : String(err));
+    console.warn(
+      '[DustNote] uncaught error:',
+      isFatal,
+      err instanceof Error ? err.message : String(err)
+    );
   });
 }
 
@@ -137,7 +144,14 @@ function AppInner() {
   if (!hydrated) {
     return (
       <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: bgColor,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
           <ActivityIndicator size="large" color={colors.mint600} />
           <Text style={{ marginTop: 12, color: fgColor, fontSize: 14 }}>{t('app.loading')}</Text>
         </View>
@@ -149,10 +163,7 @@ function AppInner() {
   if (!modeInitialized) {
     return (
       <SafeAreaProvider>
-        <StatusBar
-          barStyle={isDark ? 'light-content' : 'dark-content'}
-          backgroundColor={bgColor}
-        />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={bgColor} />
         <NavigationContainer
           theme={{
             dark: isDark,
@@ -188,9 +199,18 @@ function AppInner() {
   if (authState === 'unknown') {
     return (
       <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: bgColor,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
           <ActivityIndicator size="large" color={colors.mint600} />
-          <Text style={{ marginTop: 12, color: fgColor, fontSize: 14 }}>{t('app.checking_auth')}</Text>
+          <Text style={{ marginTop: 12, color: fgColor, fontSize: 14 }}>
+            {t('app.checking_auth')}
+          </Text>
         </View>
       </SafeAreaProvider>
     );
@@ -200,10 +220,7 @@ function AppInner() {
   if (authState === 'unlocked') {
     return (
       <SafeAreaProvider>
-        <StatusBar
-          barStyle={isDark ? 'light-content' : 'dark-content'}
-          backgroundColor={bgColor}
-        />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={bgColor} />
         <NavigationContainer
           theme={{
             dark: isDark,
@@ -244,12 +261,12 @@ function AppInner() {
               component={FoldersScreen}
               options={{ title: t('app.folders_title') }}
             />
-            <Stack.Screen name="Trash" component={TrashScreen} options={{ title: t('app.trash_title') }} />
             <Stack.Screen
-              name="Shares"
-              component={SharesScreen}
-              options={{ title: '分享管理' }}
+              name="Trash"
+              component={TrashScreen}
+              options={{ title: t('app.trash_title') }}
             />
+            <Stack.Screen name="Shares" component={SharesScreen} options={{ title: '分享管理' }} />
           </Stack.Navigator>
         </NavigationContainer>
         {/* 同步冲突裁决（pendingConflicts 非空时弹出） */}
@@ -261,10 +278,7 @@ function AppInner() {
   // 5. 未解锁：根据模式显示对应鉴权流程
   return (
     <SafeAreaProvider>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={bgColor}
-      />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={bgColor} />
       <NavigationContainer
         theme={{
           dark: isDark,

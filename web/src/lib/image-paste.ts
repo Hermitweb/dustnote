@@ -40,10 +40,7 @@ function loadImage(file: File): Promise<HTMLImageElement> {
 }
 
 /** canvas 压缩并输出 data URL；保持比例，长边不超过 maxEdge */
-async function compressImage(
-  img: HTMLImageElement,
-  keepAlpha: boolean
-): Promise<string> {
+async function compressImage(img: HTMLImageElement, keepAlpha: boolean): Promise<string> {
   let { width, height } = img;
   if (width > MAX_EDGE || height > MAX_EDGE) {
     const ratio = Math.min(MAX_EDGE / width, MAX_EDGE / height);
@@ -69,9 +66,7 @@ async function compressImage(
  * 把一个图片 File 转成压缩后的 data URL
  * @returns { dataUrl, alt }
  */
-export async function fileToImageDataUrl(
-  file: File
-): Promise<{ dataUrl: string; alt: string }> {
+export async function fileToImageDataUrl(file: File): Promise<{ dataUrl: string; alt: string }> {
   if (!isImageFile(file)) {
     throw new Error('非图片文件');
   }

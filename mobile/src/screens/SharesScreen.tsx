@@ -21,13 +21,7 @@ import {
 } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useFocusEffect } from '@react-navigation/native';
-import {
-  decryptString,
-  unwrapKey,
-  toBase64Url,
-  noteAad,
-  type Ciphertext,
-} from '@dustnote/shared';
+import { decryptString, unwrapKey, toBase64Url, noteAad, type Ciphertext } from '@dustnote/shared';
 import { api } from '../api';
 import { useAuthStore } from '../state/auth';
 import { createRepository } from '../lib/repository';
@@ -67,7 +61,12 @@ export function SharesScreen() {
       const titles: Record<string, string> = {};
       if (masterKey) {
         try {
-          const repo = createRepository({ mode: 'online', serverUrl: null, accessToken: null, deviceId: null });
+          const repo = createRepository({
+            mode: 'online',
+            serverUrl: null,
+            accessToken: null,
+            deviceId: null,
+          });
           const snapshot = await repo.loadAll();
           const userId = useAuthStore.getState().userId ?? '';
           for (const n of snapshot.notes) {
@@ -197,10 +196,18 @@ export function SharesScreen() {
               </Text>
               {!item.revoked && (
                 <View style={styles.actions}>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => void onCopyLink(item)} disabled={busyId === item.id}>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => void onCopyLink(item)}
+                    disabled={busyId === item.id}
+                  >
                     <Text style={styles.actionText}>📋 复制链接</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => void onShareLink(item)} disabled={busyId === item.id}>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => void onShareLink(item)}
+                    disabled={busyId === item.id}
+                  >
                     <Text style={styles.actionText}>📤 分享</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -230,7 +237,13 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     errorEmoji: { fontSize: 48, marginBottom: 12 },
     emptyEmoji: { fontSize: 48, marginBottom: 12 },
     hint: { fontSize: 14, color: c.muted, textAlign: 'center', marginTop: 8 },
-    retryBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: c.mint600, borderRadius: 8 },
+    retryBtn: {
+      marginTop: 16,
+      paddingHorizontal: 24,
+      paddingVertical: 10,
+      backgroundColor: c.mint600,
+      borderRadius: 8,
+    },
     retryText: { color: 'white', fontSize: 14, fontWeight: '600' },
     card: {
       backgroundColor: c.card,

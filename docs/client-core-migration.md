@@ -5,12 +5,12 @@
 
 ## 迁移状态
 
-| 客户端        | 信封（envelope） | 离线队列 + 同步引擎 | 冲突合并（409 三方） | 冲突裁决 UI |
-| ------------- | ---------------- | ------------------- | -------------------- | ----------- |
-| web           | ✅ 已迁移        | ✅ 已迁移           | ✅ 已迁移            | ✅ 已实现    |
-| mobile (RN)   | ✅ 已迁移        | ✅ 已迁移           | ✅ 已迁移            | ✅ 已实现    |
-| miniprogram   | ✅ 已迁移        | ✅ 已新增           | ✅ 已迁移            | ✅ 已实现    |
-| desktop       | ✅ 复用 web      | ✅ 复用 web         | ✅ 复用 web          | ✅ 复用 web  |
+| 客户端      | 信封（envelope） | 离线队列 + 同步引擎 | 冲突合并（409 三方） | 冲突裁决 UI |
+| ----------- | ---------------- | ------------------- | -------------------- | ----------- |
+| web         | ✅ 已迁移        | ✅ 已迁移           | ✅ 已迁移            | ✅ 已实现   |
+| mobile (RN) | ✅ 已迁移        | ✅ 已迁移           | ✅ 已迁移            | ✅ 已实现   |
+| miniprogram | ✅ 已迁移        | ✅ 已新增           | ✅ 已迁移            | ✅ 已实现   |
+| desktop     | ✅ 复用 web      | ✅ 复用 web         | ✅ 复用 web          | ✅ 复用 web |
 
 > 三端冲突处理策略一致：无歧义字段自动合并并静默 re-PATCH；有歧义字段
 > （双方都改）推送到 conflict-store，由全局 ConflictDialog 让用户裁决
@@ -26,13 +26,13 @@ DustNote 有四个客户端（web / mobile / miniprogram / desktop），它们�
 
 `@dustnote/client-core` 把这三块抽成框架无关的纯逻辑包，四端共用：
 
-| 模块              | 解决的问题               | 关键导出                                           |
-| ----------------- | ----------------------- | -------------------------------------------------- |
-| `offline-queue`   | 队列语义与存储解耦       | `OfflineQueue`, `QueueStorage`, `IndexedDbQueueStorage`, `MemoryQueueStorage` |
-| `sync-engine`     | 重放编排与退避策略       | `SyncEngine`, `SyncEngineHooks`, `FlushSummary`    |
-| `crypto-backend`  | 加密后端可替换适配器     | `CryptoBackend`, `sharedCryptoBackend`, `setCryptoBackend` |
-| `envelope`        | 信封格式单一真相源       | `encryptNote`, `decryptNote`, `parseEnvelope`, `ENVELOPE_VERSION` |
-| `conflict`        | 字段级 3-way 合并        | `resolveConflict`, `toMergeable`, `MergeableNote`  |
+| 模块             | 解决的问题           | 关键导出                                                                      |
+| ---------------- | -------------------- | ----------------------------------------------------------------------------- |
+| `offline-queue`  | 队列语义与存储解耦   | `OfflineQueue`, `QueueStorage`, `IndexedDbQueueStorage`, `MemoryQueueStorage` |
+| `sync-engine`    | 重放编排与退避策略   | `SyncEngine`, `SyncEngineHooks`, `FlushSummary`                               |
+| `crypto-backend` | 加密后端可替换适配器 | `CryptoBackend`, `sharedCryptoBackend`, `setCryptoBackend`                    |
+| `envelope`       | 信封格式单一真相源   | `encryptNote`, `decryptNote`, `parseEnvelope`, `ENVELOPE_VERSION`             |
+| `conflict`       | 字段级 3-way 合并    | `resolveConflict`, `toMergeable`, `MergeableNote`                             |
 
 ## 1. Web 迁移（已完成，参考实现）
 
@@ -166,6 +166,7 @@ const queue = new OfflineQueue(new AsyncStorageQueueStorage());
 ```
 
 **注意**：mobile 旧队列的 key 是 `dustnote_offline_queue`（下划线），client-core 默认 `dustnote:offline-queue`（冒号）。迁移时需：
+
 - 要么在 `AsyncStorageQueueStorage` 构造时传入旧 key 保持兼容
 - 要么做一次性迁移：读取旧 key → 写入新 key → 删除旧 key
 
@@ -178,8 +179,12 @@ import { SyncEngine, OfflineQueue, type SyncEngineHooks } from '@dustnote/client
 
 const engine = new SyncEngine(queue, {
   replayOp: (op) => api.request(op.method, op.path, op.body),
-  onConflict: async (op, serverData) => { /* 同 web handleNoteConflict */ },
-  onFlushed: (summary) => { /* loadAll / 标记在线 */ },
+  onConflict: async (op, serverData) => {
+    /* 同 web handleNoteConflict */
+  },
+  onFlushed: (summary) => {
+    /* loadAll / 标记在线 */
+  },
   // classifyError 默认识别 ApiException，RN 也可用默认
 });
 ```
@@ -248,16 +253,16 @@ Argon2id / HKDF 全部基于 **纯 JS 库**（`@noble/ciphers` + `@noble/hashes`
 
 ```ts
 class OfflineQueue {
-  constructor(storage: QueueStorage)
-  enqueue(op: Omit<QueuedOp, 'id' | 'createdAt' | 'retries'>): Promise<QueuedOp>
-  peek(): Promise<QueuedOp | undefined>
-  peekAll(): Promise<QueuedOp[]>
-  remove(id: string): Promise<void>
-  bumpRetries(id: string, max?: number): Promise<void>
-  getRetryDelayForOp(id: string): Promise<number>
-  clear(): Promise<void>
-  size(): Promise<number>
-  invalidate(): void  // 丢弃内存缓存，下次从存储重新加载
+  constructor(storage: QueueStorage);
+  enqueue(op: Omit<QueuedOp, 'id' | 'createdAt' | 'retries'>): Promise<QueuedOp>;
+  peek(): Promise<QueuedOp | undefined>;
+  peekAll(): Promise<QueuedOp[]>;
+  remove(id: string): Promise<void>;
+  bumpRetries(id: string, max?: number): Promise<void>;
+  getRetryDelayForOp(id: string): Promise<number>;
+  clear(): Promise<void>;
+  size(): Promise<number>;
+  invalidate(): void; // 丢弃内存缓存，下次从存储重新加载
 }
 ```
 
@@ -265,27 +270,31 @@ class OfflineQueue {
 
 ```ts
 class SyncEngine {
-  constructor(queue: OfflineQueue, hooks: SyncEngineHooks)
-  flush(): Promise<FlushSummary>  // 重入守卫 + 串行重放 + 退避 + 409 合并
+  constructor(queue: OfflineQueue, hooks: SyncEngineHooks);
+  flush(): Promise<FlushSummary>; // 重入守卫 + 串行重放 + 退避 + 409 合并
 }
 
 interface SyncEngineHooks {
-  replayOp(op: QueuedOp): Promise<unknown>
-  onConflict?(op: QueuedOp, serverData: unknown): Promise<boolean>
-  onFlushed?(summary: FlushSummary): void
-  classifyError?(err: unknown): ErrorClass | null
+  replayOp(op: QueuedOp): Promise<unknown>;
+  onConflict?(op: QueuedOp, serverData: unknown): Promise<boolean>;
+  onFlushed?(summary: FlushSummary): void;
+  classifyError?(err: unknown): ErrorClass | null;
 }
 ```
 
 ### resolveConflict
 
 ```ts
-function resolveConflict(base: MergeableNote, local: MergeableNote, server: MergeableNote): ConflictResult
+function resolveConflict(
+  base: MergeableNote,
+  local: MergeableNote,
+  server: MergeableNote
+): ConflictResult;
 
 interface ConflictResult {
-  merged: MergeableNote       // 最佳努力合并（无冲突时可直接应用）
-  conflicts: FieldConflict[]  // 需用户裁决的字段
-  hasConflicts: boolean
+  merged: MergeableNote; // 最佳努力合并（无冲突时可直接应用）
+  conflicts: FieldConflict[]; // 需用户裁决的字段
+  hasConflicts: boolean;
 }
 ```
 
@@ -293,14 +302,19 @@ interface ConflictResult {
 
 ```ts
 interface CryptoBackend {
-  randomBytes(n: number): Uint8Array
-  encryptString(key: Uint8Array, plaintext: string, keyVersion?: number, aad?: Uint8Array): Promise<Ciphertext>
-  decryptString(key: Uint8Array, blob: Ciphertext, aad?: Uint8Array): Promise<string>
-  noteAad(entityId: string, userId: string): Uint8Array
+  randomBytes(n: number): Uint8Array;
+  encryptString(
+    key: Uint8Array,
+    plaintext: string,
+    keyVersion?: number,
+    aad?: Uint8Array
+  ): Promise<Ciphertext>;
+  decryptString(key: Uint8Array, blob: Ciphertext, aad?: Uint8Array): Promise<string>;
+  noteAad(entityId: string, userId: string): Uint8Array;
 }
 
 // 默认使用 shared 的 WebCrypto 实现
-setCryptoBackend(customBackend)  // 替换为 native/polyfill 实现
+setCryptoBackend(customBackend); // 替换为 native/polyfill 实现
 ```
 
 ## 5. 注意事项

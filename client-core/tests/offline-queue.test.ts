@@ -7,7 +7,10 @@ import {
   type QueuedOp,
 } from '../src/offline-queue.js';
 
-function mkOp(path: string, method: QueuedOp['method'] = 'PATCH'): Omit<QueuedOp, 'id' | 'createdAt' | 'retries'> {
+function mkOp(
+  path: string,
+  method: QueuedOp['method'] = 'PATCH'
+): Omit<QueuedOp, 'id' | 'createdAt' | 'retries'> {
   return { method, path, body: { x: 1 }, noteId: 'n1' };
 }
 
@@ -35,7 +38,7 @@ describe('OfflineQueue (MemoryQueueStorage)', () => {
   });
 
   it('bumpRetries increments and removes at threshold', async () => {
-    const q = new OfflineQueue(new MemoryQueueStorage(), );
+    const q = new OfflineQueue(new MemoryQueueStorage());
     const a = await q.enqueue(mkOp('/notes/1'));
     for (let i = 0; i < MAX_RETRIES - 1; i++) {
       await q.bumpRetries(a.id);
@@ -92,7 +95,13 @@ describe('OfflineQueue (MemoryQueueStorage)', () => {
         clientUpdatedAt: 'ts2',
       },
     };
-    const a = await q.enqueue({ method: 'PATCH', path: '/notes/n1', body: {}, noteId: 'n1', conflictCtx: ctx });
+    const a = await q.enqueue({
+      method: 'PATCH',
+      path: '/notes/n1',
+      body: {},
+      noteId: 'n1',
+      conflictCtx: ctx,
+    });
     const all = await q.peekAll();
     expect(all[0]!.conflictCtx).toEqual(ctx);
     expect(all[0]!.conflictCtx?.baseVersion).toBe(3);

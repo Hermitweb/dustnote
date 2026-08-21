@@ -94,7 +94,13 @@ export function NoteEditScreen() {
 
   // 创建 Repository（按当前模式分流）
   const repo = useMemo(
-    () => createRepository({ mode: mode ?? 'online', serverUrl: null, accessToken: null, deviceId: null }),
+    () =>
+      createRepository({
+        mode: mode ?? 'online',
+        serverUrl: null,
+        accessToken: null,
+        deviceId: null,
+      }),
     [mode]
   );
 
@@ -457,7 +463,7 @@ export function NoteEditScreen() {
         const folderName =
           folderId === null
             ? t('folders.move_none')
-            : folders.find((f) => f.id === folderId)?.name ?? '';
+            : (folders.find((f) => f.id === folderId)?.name ?? '');
         Alert.alert(t('folders.move_success'), folderName);
       } catch (err) {
         Alert.alert(t('folders.move_failed'), (err as Error).message);
@@ -498,7 +504,9 @@ export function NoteEditScreen() {
           {/* 预览 / 编辑切换（v2.4.4 Markdown 预览） */}
           {!decryptFailed && (
             <TouchableOpacity onPress={() => setPreview((v) => !v)} disabled={saving}>
-              <Text style={styles.toolbarBtn}>{preview ? t('editor.edit') : t('editor.preview')}</Text>
+              <Text style={styles.toolbarBtn}>
+                {preview ? t('editor.edit') : t('editor.preview')}
+              </Text>
             </TouchableOpacity>
           )}
           {/* 模板选择（简化版：仅预设模板，单机/联机均可用） */}
@@ -527,18 +535,14 @@ export function NoteEditScreen() {
           {/* 收藏/置顶（单机/联机均可用） */}
           {!decryptFailed && (
             <TouchableOpacity onPress={() => void togglePin()} disabled={saving}>
-              <Text
-                style={[styles.toolbarBtn, note?.isPinned && { color: colors.mint600 }]}
-              >
+              <Text style={[styles.toolbarBtn, note?.isPinned && { color: colors.mint600 }]}>
                 📌
               </Text>
             </TouchableOpacity>
           )}
           {!decryptFailed && (
             <TouchableOpacity onPress={() => void toggleFavorite()} disabled={saving}>
-              <Text
-                style={[styles.toolbarBtn, note?.isFavorite && { color: colors.mint600 }]}
-              >
+              <Text style={[styles.toolbarBtn, note?.isFavorite && { color: colors.mint600 }]}>
                 ⭐
               </Text>
             </TouchableOpacity>
@@ -674,7 +678,17 @@ export function NoteEditScreen() {
             </View>
           ) : (
             <FlatList
-              data={[{ id: '__none__', name: t('folders.move_none'), parentId: null, icon: null, sortOrder: 0, createdAt: '' } as Folder, ...folders]}
+              data={[
+                {
+                  id: '__none__',
+                  name: t('folders.move_none'),
+                  parentId: null,
+                  icon: null,
+                  sortOrder: 0,
+                  createdAt: '',
+                } as Folder,
+                ...folders,
+              ]}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => {
                 const isNone = item.id === '__none__';

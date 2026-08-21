@@ -85,21 +85,39 @@ describe('NoteHistoryDialog', () => {
   });
 
   it('渲染加载中状态', () => {
-    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
-    const { getByText } = render(createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 1, onClose: () => {} }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {}))
+    );
+    const { getByText } = render(
+      createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 1, onClose: () => {} })
+    );
     expect(getByText('history.title')).toBeInTheDocument();
   });
 
   it('渲染空历史版本', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => fetchOk({ versions: [] })));
-    const { getByText } = render(createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 1, onClose: () => {} }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchOk({ versions: [] }))
+    );
+    const { getByText } = render(
+      createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 1, onClose: () => {} })
+    );
     await waitFor(() => expect(getByText('history.empty')).toBeInTheDocument());
   });
 
   it('渲染版本列表并展示版本号', async () => {
-    const versions = [makeVersion({ id: 'v-1', noteVersion: 3 }), makeVersion({ id: 'v-2', noteVersion: 2 })];
-    vi.stubGlobal('fetch', vi.fn(async () => fetchOk({ versions })));
-    const { getAllByText } = render(createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 3, onClose: () => {} }));
+    const versions = [
+      makeVersion({ id: 'v-1', noteVersion: 3 }),
+      makeVersion({ id: 'v-2', noteVersion: 2 }),
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchOk({ versions }))
+    );
+    const { getAllByText } = render(
+      createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 3, onClose: () => {} })
+    );
     await waitFor(() => expect(getAllByText('history.version_label')).toHaveLength(2));
   });
 
@@ -115,7 +133,9 @@ describe('NoteHistoryDialog', () => {
       })
     );
     decryptMock.mockResolvedValue(JSON.stringify({ title: '历史标题', content: '# Hello' }));
-    const { getByText } = render(createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 3, onClose: () => {} }));
+    const { getByText } = render(
+      createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 3, onClose: () => {} })
+    );
     await waitFor(() => expect(getByText('history.version_label')).toBeInTheDocument());
     await fireEvent.clickAsync(getByText('history.version_label'));
     await waitFor(() => {
@@ -136,15 +156,22 @@ describe('NoteHistoryDialog', () => {
       })
     );
     decryptMock.mockRejectedValue(new Error('decrypt err'));
-    const { getByText } = render(createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 3, onClose: () => {} }));
+    const { getByText } = render(
+      createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 3, onClose: () => {} })
+    );
     await waitFor(() => expect(getByText('history.version_label')).toBeInTheDocument());
     await fireEvent.clickAsync(getByText('history.version_label'));
     await waitFor(() => expect(getByText(/history.load_fail/)).toBeInTheDocument());
   });
 
   it('版本列表加载失败显示错误', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => fetchFail(500)));
-    const { getByText } = render(createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 1, onClose: () => {} }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchFail(500))
+    );
+    const { getByText } = render(
+      createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 1, onClose: () => {} })
+    );
     await waitFor(() => expect(getByText(/history.load_fail/)).toBeInTheDocument());
   });
 
@@ -161,7 +188,9 @@ describe('NoteHistoryDialog', () => {
       })
     );
     decryptMock.mockResolvedValue(JSON.stringify({ title: 'T', content: 'C' }));
-    const { getByText } = render(createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 3, onClose: () => {} }));
+    const { getByText } = render(
+      createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 3, onClose: () => {} })
+    );
     await waitFor(() => expect(getByText('history.version_label')).toBeInTheDocument());
     await fireEvent.clickAsync(getByText('history.version_label'));
     await waitFor(() => expect(getByText('T')).toBeInTheDocument());
@@ -173,18 +202,30 @@ describe('NoteHistoryDialog', () => {
   });
 
   it('关闭按钮调用 onClose', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => fetchOk({ versions: [] })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchOk({ versions: [] }))
+    );
     const onClose = vi.fn();
-    const { container } = render(createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 1, onClose }));
+    const { container } = render(
+      createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 1, onClose })
+    );
     await waitFor(() => {});
-    const xBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '✕');
+    const xBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === '✕'
+    );
     fireEvent.click(xBtn!);
     expect(onClose).toHaveBeenCalled();
   });
 
   it('未选中版本时恢复按钮禁用', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => fetchOk({ versions: [makeVersion()] })));
-    const { getByText } = render(createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 1, onClose: () => {} }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fetchOk({ versions: [makeVersion()] }))
+    );
+    const { getByText } = render(
+      createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 1, onClose: () => {} })
+    );
     await waitFor(() => expect(getByText('history.version_label')).toBeInTheDocument());
     const restoreBtn = getByText('history.restore').closest('button');
     expect(restoreBtn).toBeDisabled();

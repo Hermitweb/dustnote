@@ -153,9 +153,9 @@ templatesRouter.patch('/templates/:id', (req, res) => {
   updates.push(`updated_at = ?`);
   params.push(new Date().toISOString());
   params.push(id, user.userId);
-  db.prepare(
-    `UPDATE templates SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`
-  ).run(...params);
+  db.prepare(`UPDATE templates SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(
+    ...params
+  );
   res.json({ ok: true });
 });
 
