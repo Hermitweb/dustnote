@@ -8,7 +8,7 @@ on:
   # 分支推送的 CI 检查由 .github/workflows/ci.yml 负责。
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
   PNPM_VERSION: '9.12.0'
   # Use the tag name when triggered by a tag; fall back to v2.5.1 for the
   # branch-triggered release.
