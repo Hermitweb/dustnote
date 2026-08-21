@@ -37,6 +37,8 @@ interface Folder {
   icon: string | null;
   sortOrder: number;
   createdAt: string;
+  depth?: number;
+  branch?: 'work' | 'personal' | null;
 }
 
 export function FoldersScreen() {
@@ -91,6 +93,7 @@ export function FoldersScreen() {
           icon: null,
           sortOrder: 0,
           createdAt: new Date().toISOString(),
+          depth: 1,
         },
       ]);
       setNewName('');

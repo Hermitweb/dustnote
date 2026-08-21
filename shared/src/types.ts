@@ -154,6 +154,10 @@ export interface Folder {
   icon: string | null;
   sortOrder: number;
   createdAt: string;
+  /** 层级深度：Root 虚拟 0；一级=1，二级=2（规范限制最深二级） */
+  depth?: number;
+  /** 顶层二元隔离分支：业务·项目 / 个人·沉淀；子文件夹继承父分支 */
+  branch?: 'work' | 'personal' | null;
 }
 
 export interface Tag {

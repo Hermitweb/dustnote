@@ -179,8 +179,17 @@ export class RemoteRepository implements DataRepository {
       name: input.name,
       parentId: input.parentId ?? null,
       icon: input.icon ?? null,
+      branch: input.branch ?? null,
     });
     return r.id;
+  }
+
+  async renameFolder(id: string, name: string): Promise<void> {
+    await api.patch(`/folders/${id}`, { name });
+  }
+
+  async moveFolder(id: string, parentId: string | null): Promise<void> {
+    await api.patch(`/folders/${id}`, { parentId });
   }
 
   async deleteFolder(id: string): Promise<void> {

@@ -17,7 +17,6 @@ export default {
     // 设置与数据管理类分包
     { root: 'pages/settings', name: 'settings', pages: ['index'] },
     { root: 'pages/folders', name: 'folders', pages: ['index'] },
-    { root: 'pages/tags', name: 'tags', pages: ['index'] },
     { root: 'pages/trash', name: 'trash', pages: ['index'] },
     // 分享相关分包
     { root: 'pages/share', name: 'share', pages: ['index'] },
@@ -28,7 +27,7 @@ export default {
   preloadRule: {
     'pages/index/index': {
       network: 'all',
-      packages: ['settings', 'folders', 'tags', 'trash'],
+      packages: ['settings', 'folders', 'trash'],
     },
   },
   window: {

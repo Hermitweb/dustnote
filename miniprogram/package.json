@@ -22,6 +22,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@dustnote/client-core": "workspace:*",
     "@dustnote/shared": "workspace:*",
     "@tarojs/components": "^3.6.0",
     "@tarojs/helper": "^3.6.0",

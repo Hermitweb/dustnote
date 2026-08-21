@@ -34,11 +34,11 @@ import { NotesListScreen } from './screens/NotesListScreen';
 import { NoteEditScreen } from './screens/NoteEditScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { FoldersScreen } from './screens/FoldersScreen';
-import { TagsScreen } from './screens/TagsScreen';
 import { TrashScreen } from './screens/TrashScreen';
 import { SharesScreen } from './screens/SharesScreen';
 import { OnlineRecoverScreen } from './screens/OnlineRecoverScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ConflictDialog } from './components/ConflictDialog';
 import { useIsDark, useColors } from './theme';
 
 // 全局 JS 错误兜底：ErrorBoundary 只覆盖渲染错误，不覆盖异步回调错误。
@@ -63,7 +63,6 @@ export type RootStackParamList = {
   NoteEdit: { noteId: string };
   Settings: undefined;
   Folders: undefined;
-  Tags: undefined;
   Trash: undefined;
   Shares: undefined;
 };
@@ -245,7 +244,6 @@ function AppInner() {
               component={FoldersScreen}
               options={{ title: t('app.folders_title') }}
             />
-            <Stack.Screen name="Tags" component={TagsScreen} options={{ title: t('app.tags_title') }} />
             <Stack.Screen name="Trash" component={TrashScreen} options={{ title: t('app.trash_title') }} />
             <Stack.Screen
               name="Shares"
@@ -254,6 +252,8 @@ function AppInner() {
             />
           </Stack.Navigator>
         </NavigationContainer>
+        {/* 同步冲突裁决（pendingConflicts 非空时弹出） */}
+        <ConflictDialog />
       </SafeAreaProvider>
     );
   }

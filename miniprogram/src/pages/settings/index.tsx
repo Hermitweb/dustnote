@@ -275,17 +275,6 @@ export default function Settings() {
         <View
           className="settings-row"
           onClick={() => {
-            Taro.navigateTo({ url: '/pages/tags/index' }).catch(() => {});
-          }}
-        >
-          <View className="settings-row-label">
-            <Text>🏷️ 标签管理</Text>
-          </View>
-          <Text className="settings-row-value">›</Text>
-        </View>
-        <View
-          className="settings-row"
-          onClick={() => {
             Taro.navigateTo({ url: '/pages/trash/index' }).catch(() => {});
           }}
         >

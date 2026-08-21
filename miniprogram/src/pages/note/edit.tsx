@@ -18,6 +18,8 @@ import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '.
 import { getRepo } from '../../lib/get-repo';
 import { useModeStore } from '../../lib/mode-store';
 import Markdown from '../../lib/markdown';
+import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../../lib/offline-queue';
+import { toMergeable, type ConflictContext, type NoteMetadata } from '@dustnote/client-core';
 
 interface Folder {
   id: string;
@@ -33,6 +35,7 @@ interface NoteData {
   deletedAt: string | null;
   version: number;
   folderId: string | null;
+  clientUpdatedAt: string;
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'unsaved';
@@ -60,7 +63,6 @@ export default function NoteEdit() {
   noteRef.current = note;
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [preview, setPreview] = useState(false);
-  const [tagInput, setTagInput] = useState('');
   // 分享创建弹窗：可选密码 / 有效期
   const [shareOpen, setShareOpen] = useState(false);
   const [sharePwd, setSharePwd] = useState('');
@@ -70,6 +72,9 @@ export default function NoteEdit() {
   // 用于追踪是否已初始化加载，避免初始 load 触发自动保存
   const loadedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 最近一次成功同步的明文（作为 409 三方合并的 base）；加载/保存成功后更新
+  const basePlainRef = useRef<{ title: string; content: string; tags: string[] } | null>(null);
 
   useEffect(() => {
     if (!id || !masterKey) return;
@@ -89,6 +94,8 @@ export default function NoteEdit() {
           setTitle(pt.title);
           setContent(pt.content);
           setTags(pt.tags);
+          // 记录 base 明文（三方合并的公共祖先）
+          basePlainRef.current = { title: pt.title, content: pt.content, tags: pt.tags };
         } catch {
           setTitle('🔒 解密失败');
           setContent('');
@@ -115,19 +122,60 @@ export default function NoteEdit() {
       });
       // 更新本地 version，防止下次保存用旧版本号导致 409 冲突
       setNote((prev) => (prev ? { ...prev, version: newVersion } : prev));
+      basePlainRef.current = { title, content, tags };
       setSaveStatus('saved');
+      // 网络恢复：顺手重放离线队列中的未同步修改
+      if (mode === 'online') void flushOfflineQueue();
     } catch (err: any) {
       const status = err?.err?.status;
       if (status === 409) {
         Taro.showToast({ title: '版本冲突，请刷新后重试', icon: 'none' });
+        setSaveStatus('error');
+      } else if (mode === 'online' && isNetworkError(err)) {
+        // 网络不可用：入队待同步（携带三方合并上下文，重放时字段级合并）
+        try {
+          const { json: cipherJson } = await encryptNote(masterKey, { title, content, tags });
+          const meta: NoteMetadata = {
+            isPinned: cur.isPinned,
+            isFavorite: cur.isFavorite,
+            deletedAt: cur.deletedAt,
+            folderId: cur.folderId,
+            clientUpdatedAt: cur.clientUpdatedAt,
+          };
+          const conflictCtx: ConflictContext | undefined = basePlainRef.current
+            ? {
+                noteId: cur.id,
+                baseVersion: cur.version,
+                base: toMergeable(cur.id, basePlainRef.current, meta),
+                local: toMergeable(cur.id, { title, content, tags }, meta),
+              }
+            : undefined;
+          await enqueueOffline(
+            'PATCH',
+            `/notes/${cur.id}`,
+            {
+              ciphertext: cipherJson,
+              keyVersion: 1,
+              isPinned: cur.isPinned,
+              isFavorite: cur.isFavorite,
+              version: cur.version,
+              clientUpdatedAt: new Date().toISOString(),
+            },
+            { noteId: cur.id, ...(conflictCtx ? { conflictCtx } : {}) }
+          );
+          setSaveStatus('saved');
+        } catch {
+          Taro.showToast({ title: '保存失败', icon: 'none', duration: 3000 });
+          setSaveStatus('error');
+        }
       } else {
         const msg = err?.err?.message || err?.message || '未知错误';
         console.error('[save]', err);
         Taro.showToast({ title: `保存失败：${msg}`, icon: 'none', duration: 3000 });
+        setSaveStatus('error');
       }
-      setSaveStatus('error');
     }
-  }, [masterKey, title, content, tags]);
+  }, [masterKey, title, content, tags, mode]);
 
   // 用 ref 持有最新 save，避免 setTimeout 闭包拿到旧的 note/version
   const saveRef = useRef(save);
@@ -271,33 +319,6 @@ export default function NoteEdit() {
     }
   };
 
-  // 标签编辑（随笔记一起加密保存）
-  const addTag = () => {
-    const raw = tagInput.trim().replace(/^#+/, '');
-    if (!raw) {
-      Taro.showToast({ title: '请输入标签', icon: 'none' });
-      return;
-    }
-    if (raw.length > 20) {
-      Taro.showToast({ title: '标签最多 20 字符', icon: 'none' });
-      return;
-    }
-    if (tags.length >= 20) {
-      Taro.showToast({ title: '标签最多 20 个', icon: 'none' });
-      return;
-    }
-    if (tags.includes(raw)) {
-      Taro.showToast({ title: '标签已存在', icon: 'none' });
-      return;
-    }
-    setTags((prev) => [...prev, raw]);
-    setTagInput('');
-  };
-
-  const removeTag = (i: number) => {
-    setTags((prev) => prev.filter((_, idx) => idx !== i));
-  };
-
   // 移动笔记到指定文件夹（或移出文件夹）
   const onMoveFolder = async () => {
     const cur = noteRef.current;
@@ -403,34 +424,6 @@ export default function NoteEdit() {
           onInput={(e) => setTitle((e.detail as { value: string }).value)}
           placeholder="标题"
         />
-
-        {/* 标签编辑（随笔记一起加密保存） */}
-        <View className="tag-editor">
-          {tags.length > 0 && (
-            <View className="tag-pills">
-              {tags.map((tag, i) => (
-                <View key={`${tag}-${i}`} className="tag-pill tag-pill-edit">
-                  <Text>#{tag}</Text>
-                  <Text className="tag-pill-x" onClick={() => removeTag(i)}>
-                    ✕
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-          <View className="tag-input-row">
-            <Input
-              className="folder-input tag-input"
-              placeholder="添加标签，点「添加」确认"
-              value={tagInput}
-              onInput={(e) => setTagInput((e.detail as { value: string }).value)}
-              onConfirm={addTag}
-            />
-            <Text className="mint-btn mint-btn-sm" onClick={addTag}>
-              添加
-            </Text>
-          </View>
-        </View>
 
         {preview ? (
           <ScrollView scrollY className="flex-1">

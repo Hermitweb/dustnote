@@ -32,6 +32,7 @@ import { api } from '../api';
 import { useAuthStore } from '../state/auth';
 import { createRepository } from '../lib/repository';
 import { resolveBaseUrl } from '../lib/mode-store';
+import { parseEnvelope } from '../lib/envelope';
 import { useColors } from '../theme';
 
 interface ShareItem {
@@ -44,18 +45,6 @@ interface ShareItem {
   viewCount: number;
   revoked: boolean;
   createdAt: string;
-}
-
-/** 解析密文信封：兼容新格式 { v, payload } 与旧格式（直接是 Ciphertext） */
-function parseEnvelope(raw: string): { v: number; payload: Ciphertext } {
-  const parsed = JSON.parse(raw) as unknown;
-  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
-    return parsed as { v: number; payload: Ciphertext };
-  }
-  if (typeof parsed === 'object' && parsed !== null && 'c' in parsed && 'n' in parsed) {
-    return { v: 1, payload: parsed as Ciphertext };
-  }
-  throw new Error('invalid envelope');
 }
 
 export function SharesScreen() {

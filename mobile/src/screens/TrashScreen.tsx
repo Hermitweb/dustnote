@@ -26,40 +26,17 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { decryptString, noteAad, type Ciphertext, type NoteRow } from '@dustnote/shared';
+import { noteAad, type NoteRow } from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
+import { decryptNote } from '../lib/envelope';
 import { useColors } from '../theme';
 
 interface NotePlaintext {
   title: string;
   content: string;
   tags: string[];
-}
-
-function parseEnvelope(raw: string): { v: number; payload: Ciphertext } {
-  const parsed = JSON.parse(raw) as unknown;
-  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
-    return parsed as { v: number; payload: Ciphertext };
-  }
-  if (typeof parsed === 'object' && parsed !== null && 'c' in parsed && 'n' in parsed) {
-    return { v: 1, payload: parsed as Ciphertext };
-  }
-  throw new Error('invalid envelope');
-}
-
-/** 解密单条笔记；新密文（AAD 绑定）需传 noteId||userId（§2.2） */
-async function decryptNote(
-  masterKey: Uint8Array,
-  ciphertext: string,
-  aad?: Uint8Array
-): Promise<NotePlaintext> {
-  const env = parseEnvelope(ciphertext);
-  const needsAad = env.payload.a === 1;
-  if (needsAad && !aad) throw new Error('decryptNote: 密文绑定了 AAD，但未提供');
-  const json = await decryptString(masterKey, env.payload, needsAad ? aad : undefined);
-  return JSON.parse(json) as NotePlaintext;
 }
 
 export function TrashScreen() {

@@ -12,13 +12,12 @@
 
 import { get, set, del } from 'idb-keyval';
 import { encryptString, decryptString, isCiphertext, type Ciphertext } from '@dustnote/shared';
-import type { Folder, NotePlaintext, NoteRow, Tag } from './store';
+import type { Folder, NotePlaintext, NoteRow } from './store';
 
 const KEYS = {
   notes: 'dustnote:notes',
   notesPlain: 'dustnote:notes-plain',
   folders: 'dustnote:folders',
-  tags: 'dustnote:tags',
 } as const;
 
 // ========== 笔记（密文行 + 明文） ==========
@@ -84,21 +83,10 @@ export async function loadCachedFolders(): Promise<Folder[]> {
   return folders ?? [];
 }
 
-// ========== 标签 ==========
-
-export async function cacheTags(tags: Tag[]): Promise<void> {
-  await set(KEYS.tags, tags);
-}
-
-export async function loadCachedTags(): Promise<Tag[]> {
-  const tags = await get<Tag[]>(KEYS.tags);
-  return tags ?? [];
-}
-
 // ========== 清空 ==========
 
 export async function clearCache(): Promise<void> {
-  await Promise.all([del(KEYS.notes), del(KEYS.notesPlain), del(KEYS.folders), del(KEYS.tags)]);
+  await Promise.all([del(KEYS.notes), del(KEYS.notesPlain), del(KEYS.folders)]);
 }
 
 /** 锁定/登出时清掉明文缓存（保留密文行，加速下次解锁加载） */

@@ -40,6 +40,7 @@ import {
 import { LocalRepository } from './local-repo';
 import { RemoteRepository } from './remote-repo';
 import { useModeStore } from './mode-store';
+import { parseEnvelope } from './envelope';
 
 const PENDING_KEY = 'dustnote_pending_migration';
 
@@ -87,18 +88,6 @@ export async function persistWrappedOldMasterKey(
 ): Promise<void> {
   const wrapped = await wrapKey(currentMasterKey, oldMasterKey);
   await AsyncStorage.setItem(PENDING_KEY, JSON.stringify({ ...slot, wrappedOldMasterKey: wrapped }));
-}
-
-/** 解析密文信封：兼容新格式 { v, payload } 与旧格式（直接是 Ciphertext） */
-function parseEnvelope(raw: string): { v: number; payload: Ciphertext } {
-  const parsed = JSON.parse(raw) as unknown;
-  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
-    return parsed as { v: number; payload: Ciphertext };
-  }
-  if (typeof parsed === 'object' && parsed !== null && 'c' in parsed && 'n' in parsed) {
-    return { v: 1, payload: parsed as Ciphertext };
-  }
-  throw new Error('invalid envelope');
 }
 
 /** 解密备份中的一条笔记（兼容 AAD 绑定），失败返回 null */

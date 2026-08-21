@@ -23,8 +23,6 @@ import Taro from '@tarojs/taro';
 import {
   ApiClient,
   type Ciphertext,
-  decryptString,
-  encryptString,
   deriveSecrets,
   generateMasterKey,
   generateRecoveryCode,
@@ -85,60 +83,15 @@ try {
 
 export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked';
 
-// ========== 加密信封辅助（对齐 web store.ts）==========
+// ========== 加密信封（v2.5.5 迁移到 @dustnote/client-core 单一真相源）==========
 
-const ENVELOPE_VERSION = 1;
-
-/** 笔记密文信封：服务端只存这整个对象（JSON 序列化后存 DB） */
-export interface NoteCipherEnvelope {
-  /** 信封版本 */
-  v: number;
-  /** 加密后的明文 blob（包含 title/content/tags） */
-  payload: Ciphertext;
-}
-
-export interface NotePlaintext {
-  title: string;
-  content: string;
-  tags: string[];
-}
-
-/** 加密一条笔记明文，返回信封对象及其 JSON 字符串 */
-export async function encryptNote(
-  key: Uint8Array,
-  pt: NotePlaintext
-): Promise<{ envelope: NoteCipherEnvelope; json: string }> {
-  const json = JSON.stringify(pt);
-  const blob = await encryptString(key, json, 1);
-  const envelope: NoteCipherEnvelope = { v: ENVELOPE_VERSION, payload: blob };
-  return { envelope, json: JSON.stringify(envelope) };
-}
-
-/** 用 masterKey 解密信封，得到笔记明文；新密文（AAD 绑定）需传 noteId||userId（§2.2） */
-export async function decryptNote(
-  key: Uint8Array,
-  envelope: NoteCipherEnvelope,
-  aad?: Uint8Array
-): Promise<NotePlaintext> {
-  if (envelope.v !== ENVELOPE_VERSION) throw new Error(`envelope version mismatch: ${envelope.v}`);
-  const needsAad = envelope.payload.a === 1;
-  if (needsAad && !aad) throw new Error('decryptNote: 密文绑定了 AAD，但未提供');
-  const json = await decryptString(key, envelope.payload, needsAad ? aad : undefined);
-  return JSON.parse(json) as NotePlaintext;
-}
-
-/** 解析服务端存的密文字符串为信封对象（兼容新旧格式） */
-export function parseEnvelope(raw: string): NoteCipherEnvelope {
-  const parsed = JSON.parse(raw) as unknown;
-  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
-    return parsed as NoteCipherEnvelope;
-  }
-  // 旧格式：直接是 Ciphertext
-  if (typeof parsed === 'object' && parsed !== null && 'c' in parsed && 'n' in parsed) {
-    return { v: ENVELOPE_VERSION, payload: parsed as Ciphertext };
-  }
-  throw new Error('invalid envelope');
-}
+export {
+  encryptNote,
+  decryptNote,
+  parseEnvelope,
+  type NoteCipherEnvelope,
+} from '@dustnote/client-core';
+export type { NotePlaintext } from '@dustnote/shared';
 
 interface AuthStoreState {
   authState: AuthState;

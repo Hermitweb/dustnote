@@ -26,10 +26,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
 import {
-  decryptString,
-  encryptString,
   noteAad,
-  type Ciphertext,
   type NoteRow,
   type Folder,
 } from '@dustnote/shared';
@@ -37,6 +34,7 @@ import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
 import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../lib/offline-queue';
+import { decryptNote, packEnvelope } from '../lib/envelope';
 import { useColors } from '../theme';
 import { useResponsiveLayout } from '../lib/useResponsiveLayout';
 
@@ -44,39 +42,6 @@ interface NotePlaintext {
   title: string;
   content: string;
   tags: string[];
-}
-
-/** 解析密文信封：兼容新格式 { v, payload } 与旧格式（直接是 Ciphertext） */
-function parseEnvelope(raw: string): { v: number; payload: Ciphertext } {
-  const parsed = JSON.parse(raw) as unknown;
-  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
-    return parsed as { v: number; payload: Ciphertext };
-  }
-  // 旧格式：直接是 Ciphertext
-  if (typeof parsed === 'object' && parsed !== null && 'c' in parsed && 'n' in parsed) {
-    return { v: 1, payload: parsed as Ciphertext };
-  }
-  throw new Error('invalid envelope');
-}
-
-/** 解密单条笔记，失败返回占位明文；新密文（AAD 绑定）需传 noteId||userId（§2.2） */
-async function decryptNote(
-  masterKey: Uint8Array,
-  ciphertext: string,
-  aad?: Uint8Array
-): Promise<NotePlaintext> {
-  const env = parseEnvelope(ciphertext);
-  const needsAad = env.payload.a === 1;
-  if (needsAad && !aad) throw new Error('decryptNote: 密文绑定了 AAD，但未提供');
-  const json = await decryptString(masterKey, env.payload, needsAad ? aad : undefined);
-  return JSON.parse(json) as NotePlaintext;
-}
-
-/** 把明文打包成密文信封 JSON 字符串（用于 createNote / updateNote 的 ciphertext 字段） */
-async function packEnvelope(masterKey: Uint8Array, plain: NotePlaintext): Promise<string> {
-  const payload = await encryptString(masterKey, JSON.stringify(plain), 1);
-  const env = { v: 1, payload };
-  return JSON.stringify(env);
 }
 
 interface NoteListItem extends NoteRow {
@@ -167,11 +132,10 @@ export function NotesListScreen() {
       })
       .filter((n) => {
         if (!keyword) return true;
-        // 搜索标题 + 内容 + 标签（解密后的明文）
+        // 搜索标题 + 内容（解密后的明文）
         const title = n.plain?.title?.toLowerCase() ?? '';
         const content = n.plain?.content?.toLowerCase() ?? '';
-        const tags = n.plain?.tags?.join(' ').toLowerCase() ?? '';
-        return title.includes(keyword) || content.includes(keyword) || tags.includes(keyword);
+        return title.includes(keyword) || content.includes(keyword);
       })
       .sort((a, b) => {
         // 置顶优先（所有排序方式都保持）
@@ -201,9 +165,6 @@ export function NotesListScreen() {
         />
         <TouchableOpacity onPress={() => navigation.navigate('Folders')} style={styles.iconButton}>
           <Text style={styles.iconText}>📁</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Tags')} style={styles.iconButton}>
-          <Text style={styles.iconText}>🏷️</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('Trash')} style={styles.iconButton}>
           <Text style={styles.iconText}>🗑️</Text>

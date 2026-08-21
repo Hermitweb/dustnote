@@ -17,7 +17,6 @@ import {
   type AppMode,
   type Template,
   decryptString,
-  encryptString,
   generateRecoveryCode,
   generateMasterKey,
   deriveSecrets,
@@ -43,6 +42,18 @@ import {
   type LocalAuthBlob,
   type LocalLockoutState,
 } from '@dustnote/shared';
+import {
+  encryptNote,
+  decryptNote,
+  parseEnvelope,
+  resolveConflict,
+  toMergeable,
+  type NoteCipherEnvelope,
+  type MergeableNote,
+  type ConflictContext,
+  type FieldConflict,
+  type NoteMetadata,
+} from '@dustnote/client-core';
 import { getDeviceId } from './device';
 import { applyTheme, applyTypography } from './theme';
 import i18n, { LANGUAGE_STORAGE_KEY } from './i18n';
@@ -50,10 +61,8 @@ import { toast } from './toast';
 import {
   cacheNotes as cacheNotesRaw,
   cacheFolders,
-  cacheTags,
   loadCachedNotes,
   loadCachedFolders,
-  loadCachedTags,
   clearCache,
   clearPlainCache,
 } from './db';
@@ -103,14 +112,9 @@ const api = (): ApiClient => {
 
 // ========== 类型 ==========
 
-/** 笔记密文信封：服务端只存这整个对象（JSON 序列化后存 DB） */
-export interface NoteCipherEnvelope {
-  /** 信封版本 */
-  v: number;
-  /** 加密后的明文 blob（包含 title/content/tags） */
-  payload: Ciphertext;
-  /** 客户端明文（仅在内存中持有，从 payload 解密得到） */
-}
+// NoteCipherEnvelope / encryptNote / decryptNote / parseEnvelope 已抽到
+// @dustnote/client-core，四端共享；此处仅再导出类型以保持本模块公开 API。
+export type { NoteCipherEnvelope };
 
 export interface NoteRow {
   id: string;
@@ -138,13 +142,10 @@ export interface Folder {
   icon: string | null;
   sortOrder: number;
   createdAt: string;
-}
-
-export interface Tag {
-  id: string;
-  name: string;
-  color: string | null;
-  count: number;
+  /** 层级深度：一级=1，二级=2（规范限制最深二级） */
+  depth?: number;
+  /** 顶层二元隔离分支：业务·项目 / 个人·沉淀 */
+  branch?: 'work' | 'personal' | null;
 }
 
 export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked' | 'error';
@@ -168,6 +169,24 @@ export interface Preferences {
   density: 'comfortable' | 'standard' | 'compact';
   autoLock: number;
   language: 'zh-CN' | 'en';
+}
+
+// ========== 冲突合并类型 ==========
+
+/**
+ * 待用户裁决的笔记冲突（3-way merge 产生歧义时推入此列表）。
+ *
+ * - merged：最佳努力合并结果，已作为暂存态应用到 store（不丢数据）
+ * - local / server：原始两侧状态，供 UI 展示 diff 和用户选择
+ * - serverVersion：re-PATCH 时用的版本号（= 409 响应 current.version）
+ */
+export interface PendingConflict {
+  noteId: string;
+  conflicts: FieldConflict[];
+  merged: MergeableNote;
+  local: MergeableNote;
+  server: MergeableNote;
+  serverVersion: number;
 }
 
 // ========== Store ==========
@@ -197,13 +216,10 @@ interface StoreState {
   notes: Map<string, NoteRow>;
   notesPlain: Map<string, NotePlaintext>;
   folders: Folder[];
-  tags: Tag[];
   /** 笔记模板（预设 + 自定义；单机模式仅有 bundled 预设） */
   templates: Template[];
   selectedNoteId: string | null;
   selectedFolderId: string | null;
-  /** 当前选中的标签（侧栏按标签过滤笔记列表） */
-  selectedTagId: string | null;
   /** 当前侧栏视图（全部/收藏/回收站） */
   viewMode: ViewMode;
 
@@ -220,6 +236,8 @@ interface StoreState {
   isOnline: boolean;
   /** 待同步的离线操作数量（来自 offline-queue） */
   pendingCount: number;
+  /** 待用户裁决的冲突列表（3-way merge 有歧义时推入） */
+  pendingConflicts: PendingConflict[];
 
   // actions: mode
   /** 初始化 Repository（根据当前模式注入） */
@@ -266,19 +284,21 @@ interface StoreState {
   deleteNote: (id: string) => Promise<void>;
   selectNote: (id: string | null) => void;
   selectFolder: (id: string | null) => void;
-  /** 按标签过滤笔记列表（null = 清除标签过滤） */
-  selectTag: (id: string | null) => void;
   setViewMode: (mode: ViewMode) => void;
   /** 切换侧边栏显隐（Ctrl+B） */
   toggleSidebar: () => void;
   /** 触发搜索框聚焦（Ctrl+F） */
   focusSearch: () => void;
-  createFolder: (name: string) => Promise<string>;
+  /** 创建文件夹。opts.parentId 指定父文件夹（不填=顶层）；opts.branch 指定顶层分支（业务·项目/个人·沉淀），子文件夹继承父分支 */
+  createFolder: (
+    name: string,
+    opts?: { parentId?: string | null; branch?: 'work' | 'personal' | null }
+  ) => Promise<string>;
   deleteFolder: (id: string) => Promise<void>;
-  /** 新建标签（名称重复时返回已有标签 id），color 形如 #rrggbb */
-  createTag: (name: string, color?: string | null) => Promise<string>;
-  /** 删除标签（不影响笔记明文中的标签名引用） */
-  deleteTag: (id: string) => Promise<void>;
+  /** 重命名文件夹 */
+  renameFolder: (id: string, name: string) => Promise<void>;
+  /** 移动文件夹到指定父级（null = 移到顶层） */
+  moveFolder: (id: string, parentId: string | null) => Promise<void>;
   /** 永久删除笔记（不可恢复） */
   permanentDeleteNote: (id: string) => Promise<void>;
   /** 清空回收站：永久删除所有已软删的笔记 */
@@ -309,6 +329,15 @@ interface StoreState {
   flushQueue: () => Promise<void>;
   /** 注销时清空本地缓存 + 队列 */
   clearLocalData: () => Promise<void>;
+
+  // actions: conflict resolution
+  /** 解决冲突：用户选择保留 local / server / merged 后 re-PATCH */
+  resolveConflictChoice: (
+    noteId: string,
+    choice: 'local' | 'server' | 'merged'
+  ) => Promise<void>;
+  /** 忽略冲突：保留当前 store 暂存态，不 re-PATCH，从 pendingConflicts 移除 */
+  dismissConflict: (noteId: string) => void;
 }
 
 const DEFAULT_PREFS: Preferences = {
@@ -337,47 +366,8 @@ function savePrefs(p: Preferences): void {
 }
 
 // ========== 加密信封辅助 ==========
-
-const ENVELOPE_VERSION = 1;
-
-async function encryptNote(
-  key: Uint8Array,
-  pt: NotePlaintext,
-  aad?: Uint8Array
-): Promise<{ envelope: NoteCipherEnvelope; json: string }> {
-  const json = JSON.stringify(pt);
-  // AAD 绑定 noteId||userId（§2.2）：防重排攻击；模板/旧数据不传（密文保持 a=0 向后兼容）
-  const blob = await encryptString(key, json, 1, aad);
-  const envelope: NoteCipherEnvelope = { v: ENVELOPE_VERSION, payload: blob };
-  return { envelope, json: JSON.stringify(envelope) };
-}
-
-async function decryptNote(
-  key: Uint8Array,
-  envelope: NoteCipherEnvelope,
-  aad?: Uint8Array
-): Promise<NotePlaintext> {
-  if (envelope.v !== ENVELOPE_VERSION) throw new Error(`envelope version mismatch: ${envelope.v}`);
-  // 历史密文（a=0）无 AAD 绑定，解密时不传；新密文（a=1）必须传相同 AAD
-  const needsAad = envelope.payload.a === 1;
-  if (needsAad && !aad) throw new Error('decryptNote: 此密文绑定了 AAD，但解密时未提供 AAD');
-  const json = await decryptString(key, envelope.payload, needsAad ? aad : undefined);
-  return JSON.parse(json) as NotePlaintext;
-}
-
-function parseEnvelope(raw: string): NoteCipherEnvelope {
-  // 服务端可能把 ciphertext 存为 JSON 字符串（包含 envelope），也可能存为对象字符串
-  // 兼容两种格式
-  const parsed = JSON.parse(raw) as unknown;
-  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
-    return parsed as NoteCipherEnvelope;
-  }
-  // 旧格式：直接是 Ciphertext
-  if (typeof parsed === 'object' && parsed !== null && 'c' in parsed && 'n' in parsed) {
-    return { v: ENVELOPE_VERSION, payload: parsed as Ciphertext };
-  }
-  throw new Error('invalid envelope');
-}
+// encryptNote / decryptNote / parseEnvelope / ENVELOPE_VERSION 已迁移到
+// @dustnote/client-core（四端共享），此处直接使用导入的实现。
 
 // ========== 离线辅助 ==========
 
@@ -404,7 +394,14 @@ function isTransientNetworkError(err: unknown): boolean {
  * @returns 成功返回 true，已入队返回 false
  */
 async function runOrEnqueue(
-  op: { method: 'POST' | 'PATCH' | 'DELETE'; path: string; body?: unknown; noteId?: string },
+  op: {
+    method: 'POST' | 'PATCH' | 'DELETE';
+    path: string;
+    body?: unknown;
+    noteId?: string;
+    /** v2.5.5：PATCH /notes/:id 携带三方合并上下文，供 409 时字段级合并 */
+    conflictCtx?: ConflictContext;
+  },
   fn: () => Promise<unknown>
 ): Promise<boolean> {
   try {
@@ -463,12 +460,10 @@ export const useStore = create<StoreState>((set, get) => ({
   notes: new Map(),
   notesPlain: new Map(),
   folders: [],
-  tags: [],
   // 单机模式无需联网即可使用预设模板；联机模式解锁后会 loadTemplates 覆盖
   templates: PRESET_TEMPLATES,
   selectedNoteId: null,
   selectedFolderId: null,
-  selectedTagId: null,
   viewMode: 'all',
 
   // UI 临时状态
@@ -481,6 +476,7 @@ export const useStore = create<StoreState>((set, get) => ({
   // offline-first
   isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
   pendingCount: 0,
+  pendingConflicts: [],
 
   // -------- mode actions --------
 
@@ -509,8 +505,6 @@ export const useStore = create<StoreState>((set, get) => ({
       notes: get().notes,
       notesPlain: get().notesPlain,
       folders: get().folders,
-      tags: get().tags,
-      selectedTagId: get().selectedTagId,
     };
     try {
       // 1. 导出当前模式的数据
@@ -545,8 +539,6 @@ export const useStore = create<StoreState>((set, get) => ({
         notes: prevStore.notes,
         notesPlain: prevStore.notesPlain,
         folders: prevStore.folders,
-        tags: prevStore.tags,
-        selectedTagId: prevStore.selectedTagId,
       });
       throw err;
     }
@@ -933,7 +925,6 @@ export const useStore = create<StoreState>((set, get) => ({
       set({
         notes: notesMap,
         folders: snapshot.folders,
-        tags: snapshot.tags,
       });
       if (snapshot.preferences) {
         const merged = { ...get().preferences, ...snapshot.preferences };
@@ -971,17 +962,15 @@ export const useStore = create<StoreState>((set, get) => ({
     try {
       // 明文缓存已用 localDEK 加密，解锁后才有 masterKey 可解密
       const localKey = (await deriveLocalKey(get().masterKey)) ?? undefined;
-      const [cachedNotes, cachedFolders, cachedTags] = await Promise.all([
+      const [cachedNotes, cachedFolders] = await Promise.all([
         loadCachedNotes(localKey),
         loadCachedFolders(),
-        loadCachedTags(),
       ]);
       if (cachedNotes.notes.size > 0 || cachedFolders.length > 0) {
         set({
           notes: cachedNotes.notes,
           notesPlain: cachedNotes.plain,
           folders: cachedFolders,
-          tags: cachedTags,
         });
       }
     } catch {
@@ -990,17 +979,15 @@ export const useStore = create<StoreState>((set, get) => ({
 
     try {
       const a = api();
-      const [notesRes, foldersRes, tagsRes, templatesRes] = await Promise.all([
+      const [notesRes, foldersRes, templatesRes] = await Promise.all([
         // includeDeleted=1：回收站视图需要拿到已软删的笔记
         a.get<{ notes: NoteRow[] }>('/notes?includeDeleted=1'),
         a.get<{ folders: Folder[] }>('/folders'),
-        a.get<{ tags: Tag[] }>('/tags'),
         a.get<{ templates: Template[] }>('/templates'),
       ]);
       set({
         notes: new Map(notesRes.notes.map((n: NoteRow) => [n.id, n])),
         folders: foldersRes.folders,
-        tags: tagsRes.tags,
         templates: templatesRes.templates ?? PRESET_TEMPLATES,
       });
 
@@ -1022,7 +1009,6 @@ export const useStore = create<StoreState>((set, get) => ({
         try {
           await cacheNotesLocal(get().notes, plain);
           await cacheFolders(foldersRes.folders);
-          await cacheTags(tagsRes.tags);
         } catch {
           /* 缓存写入失败不影响主流程 */
         }
@@ -1284,9 +1270,37 @@ export const useStore = create<StoreState>((set, get) => ({
     newPlain.set(id, merged);
     set({ notes: newNotes, notesPlain: newPlain });
 
+    // 构造三方合并上下文（仅当 base 明文可解密时；corrupt 笔记跳过）
+    const conflictCtx: ConflictContext | undefined = current
+      ? {
+          noteId: id,
+          baseVersion: note.version,
+          base: toMergeable(id, current, {
+            isPinned: note.isPinned,
+            isFavorite: note.isFavorite,
+            deletedAt: note.deletedAt,
+            folderId: note.folderId,
+            clientUpdatedAt: note.clientUpdatedAt,
+          }),
+          local: toMergeable(id, merged, {
+            isPinned: patch.isPinned ?? note.isPinned,
+            isFavorite: patch.isFavorite ?? note.isFavorite,
+            deletedAt: note.deletedAt,
+            folderId: note.folderId,
+            clientUpdatedAt: new Date().toISOString(),
+          }),
+        }
+      : undefined;
+
     // 网络请求：失败时入队，不回滚（用户已看到变更）
     const ok = await runOrEnqueue(
-      { method: 'PATCH', path: `/notes/${id}`, body, noteId: id },
+      {
+        method: 'PATCH',
+        path: `/notes/${id}`,
+        body,
+        noteId: id,
+        ...(conflictCtx ? { conflictCtx } : {}),
+      },
       async () => {
         const r = await api().patch<{ version: number; serverUpdatedAt: string }>(
           `/notes/${id}`,
@@ -1388,13 +1402,10 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ selectedNoteId: id });
   },
   selectFolder(id: string | null): void {
-    set({ selectedFolderId: id, selectedTagId: null, viewMode: 'all' });
-  },
-  selectTag(id: string | null): void {
-    set({ selectedTagId: id, selectedFolderId: null, viewMode: 'all', selectedNoteId: null });
+    set({ selectedFolderId: id, viewMode: 'all' });
   },
   setViewMode(mode: ViewMode): void {
-    set({ viewMode: mode, selectedFolderId: null, selectedTagId: null, selectedNoteId: null });
+    set({ viewMode: mode, selectedFolderId: null, selectedNoteId: null });
   },
   toggleSidebar(): void {
     set((s) => ({ sidebarHidden: !s.sidebarHidden }));
@@ -1598,21 +1609,34 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ templates: get().templates.filter((t) => t.id !== id) });
   },
 
-  async createFolder(name: string): Promise<string> {
+  async createFolder(
+    name: string,
+    opts?: { parentId?: string | null; branch?: 'work' | 'personal' | null }
+  ): Promise<string> {
+    const parentId = opts?.parentId ?? null;
+    // 派生 depth / branch（乐观更新用，服务端会再次校验）
+    const parent = parentId ? get().folders.find((f) => f.id === parentId) : undefined;
+    const depth = parent ? (parent.depth ?? 1) + 1 : 1;
+    const branch = parentId
+      ? (parent?.branch ?? null)
+      : (opts?.branch ?? null);
+
     // 单机模式：直接创建
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
-      const id = await repository.createFolder({ name });
+      const id = await repository.createFolder({ name, parentId, branch });
       set({
         folders: [
           ...get().folders,
           {
             id,
             name,
-            parentId: null,
+            parentId,
             icon: null,
             sortOrder: get().folders.length,
             createdAt: new Date().toISOString(),
+            depth,
+            branch,
           },
         ],
       });
@@ -1620,17 +1644,19 @@ export const useStore = create<StoreState>((set, get) => ({
     }
 
     // 联机模式：API
-    const r = await api().post<{ id: string }>('/folders', { name });
+    const r = await api().post<{ id: string }>('/folders', { name, parentId, branch });
     set({
       folders: [
         ...get().folders,
         {
           id: r.id,
           name,
-          parentId: null,
+          parentId,
           icon: null,
           sortOrder: 0,
           createdAt: new Date().toISOString(),
+          depth,
+          branch,
         },
       ],
     });
@@ -1665,30 +1691,51 @@ export const useStore = create<StoreState>((set, get) => ({
     void cacheFolders(get().folders).catch(() => undefined);
   },
 
-  // -------- 标签 --------
-
-  async createTag(name: string, color: string | null = null): Promise<string> {
-    const { repository } = get();
-    if (!repository) throw new Error('未初始化');
+  async renameFolder(id: string, name: string): Promise<void> {
     const trimmed = name.trim();
-    if (!trimmed) throw new Error('标签名不能为空');
-    // 按名称（忽略大小写）去重：已存在则直接返回，避免重复创建
-    const existing = get().tags.find((t) => t.name.toLowerCase() === trimmed.toLowerCase());
-    if (existing) return existing.id;
-    const id = await repository.createTag(trimmed, color);
-    const tag: Tag = { id, name: trimmed, color, count: 0 };
-    set({ tags: [...get().tags, tag] });
-    return id;
+    if (!trimmed) throw new Error('文件夹名不能为空');
+    // 单机模式
+    const { mode, repository } = get();
+    if (mode === 'standalone' && repository) {
+      await repository.renameFolder(id, trimmed);
+      set({ folders: get().folders.map((f) => (f.id === id ? { ...f, name: trimmed } : f)) });
+      return;
+    }
+    // 联机模式：乐观更新 + API + 离线队列
+    set({ folders: get().folders.map((f) => (f.id === id ? { ...f, name: trimmed } : f)) });
+    const ok = await runOrEnqueue({ method: 'PATCH', path: `/folders/${id}` }, async () => {
+      await api().patch(`/folders/${id}`, { name: trimmed });
+    });
+    if (!ok) set({ isOnline: false });
+    void cacheFolders(get().folders).catch(() => undefined);
   },
 
-  async deleteTag(id: string): Promise<void> {
-    const { repository } = get();
-    if (!repository) throw new Error('未初始化');
-    const tag = get().tags.find((t) => t.id === id);
-    if (!tag) return;
-    await repository.deleteTag(id);
-    set({ tags: get().tags.filter((t) => t.id !== id) });
-    if (get().selectedTagId === id) set({ selectedTagId: null });
+  async moveFolder(id: string, parentId: string | null): Promise<void> {
+    const { mode, repository } = get();
+    const parent = parentId ? get().folders.find((f) => f.id === parentId) : undefined;
+    const depth = parent ? (parent.depth ?? 1) + 1 : 1;
+    const branch = parent ? (parent.branch ?? null) : null;
+    // 单机模式
+    if (mode === 'standalone' && repository) {
+      await repository.moveFolder(id, parentId);
+      set({
+        folders: get().folders.map((f) =>
+          f.id === id ? { ...f, parentId, depth, branch } : f
+        ),
+      });
+      return;
+    }
+    // 联机模式：乐观更新 + API + 离线队列
+    set({
+      folders: get().folders.map((f) =>
+        f.id === id ? { ...f, parentId, depth, branch } : f
+      ),
+    });
+    const ok = await runOrEnqueue({ method: 'PATCH', path: `/folders/${id}` }, async () => {
+      await api().patch(`/folders/${id}`, { parentId });
+    });
+    if (!ok) set({ isOnline: false });
+    void cacheFolders(get().folders).catch(() => undefined);
   },
 
   // -------- prefs --------
@@ -1770,8 +1817,19 @@ export const useStore = create<StoreState>((set, get) => ({
         } catch (err) {
           if (err instanceof ApiException) {
             const status = err.err.status;
-            if (status === 409 || (status >= 400 && status < 500)) {
-              // 冲突或客户端错误：丢弃该 op，避免死循环
+            if (status === 409) {
+              // 版本冲突：尝试三方字段级合并（若有 conflictCtx）
+              if (op.conflictCtx) {
+                try {
+                  await handleNoteConflict(op, err);
+                } catch {
+                  // 合并失败：回退到 loadAll 校正
+                }
+              }
+              await remove(op.id);
+              hadConflict = true;
+            } else if (status >= 400 && status < 500) {
+              // 其他 4xx 客户端错误：不可恢复，丢弃
               await remove(op.id);
               hadConflict = true;
             } else {
@@ -1793,8 +1851,9 @@ export const useStore = create<StoreState>((set, get) => ({
 
       await get().refreshPendingCount();
 
-      // 冲突或全部成功后，拉取最新数据校正本地
-      if (hadConflict || ops.length > 0) {
+      // 冲突或全部成功后，拉取最新数据校正本地。
+      // 但如果有 pendingConflicts（待用户裁决），loadAll 会覆盖暂存态、丢用户编辑，所以跳过。
+      if (get().pendingConflicts.length === 0 && (hadConflict || ops.length > 0)) {
         try {
           await get().loadAll();
         } catch {
@@ -1821,7 +1880,89 @@ export const useStore = create<StoreState>((set, get) => ({
     clearLockoutState();
     // 清空宽限期缓存
     clearGraceUnlock();
-    set({ pendingCount: 0, localAuthBlob: null, lockoutState: INITIAL_LOCKOUT_STATE });
+    set({ pendingCount: 0, pendingConflicts: [], localAuthBlob: null, lockoutState: INITIAL_LOCKOUT_STATE });
+  },
+
+  // -------- conflict resolution --------
+
+  /**
+   * 解决冲突：用户选择保留 local / server / merged 后 re-PATCH。
+   *
+   * - local：用户自己的编辑（可能丢服务端改动）
+   * - server：服务端版本（丢本地编辑）
+   * - merged：字段级合并结果（两边改动都保留）
+   *
+   * re-PATCH 用 serverVersion 作为乐观锁版本；成功后从 pendingConflicts 移除。
+   */
+  async resolveConflictChoice(
+    noteId: string,
+    choice: 'local' | 'server' | 'merged'
+  ): Promise<void> {
+    const conflict = get().pendingConflicts.find((c) => c.noteId === noteId);
+    if (!conflict) return;
+
+    const masterKey = get().masterKey;
+    if (!masterKey) throw new Error('未解锁');
+
+    const chosen =
+      choice === 'local' ? conflict.local
+      : choice === 'server' ? conflict.server
+      : conflict.merged;
+
+    const { json: cipherJson } = await encryptNote(
+      masterKey,
+      chosen.plaintext,
+      noteAad(noteId, get().userId ?? '')
+    );
+
+    const body = {
+      ciphertext: cipherJson,
+      keyVersion: 1,
+      isPinned: chosen.isPinned,
+      isFavorite: chosen.isFavorite,
+      folderId: chosen.folderId,
+      deletedAt: chosen.deletedAt,
+      clientUpdatedAt: new Date().toISOString(),
+      version: conflict.serverVersion,
+    };
+
+    const r = await api().patch<{ version: number; serverUpdatedAt: string }>(
+      `/notes/${noteId}`,
+      body
+    );
+
+    // 更新 store
+    const newNotes = new Map(get().notes);
+    const existing = newNotes.get(noteId);
+    if (existing) {
+      newNotes.set(noteId, {
+        ...existing,
+        ciphertext: cipherJson,
+        isPinned: chosen.isPinned,
+        isFavorite: chosen.isFavorite,
+        folderId: chosen.folderId,
+        deletedAt: chosen.deletedAt,
+        version: r.version,
+        serverUpdatedAt: r.serverUpdatedAt,
+      });
+      const newPlain = new Map(get().notesPlain);
+      newPlain.set(noteId, chosen.plaintext);
+      set({ notes: newNotes, notesPlain: newPlain });
+    }
+
+    // 从待裁决列表移除
+    set({
+      pendingConflicts: get().pendingConflicts.filter((c) => c.noteId !== noteId),
+    });
+
+    void cacheNotesLocal(get().notes, get().notesPlain).catch(() => undefined);
+  },
+
+  /** 忽略冲突：保留当前 store 暂存态，不 re-PATCH，从 pendingConflicts 移除 */
+  dismissConflict(noteId: string): void {
+    set({
+      pendingConflicts: get().pendingConflicts.filter((c) => c.noteId !== noteId),
+    });
   },
 }));
 
@@ -1840,4 +1981,130 @@ export const useStore = create<StoreState>((set, get) => ({
 async function replayOp(op: QueuedOp): Promise<void> {
   const client = api();
   await client.request<unknown>(op.method, op.path, op.body);
+}
+
+/**
+ * 409 版本冲突处理：三方字段级合并（架构改进 #3）。
+ *
+ * 当离线重放的 PATCH /notes/:id 返回 409 时，服务端响应体包含 `current`
+ *（被其它设备更新后的 NoteRow，含密文）。本函数：
+ * 1. 解密服务端 current 得到 server 明文
+ * 2. 用 op.conflictCtx 的 base + local + server 调 resolveConflict
+ * 3. 无冲突（!hasConflicts）：自动 re-PATCH 合并结果（用 server version）
+ * 4. 有冲突（hasConflicts）：应用 merged 作为暂存态 + 推到 pendingConflicts
+ *
+ * 任何步骤失败均向上抛出，由 flushQueue catch 回退到 loadAll 校正。
+ */
+async function handleNoteConflict(op: QueuedOp, err: ApiException): Promise<void> {
+  const ctx = op.conflictCtx;
+  if (!ctx) return;
+
+  const masterKey = useStore.getState().masterKey;
+  if (!masterKey) return;
+
+  // 从 409 响应体提取服务端 current NoteRow
+  const body = err.err.data as { current?: NoteRow } | undefined;
+  const serverRow = body?.current;
+  if (!serverRow) return;
+
+  // 解密服务端密文
+  let serverPlain: NotePlaintext;
+  try {
+    const envelope = parseEnvelope(serverRow.ciphertext);
+    serverPlain = await decryptNote(
+      masterKey,
+      envelope,
+      noteAad(serverRow.id, useStore.getState().userId ?? '')
+    );
+  } catch {
+    return; // 解密失败，回退到 loadAll
+  }
+
+  const serverMeta: NoteMetadata = {
+    isPinned: serverRow.isPinned,
+    isFavorite: serverRow.isFavorite,
+    deletedAt: serverRow.deletedAt,
+    folderId: serverRow.folderId,
+    clientUpdatedAt: serverRow.clientUpdatedAt,
+  };
+  const serverMergeable = toMergeable(serverRow.id, serverPlain, serverMeta);
+
+  const result = resolveConflict(ctx.base, ctx.local, serverMergeable);
+
+  // 应用合并结果到本地 store（暂存态，无论有无冲突都不丢数据）
+  const userId = useStore.getState().userId ?? '';
+  const { json: mergedCipherJson } = await encryptNote(
+    masterKey,
+    result.merged.plaintext,
+    noteAad(ctx.noteId, userId)
+  );
+
+  const prevNotes = useStore.getState().notes;
+  const prevPlain = useStore.getState().notesPlain;
+  const newNotes = new Map(prevNotes);
+  const existing = newNotes.get(ctx.noteId);
+  if (existing) {
+    newNotes.set(ctx.noteId, {
+      ...existing,
+      ciphertext: mergedCipherJson,
+      isPinned: result.merged.isPinned,
+      isFavorite: result.merged.isFavorite,
+      folderId: result.merged.folderId,
+      deletedAt: result.merged.deletedAt,
+      version: serverRow.version,
+    });
+    const newPlain = new Map(prevPlain);
+    newPlain.set(ctx.noteId, result.merged.plaintext);
+    useStore.setState({ notes: newNotes, notesPlain: newPlain });
+  }
+
+  if (!result.hasConflicts) {
+    // 无歧义：自动 re-PATCH 合并结果
+    try {
+      const r = await api().patch<{ version: number; serverUpdatedAt: string }>(
+        `/notes/${ctx.noteId}`,
+        {
+          ciphertext: mergedCipherJson,
+          keyVersion: 1,
+          isPinned: result.merged.isPinned,
+          isFavorite: result.merged.isFavorite,
+          folderId: result.merged.folderId,
+          deletedAt: result.merged.deletedAt,
+          clientUpdatedAt: new Date().toISOString(),
+          version: serverRow.version,
+        }
+      );
+      // 校正 version/serverUpdatedAt
+      const nn = new Map(useStore.getState().notes);
+      const updated = nn.get(ctx.noteId);
+      if (updated) {
+        nn.set(ctx.noteId, {
+          ...updated,
+          version: r.version,
+          serverUpdatedAt: r.serverUpdatedAt,
+        });
+        useStore.setState({ notes: nn });
+      }
+    } catch {
+      // re-PATCH 失败（可能再次 409 或网络故障）：
+      // 不阻塞队列，loadAll 会校正本地状态
+    }
+  } else {
+    // 有歧义：推到 pendingConflicts 让用户裁决
+    const pending: PendingConflict = {
+      noteId: ctx.noteId,
+      conflicts: result.conflicts,
+      merged: result.merged,
+      local: ctx.local,
+      server: serverMergeable,
+      serverVersion: serverRow.version,
+    };
+    // 同一笔记可能有多个 pending（多次编辑冲突），只保留最新的
+    useStore.setState((s) => ({
+      pendingConflicts: [
+        ...s.pendingConflicts.filter((c) => c.noteId !== ctx.noteId),
+        pending,
+      ],
+    }));
+  }
 }

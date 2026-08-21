@@ -1,31 +1,37 @@
 /**
  * offline-queue 单元测试
  *
- * jsdom 不实现 IndexedDB，因此用 vi.mock 把 idb-keyval 替换为内存版 Map。
+ * v2.5.5：实现已委托 @dustnote/client-core（OfflineQueue + IndexedDbQueueStorage）。
+ * jsdom 不实现 IndexedDB，因此用 vi.mock 把 IndexedDbQueueStorage 替换为
+ * client-core 自带的 MemoryQueueStorage（继承并记录 save 快照），
+ * 队列语义（enqueue/peek/remove/退避/清空）仍测真实实现。
  * 覆盖：
  * - enqueue 顺序与返回值
  * - peek / peekAll / size
  * - remove / bumpRetries（超阈值移除）
  * - clear
- * - persist/restore：模拟「重新加载模块」后队列仍在（内存 mock 验证逻辑）
+ * - persist：入队后确实调用了底层存储 save（快照验证）
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { QueuedOp } from '@dustnote/client-core';
 
-// 内存版 IndexedDB store：key → value
-const memoryStore = new Map<string, unknown>();
-
-vi.mock('idb-keyval', () => ({
-  get: vi.fn(
-    async <T>(key: string): Promise<T | undefined> => memoryStore.get(key) as T | undefined
-  ),
-  set: vi.fn(async (key: string, value: unknown): Promise<void> => {
-    memoryStore.set(key, value);
-  }),
-  del: vi.fn(async (key: string): Promise<void> => {
-    memoryStore.delete(key);
-  }),
+// 每次 save 调用的队列快照（验证持久化语义）
+const { saveSnapshots } = vi.hoisted(() => ({
+  saveSnapshots: [] as QueuedOp[][],
 }));
+
+vi.mock('@dustnote/client-core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@dustnote/client-core')>();
+  // 内存后端：替换 IndexedDB，同时记录 save 快照
+  class TestQueueStorage extends actual.MemoryQueueStorage {
+    override async save(ops: QueuedOp[]): Promise<void> {
+      saveSnapshots.push([...ops]);
+      await super.save(ops);
+    }
+  }
+  return { ...actual, IndexedDbQueueStorage: TestQueueStorage };
+});
 
 // 动态导入以让 vi.mock 生效
 const { enqueue, peek, peekAll, remove, bumpRetries, clear, size, MAX_RETRIES, getRetryDelay } =
@@ -33,7 +39,7 @@ const { enqueue, peek, peekAll, remove, bumpRetries, clear, size, MAX_RETRIES, g
 
 describe('offline-queue', () => {
   beforeEach(async () => {
-    memoryStore.clear();
+    saveSnapshots.length = 0;
     await clear();
   });
 
@@ -119,10 +125,11 @@ describe('offline-queue', () => {
 
   it('persists across "reload"（内存 mock 验证 persist 调用）', async () => {
     await enqueue({ method: 'PATCH', path: '/notes/x', noteId: 'x' });
-    // 验证底层 store 中确实写入了队列
-    const persisted = memoryStore.get('dustnote:offline-queue') as unknown[];
-    expect(Array.isArray(persisted)).toBe(true);
-    expect(persisted).toHaveLength(1);
+    // 验证入队后确实向底层存储写入了队列快照
+    const last = saveSnapshots.at(-1);
+    expect(Array.isArray(last)).toBe(true);
+    expect(last).toHaveLength(1);
+    expect(last?.[0]?.path).toBe('/notes/x');
   });
 
   it('peekAll returns a copy (mutating result does not affect queue)', async () => {

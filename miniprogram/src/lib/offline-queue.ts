@@ -1,23 +1,21 @@
 /**
- * 离线队列 — mobile 适配层（v2.5.5 迁移到 @dustnote/client-core）
+ * 离线队列 — 小程序适配层（v2.5.5 新增，基于 @dustnote/client-core）
  *
- * 联机模式下网络不可用时，把 PATCH / POST 请求缓存到 AsyncStorage 队列，
- * 网络恢复后（列表加载成功 / 保存成功时）自动重放。
+ * 联机模式下网络不可用时，把 PATCH / POST 请求缓存到 Taro.setStorage 队列，
+ * 网络恢复后自动重放。
  *
- * 迁移说明：
+ * 说明：
  * - 队列语义、指数退避、409 字段级合并全部由 client-core 的 OfflineQueue +
- *   SyncEngine 提供，本模块仅保留 AsyncStorage 后端实例化 + 模块函数委托。
- * - 保留旧存储 key（dustnote_offline_queue），并在 load 时做旧格式→新格式
- *   迁移（queuedAt/attempts → createdAt/retries），已有 pending 队列无缝继承。
+ *   SyncEngine 提供，本模块仅保留 Taro 存储后端实例化 + 模块函数委托。
  * - 冲突处理：409 时用 conflictCtx 做三方字段级合并并自动 re-PATCH merged
- *   （mobile 暂无冲突裁决 UI，merged 默认"冲突字段 local 优先"，严格优于旧
- *   的"静默丢弃"行为，不丢数据）。
+ *   （小程序暂无冲突裁决 UI，merged 默认"冲突字段 local 优先"，严格优于
+ *   旧的"提示刷新重试"行为，不丢数据）。
+ * - 存储 key 用 client-core 默认的 'dustnote:offline-queue'。
  *
- * 注意：
- * - 仅联机模式使用（单机模式数据在本地，不存在网络失败）
+ * 注意：仅联机模式使用（单机模式数据在本地，不存在网络失败）。
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import Taro from '@tarojs/taro';
 import {
   OfflineQueue,
   SyncEngine,
@@ -29,77 +27,39 @@ import {
   type QueueStorage,
   type QueuedOp,
   type ConflictContext,
-  type MergeableNote,
   type ErrorClass,
 } from '@dustnote/client-core';
 import { noteAad, type ApiException } from '@dustnote/shared';
-import { api } from '../api';
-import { useAuthStore } from '../state/auth';
+import { getApi, useAuthStore } from '../state/auth';
 import { useConflictStore } from '../state/conflict-store';
 
-// 与旧实现一致：仅 PATCH / POST（DELETE 暂未走离线队列）
 export type OfflineHttpMethod = 'PATCH' | 'POST';
 
-/** 旧格式队列条目（v2.5.4 之前），用于 load 时迁移 */
-interface LegacyOfflineQueueItem {
-  method: OfflineHttpMethod;
-  path: string;
-  body: unknown;
-  queuedAt: string;
-  attempts: number;
-}
+const QUEUE_KEY = 'dustnote:offline-queue';
 
-/** 旧存储 key 保持不变，避免已有 pending 队列丢失 */
-const QUEUE_KEY = 'dustnote_offline_queue';
-
-/**
- * AsyncStorage 存储后端：load 时兼容迁移旧格式条目。
- */
-class AsyncStorageQueueStorage implements QueueStorage {
-  private readonly key: string;
-
-  constructor(key = QUEUE_KEY) {
-    this.key = key;
-  }
-
+/** Taro 存储后端（同步 API 包装为异步） */
+class TaroQueueStorage implements QueueStorage {
   async load(): Promise<QueuedOp[]> {
     try {
-      const raw = await AsyncStorage.getItem(this.key);
+      const raw = Taro.getStorageSync(QUEUE_KEY);
       if (!raw) return [];
-      const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) return [];
-      return (parsed as Array<QueuedOp | LegacyOfflineQueueItem>).map(migrateItem);
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? (parsed as QueuedOp[]) : [];
     } catch {
       return [];
     }
   }
 
   async save(ops: QueuedOp[]): Promise<void> {
-    await AsyncStorage.setItem(this.key, JSON.stringify(ops));
+    Taro.setStorageSync(QUEUE_KEY, JSON.stringify(ops));
   }
 
   async clear(): Promise<void> {
-    await AsyncStorage.removeItem(this.key);
+    Taro.removeStorageSync(QUEUE_KEY);
   }
 }
 
-/** 旧格式 → 新格式迁移：queuedAt/attempts → createdAt/retries，补 id */
-function migrateItem(item: QueuedOp | LegacyOfflineQueueItem): QueuedOp {
-  if ('id' in item && 'createdAt' in item && 'retries' in item) {
-    return item as QueuedOp;
-  }
-  const legacy = item as LegacyOfflineQueueItem;
-  return {
-    id: `${legacy.queuedAt}-${Math.random().toString(36).slice(2, 8)}`,
-    method: legacy.method,
-    path: legacy.path,
-    body: legacy.body,
-    createdAt: legacy.queuedAt,
-    retries: legacy.attempts,
-  };
-}
-
-const queue = new OfflineQueue(new AsyncStorageQueueStorage());
+const queue = new OfflineQueue(new TaroQueueStorage());
 
 /** 是否网络类错误（fetch 底层 TypeError / 状态 0 / 网络错误消息） */
 export function isNetworkError(err: unknown): boolean {
@@ -116,16 +76,26 @@ export function isNetworkError(err: unknown): boolean {
   return false;
 }
 
+/** 服务端 409 响应里的 current NoteRow（字段与 shared NoteRow 对齐） */
+interface ServerNoteRow {
+  id: string;
+  version: number;
+  isPinned: boolean;
+  isFavorite: boolean;
+  deletedAt: string | null;
+  ciphertext: string;
+  keyVersion: number;
+  clientUpdatedAt: string;
+  folderId: string | null;
+  serverUpdatedAt: string;
+}
+
 /**
- * 409 冲突处理：三方字段级合并（架构改进 #3）。
+ * 409 冲突处理：三方字段级合并（架构改进 #3 的 miniprogram 端落地）
  *
- * mobile 无冲突裁决 UI，这里统一走"自动合并 + re-PATCH"：
- * - 无歧义字段自动合并
- * - 有歧义字段（双方都改）merged 取 local（保住本地未保存编辑）
- * - re-PATCH 用 server version 作为乐观锁
- *
- * 任何步骤失败都静默放弃（op 随后被 SyncEngine 移除），
- * 避免阻塞队列；本地编辑已在 merged 中尽量保留。
+ * 与 mobile 对称：
+ * - 无歧义字段自动合并并静默 re-PATCH（不弹 UI）
+ * - 有歧义字段（双方都改）推送到 conflict-store，由全局 ConflictDialog 裁决
  */
 async function handleConflict(op: QueuedOp, serverData: unknown): Promise<void> {
   const ctx = op.conflictCtx;
@@ -168,7 +138,7 @@ async function handleConflict(op: QueuedOp, serverData: unknown): Promise<void> 
         result.merged.plaintext,
         noteAad(ctx.noteId, userId ?? '')
       );
-      await api.request('PATCH', `/notes/${ctx.noteId}`, {
+      await getApi().request('PATCH', `/notes/${ctx.noteId}`, {
         ciphertext: cipherJson,
         keyVersion: 1,
         isPinned: result.merged.isPinned,
@@ -196,20 +166,6 @@ async function handleConflict(op: QueuedOp, serverData: unknown): Promise<void> 
   });
 }
 
-/** 服务端 409 响应里的 current NoteRow（字段与 shared NoteRow 对齐） */
-interface ServerNoteRow {
-  id: string;
-  version: number;
-  isPinned: boolean;
-  isFavorite: boolean;
-  deletedAt: string | null;
-  ciphertext: string;
-  keyVersion: number;
-  clientUpdatedAt: string;
-  folderId: string | null;
-  serverUpdatedAt: string;
-}
-
 /** 错误分类：ApiException → status/data；网络错误 → status undefined（break） */
 function classifyError(err: unknown): ErrorClass | null {
   const apiErr = err as ApiException;
@@ -223,7 +179,7 @@ function classifyError(err: unknown): ErrorClass | null {
 }
 
 const engine = new SyncEngine(queue, {
-  replayOp: (op) => api.request(op.method, op.path, op.body),
+  replayOp: (op) => getApi().request(op.method, op.path, op.body),
   onConflict: async (op, serverData) => {
     await handleConflict(op, serverData);
     return true;
@@ -257,16 +213,8 @@ export async function pendingOfflineCount(): Promise<number> {
   return queue.size();
 }
 
-/**
- * 重放离线队列。网络恢复后调用（如列表加载成功 / 保存成功后）。
- * 返回是否仍有剩余条目（true = 网络仍不可用或 5xx 保留，下次再试）。
- */
+/** 重放离线队列；返回是否仍有剩余条目 */
 export async function flushOfflineQueue(): Promise<boolean> {
   const summary = await engine.flush();
   return summary.remaining > 0;
-}
-
-// 供可能的跨页面失效使用（移动端单进程，一般不需要）
-export function invalidateQueue(): void {
-  queue.invalidate();
 }

@@ -31,7 +31,6 @@ describe('store', () => {
     const state = useStore.getState();
     expect(state.notes.size).toBe(0);
     expect(state.folders).toEqual([]);
-    expect(state.tags).toEqual([]);
   });
 
   it('exposes core actions', () => {

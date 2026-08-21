@@ -1,5 +1,9 @@
 /**
- * 离线同步队列
+ * 离线同步队列 — web 适配层
+ *
+ * v2.5.5：队列语义已抽到 @dustnote/client-core（OfflineQueue + QueueStorage），
+ * 本模块仅保留 web 特有的 IndexedDB 后端实例化 + BroadcastChannel 跨标签页失效，
+ * 模块函数签名与旧实现完全一致，store.ts 零改动委托。
  *
  * 设计：
  * - 网络失败时把 mutation 入队，UI 已乐观更新，用户无感知
@@ -7,136 +11,86 @@
  * - 409 冲突时丢弃该 op（服务端版本更新），由 loadAll() 拉取最新
  * - 队列持久化到 IndexedDB，刷新不丢
  * - 指数退避重试：delay = min(30s, 1s * 2^attempt) + jitter，最高 8 次
+ * - PATCH /notes/:id 入队时携带 conflictCtx（三方合并上下文），
+ *   供 flushQueue 409 分支做字段级合并（见 store.ts handleNoteConflict）
  */
 
-import { del, get, set } from 'idb-keyval';
+import {
+  IndexedDbQueueStorage,
+  OfflineQueue,
+  MAX_RETRIES,
+  getRetryDelay,
+  type HttpMethod,
+  type QueuedOp,
+  type ConflictContext,
+} from '@dustnote/client-core';
 
-const QUEUE_KEY = 'dustnote:offline-queue';
-
-/** 最大重试次数（总等待约 5 分钟） */
-export const MAX_RETRIES = 8;
+// Re-export types for store.ts convenience
+export { MAX_RETRIES, getRetryDelay };
+export type { HttpMethod, QueuedOp, ConflictContext };
 
 /**
- * 指数退避延迟计算
- * delay = min(30_000, 1000 * 2^attempt) + 随机抖动（0~500ms）
+ * 单例 OfflineQueue：IndexedDB 存储，DB/store/key 与 idb-keyval 默认一致
+ *（'keyval-store'/'keyval'，key='dustnote:offline-queue'），
+ * web 切换后已有 pending 队列无缝继承，无需数据迁移。
  */
-export function getRetryDelay(attempt: number): number {
-  const base = Math.min(30_000, 1000 * 2 ** attempt);
-  const jitter = Math.floor(Math.random() * 500);
-  return base + jitter;
-}
+const storage = new IndexedDbQueueStorage();
+const queue = new OfflineQueue(storage);
 
-export type HttpMethod = 'POST' | 'PATCH' | 'DELETE';
-
-export interface QueuedOp {
-  /** 客户端生成的唯一 id（用于去重/取消） */
-  id: string;
-  method: HttpMethod;
-  path: string;
-  body?: unknown;
-  /** 关联的笔记 id（用于 UI 提示与冲突处理） */
-  noteId?: string;
-  createdAt: string;
-  /** 重试次数（超过阈值放弃） */
-  retries: number;
-}
-
-let memQueue: QueuedOp[] | null = null;
-
+/**
+ * 跨标签页同步：其它标签页入队后广播通知，本标签页丢弃内存缓存，
+ * 下次访问时重新从 IndexedDB 加载。
+ */
 if (typeof BroadcastChannel !== 'undefined') {
-  new BroadcastChannel('dustnote-queue').onmessage = () => {
-    memQueue = null;
-  };
+  const bc = new BroadcastChannel('dustnote-queue');
+  bc.onmessage = () => queue.invalidate();
 }
 
-/** 从 IndexedDB 加载队列到内存（懒加载，仅一次） */
-async function ensureLoaded(): Promise<QueuedOp[]> {
-  if (memQueue) return memQueue;
-  const persisted = await get<QueuedOp[]>(QUEUE_KEY);
-  memQueue = persisted ?? [];
-  return memQueue;
-}
+// ========== 模块函数委托（与旧签名对齐，store.ts 无需改动） ==========
 
-/** 内存队列变更后同步到 IndexedDB */
-async function persist(): Promise<void> {
-  if (memQueue) await set(QUEUE_KEY, memQueue);
-}
-
-/** 生成 op id：时间戳 + 随机后缀，避免同一毫秒冲突 */
-function genId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-/** 入队 */
+/** 入队（同时广播通知其它标签页失效缓存） */
 export async function enqueue(
   op: Omit<QueuedOp, 'id' | 'createdAt' | 'retries'>
 ): Promise<QueuedOp> {
-  const queue = await ensureLoaded();
-  const full: QueuedOp = {
-    ...op,
-    id: genId(),
-    createdAt: new Date().toISOString(),
-    retries: 0,
-  };
-  queue.push(full);
-  await persist();
+  const full = await queue.enqueue(op);
   if (typeof BroadcastChannel !== 'undefined') {
+    // 每次创建新实例是旧实现的行为；保持一致避免遗漏 listener 注册
     new BroadcastChannel('dustnote-queue').postMessage({ type: 'enqueued' });
   }
   return full;
 }
 
 /** 查看队首（不移除） */
-export async function peek(): Promise<QueuedOp | undefined> {
-  const queue = await ensureLoaded();
-  return queue[0];
+export function peek(): Promise<QueuedOp | undefined> {
+  return queue.peek();
 }
 
 /** 查看全部（用于 UI 显示 pending 数量） */
-export async function peekAll(): Promise<QueuedOp[]> {
-  const queue = await ensureLoaded();
-  return [...queue];
+export function peekAll(): Promise<QueuedOp[]> {
+  return queue.peekAll();
 }
 
 /** 移除指定 id 的 op（成功或永久放弃时调用） */
-export async function remove(id: string): Promise<void> {
-  const queue = await ensureLoaded();
-  const idx = queue.findIndex((op) => op.id === id);
-  if (idx >= 0) {
-    queue.splice(idx, 1);
-    await persist();
-  }
+export function remove(id: string): Promise<void> {
+  return queue.remove(id);
 }
 
 /** 增加某 op 的重试计数；超过阈值则移除 */
-export async function bumpRetries(id: string, max = MAX_RETRIES): Promise<void> {
-  const queue = await ensureLoaded();
-  const op = queue.find((o) => o.id === id);
-  if (!op) return;
-  op.retries += 1;
-  if (op.retries >= max) {
-    await remove(id);
-  } else {
-    await persist();
-  }
+export function bumpRetries(id: string, max = MAX_RETRIES): Promise<void> {
+  return queue.bumpRetries(id, max);
 }
 
 /** 获取某 op 的下次重试延迟（ms），用于 flushQueue 中的 setTimeout */
-export async function getRetryDelayForOp(id: string): Promise<number> {
-  const queue = await ensureLoaded();
-  const op = queue.find((o) => o.id === id);
-  if (!op) return 0;
-  return getRetryDelay(op.retries);
+export function getRetryDelayForOp(id: string): Promise<number> {
+  return queue.getRetryDelayForOp(id);
 }
 
 /** 清空整个队列 */
-export async function clear(): Promise<void> {
-  memQueue = [];
-  await del(QUEUE_KEY);
+export function clear(): Promise<void> {
+  return queue.clear();
 }
 
 /** 当前队列长度（轻量查询，不返回完整对象） */
-export async function size(): Promise<number> {
-  const queue = await ensureLoaded();
-  return queue.length;
+export function size(): Promise<number> {
+  return queue.size();
 }

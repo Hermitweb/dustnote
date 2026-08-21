@@ -49,23 +49,13 @@ import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
 import { MarkdownView } from '../components/MarkdownView';
 import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../lib/offline-queue';
+import { parseEnvelope } from '../lib/envelope';
 import { useColors } from '../theme';
+import { toMergeable, type ConflictContext, type NoteMetadata } from '@dustnote/client-core';
 
 interface NoteEnvelope {
   v: number;
   payload: Ciphertext;
-}
-
-/** 解析密文信封：兼容新格式 { v, payload } 与旧格式（直接是 Ciphertext） */
-function parseEnvelope(raw: string): NoteEnvelope {
-  const parsed = JSON.parse(raw) as unknown;
-  if (typeof parsed === 'object' && parsed !== null && 'v' in parsed && 'payload' in parsed) {
-    return parsed as NoteEnvelope;
-  }
-  if (typeof parsed === 'object' && parsed !== null && 'c' in parsed && 'n' in parsed) {
-    return { v: 1, payload: parsed as Ciphertext };
-  }
-  throw new Error('invalid envelope');
 }
 
 export function NoteEditScreen() {
@@ -79,7 +69,6 @@ export function NoteEditScreen() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<NoteRow | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -99,6 +88,9 @@ export function NoteEditScreen() {
   const [preview, setPreview] = useState(false);
   // 离线入队标记（保存失败且网络不可用）
   const [offlineQueued, setOfflineQueued] = useState(false);
+
+  // 最近一次成功同步的明文（作为 409 三方合并的 base）；加载/保存成功后更新
+  const basePlainRef = useRef<{ title: string; content: string; tags: string[] } | null>(null);
 
   // 创建 Repository（按当前模式分流）
   const repo = useMemo(
@@ -131,6 +123,12 @@ export function NoteEditScreen() {
             setContent(pt.content);
             setTags(Array.isArray(pt.tags) ? pt.tags : []);
             setDecryptFailed(false);
+            // 记录 base 明文（三方合并的公共祖先）
+            basePlainRef.current = {
+              title: pt.title,
+              content: pt.content,
+              tags: Array.isArray(pt.tags) ? pt.tags : [],
+            };
           } catch {
             setTitle('🔒 解密失败');
             setContent('');
@@ -163,6 +161,8 @@ export function NoteEditScreen() {
       });
       setNote({ ...note, version: nextVersion });
       setOfflineQueued(false);
+      // 保存成功：更新 base 明文（本次编辑成为新的公共祖先）
+      basePlainRef.current = { title, content, tags };
       // 网络恢复：顺手重放离线队列中的未同步修改
       if (mode === 'online') void flushOfflineQueue();
     } catch (err) {
@@ -172,14 +172,35 @@ export function NoteEditScreen() {
           const json = JSON.stringify({ title, content, tags });
           const payload = await encryptString(masterKey, json, 1);
           const env: NoteEnvelope = { v: 1, payload };
-          await enqueueOffline('PATCH', `/notes/${noteId}`, {
-            ciphertext: JSON.stringify(env),
-            keyVersion: 1,
+          // 构造三方合并上下文：base = 最近一次成功同步的明文，local = 当前编辑
+          const meta: NoteMetadata = {
             isPinned: !!note.isPinned,
             isFavorite: !!note.isFavorite,
-            version: note.version,
-            clientUpdatedAt: new Date().toISOString(),
-          });
+            deletedAt: note.deletedAt ?? null,
+            folderId: note.folderId ?? null,
+            clientUpdatedAt: note.clientUpdatedAt,
+          };
+          const conflictCtx: ConflictContext | undefined = basePlainRef.current
+            ? {
+                noteId,
+                baseVersion: note.version,
+                base: toMergeable(noteId, basePlainRef.current, meta),
+                local: toMergeable(noteId, { title, content, tags }, meta),
+              }
+            : undefined;
+          await enqueueOffline(
+            'PATCH',
+            `/notes/${noteId}`,
+            {
+              ciphertext: JSON.stringify(env),
+              keyVersion: 1,
+              isPinned: !!note.isPinned,
+              isFavorite: !!note.isFavorite,
+              version: note.version,
+              clientUpdatedAt: new Date().toISOString(),
+            },
+            { noteId, ...(conflictCtx ? { conflictCtx } : {}) }
+          );
           setOfflineQueued(true);
         } catch {
           Alert.alert('保存失败', (err as Error).message);
@@ -552,54 +573,6 @@ export function NoteEditScreen() {
               textAlignVertical="top"
               editable={!decryptFailed}
             />
-            {/* ========== 标签编辑 ========== */}
-            {!decryptFailed && (
-              <View style={styles.tagsContainer}>
-                <View style={styles.tagsRow}>
-                  {tags.map((tag) => (
-                    <View key={tag} style={styles.tagChip}>
-                      <Text style={styles.tagChipText}>#{tag}</Text>
-                      <TouchableOpacity
-                        onPress={() => setTags((prev) => prev.filter((x) => x !== tag))}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Text style={styles.tagChipClose}>✕</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-                <View style={styles.tagInputRow}>
-                  <TextInput
-                    style={styles.tagInput}
-                    value={tagInput}
-                    onChangeText={setTagInput}
-                    placeholder="添加标签…"
-                    placeholderTextColor={colors.muted}
-                    returnKeyType="done"
-                    onSubmitEditing={() => {
-                      const v = tagInput.trim().replace(/^#/, '').trim();
-                      if (v && !tags.includes(v)) {
-                        setTags((prev) => [...prev, v]);
-                      }
-                      setTagInput('');
-                    }}
-                  />
-                  <TouchableOpacity
-                    style={[styles.tagAddBtn, !tagInput.trim() && { opacity: 0.5 }]}
-                    disabled={!tagInput.trim()}
-                    onPress={() => {
-                      const v = tagInput.trim().replace(/^#/, '').trim();
-                      if (v && !tags.includes(v)) {
-                        setTags((prev) => [...prev, v]);
-                      }
-                      setTagInput('');
-                    }}
-                  >
-                    <Text style={styles.tagAddBtnText}>+</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
           </>
         )}
       </ScrollView>

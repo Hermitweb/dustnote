@@ -29,7 +29,6 @@ export function Editor() {
   const note = useStore((s) => (selectedId ? s.notes.get(selectedId) : null));
   const plain = useStore((s) => (selectedId ? s.notesPlain.get(selectedId) : null));
   const folders = useStore((s) => s.folders);
-  const tags = useStore((s) => s.tags);
   const updateNote = useStore((s) => s.updateNote);
   const deleteNote = useStore((s) => s.deleteNote);
   const viewMode = useStore((s) => s.viewMode);
@@ -47,9 +46,6 @@ export function Editor() {
   const [showHistory, setShowHistory] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showPermDeleteConfirm, setShowPermDeleteConfirm] = useState(false);
-  // 标签编辑器：显示/隐藏标签选择器、新建标签名
-  const [showTagPicker, setShowTagPicker] = useState(false);
-  const [newTagName, setNewTagName] = useState('');
   const [saving, setSaving] = useState(false);
   const [imageProcessing, setImageProcessing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -231,47 +227,6 @@ export function Editor() {
       });
     },
     [content]
-  );
-
-  // ========== 标签编辑 ==========
-  const tagColorOf = useCallback(
-    (tagName: string) =>
-      tags.find((t) => t.name.toLowerCase() === tagName.toLowerCase())?.color ?? '#94a3b8',
-    [tags]
-  );
-
-  // 从笔记移除标签
-  const removeTag = useCallback(
-    (tagName: string) => {
-      if (!plain) return;
-      void updateNote(note!.id, { tags: plain.tags.filter((tg) => tg !== tagName) });
-    },
-    [plain, note, updateNote]
-  );
-
-  // 给笔记添加标签：先确保标签存在（不存在则创建），再更新笔记明文 tags
-  const addTag = useCallback(
-    (tagName: string) => {
-      if (!plain) return;
-      const name = tagName.trim();
-      if (!name) return;
-      if (plain.tags.some((tg) => tg.toLowerCase() === name.toLowerCase())) {
-        setShowTagPicker(false);
-        setNewTagName('');
-        return;
-      }
-      const next = [...plain.tags, name];
-      void useStore
-        .getState()
-        .createTag(name)
-        .catch(() => undefined)
-        .then(() => {
-          void updateNote(note!.id, { tags: next });
-          setShowTagPicker(false);
-          setNewTagName('');
-        });
-    },
-    [plain, note, updateNote]
   );
 
   // 回收站视图强制只读预览
@@ -538,93 +493,6 @@ export function Editor() {
           aria-label={t('editor.placeholder')}
           className="w-full bg-transparent text-2xl font-bold text-surface-fg placeholder-surface-muted focus:outline-none"
         />
-        {/* 标签编辑：chips + 添加/新建 */}
-        {viewMode !== 'trash' && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            {plain.tags.map((tagName) => (
-              <span
-                key={tagName}
-                className="inline-flex items-center gap-1 rounded-full bg-mint-100 px-2 py-0.5 text-xs text-mint-700 dark:bg-mint-900/30 dark:text-mint-300"
-              >
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: tagColorOf(tagName) }}
-                />
-                {tagName}
-                <button
-                  onClick={() => removeTag(tagName)}
-                  className="ml-0.5 text-mint-700/70 hover:text-mint-900 dark:hover:text-mint-100"
-                  title={t('editor.tag_remove')}
-                  aria-label={`${t('editor.tag_remove')}: ${tagName}`}
-                  type="button"
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
-            <div className="relative">
-              <button
-                onClick={() => setShowTagPicker((v) => !v)}
-                className="inline-flex items-center gap-1 rounded-full border border-dashed border-surface-border px-2 py-0.5 text-xs text-surface-muted hover:bg-surface-bg"
-                type="button"
-              >
-                + {t('editor.add_tag')}
-              </button>
-              {showTagPicker && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowTagPicker(false)} />
-                  <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-lg border border-surface-border bg-surface-card py-1 shadow-lg">
-                    <div className="flex items-center gap-1 border-b border-surface-border px-2 py-1">
-                      <input
-                        value={newTagName}
-                        onChange={(e) => setNewTagName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && newTagName.trim()) {
-                            void addTag(newTagName);
-                          }
-                        }}
-                        placeholder={t('editor.new_tag')}
-                        className="flex-1 bg-transparent px-1 py-0.5 text-xs text-surface-fg placeholder-surface-muted focus:outline-none"
-                        autoFocus
-                      />
-                      <button
-                        onClick={() => {
-                          if (newTagName.trim()) void addTag(newTagName);
-                        }}
-                        className="text-xs text-mint-600 hover:text-mint-700"
-                        type="button"
-                      >
-                        ✓
-                      </button>
-                    </div>
-                    {tags.filter((tag) => !plain.tags.includes(tag.name)).length === 0 ? (
-                      <p className="px-3 py-1.5 text-xs text-surface-muted">
-                        {t('sidebar.tags_empty')}
-                      </p>
-                    ) : (
-                      tags
-                        .filter((tag) => !plain.tags.includes(tag.name))
-                        .map((tag) => (
-                          <button
-                            key={tag.id}
-                            onClick={() => void addTag(tag.name)}
-                            className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs text-surface-fg hover:bg-surface-bg"
-                            type="button"
-                          >
-                            <span
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: tag.color ?? '#94a3b8' }}
-                            />
-                            {tag.name}
-                          </button>
-                        ))
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 内容 */}

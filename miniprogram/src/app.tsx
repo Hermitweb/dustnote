@@ -11,6 +11,7 @@ import Taro from '@tarojs/taro';
 import { useLaunch } from '@tarojs/taro';
 import { AuthProvider } from './state/auth';
 import { useThemeStore, applyTheme } from './state/theme';
+import ConflictDialog from './components/ConflictDialog';
 import './app.scss';
 
 function App({ children }: { children?: ReactNode }) {
@@ -37,7 +38,12 @@ function App({ children }: { children?: ReactNode }) {
     applyTheme(theme);
   });
 
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <AuthProvider>
+      {children}
+      <ConflictDialog />
+    </AuthProvider>
+  );
 }
 
 export default App;

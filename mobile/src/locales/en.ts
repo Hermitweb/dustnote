@@ -27,7 +27,6 @@ const en = {
     editor_title: 'Edit',
     settings_title: 'Settings',
     folders_title: 'Folders',
-    tags_title: 'Tags',
     trash_title: 'Trash',
     mode_select_title: 'Choose a mode',
     setup_title: 'Set master password',
@@ -224,12 +223,6 @@ const en = {
     move_failed: 'Failed to move',
     move_loading: 'Loading…',
   },
-  tags: {
-    empty: 'No tags yet',
-    add: '+ New tag',
-    name_placeholder: 'Tag name',
-    delete_confirm: 'Delete this tag?',
-  },
   trash: {
     empty: 'Trash is empty',
     restore: 'Restore',
@@ -242,6 +235,18 @@ const en = {
     network: 'Network error',
     server_unreachable: 'Cannot reach the server',
     unknown: 'Unknown error',
+  },
+  conflict: {
+    title: 'Sync Conflict',
+    subtitle: 'This note was also edited on another device. Choose which version to keep.',
+    my_version: 'My edits',
+    server_version: 'Server version',
+    use_local: 'Keep mine',
+    use_server: 'Keep server',
+    use_merged: 'Merge',
+    merged_hint: 'Merge keeps both sides',
+    dismiss: 'Dismiss',
+    resolving: 'Resolving…',
   },
 };
 

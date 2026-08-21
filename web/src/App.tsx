@@ -32,6 +32,7 @@ import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { QuickCapture } from './components/QuickCapture';
 import { AboutDialog } from './components/AboutDialog';
 import { Logo } from './components/Logo';
+import { ConflictDialog } from './components/ConflictDialog';
 
 type StandaloneView = 'setup' | 'unlock' | 'recover';
 
@@ -381,6 +382,9 @@ function App() {
       {showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
 
       {showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
+
+      {/* 同步冲突裁决（pendingConflicts 非空时展示） */}
+      <ConflictDialog />
 
       <ToastContainer />
     </div>

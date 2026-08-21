@@ -1,31 +1,36 @@
 import { useTranslation } from 'react-i18next';
-import { useStore, type Tag } from '../lib/store';
+import { useStore, type NoteRow } from '../lib/store';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { TemplatePicker } from './TemplatePicker';
 import { SearchIndex, highlightMatches, type SearchHit } from '../lib/search';
 import { toast } from '../lib/toast';
 import { Logo } from './Logo';
 import { ConfirmDialog } from './ConfirmDialog';
+import JSZip from 'jszip';
+import { exportAsMarkdown, downloadBlob, parseNoteFile, detectFormat } from '../lib/io-client';
+
+/** 右键菜单目标：文件夹或笔记叶子 */
+type CtxTarget =
+  | { type: 'folder'; id: string; name: string; parentId: string | null; depth: number }
+  | { type: 'note'; id: string; name: string; folderId: string | null };
 
 export function Sidebar() {
   const { t } = useTranslation();
   const folders = useStore((s) => s.folders);
-  const tags = useStore((s) => s.tags);
   const notes = useStore((s) => s.notes);
   const notesPlain = useStore((s) => s.notesPlain);
   const selectedFolderId = useStore((s) => s.selectedFolderId);
-  const selectedTagId = useStore((s) => s.selectedTagId);
   const selectedNoteId = useStore((s) => s.selectedNoteId);
   const viewMode = useStore((s) => s.viewMode);
   const isOnline = useStore((s) => s.isOnline);
   const pendingCount = useStore((s) => s.pendingCount);
 
   const selectFolder = useStore((s) => s.selectFolder);
-  const selectTag = useStore((s) => s.selectTag);
-  const createTag = useStore((s) => s.createTag);
-  const deleteTag = useStore((s) => s.deleteTag);
   const createFolder = useStore((s) => s.createFolder);
   const createNote = useStore((s) => s.createNote);
+  const deleteFolder = useStore((s) => s.deleteFolder);
+  const renameFolder = useStore((s) => s.renameFolder);
+  const moveFolder = useStore((s) => s.moveFolder);
   const selectNote = useStore((s) => s.selectNote);
   const setViewMode = useStore((s) => s.setViewMode);
   const permanentDeleteNote = useStore((s) => s.permanentDeleteNote);
@@ -37,7 +42,17 @@ export function Sidebar() {
   const searchFocusToken = useStore((s) => s.searchFocusToken);
 
   const [newFolderName, setNewFolderName] = useState('');
+  // 文件夹展开态（L1 → L2 子文件夹）+ 新建输入框上下文（顶层 / 子文件夹父级）
+  const [folderExpanded, setFolderExpanded] = useState<Set<string>>(new Set());
   const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newSubParent, setNewSubParent] = useState<string | null>(null);
+  // 右键菜单 / 重命名 / 移动 / 导入
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; target: CtxTarget } | null>(null);
+  const [renameTarget, setRenameTarget] = useState<CtxTarget | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [moveTarget, setMoveTarget] = useState<CtxTarget | null>(null);
+  const [importTargetFolderId, setImportTargetFolderId] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   // 确认弹窗状态（替代原生 confirm()）
@@ -45,14 +60,6 @@ export function Sidebar() {
   const [batchConfirmMsg, setBatchConfirmMsg] = useState('');
   const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
   const [permDeleteNoteId, setPermDeleteNoteId] = useState<string | null>(null);
-  // 标签面板：展开 / 新建 / 清理未使用
-  const [tagsExpanded, setTagsExpanded] = useState(false);
-  const [showNewTag, setShowNewTag] = useState(false);
-  const [newTagName, setNewTagName] = useState('');
-  const [newTagColor, setNewTagColor] = useState('#4FB783');
-  const [cleanupTagIds, setCleanupTagIds] = useState<string[] | null>(null);
-  // 批量打标签弹窗
-  const [showBatchTagDialog, setShowBatchTagDialog] = useState(false);
   // 笔记列表排序：updated（置顶+更新时间，默认）/ title / words
   const [sortKey, setSortKey] = useState<'updated' | 'title' | 'words'>('updated');
   // 搜索：E2EE 下服务端无法检索密文，必须在客户端对解密后的 notesPlain 做匹配。
@@ -200,27 +207,26 @@ export function Sidebar() {
     setSearchHits(searchResult.hitsMap);
   }, [searchResult]);
 
-  // 当前选中的标签对象（用于过滤与标题显示）
-  const selectedTag = tags.find((t) => t.id === selectedTagId) ?? null;
-  // 标签使用计数：以笔记明文（解密后）为准，客户端改标签后计数即时准确
-  const tagCounts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const [id, pt] of notesPlain) {
-      if (notes.get(id)?.deletedAt) continue;
-      for (const tagName of pt.tags) {
-        const key = tagName.toLowerCase();
-        m.set(key, (m.get(key) ?? 0) + 1);
+  // 选中文件夹时，连同其后代（L2 子文件夹）的笔记一起展示（扁平优先）。
+  // 规范：一级文件夹 → 直接平铺其下笔记与二级子文件夹。
+  const folderScope = useMemo(() => {
+    if (!selectedFolderId) return null;
+    const set = new Set<string>([selectedFolderId]);
+    const stack = [selectedFolderId];
+    while (stack.length) {
+      const cur = stack.pop() as string;
+      for (const f of folders) {
+        if (f.parentId === cur) {
+          set.add(f.id);
+          stack.push(f.id);
+        }
       }
     }
-    return m;
-  }, [notes, notesPlain]);
+    return set;
+  }, [selectedFolderId, folders]);
 
   const visibleNotes = useMemo(() => {
-    // 按当前选中标签过滤（匹配笔记明文中的标签名）
-    const byTag = (id: string) =>
-      !selectedTag || (notesPlain.get(id)?.tags ?? []).includes(selectedTag.name);
-
-    // 有搜索词：按相关性得分排序，并按当前视图/文件夹/标签过滤
+    // 有搜索词：按相关性得分排序，并按当前视图/文件夹过滤
     if (searchResult.orderedHits) {
       const noteMap = notes;
       return searchResult.orderedHits
@@ -231,8 +237,7 @@ export function Sidebar() {
           if (viewMode === 'favorites') return !n.deletedAt && n.isFavorite;
           return !n.deletedAt;
         })
-        .filter((n) => (selectedFolderId ? n.folderId === selectedFolderId : true))
-        .filter((n) => byTag(n.id))
+        .filter((n) => (folderScope ? n.folderId != null && folderScope.has(n.folderId) : true))
         .filter((n) => notesPlain.has(n.id));
     }
 
@@ -243,8 +248,7 @@ export function Sidebar() {
         if (viewMode === 'favorites') return !n.deletedAt && n.isFavorite;
         return !n.deletedAt;
       })
-      .filter((n) => (selectedFolderId ? n.folderId === selectedFolderId : true))
-      .filter((n) => byTag(n.id));
+      .filter((n) => (folderScope ? n.folderId != null && folderScope.has(n.folderId) : true));
     return list.sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
       if (sortKey === 'title') {
@@ -259,33 +263,196 @@ export function Sidebar() {
       }
       return b.serverUpdatedAt.localeCompare(a.serverUpdatedAt);
     });
-  }, [notes, viewMode, selectedFolderId, selectedTag, notesPlain, searchResult, sortKey]);
+  }, [notes, viewMode, selectedFolderId, notesPlain, searchResult, sortKey]);
 
-  // 批量打标签：给选中的笔记追加标签名（去重后写入明文 tags）
-  const batchTag = async (tag: Tag) => {
-    const ids = Array.from(selectedIds);
-    if (!ids.length) return;
+  // ========== 文件夹层级（规范：3 层封顶） ==========
+  const childFolders = (pid: string) => folders.filter((f) => f.parentId === pid);
+  // 某文件夹的直接笔记（未删除），按更新时间倒序平铺（规范：文件高密度平铺）
+  const directNotes = (folderId: string) =>
+    Array.from(notes.values())
+      .filter((n) => !n.deletedAt && n.folderId === folderId)
+      .sort((a, b) => b.serverUpdatedAt.localeCompare(a.serverUpdatedAt));
+  // 未分类笔记（folderId 为空），单独成组展示
+  const unfiledNotes = Array.from(notes.values())
+    .filter((n) => !n.deletedAt && !n.folderId)
+    .sort((a, b) => b.serverUpdatedAt.localeCompare(a.serverUpdatedAt));
+  // 顶层文件夹（用户自建，无预设分支）
+  const topFolders = folders.filter((f) => !f.parentId);
+  // 右键菜单
+  const openCtxMenu = (e: React.MouseEvent, target: CtxTarget) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxMenu({ x: e.clientX, y: e.clientY, target });
+  };
+  // 笔记叶子（内联在文件夹树下）：点击打开编辑器
+  const renderNoteLeaf = (n: NoteRow, indent: string) => {
+    const plain = notesPlain.get(n.id);
+    return (
+      <button
+        key={n.id}
+        onClick={() => selectNote(n.id)}
+        onContextMenu={(e) =>
+          openCtxMenu(e, { type: 'note', id: n.id, name: plain?.title ?? '', folderId: n.folderId })
+        }
+        className={`flex w-full items-center gap-1.5 rounded py-1.5 pr-2 text-left text-sm ${indent} ${
+          selectedNoteId === n.id
+            ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
+            : 'text-surface-fg hover:bg-surface-bg'
+        }`}
+      >
+        <span className="text-xs">📄</span>
+        {n.isPinned && <span className="text-xs">📌</span>}
+        <span className="truncate">{plain?.title ?? '...'}</span>
+      </button>
+    );
+  };
+  const toggleExpand = (id: string) =>
+    setFolderExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const cancelNewFolder = () => {
+    setShowNewFolder(false);
+    setNewSubParent(null);
+    setNewFolderName('');
+  };
+  const doCreateFolder = async (parentId: string | null) => {
+    const name = newFolderName.trim();
+    if (!name) return;
+    // 深度拦截：父文件夹已到二级，禁止再建子文件夹（规范 §2.1「禁止四级及以上嵌套」）
+    if (parentId) {
+      const parent = folders.find((f) => f.id === parentId);
+      if (parent && (parent.depth ?? 1) >= 2) {
+        toast.error(t('sidebar.depth_limit_msg'));
+        return;
+      }
+    }
+    try {
+      await createFolder(name, parentId ? { parentId } : undefined);
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      if (code === 'folder_depth_exceeded') {
+        toast.error(t('sidebar.depth_limit_msg'));
+      } else {
+        toast.error(err instanceof Error ? err.message : String(err));
+      }
+    }
+    cancelNewFolder();
+  };
+
+  // ========== 右键菜单动作（文件夹 / 笔记） ==========
+  const closeCtxMenu = () => setCtxMenu(null);
+
+  const confirmRename = async () => {
+    if (!renameTarget) return;
+    const name = renameValue.trim();
+    if (!name) return;
+    try {
+      if (renameTarget.type === 'folder') {
+        await renameFolder(renameTarget.id, name);
+      } else {
+        const plain = notesPlain.get(renameTarget.id);
+        await updateNote(renameTarget.id, { title: name, content: plain?.content ?? '' });
+      }
+      toast.success(t('sidebar.renamed'));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+    setRenameTarget(null);
+  };
+
+  const doMoveTarget = async (targetFolderId: string | null) => {
+    if (!moveTarget) return;
+    const target = moveTarget;
+    setMoveTarget(null);
+    try {
+      if (target.type === 'folder') {
+        await moveFolder(target.id, targetFolderId);
+      } else {
+        await moveNote(target.id, targetFolderId);
+      }
+      toast.success(t('sidebar.moved'));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const doDeleteTarget = async () => {
+    if (!ctxMenu) return;
+    const target = ctxMenu.target;
+    closeCtxMenu();
+    try {
+      if (target.type === 'folder') {
+        await deleteFolder(target.id);
+      } else {
+        await deleteNote(target.id);
+      }
+      toast.success(t('sidebar.deleted'));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const doExportTarget = async () => {
+    if (!ctxMenu) return;
+    const target = ctxMenu.target;
+    closeCtxMenu();
+    try {
+      if (target.type === 'note') {
+        const plain = notesPlain.get(target.id);
+        if (!plain) return;
+        const blob = exportAsMarkdown(plain.title, plain.content);
+        downloadBlob(blob, `${safeFileName(plain.title || 'note')}.md`);
+        toast.success(t('sidebar.exported'));
+      } else {
+        // 导出文件夹下所有笔记（含子文件夹）为一个 zip
+        const scopeIds = collectFolderIds(folders, target.id);
+        const zip = new JSZip();
+        let count = 0;
+        for (const [id, pt] of notesPlain) {
+          const note = notes.get(id);
+          if (!note || note.deletedAt) continue;
+          if (!scopeIds.has(note.folderId ?? '')) continue;
+          const md = pt.content.startsWith('#') ? pt.content : `# ${pt.title}\n\n${pt.content}`;
+          zip.file(`${safeFileName(pt.title || 'untitled')}.md`, '\uFEFF' + md);
+          count++;
+        }
+        const blob = await zip.generateAsync({ type: 'blob' });
+        downloadBlob(blob, `${safeFileName(target.name)}.zip`);
+        toast.success(t('sidebar.exported_folder', { count }));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleImportFiles = async (files: FileList | null, folderId: string | null) => {
+    if (!files || files.length === 0) return;
+    const arr = Array.from(files);
     let ok = 0;
-    for (const id of ids) {
-      const pt = notesPlain.get(id);
-      if (!pt) continue;
-      if (pt.tags.some((tg) => tg.toLowerCase() === tag.name.toLowerCase())) continue;
+    for (const f of arr) {
+      if (detectFormat(f.name) === 'unknown') continue;
       try {
-        await updateNote(id, { tags: [...pt.tags, tag.name] });
+        const pt = await parseNoteFile(f);
+        const id = await createNote(folderId);
+        await updateNote(id, { title: pt.title, content: pt.content });
         ok++;
       } catch {
         /* skip */
       }
     }
-    exitSelect();
-    setShowBatchTagDialog(false);
-    toast.success(t('sidebar.batch_tag_done', { count: ok }));
+    if (ok > 0) toast.success(t('sidebar.imported', { count: ok }));
   };
 
   const trashCount = Array.from(notes.values()).filter((n) => n.deletedAt).length;
   const isTrash = viewMode === 'trash';
   const selCount = selectedIds.size;
   const hasAll = visibleNotes.length > 0 && selectedIds.size === visibleNotes.length;
+  // 底部笔记列表区仅在「收藏 / 回收站 / 选中标签 / 搜索」时显示；
+  // 默认（全部）不再平铺，笔记已在文件夹树下归类显示。
+  const showNoteList = isTrash || viewMode === 'favorites' || !!normalizedQuery;
 
   return (
     <>
@@ -387,48 +554,25 @@ export function Sidebar() {
           )}
         </div>
 
-        <NavItem
-          label={t('sidebar.all')}
-          icon="📝"
-          active={viewMode === 'all' && !selectedFolderId}
-          onClick={() => setViewMode('all')}
-        />
-        <NavItem
-          label={t('sidebar.favorites')}
-          icon="⭐"
-          active={viewMode === 'favorites'}
-          onClick={() => setViewMode('favorites')}
-        />
-        <NavItem
-          label={`${t('sidebar.trash')}${trashCount > 0 ? ` (${trashCount})` : ''}`}
-          icon="🗑️"
-          active={viewMode === 'trash'}
-          onClick={() => setViewMode('trash')}
-        />
-
-        {isTrash && trashCount > 0 && (
-          <div className="mt-1 flex gap-1 px-2">
-            <button
-                onClick={() => setShowEmptyTrashConfirm(true)}
-                className="flex-1 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300"
-              >
-              {t('sidebar.empty_trash')}
-            </button>
-          </div>
-        )}
-
-        {/* 文件夹 */}
+        {/* 文件夹（用户自建，无预设分支）+ 扁平优先 + 层级拦截 */}
         {viewMode !== 'trash' && (
           <div className="mt-4">
             <div className="mb-1 flex items-center justify-between px-2 text-xs font-semibold text-surface-muted">
-              {t('sidebar.folders')}
+              <span>{t('sidebar.folders')}</span>
               <button
-                onClick={() => setShowNewFolder(true)}
+                onClick={() => {
+                  setNewFolderName('');
+                  setNewSubParent(null);
+                  setShowNewFolder(true);
+                }}
                 className="text-mint-600 hover:text-mint-700"
+                title={t('sidebar.add_folder')}
               >
-                {t('sidebar.add_folder')}
+                ＋
               </button>
             </div>
+
+            {/* 新建顶层文件夹输入框 */}
             {showNewFolder && (
               <div className="mb-2 flex gap-1 px-2">
                 <input
@@ -438,202 +582,200 @@ export function Sidebar() {
                   placeholder={t('sidebar.folder_name_placeholder')}
                   className="flex-1 rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs"
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newFolderName) {
-                      void createFolder(newFolderName);
-                      setNewFolderName('');
-                      setShowNewFolder(false);
-                    }
-                    if (e.key === 'Escape') {
-                      setShowNewFolder(false);
-                      setNewFolderName('');
-                    }
+                    if (e.key === 'Enter') void doCreateFolder(null);
+                    if (e.key === 'Escape') cancelNewFolder();
                   }}
                 />
                 <button
-                  onClick={() => {
-                    if (newFolderName) {
-                      void createFolder(newFolderName);
-                      setNewFolderName('');
-                      setShowNewFolder(false);
-                    }
-                  }}
+                  onClick={() => void doCreateFolder(null)}
                   className="rounded bg-mint-600 px-2 py-1 text-xs font-medium text-white hover:bg-mint-700"
                 >
                   ✓
                 </button>
                 <button
-                  onClick={() => {
-                    setShowNewFolder(false);
-                    setNewFolderName('');
-                  }}
+                  onClick={cancelNewFolder}
                   className="rounded border border-surface-border px-2 py-1 text-xs text-surface-muted hover:bg-surface-bg"
                 >
                   ✕
                 </button>
               </div>
             )}
-            {folders.length === 0 ? (
-              <p className="px-2 text-xs text-surface-muted">{t('sidebar.empty_folders')}</p>
-            ) : (
-              folders.map((f) => (
-                <NavItem
-                  key={f.id}
-                  label={f.name}
-                  icon={f.icon ?? '📁'}
-                  active={viewMode === 'all' && selectedFolderId === f.id}
-                  onClick={() => selectFolder(f.id)}
-                />
-              ))
-            )}
-          </div>
-        )}
 
-        {/* 标签：导航项 + 可展开面板（点击过滤、新建、清理未使用） */}
-        {viewMode !== 'trash' && (
-          <div className="mt-4">
-            <div className="mb-1 flex items-center justify-between px-2 text-xs font-semibold text-surface-muted">
-              <button
-                onClick={() => setTagsExpanded((v) => !v)}
-                className="flex flex-1 items-center gap-1 text-left text-xs font-semibold text-surface-muted hover:text-surface-fg"
-              >
-                <span className={`inline-block transition-transform ${tagsExpanded ? 'rotate-90' : ''}`}>▶</span>
-                <span>{t('sidebar.tags')}</span>
-              </button>
-              <button
-                onClick={() => setShowNewTag((v) => !v)}
-                className="text-mint-600 hover:text-mint-700"
-                title={t('sidebar.tag_create')}
-              >
-                {t('sidebar.add_tag')}
-              </button>
-            </div>
-            {tagsExpanded && (
-              <>
-                {showNewTag && (
-                  <div className="mb-2 flex flex-col gap-1 rounded border border-surface-border p-2">
-                    <input
-                      value={newTagName}
-                      onChange={(e) => setNewTagName(e.target.value)}
-                      autoFocus
-                      placeholder={t('sidebar.tag_name_placeholder')}
-                      className="rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && newTagName.trim()) {
-                          void createTag(newTagName.trim(), newTagColor)
-                            .then((id) => {
-                              setNewTagName('');
-                              setShowNewTag(false);
-                              selectTag(id);
-                            })
-                            .catch((err: Error) => toast.error(err.message));
-                        }
-                        if (e.key === 'Escape') {
-                          setShowNewTag(false);
-                          setNewTagName('');
-                        }
+            {topFolders.length === 0 && !showNewFolder && (
+              <p className="px-2 text-xs text-surface-muted">{t('sidebar.empty_folders')}</p>
+            )}
+
+            {topFolders.map((f) => {
+              const children = childFolders(f.id);
+              const fNotes = directNotes(f.id);
+              const expanded = folderExpanded.has(f.id);
+              const hasContent = children.length > 0 || fNotes.length > 0;
+              const isActive = viewMode === 'all' && selectedFolderId === f.id;
+              return (
+                <div key={f.id}>
+                  <div
+                    className={`flex items-center rounded transition-colors ${
+                      isActive ? 'bg-mint-50 dark:bg-mint-900/30' : 'hover:bg-surface-bg'
+                    }`}
+                  >
+                    {hasContent && (
+                      <button
+                        onClick={() => toggleExpand(f.id)}
+                        className="flex h-7 w-6 flex-shrink-0 items-center justify-center text-surface-muted hover:text-surface-fg"
+                      >
+                        <Chevron expanded={expanded} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        selectFolder(f.id);
+                        toggleExpand(f.id);
                       }}
-                    />
-                    <div className="flex items-center gap-1">
-                      {TAG_COLORS.map((c) => (
-                        <button
-                          key={c}
-                          onClick={() => setNewTagColor(c)}
-                          className={`h-4 w-4 rounded-full border-2 ${newTagColor === c ? 'border-surface-fg' : 'border-transparent'}`}
-                          style={{ backgroundColor: c }}
-                          aria-label={c}
-                          type="button"
-                        />
-                      ))}
+                      onContextMenu={(e) =>
+                        openCtxMenu(e, {
+                          type: 'folder',
+                          id: f.id,
+                          name: f.name,
+                          parentId: f.parentId,
+                          depth: f.depth ?? 1,
+                        })
+                      }
+                      className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-left text-sm ${
+                        isActive
+                          ? 'font-semibold text-mint-700 dark:text-mint-300'
+                          : 'text-surface-fg'
+                      }`}
+                    >
+                      <span>{f.icon ?? '📁'}</span>
+                      <span className="truncate">{f.name}</span>
+                      {fNotes.length > 0 && (
+                        <span className="text-xs text-surface-muted">{fNotes.length}</span>
+                      )}
+                    </button>
+                    {/* 仅一级文件夹可建子文件夹（二级即最深层，规范 §2.1） */}
+                    {(f.depth ?? 1) < 2 && (
                       <button
                         onClick={() => {
-                          if (newTagName.trim()) {
-                            void createTag(newTagName.trim(), newTagColor)
-                              .then((id) => {
-                                setNewTagName('');
-                                setShowNewTag(false);
-                                selectTag(id);
-                              })
-                              .catch((err: Error) => toast.error(err.message));
-                          }
+                          setNewFolderName('');
+                          setShowNewFolder(false);
+                          setNewSubParent(f.id);
                         }}
-                        className="ml-auto rounded bg-mint-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-mint-700"
+                        className="flex-shrink-0 px-1.5 text-xs text-mint-600 hover:text-mint-700"
+                        title={t('sidebar.add_subfolder')}
+                      >
+                        ＋
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 子文件夹新建输入框 */}
+                  {newSubParent === f.id && (
+                    <div className="mb-1 flex gap-1 px-2 pl-8">
+                      <input
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        autoFocus
+                        placeholder={t('sidebar.folder_name_placeholder')}
+                        className="flex-1 rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void doCreateFolder(f.id);
+                          if (e.key === 'Escape') cancelNewFolder();
+                        }}
+                      />
+                      <button
+                        onClick={() => void doCreateFolder(f.id)}
+                        className="rounded bg-mint-600 px-2 py-1 text-xs font-medium text-white hover:bg-mint-700"
                       >
                         ✓
                       </button>
                       <button
-                        onClick={() => {
-                          setShowNewTag(false);
-                          setNewTagName('');
-                        }}
-                        className="rounded border border-surface-border px-2 py-0.5 text-xs text-surface-muted hover:bg-surface-bg"
+                        onClick={cancelNewFolder}
+                        className="rounded border border-surface-border px-2 py-1 text-xs text-surface-muted hover:bg-surface-bg"
                       >
                         ✕
                       </button>
                     </div>
-                  </div>
-                )}
-                {tags.length === 0 ? (
-                  <p className="px-2 text-xs text-surface-muted">{t('sidebar.tags_empty')}</p>
-                ) : (
-                  <>
-                    {tags.map((tag) => (
-                      <button
-                        key={tag.id}
-                        onClick={() => selectTag(tag.id)}
-                        className={`flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm transition-colors ${
-                          selectedTagId === tag.id
-                            ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
-                            : 'text-surface-fg hover:bg-surface-bg'
-                        }`}
-                        title={t('sidebar.tag_filter', { name: tag.name })}
-                      >
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          <span
-                            className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                            style={{ backgroundColor: tag.color ?? '#94a3b8' }}
-                          />
-                          <span className="truncate">{tag.name}</span>
-                        </span>
-                        <span className="text-xs text-surface-muted">
-                          {tagCounts.get(tag.name.toLowerCase()) ?? 0}
-                        </span>
-                      </button>
-                    ))}
-                    <div className="mt-1 px-2">
-                      <button
-                        onClick={() => {
-                          const unused = tags
-                            .filter((tg) => (tagCounts.get(tg.name.toLowerCase()) ?? 0) === 0)
-                            .map((tg) => tg.id);
-                          if (unused.length === 0) {
-                            toast.info(t('sidebar.tag_cleanup_empty'));
-                            return;
-                          }
-                          setCleanupTagIds(unused);
-                        }}
-                        className="text-xs text-surface-muted underline hover:text-surface-fg"
-                      >
-                        {t('sidebar.tag_cleanup')}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </>
+                  )}
+
+                  {/* 展开：直接笔记（平铺）+ 二级子文件夹 */}
+                  {expanded && (
+                    <>
+                      {fNotes.map((n) => renderNoteLeaf(n, 'pl-8'))}
+                      {children.map((c) => {
+                        const subNotes = directNotes(c.id);
+                        const subExpanded = folderExpanded.has(c.id);
+                        return (
+                          <div key={c.id}>
+                            <div className="flex items-center rounded pl-8 transition-colors hover:bg-surface-bg">
+                              {subNotes.length > 0 && (
+                                <button
+                                  onClick={() => toggleExpand(c.id)}
+                                  className="flex h-7 w-6 flex-shrink-0 items-center justify-center text-surface-muted hover:text-surface-fg"
+                                >
+                                  <Chevron expanded={subExpanded} />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  selectFolder(c.id);
+                                  toggleExpand(c.id);
+                                }}
+                                onContextMenu={(e) =>
+                                  openCtxMenu(e, {
+                                    type: 'folder',
+                                    id: c.id,
+                                    name: c.name,
+                                    parentId: c.parentId,
+                                    depth: c.depth ?? 2,
+                                  })
+                                }
+                                className={`flex min-w-0 flex-1 items-center gap-1.5 rounded py-1.5 pr-2 text-left text-sm ${
+                                  viewMode === 'all' && selectedFolderId === c.id
+                                    ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
+                                    : 'text-surface-fg'
+                                }`}
+                              >
+                                <span>{c.icon ?? '📁'}</span>
+                                <span className="truncate">{c.name}</span>
+                                {subNotes.length > 0 && (
+                                  <span className="text-xs text-surface-muted">
+                                    {subNotes.length}
+                                  </span>
+                                )}
+                              </button>
+                            </div>
+                            {subExpanded && subNotes.map((n) => renderNoteLeaf(n, 'pl-12'))}
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* 未分类笔记 */}
+            {unfiledNotes.length > 0 && (
+              <div className="mt-2">
+                <div className="mb-1 px-2 text-xs font-semibold text-surface-muted">
+                  {t('sidebar.unfiled')}
+                </div>
+                {unfiledNotes.map((n) => renderNoteLeaf(n, 'pl-6'))}
+              </div>
             )}
           </div>
         )}
 
-        {/* 笔记列表 */}
+        {/* 笔记列表（仅在收藏/回收站/搜索时显示） */}
+        {showNoteList && (
         <div className="mt-4">
           <div className="mb-1 flex items-center justify-between gap-2 px-2">
             <span className="text-xs font-semibold text-surface-muted">
-              {selectedTag
-                ? `${t('sidebar.tags')}: ${selectedTag.name} (${visibleNotes.length})`
+              {normalizedQuery
+                ? `${t('sidebar.matched')} (${visibleNotes.length})`
                 : isTrash
                   ? `${t('sidebar.trash')} (${visibleNotes.length})`
-                  : viewMode === 'favorites'
-                    ? `${t('sidebar.favorites')} (${visibleNotes.length})`
-                    : `${t('sidebar.all')} (${visibleNotes.length})`}
+                  : `${t('sidebar.favorites')} (${visibleNotes.length})`}
             </span>
             {!isTrash && visibleNotes.length > 0 && (
               <select
@@ -746,7 +888,48 @@ export function Sidebar() {
             })
           )}
         </div>
+        )}
+
       </nav>
+
+      {/* 收藏 / 回收站：固定在左侧栏底部，一左一右 */}
+      <div className="border-t border-surface-border p-2">
+        <div className="flex gap-1">
+          <button
+            onClick={() => setViewMode('favorites')}
+            className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
+              viewMode === 'favorites'
+                ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
+                : 'text-surface-fg hover:bg-surface-bg'
+            }`}
+          >
+            <span>⭐</span>
+            <span>{t('sidebar.favorites')}</span>
+          </button>
+          <button
+            onClick={() => setViewMode('trash')}
+            className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
+              viewMode === 'trash'
+                ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
+                : 'text-surface-fg hover:bg-surface-bg'
+            }`}
+          >
+            <span>🗑️</span>
+            <span>
+              {t('sidebar.trash')}
+              {trashCount > 0 ? ` (${trashCount})` : ''}
+            </span>
+          </button>
+        </div>
+        {isTrash && trashCount > 0 && (
+          <button
+            onClick={() => setShowEmptyTrashConfirm(true)}
+            className="mt-1 w-full rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300"
+          >
+            {t('sidebar.empty_trash')}
+          </button>
+        )}
+      </div>
 
       {/* 批量操作栏 */}
       {selecting && selCount > 0 && (
@@ -760,10 +943,6 @@ export function Sidebar() {
                 <BatchBtn
                   label={t('sidebar.batch.move')}
                   onClick={() => setShowMoveDialog(true)}
-                />
-                <BatchBtn
-                  label={t('sidebar.batch.tag')}
-                  onClick={() => setShowBatchTagDialog(true)}
                 />
                 <BatchBtn label={t('sidebar.batch.pin')} onClick={() => batchAction('pin')} />
                 <BatchBtn label={t('sidebar.batch.unpin')} onClick={() => batchAction('unpin')} />
@@ -846,84 +1025,6 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* 批量打标签弹窗 */}
-      {showBatchTagDialog && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
-          onClick={() => setShowBatchTagDialog(false)}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl bg-surface-card p-4 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="mb-3 text-sm font-semibold text-surface-fg">
-              {t('sidebar.batch.tag')} ({selCount})
-            </h3>
-            <div className="max-h-60 space-y-1 overflow-y-auto">
-              {tags.length === 0 && (
-                <p className="px-1 py-2 text-xs text-surface-muted">{t('sidebar.tags_empty')}</p>
-              )}
-              {tags.map((tag) => {
-                const allHas = Array.from(selectedIds).every(
-                  (id) => notesPlain.get(id)?.tags.includes(tag.name) ?? false
-                );
-                return (
-                  <button
-                    key={tag.id}
-                    onClick={() => void batchTag(tag)}
-                    className={`flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg ${
-                      allHas ? 'bg-mint-50 dark:bg-mint-900/20' : ''
-                    }`}
-                  >
-                    <span
-                      className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                      style={{ backgroundColor: tag.color ?? '#94a3b8' }}
-                    />
-                    <span className="flex-1 truncate">{tag.name}</span>
-                    {allHas && <span className="text-xs text-mint-600">✓</span>}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              onClick={() => setShowBatchTagDialog(false)}
-              className="mt-3 w-full rounded-lg border border-surface-border px-3 py-2 text-xs text-surface-muted hover:bg-surface-bg"
-            >
-              {t('common.cancel')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 清理未使用标签确认弹窗 */}
-      {cleanupTagIds && (
-        <ConfirmDialog
-          title={t('sidebar.tag_cleanup')}
-          message={t('sidebar.confirm_cleanup_tags', { count: cleanupTagIds.length })}
-          confirmLabel={t('sidebar.tag_cleanup')}
-          variant="danger"
-          onConfirm={() => {
-            const ids = cleanupTagIds;
-            setCleanupTagIds(null);
-            void (async () => {
-              let ok = 0;
-              for (const id of ids) {
-                try {
-                  await deleteTag(id);
-                  ok++;
-                } catch {
-                  /* skip */
-                }
-              }
-              toast.success(t('sidebar.tag_cleanup_done', { count: ok }));
-            })();
-          }}
-          onCancel={() => setCleanupTagIds(null)}
-        />
-      )}
-
       {/* 批量删除/永久删除确认弹窗（替代原生 confirm()） */}
       {pendingBatchAction && (
         <ConfirmDialog
@@ -971,32 +1072,264 @@ export function Sidebar() {
         />
       )}
       </aside>
+
+      {/* 右键菜单 */}
+      {ctxMenu && (
+        <div
+          className="fixed inset-0 z-[60]"
+          onClick={closeCtxMenu}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            closeCtxMenu();
+          }}
+        >
+          <div
+            className="fixed z-[61] min-w-[180px] rounded-lg border border-surface-border bg-surface-card py-1 shadow-xl"
+            style={{
+              left: Math.min(ctxMenu.x, window.innerWidth - 200),
+              top: Math.min(ctxMenu.y, window.innerHeight - 320),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {ctxMenu.target.type === 'folder' && (
+              <>
+                <MenuItem
+                  label={t('sidebar.ctx.new_file')}
+                  onClick={() => {
+                    const id = ctxMenu.target.type === 'folder' ? ctxMenu.target.id : null;
+                    closeCtxMenu();
+                    if (id) void createNote(id);
+                  }}
+                />
+                {(ctxMenu.target.depth ?? 1) < 2 && (
+                  <MenuItem
+                    label={t('sidebar.ctx.new_folder')}
+                    onClick={() => {
+                      const id = ctxMenu.target.type === 'folder' ? ctxMenu.target.id : null;
+                      closeCtxMenu();
+                      setNewFolderName('');
+                      setShowNewFolder(false);
+                      setNewSubParent(id);
+                    }}
+                  />
+                )}
+                <MenuItem
+                  label={t('sidebar.ctx.import')}
+                  onClick={() => {
+                    const id = ctxMenu.target.type === 'folder' ? ctxMenu.target.id : null;
+                    setImportTargetFolderId(id);
+                    closeCtxMenu();
+                    importInputRef.current?.click();
+                  }}
+                />
+                <MenuItem
+                  label={t('sidebar.ctx.rename')}
+                  onClick={() => {
+                    setRenameTarget(ctxMenu.target);
+                    setRenameValue(ctxMenu.target.name);
+                    closeCtxMenu();
+                  }}
+                />
+                <MenuItem
+                  label={t('sidebar.ctx.move')}
+                  onClick={() => {
+                    setMoveTarget(ctxMenu.target);
+                    closeCtxMenu();
+                  }}
+                />
+                <MenuItem label={t('sidebar.ctx.export')} onClick={() => void doExportTarget()} />
+                <div className="my-1 border-t border-surface-border" />
+                <MenuItem label={t('sidebar.ctx.delete')} danger onClick={() => void doDeleteTarget()} />
+              </>
+            )}
+            {ctxMenu.target.type === 'note' && (
+              <>
+                <MenuItem
+                  label={t('sidebar.ctx.rename')}
+                  onClick={() => {
+                    setRenameTarget(ctxMenu.target);
+                    setRenameValue(ctxMenu.target.name);
+                    closeCtxMenu();
+                  }}
+                />
+                <MenuItem
+                  label={t('sidebar.ctx.move')}
+                  onClick={() => {
+                    setMoveTarget(ctxMenu.target);
+                    closeCtxMenu();
+                  }}
+                />
+                <MenuItem label={t('sidebar.ctx.export')} onClick={() => void doExportTarget()} />
+                <div className="my-1 border-t border-surface-border" />
+                <MenuItem label={t('sidebar.ctx.delete')} danger onClick={() => void doDeleteTarget()} />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 重命名对话框 */}
+      {renameTarget && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-6"
+          onClick={() => setRenameTarget(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-surface-card p-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-3 text-sm font-semibold text-surface-fg">
+              {t('sidebar.ctx.rename')}
+            </h3>
+            <input
+              autoFocus
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void confirmRename();
+                if (e.key === 'Escape') setRenameTarget(null);
+              }}
+              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-mint-400 focus:outline-none"
+            />
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => void confirmRename()}
+                className="flex-1 rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-white hover:bg-mint-700"
+              >
+                {t('common.confirm')}
+              </button>
+              <button
+                onClick={() => setRenameTarget(null)}
+                className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg"
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 移动对话框 */}
+      {moveTarget && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-6"
+          onClick={() => setMoveTarget(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-surface-card p-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-3 text-sm font-semibold text-surface-fg">
+              {t('sidebar.ctx.move')}
+            </h3>
+            <div className="max-h-64 space-y-1 overflow-y-auto">
+              <button
+                onClick={() => void doMoveTarget(null)}
+                className="block w-full rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
+              >
+                📝 {t('editor.unfiled')}
+              </button>
+              {folders
+                .filter((f) => f.id !== moveTarget.id)
+                .map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => void doMoveTarget(f.id)}
+                    className="block w-full truncate rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
+                  >
+                    {f.icon ?? '📁'} {f.name}
+                  </button>
+                ))}
+            </div>
+            <button
+              onClick={() => setMoveTarget(null)}
+              className="mt-3 w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg"
+            >
+              {t('common.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 导入文件选择器 */}
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".md,.txt,.markdown"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          void handleImportFiles(e.target.files, importTargetFolderId);
+          e.target.value = '';
+        }}
+      />
     </>
   );
 }
 
-const TAG_COLORS = ['#4FB783', '#60a5fa', '#f59e0b', '#f472b6', '#a78bfa', '#ef4444', '#94a3b8'];
-
-function NavItem({
+function MenuItem({
   label,
-  icon,
-  active,
   onClick,
+  danger,
 }: {
   label: string;
-  icon: string;
-  active: boolean;
   onClick: () => void;
+  danger?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors ${active ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300' : 'text-surface-fg hover:bg-surface-bg'}`}
+      className={`block w-full px-3 py-1.5 text-left text-sm ${
+        danger
+          ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
+          : 'text-surface-fg hover:bg-surface-bg'
+      }`}
     >
-      <span>{icon}</span>
-      <span>{label}</span>
+      {label}
     </button>
   );
+}
+
+/** 展开箭头（加粗 SVG chevron，旋转动画，比小字符更明显） */
+function Chevron({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}
+      aria-hidden="true"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+/** 清理文件名非法字符 */
+function safeFileName(name: string): string {
+  const s = name.replace(/[\\/:*?"<>|]/g, '-').replace(/\.\.+/g, '.').replace(/^\.+/, '').slice(0, 60);
+  return s || 'untitled';
+}
+
+/** 收集某文件夹及其后代的所有 id（含自身） */
+function collectFolderIds(folders: { id: string; parentId: string | null }[], rootId: string): Set<string> {
+  const set = new Set<string>([rootId]);
+  const stack = [rootId];
+  while (stack.length) {
+    const cur = stack.pop() as string;
+    for (const f of folders) {
+      if (f.parentId === cur) {
+        set.add(f.id);
+        stack.push(f.id);
+      }
+    }
+  }
+  return set;
 }
 
 function BatchBtn({

@@ -58,6 +58,8 @@ export interface CreateFolderInput {
   name: string;
   parentId?: string | null;
   icon?: string | null;
+  /** 顶层二元隔离分支（业务·项目 / 个人·沉淀）。顶层文件夹必属其一；子文件夹继承父分支，传此值无效 */
+  branch?: 'work' | 'personal' | null;
 }
 
 /** 全量备份导出结构（用于模式迁移 + 数据备份） */
@@ -119,6 +121,12 @@ export interface DataRepository {
 
   /** 创建文件夹，返回新文件夹 id */
   createFolder(input: CreateFolderInput): Promise<string>;
+
+  /** 重命名文件夹 */
+  renameFolder(id: string, name: string): Promise<void>;
+
+  /** 移动文件夹到指定父级（null = 移到顶层） */
+  moveFolder(id: string, parentId: string | null): Promise<void>;
 
   /** 删除文件夹（笔记的 folderId 会被置为 null） */
   deleteFolder(id: string): Promise<void>;

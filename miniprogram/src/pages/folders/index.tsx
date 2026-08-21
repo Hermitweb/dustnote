@@ -14,6 +14,8 @@ interface Folder {
   name: string;
   icon: string | null;
   createdAt: string;
+  depth?: number;
+  branch?: 'work' | 'personal' | null;
 }
 
 export default function Folders() {
@@ -47,7 +49,7 @@ export default function Folders() {
       const id = await getRepo().createFolder({ name });
       setFolders((prev) => [
         ...prev,
-        { id, name, icon: null, createdAt: new Date().toISOString() },
+        { id, name, icon: null, createdAt: new Date().toISOString(), depth: 1 },
       ]);
       setNewName('');
       Taro.showToast({ title: '已创建', icon: 'success' });

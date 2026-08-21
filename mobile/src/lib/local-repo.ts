@@ -236,10 +236,31 @@ export class LocalRepository implements DataRepository {
       icon: input.icon ?? null,
       sortOrder: 0,
       createdAt: ts,
+      depth: input.parentId
+        ? (folders.find((f) => f.id === input.parentId)?.depth ?? 1) + 1
+        : 1,
+      branch: input.parentId
+        ? (folders.find((f) => f.id === input.parentId)?.branch ?? null)
+        : (input.branch ?? null),
     };
     folders.push(folder);
     await writeJSON(FOLDERS_KEY, folders);
     return id;
+  }
+
+  async renameFolder(id: string, name: string): Promise<void> {
+    const folders = await readJSON<Folder[]>(FOLDERS_KEY, []);
+    const next = folders.map((f) => (f.id === id ? { ...f, name } : f));
+    await writeJSON(FOLDERS_KEY, next);
+  }
+
+  async moveFolder(id: string, parentId: string | null): Promise<void> {
+    const folders = await readJSON<Folder[]>(FOLDERS_KEY, []);
+    const parent = parentId ? folders.find((f) => f.id === parentId) : undefined;
+    const depth = parent ? (parent.depth ?? 1) + 1 : 1;
+    const branch = parent ? (parent.branch ?? null) : null;
+    const next = folders.map((f) => (f.id === id ? { ...f, parentId, depth, branch } : f));
+    await writeJSON(FOLDERS_KEY, next);
   }
 
   async deleteFolder(id: string): Promise<void> {

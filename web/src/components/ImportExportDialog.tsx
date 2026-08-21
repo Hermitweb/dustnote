@@ -262,7 +262,6 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         noteCount: notes.length,
         notes,
         folders: state.folders,
-        tags: state.tags,
       };
       const date = new Date().toISOString().slice(0, 10);
       const filename = `dustnote-backup-${date}.json`;

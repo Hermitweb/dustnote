@@ -381,4 +381,44 @@ export const migrations: Migration[] = [
       `);
     },
   },
+  {
+    id: 12,
+    name: 'folder-depth-and-branch',
+    up: (db) => {
+      // 目录结构范式（见 docs/note-system-folder-structure-spec.md）：
+      // - depth：文件夹层级深度（Root 为虚拟 0；一级=1，二级=2）。最大 2，禁止四级+。
+      // - branch：顶层二元隔离（'work'=业务·项目，'personal'=个人·沉淀）。
+      //   顶层文件夹必属某一分支；子文件夹继承父分支，不可单独改。
+      db.exec(`
+        ALTER TABLE folders ADD COLUMN depth INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE folders ADD COLUMN branch TEXT CHECK (branch IN ('work','personal') OR branch IS NULL);
+      `);
+
+      // 回填 depth：按 parent 链向上计数。深度很浅（规范限制 ≤2），简单循环即可。
+      const all = db
+        .prepare('SELECT id, parent_id FROM folders')
+        .all() as { id: string; parent_id: string | null }[];
+      const byId = new Map(all.map((f) => [f.id, f]));
+      const computeDepth = (start: { id: string; parent_id: string | null }): number => {
+        let d = 1;
+        let cur: { id: string; parent_id: string | null } | undefined = start;
+        const seen = new Set<string>();
+        while (cur && cur.parent_id) {
+          if (seen.has(cur.id)) break; // 防御环
+          seen.add(cur.id);
+          cur = byId.get(cur.parent_id);
+          if (cur) d++;
+        }
+        return d;
+      };
+      const upd = db.prepare('UPDATE folders SET depth = ? WHERE id = ?');
+      for (const f of all) {
+        upd.run(computeDepth(f), f.id);
+      }
+
+      // 既有顶层文件夹若无分支，默认归为 'work'（保持向后兼容；新创建强制分支）。
+      db.prepare(`UPDATE folders SET branch = 'work' WHERE parent_id IS NULL AND branch IS NULL`).run();
+      db.exec(`UPDATE meta SET value = '12' WHERE key = 'schema_version';`);
+    },
+  },
 ];

@@ -37,7 +37,6 @@ const zhCN = {
     editor_title: '编辑',
     settings_title: '设置',
     folders_title: '文件夹',
-    tags_title: '标签',
     trash_title: '回收站',
     mode_select_title: '选择使用模式',
     setup_title: '设置主密码',
@@ -234,12 +233,6 @@ const zhCN = {
     move_failed: '移动失败',
     move_loading: '加载中…',
   },
-  tags: {
-    empty: '还没有标签',
-    add: '+ 新建标签',
-    name_placeholder: '标签名',
-    delete_confirm: '确定删除此标签？',
-  },
   trash: {
     empty: '回收站为空',
     restore: '恢复',
@@ -252,6 +245,18 @@ const zhCN = {
     network: '网络错误',
     server_unreachable: '无法连接到服务器',
     unknown: '未知错误',
+  },
+  conflict: {
+    title: '同步冲突',
+    subtitle: '这篇笔记在其它设备上也被修改了，请选择保留哪个版本',
+    my_version: '我的编辑',
+    server_version: '服务器版本',
+    use_local: '保留我的',
+    use_server: '保留服务器',
+    use_merged: '合并',
+    merged_hint: '合并会保留两边的改动',
+    dismiss: '忽略',
+    resolving: '处理中…',
   },
 };
 
