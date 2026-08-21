@@ -33,7 +33,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - run: pnpm --filter @dustnote/web build
       - name: Package Web static assets
         run: zip -r dustnote-web-${{ env.RELEASE_TAG }}.zip web/dist/
@@ -56,7 +56,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - name: Build Miniprogram H5
         run: pnpm --filter @dustnote/miniprogram build:h5
       - name: Stage H5 output
@@ -141,7 +141,7 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - name: Build Tauri binary (no bundle — Velopack handles installer)
         # macOS/Linux 缺少签名证书与 .app bundle 资源，硬件平台受限，允许失败以保留 Release 流程
         continue-on-error: ${{ matrix.os != 'windows-latest' }}
@@ -279,7 +279,7 @@ jobs:
           # configureCMakeRelease 阶段失败
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.1.10909125 cmake;3.22.1'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - name: Symlink react-native into mobile/node_modules (pnpm hoisted layout)
         run: |
           mkdir -p mobile/node_modules

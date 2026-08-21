@@ -161,7 +161,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - run: pnpm --filter @dustnote/web build
       - name: List web dist
         run: ls -la web/dist/ || true
@@ -199,7 +199,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - run: pnpm --filter @dustnote/server build
       - name: List server dist
         run: ls -la server/dist/ || true
@@ -224,7 +224,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - run: pnpm --filter @dustnote/miniprogram build:h5
       - name: List miniprogram dist
         run: ls -la miniprogram/dist/ || true
@@ -249,7 +249,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - run: pnpm --filter @dustnote/miniprogram build:weapp
       - name: List weapp dist
         run: ls -la miniprogram/dist/ || true
@@ -274,7 +274,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - run: pnpm --filter @dustnote/desktop build:web
       - name: List desktop dist
         run: ls -la desktop/dist/ || true
@@ -311,7 +311,7 @@ jobs:
         run: |
           brew install python || true
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - run: pnpm --filter @dustnote/server build
       - run: pnpm --filter @dustnote/server test
 
@@ -347,7 +347,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @dustnote/shared build
+      - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - name: Build Android Debug APK
         working-directory: mobile/android
         env:
