@@ -18,11 +18,11 @@ RUN npm install -g pnpm@9.12.0
 # better-sqlite3 在 musl 上没有预编译包，必须源码编译
 RUN apk add --no-cache python3 make g++
 
-# 安装依赖（patches/ 必须先于 install，package.json 里有 patchedDependencies）
+# 安装依赖
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
-COPY patches patches
 COPY shared/package.json shared/tsconfig.json shared/
 COPY server/package.json server/tsconfig.json server/
+COPY client-core/package.json client-core/tsconfig.json client-core/
 COPY web/package.json web/tsconfig.json web/tsconfig.app.json web/tsconfig.node.json web/vite.config.ts web/tailwind.config.js web/postcss.config.js web/index.html web/
 RUN if [ -n "$NPM_REGISTRY" ]; then pnpm config set registry "$NPM_REGISTRY"; fi \
   && pnpm install --frozen-lockfile
@@ -30,9 +30,11 @@ RUN if [ -n "$NPM_REGISTRY" ]; then pnpm config set registry "$NPM_REGISTRY"; fi
 # 构建
 COPY shared/src shared/src
 COPY server/src server/src
+COPY client-core/src client-core/src
 COPY web/src web/src
 COPY web/public web/public
 RUN pnpm --filter @dustnote/shared build
+RUN pnpm --filter @dustnote/client-core build
 RUN pnpm --filter @dustnote/server build
 RUN pnpm --filter @dustnote/web build
 

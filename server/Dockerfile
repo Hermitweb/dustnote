@@ -12,9 +12,8 @@ WORKDIR /app
 # better-sqlite3 在 musl 上没有预编译包，必须源码编译
 RUN apk add --no-cache python3 make g++
 
-# 先装依赖（缓存命中）。patches/ 必须先于 install，package.json 里有 patchedDependencies
+# 先装依赖（缓存命中）
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY patches patches
 COPY shared/package.json shared/
 COPY server/package.json server/
 COPY web/package.json web/

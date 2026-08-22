@@ -63,7 +63,8 @@ dustnote-server-v<version>/
 │   ├── tsconfig.json
 │   └── .env.example
 ├── shared/                  # 共享类型与工具（构建时需要）
-│   └── src/
+├── client-core/             # 客户端核心库（web 构建时需要）
+├── web/                     # Web 前端源码（一体化 Dockerfile 构建时需要）
 ├── deploy/                  # 反代/部署辅助配置与一键脚本
 │   ├── install.sh           # Linux/macOS 一条命令入口（拉取 + 部署）
 │   ├── install.ps1          # Windows 一条命令入口（拉取 + 部署）
@@ -74,9 +75,10 @@ dustnote-server-v<version>/
 │   ├── supervisord.conf
 │   └── README.md
 ├── docker-compose.yml       # 容器编排（顶层）
-├── Dockerfile               # 顶层构建文件（与 server/Dockerfile 一致）
+├── Dockerfile               # 顶层构建文件（web + nginx + API 一体化）
 ├── .env.example             # 环境变量模板
 ├── .dockerignore
+├── .npmrc                   # pnpm 配置（构建时需要）
 ├── package.json             # workspace 根 package.json
 ├── pnpm-workspace.yaml
 ├── pnpm-lock.yaml

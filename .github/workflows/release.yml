@@ -452,6 +452,25 @@ jobs:
             --exclude '.DS_Store' \
             shared/ "$STAGE/shared/"
 
+          # 2.5 Web 前端源码（顶层 Dockerfile 一体化构建需要 web/，缺失会导致 COPY 失败）
+          mkdir -p "$STAGE/web"
+          rsync -a --delete \
+            --exclude 'node_modules/' \
+            --exclude 'dist/' \
+            --exclude '.DS_Store' \
+            web/ "$STAGE/web/"
+
+          # 2.6 client-core 源码（web 依赖 @dustnote/client-core，Dockerfile 构建时需要）
+          mkdir -p "$STAGE/client-core"
+          rsync -a --delete \
+            --exclude 'node_modules/' \
+            --exclude 'dist/' \
+            --exclude '.DS_Store' \
+            client-core/ "$STAGE/client-core/"
+
+          # 2.6 pnpm 配置（顶层 Dockerfile COPY package.json 等时一并需要 .npmrc）
+          cp .npmrc "$STAGE/" 2>/dev/null || echo "::warning::.npmrc not found in repo root"
+
           # 3. Docker 与编排文件
           cp docker-compose.yml "$STAGE/"
           cp Dockerfile "$STAGE/"
