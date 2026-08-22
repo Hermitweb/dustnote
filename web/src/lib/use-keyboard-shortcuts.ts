@@ -108,11 +108,14 @@ export function useKeyboardShortcuts(authState: AuthState): void {
     const shortcuts = buildShortcuts(authState);
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // 某些浏览器插件会派发无 key 属性的合成 KeyboardEvent，直接防御
+      const key = typeof e.key === 'string' ? e.key.toLowerCase() : '';
+      if (!key) return;
       const parts: string[] = [];
       if (e.ctrlKey || e.metaKey) parts.push('ctrl');
       if (e.shiftKey) parts.push('shift');
       if (e.altKey) parts.push('alt');
-      parts.push(e.key.toLowerCase());
+      parts.push(key);
       const combo = parts.join('+');
 
       for (const def of shortcuts) {
@@ -123,7 +126,7 @@ export function useKeyboardShortcuts(authState: AuthState): void {
       }
 
       // 桌面端：拦截浏览器默认快捷键（Ctrl+O 打开文件、Ctrl+P 打印）
-      if (desktop && (e.ctrlKey || e.metaKey) && ['o', 'p'].includes(e.key.toLowerCase())) {
+      if (desktop && (e.ctrlKey || e.metaKey) && ['o', 'p'].includes(key)) {
         e.preventDefault();
       }
     };

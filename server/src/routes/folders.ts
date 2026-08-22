@@ -21,13 +21,18 @@ export const foldersRouter = Router();
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** 分支类型：业务·项目 / 个人·沉淀 */
-const BranchSchema = z.enum(['work', 'personal']).optional();
+/**
+ * 分支类型：业务·项目 / 个人·沉淀
+ * nullish：null 与 undefined 均合法。
+ * 客户端（store.ts / remote-repo.ts）在未指定分支时会发送 branch: null，
+ * 若只允许 undefined 会导致创建文件夹永远 400 invalid_body。
+ */
+const BranchSchema = z.enum(['work', 'personal']).nullish();
 
 const FolderSchema = z.object({
   name: z.string().min(1).max(64),
   parentId: z.string().nullable().optional(),
-  icon: z.string().max(16).optional(),
+  icon: z.string().max(16).nullish(),
   branch: BranchSchema,
 });
 
@@ -134,7 +139,7 @@ export function createFolder(req: Request, res: Response): void {
   // 深度 + 分支（顶层二元隔离 / 子级继承）
   const meta = resolveFolderMeta(
     parent ? { depth: parent.depth, branch: parent.branch } : undefined,
-    parsed.data.branch
+    parsed.data.branch ?? undefined
   );
   if (meta.depth > MAX_FOLDER_DEPTH) {
     res.status(400).json({ error: 'folder_depth_exceeded' });

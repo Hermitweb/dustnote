@@ -35,7 +35,8 @@ if (isTauri()) {
   window.addEventListener(
     'keydown',
     (e) => {
-      if ((e.ctrlKey || e.metaKey) && ['o', 'p'].includes(e.key.toLowerCase())) {
+      // 防御：部分浏览器插件派发的合成事件没有 key 属性
+      if ((e.ctrlKey || e.metaKey) && ['o', 'p'].includes(e.key?.toLowerCase() ?? '')) {
         e.preventDefault();
       }
     },
@@ -81,3 +82,13 @@ createRoot(root).render(
     </Sentry.ErrorBoundary>
   </StrictMode>
 );
+
+// 注册 Service Worker（仅生产环境 + HTTPS）
+// 原先写在 index.html 的内联 <script> 里，会被 nginx CSP（script-src 'self'）拦截，故移到这里
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch((err) => {
+      console.warn('[SW] registration failed:', err);
+    });
+  });
+}

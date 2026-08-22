@@ -148,11 +148,12 @@ export class RemoteRepository implements DataRepository {
   // ========== 文件夹 ==========
 
   async createFolder(input: CreateFolderInput): Promise<string> {
+    // branch/icon 为 null 时不发送，服务端 schema 不接受 null
     const r = await this.api().post<{ id: string }>('/folders', {
       name: input.name,
       parentId: input.parentId ?? null,
-      icon: input.icon ?? null,
-      branch: input.branch ?? null,
+      ...(input.branch ? { branch: input.branch } : {}),
+      ...(input.icon ? { icon: input.icon } : {}),
     });
     return r.id;
   }

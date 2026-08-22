@@ -16,16 +16,8 @@
   </head>
   <body class="h-full bg-surface-bg text-surface-fg antialiased">
     <div id="root" class="h-full"></div>
+    <!-- 注意：不要在此写内联 <script>。nginx 的 CSP 是 script-src 'self'，
+         内联脚本会被浏览器拦截（SW 注册逻辑已移至 main.tsx） -->
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      // 注册 Service Worker（仅生产环境）
-      if ('serviceWorker' in navigator && location.protocol === 'https:') {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch((err) => {
-            console.warn('[SW] registration failed:', err);
-          });
-        });
-      }
-    </script>
   </body>
 </html>

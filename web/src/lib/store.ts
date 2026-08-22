@@ -1654,8 +1654,13 @@ export const useStore = create<StoreState>((set, get) => ({
       return id;
     }
 
-    // 联机模式：API
-    const r = await api().post<{ id: string }>('/folders', { name, parentId, branch });
+    // 联机模式：API（branch/icon 为 null 时不发送，服务端 schema 不接受 null）
+    const body: { name: string; parentId: string | null; branch?: 'work' | 'personal' } = {
+      name,
+      parentId,
+    };
+    if (branch) body.branch = branch;
+    const r = await api().post<{ id: string }>('/folders', body);
     set({
       folders: [
         ...get().folders,
