@@ -13,6 +13,12 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.8] - 2026-08-23
+
+### 修复 — 跨域 Web 客户端完全不可用（阻断性）
+
+- **CORS 预检请求（OPTIONS）被中间件拦截**：authMiddleware 返回 401 missing_token、versionCheckMiddleware 返回 400 missing_client_headers。浏览器跨域预检按规范不携带 Authorization 与自定义头，导致自定义域名部署 web / 桌面端联机模式访问远程服务器时所有 API 调用失败（同源部署不发预检故此前未暴露）。两中间件均放行 OPTIONS，实际权限校验仍由实际请求方法承担
+
 ## [2.5.7] - 2026-08-23
 
 ### 修复 — 服务端部署包开箱即坏（阻断性）
