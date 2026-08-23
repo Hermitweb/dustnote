@@ -8,6 +8,7 @@ import { type Ciphertext, toBase64Url, unwrapKey, zeroize } from '@dustnote/shar
 import { useStore } from '../lib/store';
 import { useModeStore } from '../lib/mode-store';
 import { getDeviceId } from '../lib/device';
+import { copyText } from '../lib/clipboard';
 import { toast } from '../lib/toast';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -193,7 +194,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
       toast.error(t('shares.unlock_required'));
       return;
     }
-    await navigator.clipboard.writeText(url);
+    await copyText(url);
     setCopiedId(s.id);
     setTimeout(() => setCopiedId(null), 1500);
   };

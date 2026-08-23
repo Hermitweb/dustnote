@@ -5,6 +5,7 @@ import { encryptString, randomBytes, toBase64Url, wrapKey } from '@dustnote/shar
 import { useStore } from '../lib/store';
 import { useModeStore } from '../lib/mode-store';
 import { getDeviceId } from '../lib/device';
+import { copyText } from '../lib/clipboard';
 import { sanitizeHtml } from '../lib/sanitize-html';
 import { NoteHistoryDialog } from './NoteHistoryDialog';
 import { toast } from '../lib/toast';
@@ -772,7 +773,7 @@ function ShareDialog({
               />
               <button
                 onClick={() => {
-                  void navigator.clipboard.writeText(shareUrl);
+                  void copyText(shareUrl);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }}
