@@ -13,6 +13,12 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.9] - 2026-08-23
+
+### 修复 — HTTP 直连（非安全上下文）无法创建笔记（阻断性）
+
+- **`crypto.randomUUID` 非安全上下文不可用**：该 API 仅在 HTTPS / localhost 存在，用户经 `http://<公网IP>` 访问时 `window.crypto.randomUUID` 为 undefined，`createNote` 抛 `TypeError: crypto.randomUUID is not a function`。新增 `randomUuid()`（基于 `crypto.getRandomValues` + `Math.random` 回退）替代，覆盖 store.ts 两处笔记创建与 local-repo.ts 单机 ID 生成，彻底移除 web 端 crypto.randomUUID 依赖
+
 ## [2.5.8] - 2026-08-23
 
 ### 修复 — 跨域 Web 客户端完全不可用（阻断性）
