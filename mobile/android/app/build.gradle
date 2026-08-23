@@ -32,7 +32,7 @@ def jscFlavor = 'org.webkit:android-jsc:+'
  *
  * Priority:
  *   1. Environment variables (CI):  DUSTNOTE_STORE_FILE / _STORE_PASSWORD /
- *      _KEY_ALIAS / _KEY_PASSWORD 鈥?point at a pre-decoded keystore path.
+ *      _KEY_ALIAS / _KEY_PASSWORD — point at a pre-decoded keystore path.
  *   2. Local dev: ../keystore.properties (gitignored) next to the android/
  *      project root, referencing app/dustnote-release.keystore.
  *   3. Fallback: debug keystore (keeps `assembleRelease` working before a
@@ -46,7 +46,11 @@ def releaseStorePassword = null
 def releaseKeyAlias = null
 def releaseKeyPassword = null
 
-// CI 閫氳繃 GITHUB_ENV / step env 娉ㄥ叆 DUSTNOTE_*銆傚綋 secret 鏈厤缃椂锛?// GitHub Actions 浼氭妸绌哄瓧绗︿覆娉ㄥ叆鐜鍙橀噺锛堣€岄潪涓嶆敞鍏ワ級锛?// System.env.VAR 姝ゆ椂杩斿洖 "" 鑰岄潪 null锛屾晠蹇呴』鍚屾椂鎺掗櫎绌轰覆锛?// 鍚﹀垯 file("") 浼氭姏 "path may not be null or empty string" 瀵艰嚧閰嶇疆闃舵澶辫触銆?def envStoreFile = System.env.DUSTNOTE_STORE_FILE
+// CI 通过 GITHUB_ENV / step env 注入 DUSTNOTE_*。当 secret 未配置时，
+// GitHub Actions 会把空字符串注入环境变量（而非不注入），
+// System.env.VAR 此时返回 "" 而非 null，故必须同时排除空串，
+// 否则 file("") 会抛 "path may not be null or empty string" 导致配置阶段失败。
+def envStoreFile = System.env.DUSTNOTE_STORE_FILE
 if (envStoreFile != null && envStoreFile.length() > 0) {
   releaseStoreFile = file(envStoreFile)
   releaseStorePassword = System.env.DUSTNOTE_STORE_PASSWORD
@@ -110,8 +114,10 @@ android {
       signingConfig signingConfigs.debug
     }
     release {
-      // Groovy 灞炴€ц闂湪 signingConfigs 鍧楁湭瀹氫箟 release 鏃朵細鎶?      // MissingPropertyException锛堟棤娉曠敤 != null 闃插尽锛夛紝鏁呯敤 findByName
-      // 瀹夊叏鏌ユ壘锛涙湭閰嶇疆 release keystore 鏃跺洖閫€鍒?debug 绛惧悕銆?      signingConfig signingConfigs.findByName('release') != null
+      // Groovy 属性访问在 signingConfigs 块未定义 release 时会抛
+      // MissingPropertyException（无法用 != null 防御），故用 findByName
+      // 安全查找；未配置 release keystore 时回退到 debug 签名。
+      signingConfig signingConfigs.findByName('release') != null
         ? signingConfigs.release
         : signingConfigs.debug
       minifyEnabled enableProguardInReleaseBuilds
