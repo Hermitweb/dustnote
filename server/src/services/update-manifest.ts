@@ -52,7 +52,7 @@ const STATIC_ARTIFACTS = {
   },
   miniprogram: {
     // 与 miniprogram/package.json 保持一致
-    version: '2.5.9',
+    version: '2.5.10',
     qrcodeUrl: 'https://cdn.dustnote.app/miniprogram/qr.png',
   },
 };

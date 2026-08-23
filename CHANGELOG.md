@@ -13,6 +13,12 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.10] - 2026-08-23
+
+### 修复 — HTTP 直连下复制分享链接崩溃（阻断性）
+
+- **`navigator.clipboard.writeText` 非安全上下文不可用**：与 crypto.randomUUID 同类问题，`navigator.clipboard` 仅在 HTTPS / localhost 存在，经 `http://<公网IP>` 访问时 Editor.tsx / SharesManager.tsx 复制分享链接直接抛 `TypeError: Cannot read properties of undefined (reading 'writeText')`。新增 `lib/clipboard.ts` 的 `copyText()`：优先 Clipboard API（可选链 + try-catch），降级 `document.execCommand('copy')`（非安全上下文可用）
+
 ## [2.5.9] - 2026-08-23
 
 ### 修复 — HTTP 直连（非安全上下文）无法创建笔记（阻断性）
