@@ -13,6 +13,24 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.7] - 2026-08-23
+
+### 修复 — 服务端部署包开箱即坏（阻断性）
+
+- **Dockerfile / server/Dockerfile 移除陈旧 `COPY patches`**：仓库无 `patches/` 目录、package.json 亦无 `patchedDependencies`，此前任何人 clone 源码或下载部署包构建镜像都必然失败
+- **顶层 Dockerfile 补齐 client-core 构建链**：web 声明 `@dustnote/client-core: workspace:*` 但镜像构建既未 COPY 也未构建，导致 tsc 报 6 处 TS2307、web 构建失败
+- **release.yml 服务端打包补 web/、client-core/、.npmrc**：v2.5.6 及更早的 dustnote-server 部署包缺失一体化 Dockerfile 必需文件，解压后无法构建
+
+### 修复 — Web 端运行时缺陷
+
+- **创建文件夹必然 400（invalid_body）**：web 端创建顶层文件夹时永远发送 `branch: null`，服务端 zod schema（`z.enum().optional()`）拒绝 null；schema 改为 `nullish()`，客户端发送端同步对齐（store.ts / remote-repo.ts 为 null 时不发送）
+- **PWA 离线能力从未生效**：index.html 的 Service Worker 注册写在内联 `<script>`，被 nginx CSP（`script-src 'self'`）拦截；已移至 main.tsx 模块内
+- **合成键盘事件崩溃防御**：部分浏览器插件会派发无 `key` 属性的合成 KeyboardEvent，`e.key.toLowerCase()` 读取 undefined 抛 TypeError；快捷键系统与 main.tsx 均加防御
+
+### 测试
+
+- 新增端到端部署验证（真实加密流程）：setup/unlock/refresh 会话、笔记与文件夹 CRUD、乐观锁冲突、软删除回收站、分享创建/公开访问/吊销、CORS、CSP、设备管理、容器重启数据持久性——70 项断言全部通过
+
 ## [2.5.6] - 2026-08-21
 
 ### 安全 — 依赖漏洞治理（high/critical 33 → 6 项无补丁豁免）

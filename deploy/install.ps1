@@ -1,4 +1,4 @@
-﻿# DustNote 一条命令安装部署入口（Windows）
+# DustNote 一条命令安装部署入口（Windows）
 #
 # 职责：从 GitHub Release 拉取部署包 → 解压 → 调用 deploy.ps1 完成部署
 #       （无需先 clone 仓库，一条命令从零到上线）
@@ -13,7 +13,7 @@
 #   -Cn          中国网络加速（apk/npm/docker 切国内镜像源）
 #   -Port N      宿主机端口（默认 8080）
 #   -Domain D    域名（设置后启用 Caddy 自动 HTTPS）
-#   -Version TAG 指定版本（默认自动获取 GitHub 最新 Release，如 v2.5.6）
+#   -Version TAG 指定版本（默认自动获取 GitHub 最新 Release，如 v2.5.7）
 #   -NoBuild     跳过重新构建镜像（复用已构建镜像）
 #   -Help        帮助
 

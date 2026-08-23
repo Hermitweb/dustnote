@@ -1,4 +1,4 @@
-﻿# DustNote 一键部署脚本（Windows）
+# DustNote 一键部署脚本（Windows）
 #
 # 用法（在仓库根目录执行）：
 #   powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
@@ -76,7 +76,7 @@ if (Test-Path ".env") {
     Info "检测到已存在 .env，跳过生成（如需重置请删除后重跑）"
 } else {
     Info "生成 .env 配置…"
-    $Version = "2.5.6"
+    $Version = "2.5.7"
     if (Test-Path "package.json") {
         try {
             $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
