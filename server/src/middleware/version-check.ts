@@ -23,6 +23,10 @@ const ClientHeadersSchema = z.object({
 });
 
 export function versionCheckMiddleware(req: Request, res: Response, next: NextFunction): void {
+  // CORS 预检请求（OPTIONS）不带自定义头，放行交给 cors 中间件应答
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
   // 健康检查、update-manifest、auth 公开端点跳过
   // 注意：req.path 在 app.use('/api/v1', ...) 中是相对路径
   const p = req.path;

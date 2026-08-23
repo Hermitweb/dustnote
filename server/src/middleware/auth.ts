@@ -22,6 +22,12 @@ declare global {
 }
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+  // CORS 预检请求（OPTIONS）不带 Authorization（浏览器规范），必须放行，
+  // 否则跨域 Web 客户端的每个 API 调用都会因预检 401 失败。
+  // 实际权限校验由后续路由的 GET/POST/PATCH/DELETE 承担。
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
   // 注意：req.path 在 app.use('/api/v1', ...) 中是相对路径
   const p = req.path;
   if (
