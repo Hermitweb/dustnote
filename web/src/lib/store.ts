@@ -54,7 +54,7 @@ import {
   type FieldConflict,
   type NoteMetadata,
 } from '@dustnote/client-core';
-import { getDeviceId } from './device';
+import { getDeviceId, randomUuid } from './device';
 import { applyTheme, applyTypography } from './theme';
 import i18n, { LANGUAGE_STORAGE_KEY } from './i18n';
 import { toast } from './toast';
@@ -1036,7 +1036,7 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!masterKey) throw new Error('未解锁');
 
     // 客户端预生成 id：作为 AAD（noteId||userId）绑定密文（§2.2），防重排
-    const noteId = crypto.randomUUID();
+    const noteId = randomUuid();
     const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
     const { json: cipherJson } = await encryptNote(
       masterKey,
@@ -1138,7 +1138,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     const plain: NotePlaintext = { title, content: plainContent, tags: [] };
     // 客户端预生成 id：作为 AAD 绑定密文（§2.2）
-    const noteId = crypto.randomUUID();
+    const noteId = randomUuid();
     const { json: cipherJson } = await encryptNote(
       masterKey,
       plain,

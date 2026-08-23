@@ -7,9 +7,13 @@
 
 const KEY = 'dustnote_device_id';
 
-function uuidv4(): string {
-  // 简单实现（生产建议用 crypto.randomUUID）
-  // 非安全上下文（http 非 localhost）下 crypto 可能未定义，回退 Math.random
+/**
+ * 生成 UUID v4。
+ * 不用 crypto.randomUUID：它只在安全上下文（HTTPS / localhost）存在，
+ * 用户经 http://<公网IP> 访问时会直接 TypeError。
+ * crypto.getRandomValues 在非安全上下文同样可用，故基于它实现，并回退 Math.random。
+ */
+export function randomUuid(): string {
   const bytes = new Uint8Array(16);
   if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
     crypto.getRandomValues(bytes);
@@ -25,7 +29,7 @@ function uuidv4(): string {
 export function getDeviceId(): string {
   let id = localStorage.getItem(KEY);
   if (!id) {
-    id = uuidv4();
+    id = randomUuid();
     localStorage.setItem(KEY, id);
   }
   return id;

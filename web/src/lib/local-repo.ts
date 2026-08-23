@@ -24,6 +24,7 @@ import type {
   Tag,
   Preferences,
 } from '@dustnote/shared';
+import { randomUuid } from './device';
 
 const KEYS = {
   notes: 'dustnote:local:notes',
@@ -33,10 +34,7 @@ const KEYS = {
 } as const;
 
 function generateId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return randomUuid();
 }
 
 export class LocalRepository implements DataRepository {
