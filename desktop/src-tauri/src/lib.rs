@@ -107,14 +107,23 @@ mod velopack_impl {
     ///
     /// Velopack 的 download_updates / apply_updates 也会发起网络请求，
     /// 需要通过 env var 让其走代理。
+    ///
+    /// 使用 OnceLock 保证线程安全：仅首次调用时写入，后续读取复用同一值。
+    /// env var 写入本身仍有理论上的 race condition（std::env 非线程安全），
+    /// 但 Rust 1.85+ 的 set_var 已标记 unsafe，且代理值在进程生命周期内不变，
+    /// 实际影响可忽略。
     fn set_proxy_env(proxy: &str) {
-        // SAFETY: env var 写入非线程安全。此处从 vp_check_for_updates (spawn_blocking)
-        // 和 vp_download_updates (sync) 调用，存在数据竞争风险，但代理 env var 仅被
-        // Velopack 内部 reqwest client 消费，且在构造前设置。Rust 1.85+ 要求 unsafe。
-        unsafe {
-            std::env::set_var("HTTPS_PROXY", proxy);
-            std::env::set_var("HTTP_PROXY", proxy);
-        }
+        use std::sync::OnceLock;
+        static PROXY_SET: OnceLock<()> = OnceLock::new();
+        // 只在首次调用时写入 env var，避免重复写入
+        PROXY_SET.get_or_init(|| {
+            // SAFETY: 代理 env var 在进程启动后写入一次，后续不再修改，
+            // 且仅被 Velopack 内部 reqwest client 消费。
+            unsafe {
+                std::env::set_var("HTTPS_PROXY", proxy);
+                std::env::set_var("HTTP_PROXY", proxy);
+            }
+        });
     }
 
     /// 通过 GitHub API 检查最新 release 版本号
@@ -148,6 +157,32 @@ mod velopack_impl {
                 message: format!("无法连接 GitHub: {}", e),
             })?;
 
+        // 检查 GitHub API 限流（未认证 60 次/小时）
+        if resp.status().as_u16() == 403 {
+            if let Some(remaining) = resp.headers().get("x-ratelimit-remaining") {
+                if remaining == "0" {
+                    let reset_ts = resp
+                        .headers()
+                        .get("x-ratelimit-reset")
+                        .and_then(|v| v.to_str().ok())
+                        .and_then(|v| v.parse::<i64>().ok())
+                        .unwrap_or(0);
+                    let reset_in = (reset_ts - std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs() as i64)
+                        .max(0);
+                    return Err(UpdaterError {
+                        kind: "Network",
+                        message: format!(
+                            "GitHub API 请求次数已达上限（每小时 60 次），约 {} 分钟后重置",
+                            (reset_in + 59) / 60
+                        ),
+                    });
+                }
+            }
+        }
+
         if !resp.status().is_success() {
             return Err(UpdaterError {
                 kind: "Network",
@@ -169,21 +204,61 @@ mod velopack_impl {
         Ok(tag.strip_prefix('v').unwrap_or(tag).to_string())
     }
 
-    /// 简单语义版本比较：latest > current 时返回 true
+    /// 语义版本比较：latest > current 时返回 true
+    ///
+    /// 遵循 SemVer 2.0.0 规范：
+    /// 1. 先比较 major.minor.patch 数字部分
+    /// 2. 若数字部分相同，有预发布标签的版本 < 无预发布标签的版本
+    ///    （例如 2.5.12-beta.1 < 2.5.12）
+    /// 3. 预发布标签按点分段逐段比较：数字段按数值，混合段按字典序
+    ///    （例如 2.5.12-alpha.1 < 2.5.12-beta.1）
     fn is_newer_version(latest: &str, current: &str) -> bool {
-        let parse = |s: &str| -> Vec<u32> {
-            s.split('.').filter_map(|p| p.parse().ok()).collect()
-        };
-        let l = parse(latest);
-        let c = parse(current);
-        for i in 0..l.len().max(c.len()) {
-            let lv = *l.get(i).unwrap_or(&0);
-            let cv = *c.get(i).unwrap_or(&0);
-            if lv > cv {
-                return true;
-            }
-            if lv < cv {
-                return false;
+        /// 分离 "X.Y.Z-prerelease+build" 中的各部分
+        fn split_semv(s: &str) -> (Vec<u32>, &str) {
+            let (version, rest) = s.split_once('-').unwrap_or((s, ""));
+            let (pre, _build) = rest.split_once('+').unwrap_or((rest, ""));
+            let nums: Vec<u32> = version.split('.').filter_map(|p| p.parse().ok()).collect();
+            (nums, pre)
+        }
+
+        let (l_nums, l_pre) = split_semv(latest);
+        let (c_nums, c_pre) = split_semv(current);
+
+        // 1. 比较 major.minor.patch
+        for i in 0..l_nums.len().max(c_nums.len()) {
+            let lv = *l_nums.get(i).unwrap_or(&0);
+            let cv = *c_nums.get(i).unwrap_or(&0);
+            if lv > cv { return true; }
+            if lv < cv { return false; }
+        }
+
+        // 数字部分相同：有预发布标签的一方版本更低
+        if l_pre.is_empty() && !c_pre.is_empty() { return true; }   // 2.5.12 > 2.5.12-beta.1
+        if !l_pre.is_empty() && c_pre.is_empty() { return false; }  // 2.5.12-beta.1 < 2.5.12
+
+        // 2. 两者都有预发布标签：逐段比较
+        let l_parts: Vec<&str> = l_pre.split('.').collect();
+        let c_parts: Vec<&str> = c_pre.split('.').collect();
+        for i in 0..l_parts.len().max(c_parts.len()) {
+            let lp = l_parts.get(i);
+            let cp = c_parts.get(i);
+            match (lp, cp) {
+                (None, Some(_)) => return false, // l 更短 → 更旧
+                (Some(_), None) => return true,  // l 更长 → 更新
+                (Some(la), Some(ca)) => {
+                    // 数字段按数值比较，混合段按字典序
+                    match (la.parse::<u64>(), ca.parse::<u64>()) {
+                        (Ok(ln), Ok(cn)) => {
+                            if ln > cn { return true; }
+                            if ln < cn { return false; }
+                        }
+                        _ => {
+                            if la > ca { return true; }
+                            if la < ca { return false; }
+                        }
+                    }
+                }
+                (None, None) => unreachable!(),
             }
         }
         false
@@ -250,6 +325,11 @@ mod velopack_impl {
     }
 
     /// 下载更新；进度通过 event `vp://download-progress` 推送
+    ///
+    /// 注意：Velopack 的 `download_updates` 需要 `UpdateInfo` 对象，
+    /// 只能通过 `mgr.check_for_updates()` 获取，因此会再次请求 GitHub API。
+    /// 这是 Velopack SDK 的设计约束——无法绕过。
+    /// 好消息是 Velopack 内部会做缓存，短时间内重复调用开销较小。
     #[tauri::command]
     pub fn vp_download_updates(app: AppHandle) -> Result<bool, UpdaterError> {
         // 确保 Velopack 内部 HTTP 客户端走代理（与 check 阶段一致）

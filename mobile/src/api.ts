@@ -14,9 +14,7 @@
 import { ApiClient, type ClientChannel, type ClientPlatform } from '@dustnote/shared';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_BASE_URL, resolveBaseUrl } from './lib/mode-store';
-
-// 与 package.json 同步（全端版本统一，见 release 流程）
-const APP_VERSION = '2.5.11';
+import { APP_VERSION } from './lib/version';
 
 let deviceId: string | null = null;
 

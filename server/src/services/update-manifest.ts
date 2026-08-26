@@ -51,8 +51,7 @@ const STATIC_ARTIFACTS = {
     appStoreUrl: 'https://apps.apple.com/app/dustnote/id000000000',
   },
   miniprogram: {
-    // 与 miniprogram/package.json 保持一致
-    version: '2.5.11',
+    version: config.serverVersion,
     qrcodeUrl: 'https://cdn.dustnote.app/miniprogram/qr.png',
   },
 };
