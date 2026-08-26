@@ -55,7 +55,7 @@ interface DeviceItem {
   lastActiveAt: string;
 }
 
-const APP_VERSION = '2.5.10';
+const APP_VERSION = '2.5.11';
 const LANG_OPTIONS: Array<{ lang: AppLanguage; key: string }> = [
   { lang: 'zh-CN', key: 'settings.lang_zh' },
   { lang: 'en', key: 'settings.lang_en' },

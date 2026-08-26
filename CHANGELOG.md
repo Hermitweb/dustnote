@@ -13,6 +13,17 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.11] - 2026-08-23
+
+### 优化 — HTTP 直连（非安全上下文）环境适配集中化
+
+- **新增 `lib/env.ts` 统一环境能力检测**：`isSecureContext` / `isPlainHttp` / `canReadClipboard` / `canRegisterServiceWorker`，集中管理此前散落各处的安全上下文 API 判断
+- **读剪贴板预检**：Editor.tsx 从剪贴板插入前先检测能力，HTTP 环境下明确提示「浏览器禁止读取剪贴板」而非走异常路径
+- **Service Worker 注册**：main.tsx 改用统一检测（语义化，行为不变）
+- **HTTP 环境用户提示**：App.tsx 解锁后一次性 toast 说明受限功能（PWA 离线/读剪贴板/语音输入），localStorage 标记避免重复打扰
+- **文档**：DEPLOY.md 新增 §7.4「HTTP 直连功能差异」对照表
+- **测试**：新增 env.test.ts（4 用例）与 clipboard.test.ts（4 用例，jsdom 无 execCommand 已桩化）
+
 ## [2.5.10] - 2026-08-23
 
 ### 修复 — HTTP 直连下复制分享链接崩溃（阻断性）
