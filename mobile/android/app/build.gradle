@@ -78,8 +78,8 @@ android {
     applicationId "com.dustnote"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 34
-    versionName "2.5.11"
+    versionCode 35
+    versionName "2.5.12"
     // Explicitly list supported ABIs to exclude the residual `armeabi` (ARMv5)
     // directory. minSdk=23 guarantees armeabi-v7a+ on all devices, but a
     // third-party .so (libconceal.so) ships an armeabi variant that produces an

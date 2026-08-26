@@ -13,6 +13,16 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.12] - 2026-08-26
+
+### 修复 — 版本更新功能全面加固
+
+- **Rust `is_newer_version` 完整 SemVer 2.0.0 支持**：正确处理预发布标签（`2.5.12-beta.1` < `2.5.12`），数字段按数值比较、混合段按字典序比较
+- **GitHub API 限流处理**：检测 403 + `x-ratelimit-remaining=0`，友好提示「请约 N 分钟后重试」
+- **`set_proxy_env` 线程安全**：`OnceLock` 保证仅首次调用写入 env var，消除多线程竞争
+- **mobile `APP_VERSION` 去重**：新增 `mobile/src/lib/version.ts` 单一来源，`use-update-check.ts` + `api.ts` 统一 import，消除两处独立硬编码的同步风险
+- **server 小程序版本号自动跟随**：`update-manifest.ts` 改用 `config.serverVersion`，消除手动同步遗漏风险
+
 ## [2.5.11] - 2026-08-23
 
 ### 优化 — HTTP 直连（非安全上下文）环境适配集中化
