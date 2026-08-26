@@ -23,6 +23,8 @@ import { StandaloneUnlockScreen } from './screens/StandaloneUnlockScreen';
 import { StandaloneRecoverScreen } from './screens/StandaloneRecoverScreen';
 import { PublicShareView } from './screens/PublicShareView';
 import { startSyncWs, stopSyncWs } from './lib/sync-ws';
+import { toast } from './lib/toast';
+import { isPlainHttp } from './lib/env';
 import { loadConfig } from './lib/config';
 import { installOnlineListener } from './lib/online-listener';
 import { useKeyboardShortcuts } from './lib/use-keyboard-shortcuts';
@@ -166,6 +168,20 @@ function App() {
     }
     return undefined;
   }, [authState, loadAll, refreshPendingCount, mode]);
+
+  // HTTP 直连（非安全上下文）环境提示：一次性 toast，localStorage 标记避免重复打扰。
+  // 端到端加密/同步/复制不受影响（已内置降级）；受限的是 PWA 离线、读剪贴板、语音输入。
+  useEffect(() => {
+    if (authState !== 'unlocked' || !isPlainHttp) return;
+    const KEY = 'dustnote_http_env_notice_shown';
+    try {
+      if (localStorage.getItem(KEY)) return;
+      localStorage.setItem(KEY, '1');
+    } catch {
+      /* localStorage 不可用时仅提示一次（本次会话） */
+    }
+    toast.info(t('env.http_notice'));
+  }, [authState, t]);
 
   // 安全（§1.5/§3.3/§3.6）：
   // - 空闲 N 分钟自动锁屏（preferences.autoLock，0 = 关闭）

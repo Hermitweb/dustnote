@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { isTauri, isProduction } from './lib/platform';
 import { initSentry, captureException, Sentry } from './lib/sentry';
+import { canRegisterServiceWorker } from './lib/env';
 import './index.css';
 
 // Sentry 初始化（必须在 React 渲染之前；未配置 DSN 时为 no-op）
@@ -83,9 +84,9 @@ createRoot(root).render(
   </StrictMode>
 );
 
-// 注册 Service Worker（仅生产环境 + HTTPS）
+// 注册 Service Worker（仅安全上下文；HTTP 直连时 SW/PWA 离线不可用）
 // 原先写在 index.html 的内联 <script> 里，会被 nginx CSP（script-src 'self'）拦截，故移到这里
-if ('serviceWorker' in navigator && location.protocol === 'https:') {
+if (canRegisterServiceWorker) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch((err) => {
       console.warn('[SW] registration failed:', err);

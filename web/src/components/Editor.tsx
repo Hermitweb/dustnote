@@ -6,6 +6,7 @@ import { useStore } from '../lib/store';
 import { useModeStore } from '../lib/mode-store';
 import { getDeviceId } from '../lib/device';
 import { copyText } from '../lib/clipboard';
+import { canReadClipboard } from '../lib/env';
 import { sanitizeHtml } from '../lib/sanitize-html';
 import { NoteHistoryDialog } from './NoteHistoryDialog';
 import { toast } from '../lib/toast';
@@ -147,7 +148,12 @@ export function Editor() {
   }, []);
 
   // B-9 剪贴板/URL 模板：读取剪贴板，识别 URL 则生成书签格式
+  // 读剪贴板是安全上下文专属 API（无降级方案），HTTP 直连时预检并提示
   const insertFromClipboard = useCallback(async () => {
+    if (!canReadClipboard) {
+      toast.info(t('editor.clipboard_read_insecure'));
+      return;
+    }
     try {
       const text = await navigator.clipboard.readText();
       if (!text) {

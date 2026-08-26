@@ -4,6 +4,7 @@
  * navigator.clipboard 仅在安全上下文（HTTPS / localhost）可用，
  * 用户经 http://<公网IP> 访问时 navigator.clipboard 为 undefined，
  * 直接调用会抛 TypeError。此处降级到 document.execCommand('copy')。
+ * 环境能力检测统一见 lib/env.ts。
  */
 
 /** 复制文本到剪贴板，返回是否成功 */
@@ -35,9 +36,4 @@ export async function copyText(text: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-/** 是否支持读剪贴板（仅安全上下文） */
-export function canReadClipboard(): boolean {
-  return typeof navigator !== 'undefined' && !!navigator.clipboard?.readText;
 }

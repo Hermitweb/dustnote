@@ -9,6 +9,10 @@ const resources = {
   'zh-CN': {
     translation: {
       app: { name: '尘心笔记', tagline: '端到端加密 · 跨端同步' },
+      env: {
+        http_notice:
+          '当前经 HTTP 访问，部分浏览器功能受限（离线缓存、读剪贴板、语音输入）。笔记加密与同步不受影响，配置 HTTPS 可获得完整体验',
+      },
       auth: {
         setup_title: '创建你的笔记空间',
         setup_subtitle: '主密码将用于加密你的所有笔记，请妥善保管',
@@ -170,6 +174,7 @@ const resources = {
         clipboard_empty: '剪贴板为空',
         clipboard_inserted: '✅ 已插入剪贴板内容',
         clipboard_read_fail: '读取剪贴板失败（需 HTTPS 或桌面端）',
+        clipboard_read_insecure: '当前为 HTTP 环境，浏览器禁止读取剪贴板（需 HTTPS 或桌面端）',
         format_bold: '加粗 (**text**)',
         format_italic: '斜体 (*text*)',
         format_link: '链接 ([text](url))',
@@ -594,6 +599,10 @@ const resources = {
   en: {
     translation: {
       app: { name: 'DustNote', tagline: 'E2E Encrypted · Cross-platform Sync' },
+      env: {
+        http_notice:
+          'Accessing via plain HTTP. Some browser features are limited (offline cache, clipboard read, voice input). Note encryption and sync are unaffected; configure HTTPS for the full experience',
+      },
       auth: {
         setup_title: 'Create your note space',
         setup_subtitle: 'Your master password encrypts all notes. Keep it safe.',
@@ -757,6 +766,7 @@ const resources = {
         clipboard_empty: 'Clipboard is empty',
         clipboard_inserted: '✅ Clipboard content inserted',
         clipboard_read_fail: 'Clipboard read failed (requires HTTPS or desktop)',
+        clipboard_read_insecure: 'Plain HTTP environment: the browser blocks clipboard reads (HTTPS or desktop required)',
         format_bold: 'Bold (**text**)',
         format_italic: 'Italic (*text*)',
         format_link: 'Link ([text](url))',
