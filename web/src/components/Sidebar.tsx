@@ -453,6 +453,26 @@ export function Sidebar() {
   // 底部笔记列表区仅在「收藏 / 回收站 / 选中标签 / 搜索」时显示；
   // 默认（全部）不再平铺，笔记已在文件夹树下归类显示。
   const showNoteList = isTrash || viewMode === 'favorites' || !!normalizedQuery;
+  // 渐进加载：初始 50 条，滚动到底部时追加 50 条（替代硬截断）
+  const [visibleCount, setVisibleCount] = useState(50);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    setVisibleCount(50); // 切换视图/搜索时重置
+  }, [viewMode, normalizedQuery, selectedFolderId]);
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || !showNoteList) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((c) => Math.min(c + 50, visibleNotes.length));
+        }
+      },
+      { rootMargin: '100px' }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [showNoteList, visibleNotes.length]);
 
   return (
     <>
@@ -815,7 +835,7 @@ export function Sidebar() {
                       : t('sidebar.notes_empty')}
                 </p>
               ) : (
-                visibleNotes.slice(0, 50).map((n) => {
+                visibleNotes.slice(0, visibleCount).map((n) => {
                   const plain = notesPlain.get(n.id);
                   const checked = selectedIds.has(n.id);
                   return (
@@ -886,6 +906,12 @@ export function Sidebar() {
                     </div>
                   );
                 })
+              )}
+              {/* 渐进加载触发器：IntersectionObserver 检测到时追加更多笔记 */}
+              {showNoteList && visibleCount < visibleNotes.length && (
+                <div ref={loadMoreRef} className="py-2 text-center text-xs text-surface-muted">
+                  {t('sidebar.load_more', { count: Math.min(50, visibleNotes.length - visibleCount) }) || `加载更多 (${visibleNotes.length - visibleCount})`}
+                </div>
               )}
             </div>
           )}
