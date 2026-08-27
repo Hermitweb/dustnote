@@ -62,7 +62,8 @@ sharesRouter.post('/shares', async (req, res) => {
     const user = req.user as AuthUser;
     const parsed = CreateShareSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: 'invalid_body' });
+      const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+      res.status(400).json({ error: 'invalid_body', message: issues });
       return;
     }
     const db = getDb();
