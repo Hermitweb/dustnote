@@ -424,4 +424,15 @@ export const migrations: Migration[] = [
       db.exec(`UPDATE meta SET value = '12' WHERE key = 'schema_version';`);
     },
   },
+  {
+    id: 13,
+    name: 'totp-2fa',
+    up: (db) => {
+      db.exec(`
+        ALTER TABLE users ADD COLUMN totp_secret TEXT;
+        ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0;
+        UPDATE meta SET value = '13' WHERE key = 'schema_version';
+      `);
+    },
+  },
 ];

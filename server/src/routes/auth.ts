@@ -129,6 +129,8 @@ interface UserRow {
   wrapped_master_key_rc: string;
   failed_attempts: number;
   locked_until: string | null;
+  totp_secret: string | null;
+  totp_enabled: number;
 }
 
 function loadUser(): UserRow | undefined {
@@ -136,7 +138,7 @@ function loadUser(): UserRow | undefined {
     .prepare(
       `SELECT id, pw_salt, rc_salt, auth_hash, recovery_auth_hash,
               wrapped_master_key_pw, wrapped_master_key_rc,
-              failed_attempts, locked_until
+              failed_attempts, locked_until, totp_secret, totp_enabled
        FROM users WHERE auth_hash IS NOT NULL ORDER BY id LIMIT 1`
     )
     .get() as UserRow | undefined;
@@ -206,6 +208,7 @@ authRouter.get('/auth/status', (req, res) => {
     deviceKnown,
     // 派生 KEK 需要盐，客户端在输入密码前就得拿到。盐不是秘密。
     pwSalt: user ? user.pw_salt.toString('base64') : null,
+    totpEnabled: user ? !!user.totp_enabled : false,
     kdfParams: {
       algorithm: 'argon2id',
       m: KDF_PARAMS.m,
@@ -319,6 +322,7 @@ authRouter.post(
 const UnlockSchema = z.object({
   authKey: AuthKeySchema,
   deviceName: z.string().min(1).max(64).optional(),
+  totpCode: z.string().length(6).regex(/^\d{6}$/).optional(),
 });
 
 authRouter.post(
@@ -401,6 +405,19 @@ authRouter.post(
       clean.lockedUntil,
       user.id
     );
+
+    // 2FA 检查：密码正确后，若启用了 TOTP 则要求验证码
+    if (user.totp_enabled && user.totp_secret) {
+      if (!parsed.data.totpCode) {
+        res.status(401).json({ error: 'totp_required', message: '请输入两步验证码' });
+        return;
+      }
+      if (!verifyTotp(parsed.data.totpCode, user.totp_secret)) {
+        logger.warn({ userId: user.id }, 'TOTP 验证码错误');
+        res.status(401).json({ error: 'invalid_totp', message: '两步验证码错误' });
+        return;
+      }
+    }
 
     touchDevice(user.id, client.deviceId, client.platform, parsed.data.deviceName);
     // 审计：登录成功（含失败 / 锁定事件，构成完整认证审计链）
@@ -690,4 +707,120 @@ authRouter.get('/auth/me', (req, res) => {
     return;
   }
   res.json({ userId: u.id, createdAt: u.created_at });
+});
+
+// ========== 2FA / TOTP ==========
+
+import { generateTotpSecret, generateTotpUri, verifyTotp } from '../auth/totp.js';
+
+const Verify2faSchema = z.object({
+  code: z.string().length(6).regex(/^\d{6}$/),
+});
+
+const Disable2faSchema = z.object({
+  code: z.string().length(6).regex(/^\d{6}$/),
+});
+
+/**
+ * POST /auth/2fa/setup — 生成 TOTP 密钥和 QR 码 URI
+ *
+ * 返回 base32 密钥和 otpauth URI，客户端用 QR 码库生成二维码供用户扫描。
+ * 此时 2FA 尚未启用，需调用 /auth/2fa/enable 验证后才生效。
+ */
+authRouter.post('/auth/2fa/setup', (req, res) => {
+  const user = req.user as AuthUser | undefined;
+  if (!user) { res.status(401).json({ error: 'unauthorized' }); return; }
+
+  const u = getDb().prepare('SELECT totp_enabled FROM users WHERE id = ?').get(user.userId) as
+    | { totp_enabled: number }
+    | undefined;
+  if (!u) { res.status(404).json({ error: 'user_not_found' }); return; }
+  if (u.totp_enabled) { res.status(400).json({ error: 'already_enabled' }); return; }
+
+  const secret = generateTotpSecret();
+  const uri = generateTotpUri(secret, user.userId);
+
+  // 暂存密钥（未启用），等 /auth/2fa/enable 验证后才设 totp_enabled=1
+  getDb().prepare('UPDATE users SET totp_secret = ? WHERE id = ?').run(secret, user.userId);
+
+  logger.info({ userId: user.userId }, '2FA 密钥已生成');
+  res.json({ secret, uri });
+});
+
+/**
+ * POST /auth/2fa/enable — 验证 TOTP 码并启用 2FA
+ *
+ * 用户扫描 QR 码后输入 6 位验证码，服务端验证通过后启用 2FA。
+ */
+authRouter.post('/auth/2fa/enable', (req, res) => {
+  const user = req.user as AuthUser | undefined;
+  if (!user) { res.status(401).json({ error: 'unauthorized' }); return; }
+
+  const parsed = Verify2faSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'invalid_code' }); return; }
+
+  const u = getDb().prepare('SELECT totp_secret, totp_enabled FROM users WHERE id = ?').get(user.userId) as
+    | { totp_secret: string | null; totp_enabled: number }
+    | undefined;
+  if (!u) { res.status(404).json({ error: 'user_not_found' }); return; }
+  if (u.totp_enabled) { res.status(400).json({ error: 'already_enabled' }); return; }
+  if (!u.totp_secret) { res.status(400).json({ error: 'setup_first' }); return; }
+
+  if (!verifyTotp(parsed.data.code, u.totp_secret)) {
+    res.status(401).json({ error: 'invalid_code' });
+    return;
+  }
+
+  getDb().prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?').run(user.userId);
+  getDb()
+    .prepare('INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)')
+    .run(user.userId, user.deviceId, '2fa_enable', ipHash(req));
+
+  logger.info({ userId: user.userId }, '2FA 已启用');
+  res.json({ ok: true, enabled: true });
+});
+
+/**
+ * POST /auth/2fa/disable — 验证 TOTP 码后禁用 2FA
+ */
+authRouter.post('/auth/2fa/disable', (req, res) => {
+  const user = req.user as AuthUser | undefined;
+  if (!user) { res.status(401).json({ error: 'unauthorized' }); return; }
+
+  const parsed = Disable2faSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'invalid_code' }); return; }
+
+  const u = getDb().prepare('SELECT totp_secret, totp_enabled FROM users WHERE id = ?').get(user.userId) as
+    | { totp_secret: string | null; totp_enabled: number }
+    | undefined;
+  if (!u) { res.status(404).json({ error: 'user_not_found' }); return; }
+  if (!u.totp_enabled || !u.totp_secret) { res.status(400).json({ error: 'not_enabled' }); return; }
+
+  if (!verifyTotp(parsed.data.code, u.totp_secret)) {
+    res.status(401).json({ error: 'invalid_code' });
+    return;
+  }
+
+  getDb().prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?').run(user.userId);
+  getDb()
+    .prepare('INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)')
+    .run(user.userId, user.deviceId, '2fa_disable', ipHash(req));
+
+  logger.info({ userId: user.userId }, '2FA 已禁用');
+  res.json({ ok: true, enabled: false });
+});
+
+/**
+ * GET /auth/2fa/status — 查询当前用户的 2FA 状态
+ */
+authRouter.get('/auth/2fa/status', (req, res) => {
+  const user = req.user as AuthUser | undefined;
+  if (!user) { res.status(401).json({ error: 'unauthorized' }); return; }
+
+  const u = getDb().prepare('SELECT totp_enabled FROM users WHERE id = ?').get(user.userId) as
+    | { totp_enabled: number }
+    | undefined;
+  if (!u) { res.status(404).json({ error: 'user_not_found' }); return; }
+
+  res.json({ enabled: !!u.totp_enabled });
 });

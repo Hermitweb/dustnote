@@ -57,10 +57,12 @@ export interface AuthSlice {
   wrappedMasterKey: Ciphertext | null;
   localAuthBlob: LocalAuthBlob | null;
   lockoutState: LocalLockoutState;
+  /** 服务端是否启用了 2FA（checkStatus 时从 /auth/status 获取） */
+  totpEnabled: boolean;
 
   checkStatus: () => Promise<void>;
   setup: (password: string) => Promise<string>;
-  unlock: (password: string) => Promise<void>;
+  unlock: (password: string, totpCode?: string) => Promise<void>;
   recover: (recoveryCode: string, newPassword: string) => Promise<void>;
   changePassword: (masterPassword: string, newPassword: string) => Promise<void>;
   lock: () => void;
@@ -83,6 +85,7 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
   wrappedMasterKey: null,
   localAuthBlob: null,
   lockoutState: INITIAL_LOCKOUT_STATE,
+  totpEnabled: false,
 
   // -------- standalone auth --------
 
@@ -168,11 +171,12 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
         initialized: boolean;
         deviceKnown: boolean;
         pwSalt: string | null;
+        totpEnabled: boolean;
       }>('/auth/status');
       if (!r.initialized) {
-        set({ authState: 'uninitialized', serverError: null, serverSalt: null } as Partial<StoreState>);
+        set({ authState: 'uninitialized', serverError: null, serverSalt: null, totpEnabled: false } as Partial<StoreState>);
       } else {
-        set({ authState: 'needs_unlock', serverError: null, serverSalt: r.pwSalt } as Partial<StoreState>);
+        set({ authState: 'needs_unlock', serverError: null, serverSalt: r.pwSalt, totpEnabled: !!r.totpEnabled } as Partial<StoreState>);
       }
     } catch (err) {
       set({
@@ -221,7 +225,7 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
     return recoveryCode;
   },
 
-  async unlock(password: string): Promise<void> {
+  async unlock(password: string, totpCode?: string): Promise<void> {
     let salt = get().serverSalt;
     if (!salt) {
       const status = await api().get<{
@@ -233,15 +237,17 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
     }
 
     const pw = await deriveSecretsInWorker(password, fromBase64(salt));
+    const body: { authKey: string; deviceName: string; totpCode?: string } = {
+      authKey: toBase64(pw.authKey),
+      deviceName: 'Web 浏览器',
+    };
+    if (totpCode) body.totpCode = totpCode;
     const r = await api().post<{
       accessToken: string;
       userId: string;
       deviceId: string;
       wrappedMasterKey: Ciphertext;
-    }>('/auth/unlock', {
-      authKey: toBase64(pw.authKey),
-      deviceName: 'Web 浏览器',
-    });
+    }>('/auth/unlock', body);
 
     const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
 
