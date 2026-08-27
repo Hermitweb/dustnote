@@ -9,7 +9,6 @@ import {
   type Ciphertext,
   generateRecoveryCode,
   generateMasterKey,
-  deriveSecrets,
   wrapKey,
   unwrapKey,
   normalizeRecoveryCode,
@@ -31,6 +30,7 @@ import {
 import type { StoreState } from '../store';
 import type { AuthState } from '../store-types';
 import { api } from '../store-helpers';
+import { deriveSecretsInWorker } from '../argon2-client';
 import { clearPlainCache } from '../db';
 import {
   enableGraceUnlock,
@@ -189,8 +189,8 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
     const rcSalt = randomBytes(16);
 
     const [pw, rc] = await Promise.all([
-      deriveSecrets(password, pwSalt),
-      deriveSecrets(normalizeRecoveryCode(recoveryCode), rcSalt),
+      deriveSecretsInWorker(password, pwSalt),
+      deriveSecretsInWorker(normalizeRecoveryCode(recoveryCode), rcSalt),
     ]);
     const [wrappedPw, wrappedRc] = await Promise.all([
       wrapKey(pw.kek, masterKey),
@@ -232,7 +232,7 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
       if (!salt) throw new Error('系统未初始化');
     }
 
-    const pw = await deriveSecrets(password, fromBase64(salt));
+    const pw = await deriveSecretsInWorker(password, fromBase64(salt));
     const r = await api().post<{
       accessToken: string;
       userId: string;
@@ -258,7 +258,7 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
   async recover(recoveryCode: string, newPassword: string): Promise<void> {
     const a = api();
     const { rcSalt } = await a.get<{ rcSalt: string }>('/auth/recovery-params');
-    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), fromBase64(rcSalt));
+    const rc = await deriveSecretsInWorker(normalizeRecoveryCode(recoveryCode), fromBase64(rcSalt));
 
     const r = await a.post<{
       accessToken: string;
@@ -273,7 +273,7 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
     const masterKey = await unwrapKey(rc.kek, r.wrappedMasterKey);
 
     const newPwSalt = randomBytes(16);
-    const pw = await deriveSecrets(newPassword, newPwSalt);
+    const pw = await deriveSecretsInWorker(newPassword, newPwSalt);
     const wrappedPw = await wrapKey(pw.kek, masterKey);
 
     set({ accessToken: r.accessToken } as Partial<StoreState>);
@@ -317,7 +317,7 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
         throw new Error('当前密码错误');
       }
       const newPwSalt = randomBytes(16);
-      const { kek: newKek, authKey: newAuthKey } = await deriveSecrets(newPassword, newPwSalt);
+      const { kek: newKek, authKey: newAuthKey } = await deriveSecretsInWorker(newPassword, newPwSalt);
       const newWrapped = await wrapKey(newKek, result.masterKey);
       const newBlob: LocalAuthBlob = {
         ...localAuthBlob,
@@ -337,7 +337,7 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
       salt = status.pwSalt;
       if (!salt) throw new Error('系统未初始化');
     }
-    const pw = await deriveSecrets(masterPassword, fromBase64(salt));
+    const pw = await deriveSecretsInWorker(masterPassword, fromBase64(salt));
     const r = await api().post<{
       accessToken: string;
       userId: string;
@@ -348,7 +348,7 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
     });
     const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
     const newPwSalt = randomBytes(16);
-    const npw = await deriveSecrets(newPassword, newPwSalt);
+    const npw = await deriveSecretsInWorker(newPassword, newPwSalt);
     const wrappedPw = await wrapKey(npw.kek, masterKey);
     set({ accessToken: r.accessToken } as Partial<StoreState>);
     await api().post('/auth/rewrap', {
