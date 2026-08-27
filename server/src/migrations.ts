@@ -435,4 +435,23 @@ export const migrations: Migration[] = [
       `);
     },
   },
+  {
+    id: 14,
+    name: 'webauthn-devices',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE webauthn_devices (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          credential_id TEXT NOT NULL UNIQUE,
+          credential_public_key BLOB NOT NULL,
+          counter INTEGER NOT NULL DEFAULT 0,
+          transports TEXT NOT NULL DEFAULT '[]',
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX idx_webauthn_user ON webauthn_devices(user_id);
+        UPDATE meta SET value = '14' WHERE key = 'schema_version';
+      `);
+    },
+  },
 ];
