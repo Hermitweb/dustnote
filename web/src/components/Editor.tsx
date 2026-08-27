@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, Suspense, lazy, useMemo } from 'react';
+﻿import { useState, useEffect, useCallback, useRef, Suspense, lazy, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../lib/i18n';
 import { marked } from 'marked';
@@ -14,6 +14,7 @@ import { filterSlashCommands, resolveSlashCommand, type SlashCommand } from '../
 import { storeImage } from '../lib/image-store';
 import { toast } from '../lib/toast';
 const NoteHistoryDialog = lazy(() => import('./NoteHistoryDialog').then((m) => ({ default: m.NoteHistoryDialog })));
+const WysiwygEditor = lazy(() => import('./WysiwygEditor').then((m) => ({ default: m.WysiwygEditor })));
 
 // 注册 wikilink extension（[[笔记标题]] 语法）
 marked.use({ extensions: [wikilinkExtension] });
@@ -65,7 +66,7 @@ export function Editor() {
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [mode, setMode] = useState<'edit' | 'preview' | 'split'>('split');
+  const [mode, setMode] = useState<'edit' | 'preview' | 'split' | 'wysiwyg'>('split');
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [showShare, setShowShare] = useState(false);
   // 斜杠命令状态
@@ -397,6 +398,14 @@ export function Editor() {
         >
           {t('editor.view_preview')}
         </button>
+        <button
+          onClick={() => setMode('wysiwyg')}
+          disabled={viewMode === 'trash'}
+          className={`rounded px-2 py-1 text-xs ${mode === 'wysiwyg' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'} ${viewMode === 'trash' ? 'cursor-not-allowed opacity-50' : ''}`}
+          title={t('editor.view_wysiwyg') || '所见即所得'}
+        >
+          ✨ WYSIWYG
+        </button>
 
         {/* Markdown 格式工具栏（回收站只读时禁用） */}
         {viewMode !== 'trash' && (
@@ -591,131 +600,95 @@ export function Editor() {
       </div>
 
       {/* 内容 */}
+      {/* 内容 */}
       <div className="flex flex-1 overflow-hidden">
-        {(mode === 'edit' || mode === 'split') && (
-          <div className="relative flex flex-1 flex-col">
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => {
-              const val = e.target.value;
-              setContent(val);
-              // 斜杠命令检测：行首输入 `/` 时弹出菜单
-              const ta = e.target as HTMLTextAreaElement;
-              const cursorPos = ta.selectionStart;
-              const lineStart = val.lastIndexOf('\n', cursorPos - 1) + 1;
-              const linePrefix = val.slice(lineStart, cursorPos);
-              if (linePrefix.startsWith('/') && !linePrefix.includes(' ')) {
-                setShowSlash(true);
-                setSlashQuery(linePrefix.slice(1));
-                setSlashIndex(0);
-              } else {
-                setShowSlash(false);
-              }
-            }}
-            onKeyDown={(e) => {
-              if (!showSlash) return;
-              if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setSlashIndex((i) => Math.min(i + 1, slashCommands.length - 1));
-              } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setSlashIndex((i) => Math.max(i - 1, 0));
-              } else if (e.key === 'Enter' || e.key === 'Tab') {
-                if (slashCommands.length > 0) {
-                  e.preventDefault();
-                  insertSlashCommand(slashCommands[slashIndex]!);
-                }
-              } else if (e.key === 'Escape') {
-                setShowSlash(false);
-              }
-            }}
-            onDrop={onDrop}
-            onPaste={onPaste}
-            placeholder={t('editor.md_placeholder')}
-            aria-label={t('editor.md_placeholder')}
-            className={`editor-textarea flex-1 resize-none bg-surface-bg p-6 text-sm text-surface-fg placeholder-surface-muted focus:outline-none ${
-              mode === 'split' ? 'border-r border-surface-border' : ''
-            }`}
-          />
-          {/* 斜杠命令菜单 */}
-          {showSlash && slashCommands.length > 0 && (
-            <div className="absolute bottom-4 left-6 z-50 max-h-60 w-64 overflow-y-auto rounded-xl border border-surface-border bg-surface-card py-1 shadow-xl">
-              {slashCommands.map((cmd, i) => {
-                const lang = i18n.language;
-                return (
-                  <button
-                    key={cmd.id}
-                    onClick={() => insertSlashCommand(cmd)}
-                    onMouseEnter={() => setSlashIndex(i)}
-                    className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${
-                      i === slashIndex
-                        ? 'bg-mint-100 text-mint-800 dark:bg-mint-900/30 dark:text-mint-300'
-                        : 'text-surface-fg hover:bg-surface-bg'
-                    }`}
-                  >
-                    <span className="text-base">{cmd.icon}</span>
-                    <div className="flex-1 truncate">
-                      <div className="font-medium">{lang === 'en' ? cmd.labelEn : cmd.label}</div>
-                      <div className="text-xs text-surface-muted">
-                        {lang === 'en' ? cmd.descriptionEn : cmd.description}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          </div>
-        )}
-        {(mode === 'preview' || mode === 'split') && (
-          <div
-            className="flex-1 overflow-y-auto p-6"
-            onClick={(e) => {
-              // wikilink 点击：[[笔记标题]] → 跳转到对应笔记
-              const target = (e.target as HTMLElement).closest('.wikilink');
-              if (target) {
-                const title = target.getAttribute('data-note-title');
-                if (title) {
-                  const entry = Array.from(notesPlain.entries()).find(([, p]) => p.title === title);
-                  if (entry) {
-                    selectNote(entry[0]);
-                  } else {
-                    toast.info(t('editor.wikilink_not_found', { title }) || `笔记「${title}」不存在`);
-                  }
-                }
-              }
-            }}
-          >
-            <div
-              className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
-              dangerouslySetInnerHTML={{
-                // 导入的 .md/.docx 也会走到这里，同样按不可信内容处理
-                __html: sanitizeHtml(
-                  marked.parse(content || `*${t('editor.empty_content')}*`) as string
-                ),
-              }}
-            />
-            {/* 反向链接面板 */}
-            {backlinks.length > 0 && (
-              <div className="mt-6 border-t border-surface-border pt-4">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-muted">
-                  {t('editor.backlinks') || '反向链接'} ({backlinks.length})
-                </h3>
-                <div className="space-y-1">
-                  {backlinks.map((bl) => (
-                    <button
-                      key={bl.sourceId}
-                      onClick={() => selectNote(bl.sourceId)}
-                      className="block w-full truncate rounded px-2 py-1 text-left text-sm text-mint-600 hover:bg-surface-bg dark:text-mint-400"
-                    >
-                      📄 {bl.sourceTitle}
-                    </button>
-                  ))}
-                </div>
+        {mode === 'wysiwyg' ? (
+          <Suspense fallback={<div className="flex flex-1 items-center justify-center text-surface-muted">加载中...</div>}>
+            <WysiwygEditor content={content} onChange={setContent} placeholder={t('editor.md_placeholder')} />
+          </Suspense>
+        ) : (
+          <>
+            {(mode === 'edit' || mode === 'split') && (
+              <div className="relative flex flex-1 flex-col">
+                <textarea
+                  ref={textareaRef}
+                  value={content}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setContent(val);
+                    const ta = e.target as HTMLTextAreaElement;
+                    const cursorPos = ta.selectionStart;
+                    const lineStart = val.lastIndexOf('\n', cursorPos - 1) + 1;
+                    const linePrefix = val.slice(lineStart, cursorPos);
+                    if (linePrefix.startsWith('/') && !linePrefix.includes(' ')) {
+                      setShowSlash(true);
+                      setSlashQuery(linePrefix.slice(1));
+                      setSlashIndex(0);
+                    } else {
+                      setShowSlash(false);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (!showSlash) return;
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setSlashIndex((i) => Math.min(i + 1, slashCommands.length - 1)); }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); setSlashIndex((i) => Math.max(i - 1, 0)); }
+                    else if (e.key === 'Enter' || e.key === 'Tab') { if (slashCommands.length > 0) { e.preventDefault(); insertSlashCommand(slashCommands[slashIndex]!); } }
+                    else if (e.key === 'Escape') { setShowSlash(false); }
+                  }}
+                  onDrop={onDrop}
+                  onPaste={onPaste}
+                  placeholder={t('editor.md_placeholder')}
+                  aria-label={t('editor.md_placeholder')}
+                  className={`editor-textarea flex-1 resize-none bg-surface-bg p-6 text-sm text-surface-fg placeholder-surface-muted focus:outline-none ${mode === 'split' ? 'border-r border-surface-border' : ''}`}
+                />
+                {showSlash && slashCommands.length > 0 && (
+                  <div className="absolute bottom-4 left-6 z-50 max-h-60 w-64 overflow-y-auto rounded-xl border border-surface-border bg-surface-card py-1 shadow-xl">
+                    {slashCommands.map((cmd, i) => (
+                      <button key={cmd.id} onClick={() => insertSlashCommand(cmd)} onMouseEnter={() => setSlashIndex(i)}
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${i === slashIndex ? 'bg-mint-100 text-mint-800 dark:bg-mint-900/30 dark:text-mint-300' : 'text-surface-fg hover:bg-surface-bg'}`}>
+                        <span className="text-base">{cmd.icon}</span>
+                        <div className="flex-1 truncate">
+                          <div className="font-medium">{i18n.language === 'en' ? cmd.labelEn : cmd.label}</div>
+                          <div className="text-xs text-surface-muted">{i18n.language === 'en' ? cmd.descriptionEn : cmd.description}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-          </div>
+            {(mode === 'preview' || mode === 'split') && (
+              <div className="flex-1 overflow-y-auto p-6" onClick={(e) => {
+                const target = (e.target as HTMLElement).closest('.wikilink');
+                if (target) {
+                  const title = target.getAttribute('data-note-title');
+                  if (title) {
+                    const entry = Array.from(notesPlain.entries()).find(([, p]) => p.title === title);
+                    if (entry) selectNote(entry[0]);
+                    else toast.info(t('editor.wikilink_not_found', { title }) || `笔记「${title}」不存在`);
+                  }
+                }
+              }}>
+                <div className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(marked.parse(content || `*${t('editor.empty_content')}*`) as string) }} />
+                {backlinks.length > 0 && (
+                  <div className="mt-6 border-t border-surface-border pt-4">
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-muted">
+                      {t('editor.backlinks') || '反向链接'} ({backlinks.length})
+                    </h3>
+                    <div className="space-y-1">
+                      {backlinks.map((bl) => (
+                        <button key={bl.sourceId} onClick={() => selectNote(bl.sourceId)}
+                          className="block w-full truncate rounded px-2 py-1 text-left text-sm text-mint-600 hover:bg-surface-bg dark:text-mint-400">
+                          📄 {bl.sourceTitle}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 
