@@ -11,6 +11,7 @@ import { canReadClipboard } from '../lib/env';
 import { sanitizeHtml } from '../lib/sanitize-html';
 import { wikilinkExtension, extractWikilinks, buildBacklinkIndex } from '../lib/wikilinks';
 import { filterSlashCommands, resolveSlashCommand, type SlashCommand } from '../lib/slash-commands';
+import { storeImage } from '../lib/image-store';
 import { toast } from '../lib/toast';
 const NoteHistoryDialog = lazy(() => import('./NoteHistoryDialog').then((m) => ({ default: m.NoteHistoryDialog })));
 
@@ -116,7 +117,16 @@ export function Editor() {
         for (const file of imgs) {
           try {
             const { dataUrl, alt } = await fileToImageDataUrl(file);
-            const md = buildMarkdownImage(dataUrl, alt);
+            // 图片优化：base64 存入 IndexedDB，笔记只保留引用
+            const base64 = dataUrl.split(',')[1] ?? dataUrl;
+            let md: string;
+            try {
+              const imgId = await storeImage(base64);
+              md = `![${alt}](dustnote-img://${imgId})`;
+            } catch {
+              // IndexedDB 不可用时回退到 base64 内嵌
+              md = buildMarkdownImage(dataUrl, alt);
+            }
             const { value, selectionStart, selectionEnd } = insertAtCursor(textarea, md);
             setContent(value);
             // 等 React 更新 textarea 后恢复光标
