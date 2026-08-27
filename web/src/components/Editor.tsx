@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense, lazy, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
 import { encryptString, randomBytes, toBase64Url, wrapKey } from '@dustnote/shared';
@@ -8,8 +8,12 @@ import { getDeviceId } from '../lib/device';
 import { copyText } from '../lib/clipboard';
 import { canReadClipboard } from '../lib/env';
 import { sanitizeHtml } from '../lib/sanitize-html';
-const NoteHistoryDialog = lazy(() => import('./NoteHistoryDialog').then((m) => ({ default: m.NoteHistoryDialog })));
+import { wikilinkExtension, extractWikilinks, buildBacklinkIndex } from '../lib/wikilinks';
 import { toast } from '../lib/toast';
+const NoteHistoryDialog = lazy(() => import('./NoteHistoryDialog').then((m) => ({ default: m.NoteHistoryDialog })));
+
+// 注册 wikilink extension（[[笔记标题]] 语法）
+marked.use({ extensions: [wikilinkExtension] });
 import {
   isImageFile,
   fileToImageDataUrl,
@@ -39,6 +43,22 @@ export function Editor() {
   const moveNote = useStore((s) => s.moveNote);
   const appMode = useStore((s) => s.mode);
   const saveAsTemplate = useStore((s) => s.saveAsTemplate);
+  const notesPlain = useStore((s) => s.notesPlain);
+  const selectNote = useStore((s) => s.selectNote);
+
+  // 反向链接索引：当前笔记标题被哪些笔记引用
+  const backlinks = useMemo(() => {
+    if (!plain?.title) return [];
+    const index = buildBacklinkIndex(
+      new Map(
+        Array.from(notesPlain.entries()).map(([id, p]) => [
+          id,
+          { id, title: p.title, links: extractWikilinks(p.content) },
+        ])
+      )
+    );
+    return index.get(plain.title) ?? [];
+  }, [notesPlain, plain?.title]);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -545,7 +565,24 @@ export function Editor() {
           />
         )}
         {(mode === 'preview' || mode === 'split') && (
-          <div className="flex-1 overflow-y-auto p-6">
+          <div
+            className="flex-1 overflow-y-auto p-6"
+            onClick={(e) => {
+              // wikilink 点击：[[笔记标题]] → 跳转到对应笔记
+              const target = (e.target as HTMLElement).closest('.wikilink');
+              if (target) {
+                const title = target.getAttribute('data-note-title');
+                if (title) {
+                  const entry = Array.from(notesPlain.entries()).find(([, p]) => p.title === title);
+                  if (entry) {
+                    selectNote(entry[0]);
+                  } else {
+                    toast.info(t('editor.wikilink_not_found', { title }) || `笔记「${title}」不存在`);
+                  }
+                }
+              }
+            }}
+          >
             <div
               className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
               dangerouslySetInnerHTML={{
@@ -555,6 +592,25 @@ export function Editor() {
                 ),
               }}
             />
+            {/* 反向链接面板 */}
+            {backlinks.length > 0 && (
+              <div className="mt-6 border-t border-surface-border pt-4">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-muted">
+                  {t('editor.backlinks') || '反向链接'} ({backlinks.length})
+                </h3>
+                <div className="space-y-1">
+                  {backlinks.map((bl) => (
+                    <button
+                      key={bl.sourceId}
+                      onClick={() => selectNote(bl.sourceId)}
+                      className="block w-full truncate rounded px-2 py-1 text-left text-sm text-mint-600 hover:bg-surface-bg dark:text-mint-400"
+                    >
+                      📄 {bl.sourceTitle}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
