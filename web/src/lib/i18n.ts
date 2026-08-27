@@ -8,7 +8,7 @@ import { initReactI18next } from 'react-i18next';
 const resources = {
   'zh-CN': {
     translation: {
-      app: { name: '尘心笔记', tagline: '端到端加密 · 跨端同步' },
+      app: { name: '尘心笔记', tagline: '端到端加密 · 跨端同步', skip_to_content: '跳转到主要内容' },
       env: {
         http_notice:
           '当前经 HTTP 访问，部分浏览器功能受限（离线缓存、读剪贴板、语音输入）。笔记加密与同步不受影响，配置 HTTPS 可获得完整体验',
@@ -598,7 +598,7 @@ const resources = {
   },
   en: {
     translation: {
-      app: { name: 'DustNote', tagline: 'E2E Encrypted · Cross-platform Sync' },
+      app: { name: 'DustNote', tagline: 'E2E Encrypted · Cross-platform Sync', skip_to_content: 'Skip to main content' },
       env: {
         http_notice:
           'Accessing via plain HTTP. Some browser features are limited (offline cache, clipboard read, voice input). Note encryption and sync are unaffected; configure HTTPS for the full experience',

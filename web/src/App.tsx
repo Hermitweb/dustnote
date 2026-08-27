@@ -315,6 +315,13 @@ function App() {
   // 主界面
   return (
     <div className="flex h-full">
+      {/* 跳过导航链接（屏幕阅读器/键盘用户） */}
+      <a
+        href="#main-content"
+        className="sr-only sr-only-focusable fixed left-2 top-2 z-[10000] rounded-lg bg-mint-600 px-4 py-2 text-sm font-medium text-white shadow-lg focus:not-sr-only"
+      >
+        {t('app.skip_to_content') || '跳转到主要内容'}
+      </a>
       {/* 页面隐藏时全屏遮挡（§3.6），防任务切换预览/截图泄露笔记内容 */}
       {pageHidden && <div className="fixed inset-0 z-[9999] bg-surface-bg" aria-hidden="true" />}
       {!sidebarHidden && <Sidebar />}
@@ -375,7 +382,9 @@ function App() {
             </button>
           </div>
         </header>
-        <Editor />
+        <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col outline-none">
+          <Editor />
+        </main>
       </div>
 
       {showSettings && <Suspense fallback={null}><SettingsDialog onClose={() => setShowSettings(false)} /></Suspense>}
