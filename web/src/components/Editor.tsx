@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, Suspense, lazy, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18n from '../lib/i18n';
 import { marked } from 'marked';
 import { encryptString, randomBytes, toBase64Url, wrapKey } from '@dustnote/shared';
 import { useStore } from '../lib/store';
@@ -9,6 +10,7 @@ import { copyText } from '../lib/clipboard';
 import { canReadClipboard } from '../lib/env';
 import { sanitizeHtml } from '../lib/sanitize-html';
 import { wikilinkExtension, extractWikilinks, buildBacklinkIndex } from '../lib/wikilinks';
+import { filterSlashCommands, resolveSlashCommand, type SlashCommand } from '../lib/slash-commands';
 import { toast } from '../lib/toast';
 const NoteHistoryDialog = lazy(() => import('./NoteHistoryDialog').then((m) => ({ default: m.NoteHistoryDialog })));
 
@@ -65,6 +67,11 @@ export function Editor() {
   const [mode, setMode] = useState<'edit' | 'preview' | 'split'>('split');
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  // 斜杠命令状态
+  const [showSlash, setShowSlash] = useState(false);
+  const [slashQuery, setSlashQuery] = useState('');
+  const [slashIndex, setSlashIndex] = useState(0);
+  const slashCommands = useMemo(() => filterSlashCommands(slashQuery), [slashQuery]);
   const [showHistory, setShowHistory] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showPermDeleteConfirm, setShowPermDeleteConfirm] = useState(false);
@@ -127,6 +134,31 @@ export function Editor() {
       }
     },
     [t]
+  );
+
+  // 斜杠命令：插入命令内容并替换 `/query`
+  const insertSlashCommand = useCallback(
+    (cmd: SlashCommand) => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      const cursorPos = ta.selectionStart;
+      const val = content;
+      const lineStart = val.lastIndexOf('\n', cursorPos - 1) + 1;
+      const before = val.slice(0, lineStart);
+      const after = val.slice(cursorPos);
+      const resolved = resolveSlashCommand(cmd.insert);
+      const next = before + resolved + after;
+      setContent(next);
+      setShowSlash(false);
+      // 恢复光标到插入内容末尾
+      requestAnimationFrame(() => {
+        const newPos = lineStart + resolved.length;
+        ta.selectionStart = newPos;
+        ta.selectionEnd = newPos;
+        ta.focus();
+      });
+    },
+    [content]
   );
 
   const onDrop = useCallback(
@@ -551,10 +583,43 @@ export function Editor() {
       {/* 内容 */}
       <div className="flex flex-1 overflow-hidden">
         {(mode === 'edit' || mode === 'split') && (
+          <div className="relative flex flex-1 flex-col">
           <textarea
             ref={textareaRef}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setContent(val);
+              // 斜杠命令检测：行首输入 `/` 时弹出菜单
+              const ta = e.target as HTMLTextAreaElement;
+              const cursorPos = ta.selectionStart;
+              const lineStart = val.lastIndexOf('\n', cursorPos - 1) + 1;
+              const linePrefix = val.slice(lineStart, cursorPos);
+              if (linePrefix.startsWith('/') && !linePrefix.includes(' ')) {
+                setShowSlash(true);
+                setSlashQuery(linePrefix.slice(1));
+                setSlashIndex(0);
+              } else {
+                setShowSlash(false);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (!showSlash) return;
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSlashIndex((i) => Math.min(i + 1, slashCommands.length - 1));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSlashIndex((i) => Math.max(i - 1, 0));
+              } else if (e.key === 'Enter' || e.key === 'Tab') {
+                if (slashCommands.length > 0) {
+                  e.preventDefault();
+                  insertSlashCommand(slashCommands[slashIndex]!);
+                }
+              } else if (e.key === 'Escape') {
+                setShowSlash(false);
+              }
+            }}
             onDrop={onDrop}
             onPaste={onPaste}
             placeholder={t('editor.md_placeholder')}
@@ -563,6 +628,35 @@ export function Editor() {
               mode === 'split' ? 'border-r border-surface-border' : ''
             }`}
           />
+          {/* 斜杠命令菜单 */}
+          {showSlash && slashCommands.length > 0 && (
+            <div className="absolute bottom-4 left-6 z-50 max-h-60 w-64 overflow-y-auto rounded-xl border border-surface-border bg-surface-card py-1 shadow-xl">
+              {slashCommands.map((cmd, i) => {
+                const lang = i18n.language;
+                return (
+                  <button
+                    key={cmd.id}
+                    onClick={() => insertSlashCommand(cmd)}
+                    onMouseEnter={() => setSlashIndex(i)}
+                    className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${
+                      i === slashIndex
+                        ? 'bg-mint-100 text-mint-800 dark:bg-mint-900/30 dark:text-mint-300'
+                        : 'text-surface-fg hover:bg-surface-bg'
+                    }`}
+                  >
+                    <span className="text-base">{cmd.icon}</span>
+                    <div className="flex-1 truncate">
+                      <div className="font-medium">{lang === 'en' ? cmd.labelEn : cmd.label}</div>
+                      <div className="text-xs text-surface-muted">
+                        {lang === 'en' ? cmd.descriptionEn : cmd.description}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          </div>
         )}
         {(mode === 'preview' || mode === 'split') && (
           <div
