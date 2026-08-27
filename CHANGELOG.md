@@ -13,6 +13,24 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.13] - 2026-08-27
+
+### 新功能
+
+- **WYSIWYG 编辑器模式**（TipTap 集成）：所见即所得编辑，支持标题/粗斜体/代码块/链接/图片/待办列表/引用/分割线，与 Markdown 模式并列切换
+- **WebAuthn/Passkey 无密码认证**：FIDO2 注册/认证完整实现，支持 platform authenticator（指纹/面容/PIN）
+- **网页剪藏浏览器扩展**：Chrome Manifest V3 扩展，提取页面标题+正文 → 发送到 DustNote 创建笔记
+
+### 改进
+
+- **双向链接 `[[笔记标题]]`**：自定义 marked extension 解析 wikilink 语法，预览模式点击跳转，反向链接面板显示引用源
+- **斜杠命令系统**：编辑器输入 `/` 弹出命令菜单（日期/标题/列表/待办/代码块/引用/分割线/表格/双向链接），键盘导航+模糊搜索
+- **TOTP 两步验证**：服务端 TOTP 实现（RFC 6238，纯 Node crypto），客户端 setup2fa/enable2fa/disable2fa API，unlock 支持 totpCode
+- **图片存储优化**：粘贴/拖拽图片时 base64 存入 IndexedDB，笔记内容只保留 `dustnote-img://id` 引用（~40字节 vs 原始 1.37MB）
+- **Playwright E2E 测试框架**：单机模式全流程测试 + HTTP 环境提示 + 健康检查
+- **组件测试补充**：wikilink 提取/反向索引、斜杠命令过滤/替换、图片统计
+- **无障碍改进**：skip-to-content 链接、`<main>` landmark、`role=navigation`、`prefers-reduced-motion` 媒体查询
+
 ## [2.5.12] - 2026-08-26
 
 ### 修复 — 版本更新功能全面加固
