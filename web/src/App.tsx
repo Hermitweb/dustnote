@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from './lib/store';
 import type { ThemeId, Mode } from './lib/store';
@@ -9,13 +9,6 @@ import { ForceUpdateOverlay } from './components/ForceUpdateOverlay';
 import { UpdateBanner } from './components/UpdateBanner';
 import { Sidebar } from './components/Sidebar';
 import { Editor } from './components/Editor';
-import { SettingsDialog } from './components/SettingsDialog';
-import { SharesManager } from './components/SharesManager';
-import { AdminConfig } from './components/AdminConfig';
-import { Cheatsheet } from './components/Cheatsheet';
-import { CommandPalette } from './components/CommandPalette';
-import { ImportExportDialog } from './components/ImportExportDialog';
-import { ModeSelectDialog } from './components/ModeSelectDialog';
 import { SetupScreen } from './screens/SetupScreen';
 import { UnlockScreen } from './screens/UnlockScreen';
 import { StandaloneSetupScreen } from './screens/StandaloneSetupScreen';
@@ -32,9 +25,18 @@ import './lib/i18n';
 import { ToastContainer } from './components/ToastContainer';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { QuickCapture } from './components/QuickCapture';
-import { AboutDialog } from './components/AboutDialog';
 import { Logo } from './components/Logo';
-import { ConflictDialog } from './components/ConflictDialog';
+
+// React.lazy 惰性加载重对话框（首屏不依赖，减少主 bundle 体积）
+const SettingsDialog = lazy(() => import('./components/SettingsDialog').then((m) => ({ default: m.SettingsDialog })));
+const SharesManager = lazy(() => import('./components/SharesManager').then((m) => ({ default: m.SharesManager })));
+const AdminConfig = lazy(() => import('./components/AdminConfig').then((m) => ({ default: m.AdminConfig })));
+const ImportExportDialog = lazy(() => import('./components/ImportExportDialog').then((m) => ({ default: m.ImportExportDialog })));
+const ModeSelectDialog = lazy(() => import('./components/ModeSelectDialog').then((m) => ({ default: m.ModeSelectDialog })));
+const Cheatsheet = lazy(() => import('./components/Cheatsheet').then((m) => ({ default: m.Cheatsheet })));
+const CommandPalette = lazy(() => import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })));
+const AboutDialog = lazy(() => import('./components/AboutDialog').then((m) => ({ default: m.AboutDialog })));
+const ConflictDialog = lazy(() => import('./components/ConflictDialog').then((m) => ({ default: m.ConflictDialog })));
 
 type StandaloneView = 'setup' | 'unlock' | 'recover';
 
@@ -238,7 +240,7 @@ function App() {
 
   // 首次启动：模式选择
   if (!modeInitialized) {
-    return <ModeSelectDialog />;
+    return <Suspense fallback={null}><ModeSelectDialog /></Suspense>;
   }
 
   // 认证流程
@@ -376,25 +378,25 @@ function App() {
         <Editor />
       </div>
 
-      {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
-      {showShares && <SharesManager onClose={() => setShowShares(false)} />}
-      {showAdmin && <AdminConfig onClose={() => setShowAdmin(false)} />}
-      {showImportExport && <ImportExportDialog onClose={() => setShowImportExport(false)} />}
+      {showSettings && <Suspense fallback={null}><SettingsDialog onClose={() => setShowSettings(false)} /></Suspense>}
+      {showShares && <Suspense fallback={null}><SharesManager onClose={() => setShowShares(false)} /></Suspense>}
+      {showAdmin && <Suspense fallback={null}><AdminConfig onClose={() => setShowAdmin(false)} /></Suspense>}
+      {showImportExport && <Suspense fallback={null}><ImportExportDialog onClose={() => setShowImportExport(false)} /></Suspense>}
 
-      <Cheatsheet />
+      <Suspense fallback={null}><Cheatsheet /></Suspense>
 
       {updateCheck.result && updateCheck.result.status === 'ok' && updateCheck.result.manifest && (
         <UpdateBanner result={updateCheck.result} />
       )}
 
-      <CommandPalette />
+      <Suspense fallback={null}><CommandPalette /></Suspense>
 
       {showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
 
-      {showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
+      {showAbout && <Suspense fallback={null}><AboutDialog onClose={() => setShowAbout(false)} /></Suspense>}
 
       {/* 同步冲突裁决（pendingConflicts 非空时展示） */}
-      <ConflictDialog />
+      <Suspense fallback={null}><ConflictDialog /></Suspense>
 
       <ToastContainer />
     </div>

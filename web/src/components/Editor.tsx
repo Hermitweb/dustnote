@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
 import { encryptString, randomBytes, toBase64Url, wrapKey } from '@dustnote/shared';
@@ -8,7 +8,7 @@ import { getDeviceId } from '../lib/device';
 import { copyText } from '../lib/clipboard';
 import { canReadClipboard } from '../lib/env';
 import { sanitizeHtml } from '../lib/sanitize-html';
-import { NoteHistoryDialog } from './NoteHistoryDialog';
+const NoteHistoryDialog = lazy(() => import('./NoteHistoryDialog').then((m) => ({ default: m.NoteHistoryDialog })));
 import { toast } from '../lib/toast';
 import {
   isImageFile,
@@ -569,11 +569,13 @@ export function Editor() {
       )}
 
       {showHistory && (
-        <NoteHistoryDialog
-          noteId={note.id}
-          currentVersion={note.version}
-          onClose={() => setShowHistory(false)}
-        />
+        <Suspense fallback={null}>
+          <NoteHistoryDialog
+            noteId={note.id}
+            currentVersion={note.version}
+            onClose={() => setShowHistory(false)}
+          />
+        </Suspense>
       )}
 
       {showDeleteConfirm && (
