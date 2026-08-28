@@ -2,7 +2,7 @@
  * 移动端 2FA/TOTP 客户端 API
  */
 
-import { api } from './api';
+import { api } from '../api';
 
 export interface TotpSetupResult {
   secret: string;
