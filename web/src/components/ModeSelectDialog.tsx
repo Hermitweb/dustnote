@@ -35,18 +35,30 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
   async function testConnection(url: string): Promise<void> {
     setConnState('testing');
     try {
-      const baseUrl = url.replace(/\/+$/, '') + '/api/v1';
+      // URL 格式预校验
+      const trimmed = url.replace(/\/+$/, '');
+      if (!/^https?:\/\/.+/i.test(trimmed)) {
+        setConnState('fail');
+        return;
+      }
+      const baseUrl = trimmed + '/api/v1';
       const client = new ApiClient({
         baseUrl,
         clientVersion: __APP_VERSION__,
         platform: 'web',
         channel: 'stable',
         deviceId: getDeviceId(),
+        timeoutMs: 10000,
       });
       await client.get<{ initialized: boolean }>('/auth/status');
       setConnState('ok');
-    } catch {
-      setConnState('fail');
+    } catch (err) {
+      // 区分超时和网络错误，给用户更明确的提示
+      if (err instanceof Error && err.name === 'AbortError') {
+        setConnState('fail');
+      } else {
+        setConnState('fail');
+      }
     }
   }
 

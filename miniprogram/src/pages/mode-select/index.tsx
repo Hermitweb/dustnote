@@ -69,6 +69,7 @@ async function testServerConnection(serverUrl: string): Promise<{ ok: boolean; m
       platform: 'miniprogram',
       channel: 'stable',
       deviceId: 'connection-test',
+      timeoutMs: 10000,
       fetch: process.env.TARO_ENV === 'weapp' ? taroFetch : undefined,
     });
     const r = await api.get<{ initialized: boolean }>('/auth/status');
@@ -78,6 +79,12 @@ async function testServerConnection(serverUrl: string): Promise<{ ok: boolean; m
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : '连接失败';
+    if (msg?.includes('abort') || msg?.includes('timeout')) {
+      return { ok: false, message: '连接超时（10秒），请检查地址和网络' };
+    }
+    if (msg?.includes('fetch') || msg?.includes('network') || msg?.includes('Network')) {
+      return { ok: false, message: '网络不可达，请检查地址是否正确' };
+    }
     return { ok: false, message: msg };
   }
 }

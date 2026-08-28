@@ -53,21 +53,40 @@ export function ModeSelectScreen() {
   };
 
   const onTestConnection = async () => {
-    if (!serverUrl.trim()) {
+    const trimmed = serverUrl.trim();
+    if (!trimmed) {
       Alert.alert(t('common.hint'), t('mode_select.err_empty_server'));
+      return;
+    }
+    if (!/^https?:\/\/.+/i.test(trimmed)) {
+      Alert.alert(t('common.hint'), '地址需以 http:// 或 https:// 开头');
       return;
     }
     setTesting(true);
     try {
       // 临时写入 store，让 api 拦截器使用新 baseUrl
-      setServerUrl(serverUrl.trim());
-      const r = await api.get<{ initialized: boolean }>('/auth/status');
-      Alert.alert(
-        t('mode_select.connection_ok'),
-        t('mode_select.connection_ok_detail', { yesno: r.initialized ? t('common.ok') : '—' })
-      );
-    } catch (err) {
-      Alert.alert(t('mode_select.connection_failed'), (err as Error).message);
+      setServerUrl(trimmed);
+      // 使用 AbortController 添加 10s 超时
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      try {
+        const r = await api.get<{ initialized: boolean }>('/auth/status');
+        clearTimeout(timer);
+        Alert.alert(
+          t('mode_select.connection_ok'),
+          t('mode_select.connection_ok_detail', { yesno: r.initialized ? t('common.ok') : '—' })
+        );
+      } catch (err) {
+        clearTimeout(timer);
+        const msg = (err as Error).message;
+        if (msg?.includes('abort') || msg?.includes('timeout')) {
+          Alert.alert(t('mode_select.connection_failed'), '连接超时（10秒），请检查地址和网络');
+        } else if (msg?.includes('fetch') || msg?.includes('network') || msg?.includes('Network')) {
+          Alert.alert(t('mode_select.connection_failed'), '网络不可达，请检查地址是否正确');
+        } else {
+          Alert.alert(t('mode_select.connection_failed'), msg || '未知错误');
+        }
+      }
     } finally {
       setTesting(false);
     }
