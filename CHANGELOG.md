@@ -13,6 +13,12 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.14] - 2026-08-28
+
+### 修复
+
+- **Android 明文 HTTP 流量被系统静默拦截**：Android 9+ 默认阻止非白名单的明文 HTTP 请求，`network_security_config.xml` 仅包含 localhost 和 `10.0.2.2`，导致 React Native fetch 请求到公网 HTTP 自建服务器时被系统拦截（请求从未离开设备，表现为「卡在鉴权状态」）。添加 `usesCleartextTraffic=true` + 扩展 `network_security_config.xml`。
+
 ## [2.5.13] - 2026-08-27
 
 ### 新功能

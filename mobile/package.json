@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/mobile",
-  "version": "2.5.13",
+  "version": "2.5.14",
   "private": true,
   "description": "DustNote Android (React Native)",
   "scripts": {
