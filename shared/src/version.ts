@@ -106,5 +106,6 @@ export function shouldForceUpdate(p: ForceUpdateParams): ForceUpdateLevel {
   if (p.force && lt(p.current, p.force)) return 'L0_block';
   if (lt(p.current, p.min)) return 'L1_2nd_startup';
   if (lt(p.current, p.recommended) && daysSince(p.releaseDate) > 14) return 'L2_strong_prompt';
+  if (lt(p.current, p.recommended)) return 'L3_soft_prompt';
   return null;
 }

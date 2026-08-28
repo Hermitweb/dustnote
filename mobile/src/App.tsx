@@ -40,6 +40,7 @@ import { OnlineRecoverScreen } from './screens/OnlineRecoverScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ConflictDialog } from './components/ConflictDialog';
 import { useIsDark, useColors } from './theme';
+import { checkUpdateOnce } from './lib/use-update-check';
 
 // 全局 JS 错误兜底：ErrorBoundary 只覆盖渲染错误，不覆盖异步回调错误。
 // 生产环境记录告警日志（内容经 console 过滤，不打印敏感数据），避免崩溃静默。
@@ -134,6 +135,20 @@ function AppInner() {
       };
     }
   }, [hydrated, modeInitialized, mode, init]);
+
+  // 启动后自动检查更新（联机模式，5s 延迟避免阻塞初始化）
+  useEffect(() => {
+    if (authState !== 'unlocked' || mode !== 'online') return;
+    const timer = setTimeout(() => {
+      void checkUpdateOnce().then((r) => {
+        if (r.status === 'force_update' || r.hasUpdate) {
+          // 有更新可用时，SettingsScreen 的 onCheckUpdate 会处理提示
+          // 这里仅静默检查，不弹窗打扰用户
+        }
+      }).catch(() => { /* 静默失败 */ });
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [authState, mode]);
 
   const bgColor = colors.bg;
   const cardColor = colors.card;

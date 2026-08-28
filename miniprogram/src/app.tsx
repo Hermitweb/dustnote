@@ -36,6 +36,31 @@ function App({ children }: { children?: ReactNode }) {
     });
 
     applyTheme(theme);
+
+    // 微信小程序更新检测
+    // 当微信客户端检测到新版本的小程序时，提示用户重启
+    if (typeof Taro.getUpdateManager === 'function') {
+      const updateManager = Taro.getUpdateManager();
+      updateManager.onCheckForUpdate((res) => {
+        if (res.hasUpdate) {
+          console.log('[DustNote] 小程序有新版本可用');
+        }
+      });
+      updateManager.onUpdateReady(() => {
+        Taro.showModal({
+          title: '更新提示',
+          content: '新版本已准备好，是否重启应用？',
+          success: (modalRes) => {
+            if (modalRes.confirm) {
+              updateManager.applyUpdate();
+            }
+          },
+        });
+      });
+      updateManager.onUpdateFailed(() => {
+        Taro.showToast({ title: '更新下载失败，请稍后重试', icon: 'none' });
+      });
+    }
   });
 
   return (

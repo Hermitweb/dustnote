@@ -38,8 +38,10 @@ import { useColors, useThemeStore, type ThemeMode, THEMES, type ThemeId } from '
 import type { BackupPayload, AppMode, Preferences } from '@dustnote/shared';
 import { decryptString, encryptString, type Ciphertext } from '@dustnote/shared';
 import RNFS from 'react-native-fs';
+import { Linking } from 'react-native';
 import RNShare from 'react-native-share';
 import DocumentPicker from 'react-native-document-picker';
+import { APP_VERSION } from '../lib/version';
 import { checkUpdateOnce, resetUpdateCache } from '../lib/use-update-check';
 import { savePendingMigration, clearPendingMigration } from '../lib/migration';
 import { clearLocalAuthBlob, clearLockoutState } from '../lib/local-auth-storage';
@@ -56,7 +58,6 @@ interface DeviceItem {
   lastActiveAt: string;
 }
 
-const APP_VERSION = '2.5.15';
 const LANG_OPTIONS: Array<{ lang: AppLanguage; key: string }> = [
   { lang: 'zh-CN', key: 'settings.lang_zh' },
   { lang: 'en', key: 'settings.lang_en' },
@@ -233,27 +234,25 @@ export function SettingsScreen() {
       if (r.status === 'force_update' && r.updateUrl) {
         Alert.alert('发现新版本', `当前版本已过期，请升级到最新版本。\n\n${r.message ?? ''}`, [
           { text: '稍后', style: 'cancel' },
-          { text: '去下载', onPress: () => void Share.share({ message: r.updateUrl! }) },
+          { text: '去下载', onPress: () => void Linking.openURL(r.updateUrl!) },
         ]);
-      } else if (r.status === 'ok' && r.manifest) {
+      } else if (r.hasUpdate && r.manifest) {
         const latest = r.manifest.latest.version;
-        if (latest !== APP_VERSION) {
-          Alert.alert(
-            '发现新版本',
-            `最新版本：v${latest}\n当前版本：v${APP_VERSION}\n\n是否前往下载？`,
-            [
-              { text: '稍后', style: 'cancel' },
-              {
-                text: '去下载',
-                onPress: () => {
-                  if (r.updateUrl) void Share.share({ message: r.updateUrl });
-                },
+        Alert.alert(
+          '发现新版本',
+          `最新版本：v${latest}\n当前版本：v${APP_VERSION}\n\n是否前往下载？`,
+          [
+            { text: '稍后', style: 'cancel' },
+            {
+              text: '去下载',
+              onPress: () => {
+                if (r.updateUrl) void Linking.openURL(r.updateUrl);
               },
-            ]
-          );
-        } else {
-          Alert.alert('已是最新版本', `当前版本：v${APP_VERSION}`);
-        }
+            },
+          ]
+        );
+      } else if (r.status === 'ok') {
+        Alert.alert('已是最新版本', `当前版本：v${APP_VERSION}`);
       } else if (r.status === 'error') {
         Alert.alert('检查更新失败', r.message ?? '未知错误');
       }

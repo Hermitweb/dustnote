@@ -118,6 +118,8 @@ export interface CheckUpdateResult {
   forceLevel?: ForceUpdateLevel | undefined;
   updateUrl?: string | undefined;
   message?: string | undefined;
+  /** 是否有可用更新（包括 soft_prompt） */
+  hasUpdate?: boolean | undefined;
 }
 
 /** 主入口：调用 update-manifest API 并做强制升级判断 */
@@ -183,11 +185,16 @@ export async function checkForUpdate(opts: CheckUpdateOptions): Promise<CheckUpd
     // 取当前平台的下载 URL
     const updateUrl = getPlatformDownloadUrl(manifest, opts.platform);
 
+    // L0/L1/L2 需要阻断或强提示 → status=force_update
+    // L3 仅软提示 → status=ok + hasUpdate=true
+    const isBlocking = forceLevel === 'L0_block' || forceLevel === 'L1_2nd_startup' || forceLevel === 'L2_strong_prompt';
+
     return {
-      status: forceLevel ? 'force_update' : 'ok',
+      status: isBlocking ? 'force_update' : 'ok',
       manifest,
       forceLevel,
       updateUrl,
+      hasUpdate: forceLevel !== null && forceLevel !== undefined,
     };
   } catch (err) {
     // 主动 abort（如组件卸载 / StrictMode 双调用）不视为错误
@@ -210,8 +217,16 @@ export function getPlatformDownloadUrl(
   switch (platform) {
     case 'web':
       return a.web?.url;
-    case 'desktop':
+    case 'desktop': {
+      // 检测当前 OS 选择对应下载链接
+      if (typeof navigator !== 'undefined') {
+        const ua = navigator.userAgent.toLowerCase();
+        if (ua.includes('mac')) return a.desktop?.macos?.url;
+        if (ua.includes('win')) return a.desktop?.windows?.url;
+        return a.desktop?.linux?.url;
+      }
       return a.desktop?.macos?.url ?? a.desktop?.windows?.url ?? a.desktop?.linux?.url;
+    }
     case 'android':
       return a.android?.apk?.url ?? a.android?.aab?.playUrl;
     case 'ios':
