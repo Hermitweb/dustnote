@@ -609,7 +609,7 @@ export function Editor() {
         ) : (
           <>
             {(mode === 'edit' || mode === 'split') && (
-              <div className="relative flex flex-1 flex-col overflow-hidden">
+              <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
                 <textarea
                   ref={textareaRef}
                   value={content}
@@ -658,7 +658,7 @@ export function Editor() {
               </div>
             )}
             {(mode === 'preview' || mode === 'split') && (
-              <div className="flex-1 overflow-y-auto p-6" onClick={(e) => {
+              <div className="min-h-0 flex-1 overflow-y-auto p-6" onClick={(e) => {
                 const target = (e.target as HTMLElement).closest('.wikilink');
                 if (target) {
                   const title = target.getAttribute('data-note-title');
