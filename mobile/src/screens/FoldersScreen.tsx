@@ -58,13 +58,14 @@ export function FoldersScreen() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [newName, setNewName] = useState('');
-  // 创建参数：父级（null=顶层）+ 顶层分支
+  // 创建参数：父级（null=顶层）
   const [parentSel, setParentSel] = useState<string | null>(null);
-  const [branchSel, setBranchSel] = useState<'work' | 'personal'>('work');
   // 重命名 / 移动
   const [renaming, setRenaming] = useState<Folder | null>(null);
   const [renameText, setRenameText] = useState('');
   const [moving, setMoving] = useState<Folder | null>(null);
+  // 树形展开状态
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // 创建 Repository（按当前模式分流）
   // mode 可能因 hydrated 延迟而短暂为 null，使用 ?? 'online' 兜底避免类型错误
@@ -138,8 +139,6 @@ export function FoldersScreen() {
       const id = await repo.createFolder({
         name,
         parentId: parentSel,
-        // 顶层创建必选分支；子文件夹由数据层继承父分支（传 null 无效）
-        branch: parentSel ? null : branchSel,
       });
       setFolders((prev) => [
         ...prev,
@@ -151,7 +150,7 @@ export function FoldersScreen() {
           sortOrder: 0,
           createdAt: new Date().toISOString(),
           depth: parent ? (parent.depth ?? 1) + 1 : 1,
-          branch: parent ? (parent.branch ?? null) : branchSel,
+          branch: parent ? (parent.branch ?? null) : null,
         },
       ]);
       setNewName('');
@@ -257,7 +256,7 @@ export function FoldersScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 创建位置：父级选择（一级文件夹可选；二级不可再嵌套） */}
+      {/* 创建位置：父级选择 */}
       <View style={styles.metaBar}>
         <Text style={styles.metaLabel}>{t('folders.create_in')}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
@@ -270,7 +269,7 @@ export function FoldersScreen() {
           {parentCandidates.map((f) => (
             <Chip
               key={f.id}
-              label={`${BRANCH_ICON[f.branch ?? 'work'] ?? '📁'} ${f.name}`}
+              label={`📁 ${f.name}`}
               active={parentSel === f.id}
               onPress={() => setParentSel(f.id)}
               styles={styles}
@@ -279,28 +278,12 @@ export function FoldersScreen() {
         </ScrollView>
       </View>
 
-      {/* 顶层创建时的分支选择（子文件夹继承父分支，无需选择） */}
-      {parentSel === null && (
-        <View style={styles.metaBar}>
-          <View style={styles.chipRow}>
-            <Chip
-              label={`💼 ${t('folders.branch_work')}`}
-              active={branchSel === 'work'}
-              onPress={() => setBranchSel('work')}
-              styles={styles}
-            />
-            <Chip
-              label={`🌿 ${t('folders.branch_personal')}`}
-              active={branchSel === 'personal'}
-              onPress={() => setBranchSel('personal')}
-              styles={styles}
-            />
-          </View>
-        </View>
-      )}
-
       <FlatList
-        data={folders}
+        data={folders.filter((f) => {
+          // 树形：只显示顶层 + 已展开的子文件夹
+          if ((f.depth ?? 1) === 1) return true;
+          return f.parentId && expanded.has(f.parentId);
+        })}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} />}
         ListEmptyComponent={
@@ -309,26 +292,41 @@ export function FoldersScreen() {
             <Text style={styles.emptyText}>{t('folders.empty')}</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <View style={styles.row}>
-            <Text style={styles.rowIcon}>{BRANCH_ICON[item.branch ?? 'work'] ?? '📁'}</Text>
-            <Text
-              style={[styles.rowName, { paddingLeft: ((item.depth ?? 1) - 1) * 16 }]}
-              numberOfLines={1}
-            >
-              {item.name}
-            </Text>
-            {/* 二级文件夹缩进标记 */}
-            {(item.depth ?? 1) > 1 && <Text style={styles.depthBadge}>L{item.depth}</Text>}
-            <TouchableOpacity
-              style={styles.deleteBtn}
-              onPress={() => openMenu(item)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={styles.deleteText}>⋯</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        renderItem={({ item }) => {
+          const hasChildren = folders.some((f) => f.parentId === item.id);
+          const isExpanded = expanded.has(item.id);
+          return (
+            <View style={[styles.row, { paddingLeft: ((item.depth ?? 1) - 1) * 20 }]}>
+              {/* 展开/折叠按钮 */}
+              {hasChildren ? (
+                <TouchableOpacity
+                  onPress={() =>
+                    setExpanded((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(item.id)) next.delete(item.id);
+                      else next.add(item.id);
+                      return next;
+                    })
+                  }
+                  style={{ marginRight: 4 }}
+                >
+                  <Text style={{ fontSize: 12, color: colors.muted }}>{isExpanded ? '▼' : '▶'}</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={{ width: 20, textAlign: 'center', marginRight: 4, color: colors.muted }}>·</Text>
+              )}
+              <Text style={styles.rowIcon}>📁</Text>
+              <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => openMenu(item)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.deleteText}>⋯</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }}
         contentContainerStyle={{ paddingBottom: 20 }}
       />
 
@@ -336,7 +334,12 @@ export function FoldersScreen() {
       <Modal visible={renaming !== null} transparent animationType="fade">
         <TouchableOpacity style={styles.modalMask} onPress={() => setRenaming(null)}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('folders.rename_title')}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={styles.modalTitle}>{t('folders.rename_title')}</Text>
+              <TouchableOpacity onPress={() => setRenaming(null)}>
+                <Text style={{ fontSize: 18, color: colors.muted }}>✕</Text>
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={styles.input}
               value={renameText}
@@ -365,9 +368,14 @@ export function FoldersScreen() {
       <Modal visible={moving !== null} transparent animationType="fade">
         <TouchableOpacity style={styles.modalMask} onPress={() => setMoving(null)}>
           <View style={[styles.modalCard, { maxHeight: 420 }]}>
-            <Text style={styles.modalTitle}>
-              {t('folders.move_folder')}「{moving?.name}」
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={styles.modalTitle}>
+                {t('folders.move_folder')}「{moving?.name}」
+              </Text>
+              <TouchableOpacity onPress={() => setMoving(null)}>
+                <Text style={{ fontSize: 18, color: colors.muted }}>✕</Text>
+              </TouchableOpacity>
+            </View>
             {folders.some((f) => f.parentId === moving?.id) && (
               <Text style={styles.modalHint}>{t('folders.has_children_top_only')}</Text>
             )}

@@ -231,15 +231,14 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   lock() {
     const k = get().masterKey;
     if (k) k.fill(0);
-    setAccessToken(null);
+    // 不清除 AsyncStorage 中的 token 和 userId —— 生物识别解锁需要它们
+    // token 会随 HTTP-only cookie 过期自动失效，无需手动清除
     set({
       authState: 'needs_unlock',
       masterKey: null,
-      userId: null,
       // 单机模式锁定时也清空内存中的 blob（保留持久化层），下次重新从存储加载
       localAuthBlob: null,
     });
-    void AsyncStorage.removeItem(USER_ID_KEY).catch(() => undefined);
   },
 
   setAccessToken(token: string) {

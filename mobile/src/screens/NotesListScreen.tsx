@@ -302,12 +302,14 @@ export function NotesListScreen() {
             // 用真实密文创建空笔记，保证列表展示与其他端一致
             const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
             const ciphertext = await packEnvelope(masterKey, empty);
+            // 当前选中文件夹 → 新笔记归属该文件夹
+            const targetFolderId = folderFilter !== 'all' && folderFilter !== 'none' ? folderFilter : null;
             await repo.createNote({
               ciphertext,
               keyVersion: 1,
               isPinned: false,
               isFavorite: false,
-              folderId: null,
+              folderId: targetFolderId,
             });
             await load();
           } catch (err) {
@@ -316,13 +318,14 @@ export function NotesListScreen() {
               try {
                 const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
                 const ciphertext = await packEnvelope(masterKey, empty);
+                const targetFolderId = folderFilter !== 'all' && folderFilter !== 'none' ? folderFilter : null;
                 await enqueueOffline('POST', '/notes', {
                   ciphertext,
                   keyVersion: 1,
                   isPinned: false,
                   isFavorite: false,
                   clientUpdatedAt: new Date().toISOString(),
-                  folderId: null,
+                  folderId: targetFolderId,
                 });
                 Alert.alert('已离线', '笔记已加入离线队列，联网后自动同步。');
               } catch {
