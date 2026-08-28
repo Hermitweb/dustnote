@@ -10,6 +10,8 @@ import { useAuthStore } from '../../state/auth';
 
 export default function Unlock() {
   const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [showTotp, setShowTotp] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const unlock = useAuthStore((s) => s.unlock);
 
@@ -20,12 +22,16 @@ export default function Unlock() {
     }
     setSubmitting(true);
     try {
-      // store.unlock 内部完成：authKey 校验 + 本地解封 masterKey（v2 协议）
-      await unlock(password);
+      await unlock(password, showTotp ? totpCode : undefined);
       Taro.reLaunch({ url: '/pages/index/index' });
     } catch (err) {
       const msg = err instanceof Error ? err.message : '解锁失败';
-      Taro.showToast({ title: msg, icon: 'none' });
+      if (msg.includes('totp_required') || msg.includes('两步验证码')) {
+        setShowTotp(true);
+        Taro.showToast({ title: '请输入两步验证码', icon: 'none' });
+      } else {
+        Taro.showToast({ title: msg, icon: 'none' });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -44,6 +50,17 @@ export default function Unlock() {
         value={password}
         onInput={(e) => setPassword((e.detail as { value: string }).value)}
       />
+
+      {showTotp && (
+        <Input
+          className="mint-input"
+          placeholder="两步验证码（6位数字）"
+          type="number"
+          maxlength={6}
+          value={totpCode}
+          onInput={(e) => setTotpCode((e.detail as { value: string }).value)}
+        />
+      )}
 
       <View
         className="mint-btn mint-btn-block"

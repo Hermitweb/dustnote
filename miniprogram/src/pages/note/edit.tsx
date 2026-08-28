@@ -18,6 +18,7 @@ import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '.
 import { getRepo } from '../../lib/get-repo';
 import { useModeStore } from '../../lib/mode-store';
 import Markdown from '../../lib/markdown';
+import { filterSlashCommands, resolveSlashCommand } from '../../lib/slash-commands';
 import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../../lib/offline-queue';
 import { toMergeable, type ConflictContext, type NoteMetadata } from '@dustnote/client-core';
 
@@ -79,6 +80,10 @@ export default function NoteEdit() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [versions, setVersions] = useState<NoteVersionMeta[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  // 斜杠命令
+  const [showSlash, setShowSlash] = useState(false);
+  const [slashQuery, setSlashQuery] = useState('');
+  const slashCommands = React.useMemo(() => filterSlashCommands(slashQuery), [slashQuery]);
 
   // 用于追踪是否已初始化加载，避免初始 load 触发自动保存
   const loadedRef = useRef(false);
@@ -512,10 +517,43 @@ export default function NoteEdit() {
           <Textarea
             className="mint-textarea flex-1"
             value={content}
-            onInput={(e) => setContent((e.detail as { value: string }).value)}
+            onInput={(e) => {
+              const val = (e.detail as { value: string }).value;
+              setContent(val);
+              // 斜杠命令检测
+              const lastNewline = val.lastIndexOf('\n');
+              const currentLine = val.slice(lastNewline + 1);
+              if (currentLine.startsWith('/') && !currentLine.includes(' ')) {
+                setShowSlash(true);
+                setSlashQuery(currentLine.slice(1));
+              } else {
+                setShowSlash(false);
+              }
+            }}
             placeholder="开始记录…"
             autoHeight
           />
+          {/* 斜杠命令菜单 */}
+          {showSlash && slashCommands.length > 0 && (
+            <View className="slash-menu">
+              {slashCommands.map((cmd) => (
+                <View
+                  key={cmd.id}
+                  className="slash-item"
+                  onClick={() => {
+                    const resolved = resolveSlashCommand(cmd.insert);
+                    const lastNewline = content.lastIndexOf('\n');
+                    const before = content.slice(0, lastNewline + 1);
+                    setContent(before + resolved);
+                    setShowSlash(false);
+                  }}
+                >
+                  <Text className="slash-icon">{cmd.icon}</Text>
+                  <Text className="slash-label">{cmd.label}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         )}
       </View>
       {shareOpen && (

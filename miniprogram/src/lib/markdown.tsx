@@ -26,7 +26,8 @@ function copyLink(url: string) {
 }
 
 // 行内语法：行内代码优先，避免 ** 或 [ 在代码里被误解析
-const INLINE_RE = /(`[^`]+`)|(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|(\[[^\]]+\]\([^)\s]+\))/g;
+// 新增 wikilink: [[title]] 或 [[title|display]]
+const INLINE_RE = /(`[^`]+`)|(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|(\[\[[^\]|]+(?:\|[^\]]+)?\]\])|(\[[^\]]+\]\([^)\s]+\))/g;
 
 /** 渲染一行内联内容（粗体/斜体/行内代码/链接） */
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
@@ -62,8 +63,22 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
         </Text>
       );
     } else if (m[4]) {
+      // [[title]] 或 [[title|display]]
+      const inner = m[4].slice(2, -2);
+      const pipeIdx = inner.indexOf('|');
+      const title = pipeIdx >= 0 ? inner.slice(0, pipeIdx).trim() : inner.trim();
+      const display = pipeIdx >= 0 ? inner.slice(pipeIdx + 1).trim() : title;
+      nodes.push(
+        <Text key={key} className="md-link" onClick={() => {
+          // TODO: 跳转到目标笔记
+          Taro.showToast({ title: `📄 ${title}`, icon: 'none' });
+        }}>
+          📄 {display}
+        </Text>
+      );
+    } else if (m[5]) {
       // [text](url)
-      const linkMatch = /\[([^\]]+)\]\(([^)\s]+)\)/.exec(m[4]);
+      const linkMatch = /\[([^\]]+)\]\(([^)\s]+)\)/.exec(m[5]);
       if (linkMatch && isSafeUrl(linkMatch[2]!)) {
         nodes.push(
           <Text key={key} className="md-link" onClick={() => copyLink(linkMatch[2]!)}>
@@ -71,7 +86,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
           </Text>
         );
       } else {
-        nodes.push(m[4]);
+        nodes.push(m[5]);
       }
     }
     last = m.index + m[0].length;
