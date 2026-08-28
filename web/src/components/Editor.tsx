@@ -375,9 +375,9 @@ export function Editor() {
   }
 
   return (
-    <main className="flex flex-1 flex-col bg-surface-bg">
+    <main className="flex min-h-0 flex-1 flex-col bg-surface-bg">
       {/* 工具栏 */}
-      <div className="flex items-center gap-2 border-b border-surface-border bg-surface-card px-4 py-2">
+      <div className="flex flex-shrink-0 items-center gap-2 border-b border-surface-border bg-surface-card px-4 py-2">
         <button
           onClick={() => setMode('edit')}
           disabled={viewMode === 'trash'}
@@ -589,7 +589,7 @@ export function Editor() {
       </div>
 
       {/* 标题 */}
-      <div className="border-b border-surface-border bg-surface-card px-6 py-3">
+      <div className="flex-shrink-0 border-b border-surface-border bg-surface-card px-6 py-3">
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}

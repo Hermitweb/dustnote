@@ -314,7 +314,7 @@ function App() {
 
   // 主界面
   return (
-    <div className="flex h-full">
+    <div className="flex h-full overflow-hidden">
       {/* 跳过导航链接（屏幕阅读器/键盘用户） */}
       <a
         href="#main-content"
