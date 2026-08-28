@@ -325,7 +325,7 @@ function App() {
       {/* 页面隐藏时全屏遮挡（§3.6），防任务切换预览/截图泄露笔记内容 */}
       {pageHidden && <div className="fixed inset-0 z-[9999] bg-surface-bg" aria-hidden="true" />}
       {!sidebarHidden && <Sidebar />}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* 顶部操作条 */}
         <header className="flex items-center gap-2 border-b border-surface-border bg-surface-card px-4 py-2">
           {/* 移动端汉堡按钮：切换 sidebar 抽屉 */}

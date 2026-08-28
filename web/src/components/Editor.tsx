@@ -601,7 +601,7 @@ export function Editor() {
 
       {/* 内容 */}
       {/* 内容 */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {mode === 'wysiwyg' ? (
           <Suspense fallback={<div className="flex flex-1 items-center justify-center text-surface-muted">加载中...</div>}>
             <WysiwygEditor content={content} onChange={setContent} placeholder={t('editor.md_placeholder')} />
