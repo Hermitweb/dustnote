@@ -609,7 +609,7 @@ export function Editor() {
         ) : (
           <>
             {(mode === 'edit' || mode === 'split') && (
-              <div className="relative flex flex-1 flex-col">
+              <div className="relative flex flex-1 flex-col overflow-hidden">
                 <textarea
                   ref={textareaRef}
                   value={content}
