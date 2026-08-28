@@ -25,7 +25,9 @@ export function UnlockScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showTotp, setShowTotp] = useState(false);
   const unlock = useAuthStore((s) => s.unlock);
   const unlockWithBiometric = useAuthStore((s) => s.unlockWithBiometric);
   const hasBiometricCache = useAuthStore((s) => s.hasBiometricCache);
@@ -38,9 +40,16 @@ export function UnlockScreen() {
     }
     setSubmitting(true);
     try {
-      await unlock(password);
+      await unlock(password, showTotp ? totpCode : undefined);
     } catch (err) {
-      Alert.alert(t('auth.unlock_failed'), (err as Error).message);
+      const msg = (err as Error).message;
+      // 如果服务端返回 totp_required，自动展开 TOTP 输入框
+      if (msg.includes('totp_required') || msg.includes('两步验证码')) {
+        setShowTotp(true);
+        Alert.alert('需要两步验证码', '请输入你的两步验证码');
+      } else {
+        Alert.alert(t('auth.unlock_failed'), msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -85,7 +94,22 @@ export function UnlockScreen() {
         autoFocus
         onSubmitEditing={onUnlock}
         placeholderTextColor={colors.muted}
+        accessibilityLabel={t('auth.unlock_password')}
+        accessibilityRole="text"
       />
+
+      {showTotp && (
+        <TextInput
+          style={styles.input}
+          placeholder="两步验证码（6位数字）"
+          keyboardType="number-pad"
+          maxLength={6}
+          value={totpCode}
+          onChangeText={setTotpCode}
+          onSubmitEditing={onUnlock}
+          placeholderTextColor={colors.muted}
+        />
+      )}
 
       <TouchableOpacity
         style={[styles.button, submitting && { opacity: 0.5 }]}

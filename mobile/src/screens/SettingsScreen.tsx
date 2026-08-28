@@ -43,6 +43,7 @@ import DocumentPicker from 'react-native-document-picker';
 import { checkUpdateOnce, resetUpdateCache } from '../lib/use-update-check';
 import { savePendingMigration, clearPendingMigration } from '../lib/migration';
 import { clearLocalAuthBlob, clearLockoutState } from '../lib/local-auth-storage';
+import { setup2fa, enable2fa, disable2fa, get2faStatus } from '../lib/totp-client';
 import type { CheckUpdateResult } from '@dustnote/shared';
 import { resolveBaseUrl } from '../lib/mode-store';
 
@@ -708,6 +709,76 @@ export function SettingsScreen() {
   };
 
   // ========== 清空数据 ==========
+
+  // ========== 2FA / TOTP ==========
+  const [show2fa, setShow2fa] = useState(false);
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [totpSecret, setTotpSecret] = useState('');
+  const [totpUri, setTotpUri] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [totpBusy, setTotpBusy] = useState(false);
+
+  // 加载2FA状态（联机模式）
+  React.useEffect(() => {
+    if (appMode !== 'online') return;
+    get2faStatus().then((r) => setTotpEnabled(r.enabled)).catch(() => {});
+  }, [appMode]);
+
+  const onSetup2fa = async () => {
+    setTotpBusy(true);
+    try {
+      const r = await setup2fa();
+      setTotpSecret(r.secret);
+      setTotpUri(r.uri);
+    } catch (err) {
+      Alert.alert('错误', (err as Error).message);
+    } finally {
+      setTotpBusy(false);
+    }
+  };
+
+  const onEnable2fa = async () => {
+    if (totpCode.length !== 6) { Alert.alert('提示', '请输入6位验证码'); return; }
+    setTotpBusy(true);
+    try {
+      await enable2fa(totpCode);
+      setTotpEnabled(true);
+      setShow2fa(false);
+      setTotpSecret('');
+      setTotpCode('');
+      Alert.alert('已启用', '两步验证已开启。下次解锁需输入验证码。');
+    } catch (err) {
+      Alert.alert('错误', (err as Error).message);
+    } finally {
+      setTotpBusy(false);
+    }
+  };
+
+  const onDisable2fa = async () => {
+    Alert.alert('关闭两步验证', '请输入当前验证码以确认关闭', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '确认',
+        onPress: async () => {
+          // 简化：复用 totpCode 状态
+          if (totpCode.length !== 6) { Alert.alert('提示', '请输入6位验证码'); return; }
+          setTotpBusy(true);
+          try {
+            await disable2fa(totpCode);
+            setTotpEnabled(false);
+            setTotpCode('');
+            Alert.alert('已关闭', '两步验证已关闭。');
+          } catch (err) {
+            Alert.alert('错误', (err as Error).message);
+          } finally {
+            setTotpBusy(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  // ========== 清空数据 ==========
   const onClearData = () => {
     Alert.alert('清空数据', '将删除全部笔记、文件夹、标签和偏好设置，且不可恢复。确定继续？', [
       { text: '取消', style: 'cancel' },
@@ -882,6 +953,21 @@ export function SettingsScreen() {
           }}
           colors={colors}
         />
+        {appMode === 'online' && (
+          <Row
+            label={totpEnabled ? '🔒 两步验证（已开启）' : '🔓 两步验证（未开启）'}
+            onPress={() => {
+              if (totpEnabled) {
+                setTotpCode('');
+                onDisable2fa();
+              } else {
+                onSetup2fa();
+                setShow2fa(true);
+              }
+            }}
+            colors={colors}
+          />
+        )}
         {appMode === 'online' && (
           <Row
             label={t('settings.shares')}
@@ -1153,6 +1239,53 @@ export function SettingsScreen() {
               <Text style={styles.modalButtonText}>确认修改</Text>
             )}
           </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* 2FA 设置 Modal */}
+      <Modal visible={show2fa && !totpEnabled} animationType="slide" transparent={false}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>设置两步验证</Text>
+            <TouchableOpacity onPress={() => { setShow2fa(false); setTotpSecret(''); setTotpCode(''); }}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.modalHint}>
+            使用 Google Authenticator、Authy 或 1Password 扫描以下密钥，输入6位验证码确认启用。
+          </Text>
+          {totpSecret ? (
+            <>
+              <View style={{ padding: 16, backgroundColor: colors.card, borderRadius: 8, marginVertical: 12 }}>
+                <Text style={{ fontFamily: 'monospace', fontSize: 14, color: colors.fg, textAlign: 'center', letterSpacing: 2 }}>
+                  {totpSecret}
+                </Text>
+              </View>
+              <Text style={[styles.modalHint, { marginBottom: 4 }]}>手动输入密钥或扫描二维码（如支持）</Text>
+              <TextInput
+                style={styles.pwInput}
+                placeholder="输入6位验证码"
+                keyboardType="number-pad"
+                maxLength={6}
+                value={totpCode}
+                onChangeText={setTotpCode}
+                placeholderTextColor={colors.muted}
+              />
+              <TouchableOpacity
+                style={[styles.modalButton, totpCode.length !== 6 && styles.modalButtonDisabled]}
+                onPress={onEnable2fa}
+                disabled={totpBusy || totpCode.length !== 6}
+              >
+                {totpBusy ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.modalButtonText}>确认启用</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            <ActivityIndicator style={{ marginTop: 24 }} />
+          )}
         </View>
       </Modal>
     </ScrollView>

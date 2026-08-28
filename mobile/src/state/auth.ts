@@ -128,7 +128,7 @@ interface AuthStoreState {
 
   // actions: 联机模式
   setup: (password: string) => Promise<string>;
-  unlock: (password: string) => Promise<void>;
+  unlock: (password: string, totpCode?: string) => Promise<void>;
   unlockWithBiometric: () => Promise<boolean>;
 
   // actions: 单机模式
@@ -305,7 +305,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     return recoveryCode;
   },
 
-  async unlock(password: string): Promise<void> {
+  async unlock(password: string, totpCode?: string): Promise<void> {
     // v2：pwSalt 在 init 时已拿到；兜底再取一次
     let salt = get().pwSalt;
     if (!salt) {
@@ -315,12 +315,17 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     }
 
     const pw = await deriveSecrets(password, fromBase64(salt));
+    const body: { authKey: string; deviceName: string; totpCode?: string } = {
+      authKey: toBase64(pw.authKey),
+      deviceName: 'Android 客户端',
+    };
+    if (totpCode) body.totpCode = totpCode;
     const r = await api.post<{
       accessToken: string;
       userId: string;
       deviceId: string;
       wrappedMasterKey: Ciphertext;
-    }>('/auth/unlock', { authKey: toBase64(pw.authKey), deviceName: 'Android 客户端' });
+    }>('/auth/unlock', body);
 
     // masterKey 只能在本地解封出来，服务端无从得知
     const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);

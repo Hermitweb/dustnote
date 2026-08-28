@@ -17,15 +17,15 @@ import { View, Text, Linking, StyleSheet } from 'react-native';
 import type { ThemeColors } from '../theme';
 
 interface Span {
-  type: 'text' | 'bold' | 'italic' | 'code' | 'link';
+  type: 'text' | 'bold' | 'italic' | 'code' | 'link' | 'wikilink';
   text: string;
   url?: string;
 }
 
-/** 解析行内格式：粗体 / 斜体 / 行内代码 / 链接 */
+/** 解析行内格式：粗体 / 斜体 / 行内代码 / 链接 / wikilink */
 function parseInline(text: string): Span[] {
   const spans: Span[] = [];
-  const re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[[^\]]+\]\([^)\s]+\))/g;
+  const re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[\[[^\]|]+(?:\|[^\]]+)?\]\])|(\[[^\]]+\]\([^)\s]+\))/g;
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
@@ -37,7 +37,14 @@ function parseInline(text: string): Span[] {
     } else if (m[3]) {
       spans.push({ type: 'italic', text: m[3].slice(1, -1) });
     } else if (m[4]) {
-      const inner = m[4];
+      // wikilink: [[title]] 或 [[title|display]]
+      const inner = m[4].slice(2, -2); // 去掉 [[ 和 ]]
+      const pipeIdx = inner.indexOf('|');
+      const title = pipeIdx >= 0 ? inner.slice(0, pipeIdx).trim() : inner.trim();
+      const display = pipeIdx >= 0 ? inner.slice(pipeIdx + 1).trim() : title;
+      spans.push({ type: 'wikilink', text: display, url: title });
+    } else if (m[5]) {
+      const inner = m[5];
       const sep = inner.indexOf('](');
       const label = inner.slice(1, sep);
       const url = inner.slice(sep + 2, -1);
@@ -88,6 +95,19 @@ function InlineText({ text, colors }: { text: string; colors: ThemeColors }) {
                 onPress={() => void Linking.openURL(s.url ?? '')}
               >
                 {s.text}
+              </Text>
+            );
+          case 'wikilink':
+            return (
+              <Text
+                key={i}
+                style={{ color: colors.accent, textDecorationLine: 'underline', fontWeight: '500' }}
+                onPress={() => {
+                  // TODO: 跳转到目标笔记（需要导航到搜索或笔记详情）
+                  // 当前仅显示为可点击链接样式
+                }}
+              >
+                📄 {s.text}
               </Text>
             );
           default:

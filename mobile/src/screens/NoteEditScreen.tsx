@@ -51,6 +51,8 @@ import { MarkdownView } from '../components/MarkdownView';
 import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../lib/offline-queue';
 import { parseEnvelope } from '../lib/envelope';
 import { useColors } from '../theme';
+import { SlashCommandMenu } from '../components/SlashCommandMenu';
+import { filterSlashCommands, resolveSlashCommand, type SlashCommand } from '../lib/slash-commands';
 import { toMergeable, type ConflictContext, type NoteMetadata } from '@dustnote/client-core';
 
 interface NoteEnvelope {
@@ -83,6 +85,10 @@ export function NoteEditScreen() {
   // 移动到文件夹 Modal
   const [showFolders, setShowFolders] = useState(false);
   const [folders, setFolders] = useState<Folder[]>([]);
+  // 斜杠命令
+  const [showSlash, setShowSlash] = useState(false);
+  const [slashQuery, setSlashQuery] = useState('');
+  const slashCommands = useMemo(() => filterSlashCommands(slashQuery), [slashQuery]);
   const [foldersLoading, setFoldersLoading] = useState(false);
   // Markdown 预览（v2.4.4）
   const [preview, setPreview] = useState(false);
@@ -570,12 +576,37 @@ export function NoteEditScreen() {
             <TextInput
               style={styles.content}
               value={content}
-              onChangeText={setContent}
+              onChangeText={(val) => {
+                setContent(val);
+                // 斜杠命令检测：行首输入 `/` 时弹出菜单
+                // React Native TextInput 没有 selectionStart，用末尾检测
+                const lastNewline = val.lastIndexOf('\n');
+                const currentLine = val.slice(lastNewline + 1);
+                if (currentLine.startsWith('/') && !currentLine.includes(' ')) {
+                  setShowSlash(true);
+                  setSlashQuery(currentLine.slice(1));
+                } else {
+                  setShowSlash(false);
+                }
+              }}
               placeholder={t('editor.content_placeholder')}
               placeholderTextColor={colors.muted}
               multiline
               textAlignVertical="top"
               editable={!decryptFailed}
+            />
+            <SlashCommandMenu
+              commands={slashCommands}
+              visible={showSlash}
+              colors={colors}
+              onSelect={(cmd) => {
+                const resolved = resolveSlashCommand(cmd.insert);
+                // 替换当前行的 /query 为命令内容
+                const lastNewline = content.lastIndexOf('\n');
+                const before = content.slice(0, lastNewline + 1);
+                setContent(before + resolved);
+                setShowSlash(false);
+              }}
             />
           </>
         )}
