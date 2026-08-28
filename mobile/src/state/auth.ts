@@ -263,8 +263,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const pwSalt = randomBytes(16);
     const rcSalt = randomBytes(16);
 
-    const pw = await deriveSecrets(password, pwSalt);
-    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), rcSalt);
+    const pw = await deriveSecrets(password, pwSalt, KDF_PARAMS_MOBILE);
+    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), rcSalt, KDF_PARAMS_MOBILE);
     const wrappedPw = await wrapKey(pw.kek, masterKey);
     const wrappedRc = await wrapKey(rc.kek, masterKey);
 
@@ -314,7 +314,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       if (!salt) throw new Error('系统未初始化');
     }
 
-    const pw = await deriveSecrets(password, fromBase64(salt));
+    const pw = await deriveSecrets(password, fromBase64(salt), KDF_PARAMS_MOBILE);
     const body: { authKey: string; deviceName: string; totpCode?: string } = {
       authKey: toBase64(pw.authKey),
       deviceName: 'Android 客户端',
@@ -548,7 +548,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       salt = status.pwSalt;
       if (!salt) throw new Error('系统未初始化');
     }
-    const pw = await deriveSecrets(currentPassword, fromBase64(salt));
+    const pw = await deriveSecrets(currentPassword, fromBase64(salt), KDF_PARAMS_MOBILE);
     const r = await api.post<{
       accessToken: string;
       userId: string;
@@ -559,7 +559,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
     // 2. 新密码派生新 KEK，重新包装同一把 masterKey（masterKey 不变，笔记照常可解）
     const newPwSalt = randomBytes(16);
-    const np = await deriveSecrets(newPassword, newPwSalt);
+    const np = await deriveSecrets(newPassword, newPwSalt, KDF_PARAMS_MOBILE);
     const wrappedPw = await wrapKey(np.kek, masterKey);
 
     // 3. 上传新包装（rewrap 需要鉴权，先落 token）
@@ -617,7 +617,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     if (newPassword.length < 8) throw new Error('新主密码至少 8 字符');
     // v2：先取恢复码派生所需的 rc_salt（盐不是秘密，无需鉴权）
     const { rcSalt } = await api.get<{ rcSalt: string }>('/auth/recovery-params');
-    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), fromBase64(rcSalt));
+    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), fromBase64(rcSalt), KDF_PARAMS_MOBILE);
 
     const r = await api.post<{
       accessToken: string;
@@ -634,7 +634,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
     // 拿回 masterKey 后立刻用新密码重新包装（masterKey 本身不变）
     const newPwSalt = randomBytes(16);
-    const pw = await deriveSecrets(newPassword, newPwSalt);
+    const pw = await deriveSecrets(newPassword, newPwSalt, KDF_PARAMS_MOBILE);
     const wrappedPw = await wrapKey(pw.kek, masterKey);
 
     // 先落 token，rewrap 是需要鉴权的接口
