@@ -45,6 +45,7 @@ import {
   remainingLockoutMs,
   INITIAL_LOCKOUT_STATE,
   LOCAL_LOCKOUT_DURATION_MS,
+  KDF_PARAMS,
   KDF_PARAMS_MOBILE,
   KDF_VERSION,
   type Ciphertext,
@@ -278,6 +279,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         pwSalt: toBase64(pwSalt),
         rcSalt: toBase64(rcSalt),
         deviceName: 'Android 客户端',
+        kdfParams: KDF_PARAMS_MOBILE,
       }
     );
 
@@ -305,15 +307,28 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   async unlock(password: string, totpCode?: string): Promise<void> {
-    // v2：pwSalt 在 init 时已拿到；兜底再取一次
+    // v2：pwSalt 在 init 时已拿到；兜底再取一次（同时读取 KDF 参数）
     let salt = get().pwSalt;
+    let kdfParams = KDF_PARAMS_MOBILE;
     if (!salt) {
-      const status = await api.get<{ pwSalt: string | null }>('/auth/status');
+      const status = await api.get<{ pwSalt: string | null; kdfParams?: { algorithm: string; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/status');
       salt = status.pwSalt;
       if (!salt) throw new Error('系统未初始化');
+      // 根据服务端返回的 KDF 参数选择正确算法（兼容 web 创建的 Argon2id 账号）
+      if (status.kdfParams) {
+        kdfParams = status.kdfParams.algorithm === 'argon2id' ? KDF_PARAMS : KDF_PARAMS_MOBILE;
+      }
+    } else {
+      // 即使有缓存的 salt，也要检查 KDF 参数
+      try {
+        const status = await api.get<{ kdfParams?: { algorithm: string; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/status');
+        if (status.kdfParams) {
+          kdfParams = status.kdfParams.algorithm === 'argon2id' ? KDF_PARAMS : KDF_PARAMS_MOBILE;
+        }
+      } catch { /* 使用默认 PBKDF2 */ }
     }
 
-    const pw = await deriveSecrets(password, fromBase64(salt), KDF_PARAMS_MOBILE);
+    const pw = await deriveSecrets(password, fromBase64(salt), kdfParams);
     const body: { authKey: string; deviceName: string; totpCode?: string } = {
       authKey: toBase64(pw.authKey),
       deviceName: 'Android 客户端',
@@ -614,9 +629,10 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
   async recoverOnline(recoveryCode: string, newPassword: string): Promise<void> {
     if (newPassword.length < 8) throw new Error('新主密码至少 8 字符');
-    // v2：先取恢复码派生所需的 rc_salt（盐不是秘密，无需鉴权）
-    const { rcSalt } = await api.get<{ rcSalt: string }>('/auth/recovery-params');
-    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), fromBase64(rcSalt), KDF_PARAMS_MOBILE);
+    // v2：先取恢复码派生所需的 rc_salt + KDF 参数
+    const recoveryParams = await api.get<{ rcSalt: string; kdfParams?: { algorithm: string; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/recovery-params');
+    const kdfParams = recoveryParams.kdfParams?.algorithm === 'argon2id' ? KDF_PARAMS : KDF_PARAMS_MOBILE;
+    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), fromBase64(recoveryParams.rcSalt), kdfParams);
 
     const r = await api.post<{
       accessToken: string;

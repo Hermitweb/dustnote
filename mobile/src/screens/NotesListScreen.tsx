@@ -57,7 +57,7 @@ export function NotesListScreen() {
   const [error, setError] = useState<string | null>(null);
   // 筛选 / 排序（v2.4.4 新增）
   const [tab, setTab] = useState<'all' | 'fav'>('all');
-  const [folderFilter, setFolderFilter] = useState<string>('all'); // 'all' | 'none' | folderId
+  const [folderFilter, setFolderFilter] = useState<string>('all'); // 'all' | folderId
   const [sortBy, setSortBy] = useState<'time' | 'title' | 'words'>('time');
   const [folders, setFolders] = useState<Folder[]>([]);
 
@@ -129,7 +129,6 @@ export function NotesListScreen() {
       .filter((n) => (tab === 'fav' ? !!n.isFavorite : true))
       .filter((n) => {
         if (folderFilter === 'all') return true;
-        if (folderFilter === 'none') return n.folderId == null;
         return n.folderId === folderFilter;
       })
       .filter((n) => {
@@ -227,12 +226,6 @@ export function NotesListScreen() {
             onPress={() => setFolderFilter('all')}
             colors={colors}
           />
-          <FilterChip
-            label="📄 未分类"
-            active={folderFilter === 'none'}
-            onPress={() => setFolderFilter('none')}
-            colors={colors}
-          />
           {folders.map((f) => (
             <FilterChip
               key={f.id}
@@ -303,7 +296,7 @@ export function NotesListScreen() {
             const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
             const ciphertext = await packEnvelope(masterKey, empty);
             // 当前选中文件夹 → 新笔记归属该文件夹
-            const targetFolderId = folderFilter !== 'all' && folderFilter !== 'none' ? folderFilter : null;
+            const targetFolderId = folderFilter !== 'all' ? folderFilter : null;
             await repo.createNote({
               ciphertext,
               keyVersion: 1,
@@ -318,7 +311,7 @@ export function NotesListScreen() {
               try {
                 const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
                 const ciphertext = await packEnvelope(masterKey, empty);
-                const targetFolderId = folderFilter !== 'all' && folderFilter !== 'none' ? folderFilter : null;
+                const targetFolderId = folderFilter !== 'all' ? folderFilter : null;
                 await enqueueOffline('POST', '/notes', {
                   ciphertext,
                   keyVersion: 1,

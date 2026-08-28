@@ -131,6 +131,7 @@ interface UserRow {
   locked_until: string | null;
   totp_secret: string | null;
   totp_enabled: number;
+  kdf_params: string;
 }
 
 function loadUser(): UserRow | undefined {
@@ -138,7 +139,7 @@ function loadUser(): UserRow | undefined {
     .prepare(
       `SELECT id, pw_salt, rc_salt, auth_hash, recovery_auth_hash,
               wrapped_master_key_pw, wrapped_master_key_rc,
-              failed_attempts, locked_until, totp_secret, totp_enabled
+              failed_attempts, locked_until, totp_secret, totp_enabled, kdf_params
        FROM users WHERE auth_hash IS NOT NULL ORDER BY id LIMIT 1`
     )
     .get() as UserRow | undefined;
@@ -203,19 +204,21 @@ authRouter.get('/auth/status', (req, res) => {
     deviceKnown = !!db.prepare('SELECT 1 FROM devices WHERE id = ?').get(client.deviceId);
   }
 
+  // 读取实际存储的 KDF 参数（web=argon2id, mobile=pbkdf2）
+  let kdfParams = KDF_PARAMS;
+  if (user) {
+    try {
+      kdfParams = JSON.parse(user.kdf_params);
+    } catch { /* fallback to default */ }
+  }
+
   res.json({
     initialized: !!user,
     deviceKnown,
     // 派生 KEK 需要盐，客户端在输入密码前就得拿到。盐不是秘密。
     pwSalt: user ? user.pw_salt.toString('base64') : null,
     totpEnabled: user ? !!user.totp_enabled : false,
-    kdfParams: {
-      algorithm: 'argon2id',
-      m: KDF_PARAMS.m,
-      t: KDF_PARAMS.t,
-      p: KDF_PARAMS.p,
-      dkLen: KDF_PARAMS.dkLen,
-    },
+    kdfParams,
   });
 });
 
@@ -233,6 +236,15 @@ const SetupSchema = z.object({
   pwSalt: SaltSchema,
   rcSalt: SaltSchema,
   deviceName: z.string().min(1).max(64).default(DEFAULT_DEVICE_NAME),
+  /** 客户端 KDF 参数（web=argon2id, mobile=miniprogram=pbkdf2） */
+  kdfParams: z.object({
+    algorithm: z.string(),
+    m: z.number(),
+    t: z.number(),
+    p: z.number(),
+    iterations: z.number().optional(),
+    dkLen: z.number(),
+  }).optional(),
 });
 
 authRouter.post(
@@ -287,7 +299,7 @@ authRouter.post(
         recoveryAuthHash,
         JSON.stringify(d.wrappedMasterKeyPw),
         JSON.stringify(d.wrappedMasterKeyRc),
-        JSON.stringify(KDF_PARAMS),
+        JSON.stringify(d.kdfParams ?? KDF_PARAMS),
         // v1 遗留列为 NOT NULL，填入空占位值；v2 不再读取它们
         Buffer.alloc(0),
         Buffer.alloc(0),
@@ -442,15 +454,13 @@ authRouter.get('/auth/recovery-params', (_req, res) => {
     res.status(404).json({ error: 'not_initialized' });
     return;
   }
+  let kdfParams = KDF_PARAMS;
+  try {
+    kdfParams = JSON.parse(user.kdf_params);
+  } catch { /* fallback */ }
   res.json({
     rcSalt: user.rc_salt.toString('base64'),
-    kdfParams: {
-      algorithm: 'argon2id',
-      m: KDF_PARAMS.m,
-      t: KDF_PARAMS.t,
-      p: KDF_PARAMS.p,
-      dkLen: KDF_PARAMS.dkLen,
-    },
+    kdfParams,
   });
 });
 
