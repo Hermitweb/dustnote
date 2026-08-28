@@ -13,6 +13,21 @@
 - 双向链接 / 知识图谱
 - 插件系统
 
+## [2.5.15] - 2026-08-28
+
+### 新功能（多端同步）
+
+- **Mobile + Miniprogram 同步 v2.5.13 核心功能**：
+  - TOTP 两步验证：设置页启用/禁用，解锁时自动检测并显示验证码输入
+  - 双向链接 `[[标题]]`：Markdown 渲染器支持 wikilink 语法，显示为可点击链接
+  - 斜杠命令：编辑器输入 `/` 弹出命令菜单（日期/标题/列表/待办/代码块/引用/分割线/表格/链接）
+- **Mobile 无障碍改进**：UnlockScreen 添加 accessibilityLabel + accessibilityRole
+
+### 依赖
+
+- Mobile 新增 `totp-client.ts`、`slash-commands.ts`、`SlashCommandMenu.tsx`
+- Miniprogram 新增 `totp-client.ts`、`slash-commands.ts`
+
 ## [2.5.14] - 2026-08-28
 
 ### 修复
