@@ -30,6 +30,19 @@ const DEFAULT_STATE: ModeState = {
   initialized: false,
 };
 
+/** 同步服务器地址到 URL 参数（便于书签，清空数据后仍可自动连接） */
+function syncUrl(serverUrl: string | null): void {
+  try {
+    const url = new URL(location.href);
+    if (serverUrl) {
+      url.searchParams.set('server', serverUrl);
+    } else {
+      url.searchParams.delete('server');
+    }
+    history.replaceState(null, '', url.toString());
+  } catch { /* SSR / 非浏览器环境 */ }
+}
+
 function loadState(): ModeState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -64,12 +77,18 @@ export const useModeStore = create<ModeStore>((set, get) => ({
     const next = { ...get(), serverUrl: url };
     saveState(next);
     set({ serverUrl: url });
+    // 同步到 URL 参数（便于书签/分享）
+    syncUrl(url);
   },
 
   initialize(): void {
     const next = { ...get(), initialized: true };
     saveState(next);
     set({ initialized: true });
+    // 初始化时同步服务器地址到 URL
+    if (next.mode === 'online' && next.serverUrl) {
+      syncUrl(next.serverUrl);
+    }
   },
 
   resetMode(): void {

@@ -57,6 +57,18 @@ function App() {
   const sidebarHidden = useStore((s) => s.sidebarHidden);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
 
+  // URL 参数自动连接：?server=http://xxx 自动跳过模式选择
+  useEffect(() => {
+    if (modeInitialized) return;
+    const params = new URLSearchParams(location.search);
+    const server = params.get('server');
+    if (server && /^https?:\/\/.+/i.test(server)) {
+      useModeStore.getState().setMode('online');
+      useModeStore.getState().setServerUrl(server.replace(/\/+$/, ''));
+      useModeStore.getState().initialize();
+    }
+  }, [modeInitialized]);
+
   const [showSettings, setShowSettings] = useState(false);
   const [showShares, setShowShares] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
