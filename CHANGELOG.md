@@ -13,6 +13,32 @@
 - 知识图谱
 - 插件系统
 
+## [2.5.18] - 2026-08-30
+
+本版集中修复真机调试与 Windows 真机反馈的一批阻断性问题。
+
+### 修复
+
+- **Windows/桌面端无法切换联机模式（两层叠加）**：
+  1. `switchMode` 未解锁时硬抛"切换模式前需先解锁"——全新安装点切换必失败；改为无本地数据（未建金库/未登录）时直接切换并重新探测鉴权流，有数据则提示先解锁
+  2. 设置页服务器地址输入框只在联机模式下显示——单机用户切联机时无处填地址，切过去 serverUrl 为空、联机不可用；改为始终显示并按场景提示，切联机时地址必填校验（缺失则报"请先填写服务器地址"）
+- **联机首装竞态导致"假注册"到本地**：主 store 的 mode 仅在模块加载时快照一次，首装选联机后路由仍按单机渲染（StandaloneSetupScreen），账号被创建进本地 IndexedDB 而服务端 users 为 0，随后出现双重注册。修复：mode-store → 主 store 订阅同步 + `initRepository` 直读 mode-store 自愈（web/桌面端）
+- **Android 解锁界面永久卡死"正在派生密钥"**：mobile ApiClient 未设超时，移动网络抖动时 unlock 前置的 /auth/status 探测 fetch 无限挂起且无任何提示；全链路补 30s 超时
+- **Android 锁屏后再解锁报"token 已失效"**：access token 15 分钟过期，生物识别解锁直接复用过期 token 且无续签路径（服务端 refresh 走 HTTP-only cookie，RN 无法持久化）。修复：服务端 /auth/refresh 兼容 `X-Refresh-Token` header 且 setup/unlock/refresh 响应携带 refreshToken；mobile 自管 refresh token + 401 静默刷新重放；生物解锁先续签再进入，失败回退密码解锁
+- **Android"测试连接"始终假失败**：旧实现先写 serverUrl 再走 api 单例，依赖 resolveBaseUrl 读到的 mode——首装时 mode 仍为 standalone，请求实际打到 localhost:3210。改为独立 ApiClient 直接测用户输入的地址（与"连接服务器"路径解耦）
+- **Android 点"+"创建笔记后不进编辑器**：只刷新列表，用户面对一篇未打开的空笔记；创建成功后直接导航到编辑页（与 Web 行为一致）
+- **本地 Android 构建必挂**：gradle 硬编码 `../../node_modules`，pnpm hoisted 布局下依赖在仓库根 node_modules；改双路径探测，CI 与本地环境均兼容
+- **deploy 脚本 PowerShell 5.1 解析失败（存量）**：deploy.ps1/install.ps1 为无 BOM UTF-8，中文 Windows 按 GBK 误读导致 6 处语法错误——一条命令安装引导在中文 Windows 上从未可用；补 UTF-8 BOM
+
+### 改进
+
+- **Android 解锁性能（方案 3）**：移动端 PBKDF2 迭代 600000 → 310000（OWASP 2023 推荐档位），中端真机派生耗时约减半；存量账号不受影响（服务端按设备记录 kdfParams）；解锁按钮文案改为"正在派生密钥（约 2-4 秒）…"明确等待预期
+- **连接失败提示细分**：不再把所有 fetch 失败笼统报"网络不可达，请检查地址"，改为列出地址错误/服务器不可达/系统按应用联网管控三种可能（vivo i管家拦截场景真机实测）
+- **生物解锁诊断增强**：keychain 写入失败不再静默，读取失败区分"条目不存在"与"校验失败"并输出分类日志
+- deploy.sh/ps1：新增 `--origin`/`-Origin` 覆盖 WEB_ORIGIN，默认按本机 IP 推导 CORS 白名单（原为 http://localhost）；compose 构建日志重定向避免淹没关键输出；修正"内网"措辞误导
+- DEPLOY.md：环境变量默认值表与 .env.example 对齐；补充 Docker 发布端口绕过 ufw/firewalld INPUT 规则的安全提示；install 引导脚本分支说明
+- Dockerfile：server 依赖部署加 `--prod` 剔除 devDependencies（减小镜像体积）
+
 ## [2.5.17] - 2026-08-29
 
 ### 新功能（多端同步）

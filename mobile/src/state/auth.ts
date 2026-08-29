@@ -54,7 +54,7 @@ import {
 } from '@dustnote/shared';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api, setAccessToken } from '../api';
+import { api, setAccessToken, setRefreshToken, refreshAccessTokenSilently } from '../api';
 import { useModeStore } from '../lib/mode-store';
 import {
   loadLocalAuthBlob,
@@ -82,20 +82,33 @@ const USER_ID_KEY = 'dustnote_user_id';
  * 代价：无生物识别的设备无法使用此缓存，每次都需输入主密码——这是 E2EE 应用的合理取舍。
  */
 async function cacheMasterKeyForBiometric(masterKey: Uint8Array): Promise<void> {
-  await Keychain.setGenericPassword('master', toBase64(masterKey), {
-    service: MASTER_KEYCHAIN_SERVICE,
-    accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_CURRENT_SET,
-    accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-  });
+  try {
+    await Keychain.setGenericPassword('master', toBase64(masterKey), {
+      service: MASTER_KEYCHAIN_SERVICE,
+      accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_CURRENT_SET,
+      accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    });
+  } catch (err) {
+    // 写入失败不再静默：部分国产 ROM（vivo/OriginOS）对带生物访问控制的
+    // Keystore 条目存在兼容问题，静默失败会让用户在生物解锁时只看到
+    // "未找到缓存的解锁信息"，无从排查（v2.5.18 诊断增强）。
+    console.warn('[Biometric] keychain write failed:', (err as Error)?.message ?? err);
+    throw err;
+  }
 }
 
 /** 读取缓存的 masterKey（受生物识别保护）；失败/不存在返回 null */
 async function readCachedMasterKey(): Promise<Uint8Array | null> {
   try {
     const creds = await Keychain.getGenericPassword({ service: MASTER_KEYCHAIN_SERVICE });
-    if (!creds) return null;
+    if (!creds) {
+      console.warn('[Biometric] keychain read: entry not found');
+      return null;
+    }
     return fromBase64(creds.password);
-  } catch {
+  } catch (err) {
+    // 条目存在但读取失败（生物校验不过 / 录入集合变更使旧条目作废 / ROM 兼容）
+    console.warn('[Biometric] keychain read failed:', (err as Error)?.message ?? err);
     return null;
   }
 }
@@ -268,7 +281,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const wrappedPw = await wrapKey(pw.kek, masterKey);
     const wrappedRc = await wrapKey(rc.kek, masterKey);
 
-    const r = await api.post<{ accessToken: string; userId: string; deviceId: string }>(
+    const r = await api.post<{ accessToken: string; refreshToken?: string; userId: string; deviceId: string }>(
       '/auth/setup',
       {
         // 主密码不出客户端，服务端只拿到 authKey 和密文
@@ -287,6 +300,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     await cacheMasterKeyForBiometric(masterKey);
 
     setAccessToken(r.accessToken);
+    // 自管 refresh token（RN 无 cookie;供 401 静默刷新与生物解锁续签）
+    if (r.refreshToken) void setRefreshToken(r.refreshToken);
     // 注意：此处不设置 authState: 'unlocked'！
     // setup 返回 recoveryCode 后 SetupScreen 需展示恢复码，
     // 提前切 'unlocked' 会导致 App.tsx 立即路由到主界面，恢复码界面被卸载。
@@ -336,6 +351,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     if (totpCode) body.totpCode = totpCode;
     const r = await api.post<{
       accessToken: string;
+      refreshToken?: string;
       userId: string;
       deviceId: string;
       wrappedMasterKey: Ciphertext;
@@ -348,6 +364,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     await cacheMasterKeyForBiometric(masterKey);
 
     setAccessToken(r.accessToken);
+    // 自管 refresh token（RN 无 cookie；锁屏 >15min 后由 401 静默刷新续命）
+    if (r.refreshToken) await setRefreshToken(r.refreshToken);
     set({
       authState: 'unlocked',
       accessToken: r.accessToken,
@@ -366,12 +384,20 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   async unlockWithBiometric(): Promise<boolean> {
     // 读取 keychain 中受生物识别保护的 masterKey
     const masterKey = await readCachedMasterKey();
-    if (!masterKey) return false;
+    if (!masterKey) {
+      console.warn('[Biometric] unlockWithBiometric: no cached masterKey, fallback to password');
+      return false;
+    }
 
-    // 复用 AsyncStorage 中持久化的 access token（密码解锁时已写入）
+    const userId = await AsyncStorage.getItem(USER_ID_KEY);
+    // access token 只有 15 分钟寿命：生物解锁时旧 token 大概率已过期。
+    // 先用自管 refresh token 静默换新（服务端 /auth/refresh 轮换 refresh token）；
+    // refresh 失败（30 天过期/设备被吊销）则回退密码解锁（v2.5.18 修复锁屏后
+    // 生物解锁报 token 已失效）。
+    const refreshed = await refreshAccessTokenSilently();
+    if (!refreshed) return false;
     const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
     if (!token) return false;
-    const userId = await AsyncStorage.getItem(USER_ID_KEY);
 
     setAccessToken(token);
     set({
@@ -565,10 +591,12 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const pw = await deriveSecrets(currentPassword, fromBase64(salt), KDF_PARAMS_MOBILE);
     const r = await api.post<{
       accessToken: string;
+      refreshToken?: string;
       userId: string;
       deviceId: string;
       wrappedMasterKey: Ciphertext;
     }>('/auth/unlock', { authKey: toBase64(pw.authKey), deviceName: 'Android 客户端' });
+    if (r.refreshToken) void setRefreshToken(r.refreshToken);
     const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
 
     // 2. 新密码派生新 KEK，重新包装同一把 masterKey（masterKey 不变，笔记照常可解）

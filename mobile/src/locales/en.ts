@@ -68,7 +68,7 @@ const en = {
     unlock_subtitle: 'Enter your master password to unlock',
     unlock_password: 'Master Password',
     unlock_btn: 'Unlock',
-    unlocking: 'Unlocking…',
+    unlocking: 'Deriving key (~2-4s)…',
     unlock_biometric: '👆 Use biometrics',
     unlock_biometric_prompt: 'Unlock DustNote',
     unlock_biometric_unavailable: 'Biometrics not configured on this device',

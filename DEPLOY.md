@@ -29,7 +29,9 @@ curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fi
 powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.ps1 | iex"
 ```
 
-> 指定版本：追加 `--version v2.5.17`（Linux/macOS）或 `-Version v2.5.17`（Windows）；默认自动获取 GitHub 最新 Release。
+> 指定版本：追加 `--version v2.5.18`（Linux/macOS）或 `-Version v2.5.18`（Windows）；默认自动获取 GitHub 最新 Release。
+>
+> ℹ️ 引导脚本（install.sh / install.ps1）从开发分支拉取以便获取最新修复；**实际部署产物按 tag 固定**（Release 里的 `dustnote-server-v<version>.zip`）。对引导脚本本身有强稳定性要求时，可用 `--version` 固定版本并离线执行 `deploy/deploy.sh`。
 
 ### 已有部署包 / 仓库：本地一键部署
 
@@ -132,6 +134,8 @@ curl http://localhost:8080/api/v1/health
 ```
 
 浏览器访问 `http://<服务器IP>:8080` 即可使用。
+
+> ⚠️ **防火墙提示**：Docker 发布的端口（`ports:` 映射）走 iptables 的 DOCKER 链，**会绕过 ufw/firewalld 的 INPUT 规则**——即使防火墙未放行 8080，外部也可能直接访问。如需限制来源，可在 `docker-compose.yml` 中把端口绑定到回环地址（`127.0.0.1:8080:80`）再由反代对外，或在防火墙的 `DOCKER-USER` 链中配置规则。
 
 ### 3.2 生产部署（HTTPS，公网 VPS）
 
@@ -352,11 +356,11 @@ sudo journalctl -u dustnote -f
 | `PORT`                       | `3210`                         | 容器内监听端口；宿主机映射见 `docker-compose.yml` 中 `${PORT:-8080}` |
 | `DB_PATH`                    | `/app/server/data/dustnote.db` | SQLite 数据库路径（容器内绝对路径）                                  |
 | `WEB_ORIGIN`                 | `http://localhost`             | Web 前端 origin，用于 CORS 白名单（生产必须改为实际域名）            |
-| `SERVER_VERSION`             | `2.0.0`                        | 服务端版本号（**与 package.json 一致**，客户端校验用）               |
+| `SERVER_VERSION`             | 与 `package.json` 一致         | 服务端版本号（**与 package.json 一致**，客户端校验用）               |
 | `JWT_SECRET`                 | `dev-secret-change-me`         | JWT 签名密钥（**生产必须修改**，建议 `openssl rand -hex 32`）        |
 | `LOG_LEVEL`                  | `info`                         | 日志级别：`trace` / `debug` / `info` / `warn` / `error`              |
-| `MIN_CLIENT_VERSION`         | `0.1.0`                        | 客户端最低支持版本（低于此版本将拒绝连接）                           |
-| `RECOMMENDED_CLIENT_VERSION` | `0.1.0`                        | 推荐客户端版本（低于此版本将提示升级）                               |
+| `MIN_CLIENT_VERSION`         | `2.0.2`                        | 客户端最低支持版本（低于此版本将拒绝连接）                           |
+| `RECOMMENDED_CLIENT_VERSION` | 与 `package.json` 一致         | 推荐客户端版本（低于此版本将提示升级）                               |
 | `FORCE_UPDATE_VERSION`       | （空）                         | 强制升级版本（设置后低于此版本的客户端必须升级才能使用）             |
 | `EOL_DATE_FOR_V0`            | （空）                         | 旧 MAJOR 版本客户端 EOL 日期                                         |
 | `DOMAIN`                     | `localhost`                    | 仅 TLS 模式：Caddy 反向代理域名                                      |
@@ -750,7 +754,7 @@ docker compose logs caddy
 - [ ] `WEB_ORIGIN` 已改为实际域名
 - [ ] `LOG_LEVEL` 设为 `info` 或 `warn`（避免记录敏感字段）
 - [ ] 已启用 HTTPS（Caddy 自动 / Nginx + Certbot）
-- [ ] 已配置防火墙（仅开放 80 / 443 / SSH 端口）
+- [ ] 已配置防火墙（仅开放 80 / 443 / SSH 端口；**注意 Docker 发布的端口会绕过 ufw/firewalld 的 INPUT 规则**，需在 compose 绑定回环或 DOCKER-USER 链限制）
 - [ ] 已配置定时数据库备份（§9.2）
 - [ ] 已配置外部健康监控（§8.3）
 - [ ] 已关闭服务器 SSH 密码登录（仅密钥）

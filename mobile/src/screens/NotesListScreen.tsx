@@ -297,14 +297,16 @@ export function NotesListScreen() {
             const ciphertext = await packEnvelope(masterKey, empty);
             // 当前选中文件夹 → 新笔记归属该文件夹
             const targetFolderId = folderFilter !== 'all' ? folderFilter : null;
-            await repo.createNote({
+            const newId = await repo.createNote({
               ciphertext,
               keyVersion: 1,
               isPinned: false,
               isFavorite: false,
               folderId: targetFolderId,
             });
-            await load();
+            // 创建后直接进入编辑器（与 Web 端行为一致）；否则只刷列表、
+            // 用户面对一篇没有打开的空笔记（真机实测反馈）
+            navigation.navigate('NoteEdit', { noteId: newId });
           } catch (err) {
             // 联机模式网络不可用：入队待同步（离线队列简化版）
             if (mode === 'online' && isNetworkError(err)) {

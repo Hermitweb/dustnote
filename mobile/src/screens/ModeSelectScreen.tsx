@@ -29,8 +29,9 @@ import logoImage from '../assets/logo.png';
 import { useTranslation } from 'react-i18next';
 import { useModeStore } from '../lib/mode-store';
 import { useColors } from '../theme';
-import { api } from '../api';
-import type { AppMode } from '@dustnote/shared';
+import { getDeviceId } from '../api';
+import { ApiClient, type AppMode, type ClientChannel, type ClientPlatform } from '@dustnote/shared';
+import { APP_VERSION } from '../lib/version';
 
 export function ModeSelectScreen() {
   const colors = useColors();
@@ -64,13 +65,27 @@ export function ModeSelectScreen() {
     }
     setTesting(true);
     try {
-      // 临时写入 store，让 api 拦截器使用新 baseUrl
-      setServerUrl(trimmed);
+      // 独立测试客户端：直接用输入的 URL，不经过 mode-store / resolveBaseUrl。
+      // 旧实现「先 setServerUrl 再走 api 单例」依赖 resolveBaseUrl 读到的 mode，
+      // 但首装时 mode 尚为 standalone → 请求打到 localhost:3210 假失败（真机实测）。
+      const deviceId = await getDeviceId();
+      const client = new ApiClient({
+        baseUrl: `${trimmed.replace(/\/+$/, '')}/api/v1`,
+        clientVersion: APP_VERSION,
+        platform: 'android' as ClientPlatform,
+        channel: 'stable' as ClientChannel,
+        deviceId,
+      });
       // 使用 AbortController 添加 10s 超时
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10000);
       try {
-        const r = await api.get<{ initialized: boolean }>('/auth/status');
+        const r = await client.request<{ initialized: boolean }>(
+          'GET',
+          '/auth/status',
+          undefined,
+          { signal: controller.signal }
+        );
         clearTimeout(timer);
         Alert.alert(
           t('mode_select.connection_ok'),
@@ -79,10 +94,14 @@ export function ModeSelectScreen() {
       } catch (err) {
         clearTimeout(timer);
         const msg = (err as Error).message;
-        if (msg?.includes('abort') || msg?.includes('timeout')) {
+        if (msg?.includes('abort') || msg?.includes('timeout') || msg?.includes('AbortError')) {
           Alert.alert(t('mode_select.connection_failed'), '连接超时（10秒），请检查地址和网络');
-        } else if (msg?.includes('fetch') || msg?.includes('network') || msg?.includes('Network')) {
-          Alert.alert(t('mode_select.connection_failed'), '网络不可达，请检查地址是否正确');
+        } else if (msg?.includes('fetch') || msg?.includes('Network') || msg?.includes('network')) {
+          // RN fetch 层失败：可能为地址错误、服务器不可达，或系统级按应用联网管控被禁
+          Alert.alert(
+            t('mode_select.connection_failed'),
+            '无法连接服务器：请检查地址是否正确、服务器是否可达，以及系统设置中是否允许本应用联网'
+          );
         } else {
           Alert.alert(t('mode_select.connection_failed'), msg || '未知错误');
         }

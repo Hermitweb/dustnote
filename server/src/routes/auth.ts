@@ -119,6 +119,18 @@ function writeRefreshCookie(res: Response, token: string): void {
   });
 }
 
+/**
+ * 读取 refresh token：cookie（web 标准）或 X-Refresh-Token header。
+ * header 通道为 React Native 等无法持久化 HTTP-only cookie 的客户端提供
+ * refresh 能力（v2.5.18：修复 mobile 锁屏 15 分钟后 token 过期无法恢复）。
+ * 安全性等同：两者都是 30 天轮换 refresh token,服务端只存哈希。
+ */
+function readRefreshToken(req: Request): string | undefined {
+  const header = req.headers?.['x-refresh-token'];
+  if (typeof header === 'string' && header.length > 0) return header;
+  return req.cookies?.dustnote_refresh as string | undefined;
+}
+
 interface UserRow {
   id: string;
   pw_salt: Buffer;
@@ -179,7 +191,7 @@ function issueSession(
   res: Response,
   userId: string,
   deviceId: string
-): { accessToken: string; userId: string; deviceId: string } {
+): { accessToken: string; userId: string; deviceId: string; refreshToken: string } {
   const access = issueAccessToken(userId, deviceId);
   const refresh = issueRefreshToken(userId, deviceId);
   // 持久化 refresh token 哈希到 devices.refresh_token_hash。
@@ -189,7 +201,8 @@ function issueSession(
     .prepare('UPDATE devices SET refresh_token_hash = ? WHERE id = ? AND user_id = ?')
     .run(hashRefreshToken(refresh), deviceId, userId);
   writeRefreshCookie(res, refresh);
-  return { accessToken: access, userId, deviceId };
+  // refreshToken 进 body:RN 等无 cookie 持久化能力的客户端自管轮换（v2.5.18）
+  return { accessToken: access, userId, deviceId, refreshToken: refresh };
 }
 
 // ========== GET /auth/status ==========
@@ -650,7 +663,7 @@ authRouter.post(
 // ========== POST /auth/refresh ==========
 
 authRouter.post('/auth/refresh', (req, res) => {
-  const refresh = req.cookies?.dustnote_refresh as string | undefined;
+  const refresh = readRefreshToken(req);
   if (!refresh) {
     res.status(401).json({ error: 'no_refresh_token' });
     return;
@@ -685,7 +698,8 @@ authRouter.post('/auth/refresh', (req, res) => {
     .prepare('UPDATE devices SET refresh_token_hash = ? WHERE id = ? AND user_id = ?')
     .run(hashRefreshToken(newRefresh), payload.device, payload.sub);
   writeRefreshCookie(res, newRefresh);
-  res.json({ accessToken: issueAccessToken(payload.sub, payload.device) });
+  // header 通道（RN 等）：新 refresh token 也放 body,客户端自管轮换
+  res.json({ accessToken: issueAccessToken(payload.sub, payload.device), refreshToken: newRefresh });
 });
 
 // ========== POST /auth/lock ==========

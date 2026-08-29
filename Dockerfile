@@ -38,8 +38,8 @@ RUN pnpm --filter @dustnote/client-core build
 RUN pnpm --filter @dustnote/server build
 RUN pnpm --filter @dustnote/web build
 
-# 生产依赖独立部署（flatten node_modules）
-RUN pnpm --filter @dustnote/server deploy /prod-server
+# 生产依赖独立部署（flatten node_modules；--prod 剔除 devDependencies，减小镜像体积）
+RUN pnpm --filter @dustnote/server deploy --prod /prod-server
 
 # ─── Stage 2: 运行 ───
 FROM node:22-alpine

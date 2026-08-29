@@ -1,4 +1,4 @@
-# DustNote 一键部署脚本（Windows）
+﻿# DustNote 一键部署脚本（Windows）
 #
 # 用法（在仓库根目录执行）：
 #   powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
@@ -10,6 +10,7 @@
 #   -Cn          中国网络加速（apk/npm/docker 均切国内镜像源）
 #   -Port N      宿主机端口（默认 8080）
 #   -Domain D    域名（设置后启用 Caddy 自动 HTTPS）
+#   -Origin URL  覆盖 WEB_ORIGIN/CORS 白名单（默认 http://<本机IP>:<端口>）
 #   -NoBuild     跳过重新构建镜像（复用已构建镜像）
 #   -Help        帮助
 
@@ -17,6 +18,7 @@ param(
     [switch]$Cn,
     [string]$Port = "8080",
     [string]$Domain = "",
+    [string]$Origin = "",
     [switch]$NoBuild,
     [switch]$Help
 )
@@ -76,7 +78,7 @@ if (Test-Path ".env") {
     Info "检测到已存在 .env，跳过生成（如需重置请删除后重跑）"
 } else {
     Info "生成 .env 配置…"
-    $Version = "2.5.17"
+    $Version = "2.5.18"
     if (Test-Path "package.json") {
         try {
             $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
@@ -90,7 +92,18 @@ if (Test-Path ".env") {
     $rng.GetBytes($bytes)
     $JwtSecret = -join ($bytes | ForEach-Object { $_.ToString("x2") })
 
-    $WebOrigin = "http://localhost"
+    $WebOrigin = $Origin
+    if (-not $WebOrigin) {
+        # 默认按本机 IPv4 推导（与 deploy.sh 行为一致），失败回退 localhost
+        $ip = "localhost"
+        try {
+            $nic = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } |
+                Select-Object -First 1
+            if ($nic) { $ip = $nic.IPAddress }
+        } catch {}
+        $WebOrigin = "http://${ip}:$Port"
+    }
     if ($Domain) { $WebOrigin = "https://$Domain" }
 
     $envLines = @(
@@ -123,13 +136,17 @@ Info "启动容器…"
 $buildArg = @()
 if (-not $NoBuild) { $buildArg = @("--build") }
 
+$buildLog = Join-Path $env:TEMP "dustnote-compose-build.log"
 if ($Domain) {
     Ok "启用 HTTPS 模式（Caddy 自动证书，域名：$Domain）"
-    & docker compose --profile tls up -d @buildArg
+    & docker compose --profile tls up -d @buildArg *> $buildLog
 } else {
-    & docker compose up -d @buildArg
+    & docker compose up -d @buildArg *> $buildLog
 }
-if ($LASTEXITCODE -ne 0) { Fail "docker compose up 执行失败" }
+if ($LASTEXITCODE -ne 0) {
+    Get-Content $buildLog -Tail 40 | ForEach-Object { Write-Host $_ }
+    Fail "docker compose up 执行失败，完整构建日志：$buildLog"
+}
 
 # ─── 等待健康检查 ───
 Info "等待服务健康检查通过（最长 120s）…"
@@ -147,6 +164,7 @@ if ($healthy) { Ok "服务已就绪" } else { Warn "健康检查未通过，查�
 if ($Domain) {
     Info "访问地址：https://$Domain"
 } else {
-    Info "访问地址：http://localhost:$Port"
+    Info "访问地址：http://localhost:$Port（本机）或 http://<服务器IP>:$Port（按实际网络访问）"
 }
+Info "提示：Docker 发布的端口不受 Windows 防火墙入站规则语义之外的额外限制约束，公网暴露请确认云安全组"
 Ok "部署完成。常用命令：docker compose logs -f dustnote / docker compose down"

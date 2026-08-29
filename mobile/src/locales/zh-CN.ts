@@ -76,7 +76,7 @@ const zhCN = {
     unlock_subtitle: '输入主密码解锁',
     unlock_password: '主密码',
     unlock_btn: '解锁',
-    unlocking: '解锁中…',
+    unlocking: '正在派生密钥（约 2-4 秒）…',
     unlock_biometric: '👆 使用生物识别',
     unlock_biometric_prompt: '解锁 DustNote',
     unlock_biometric_unavailable: '设备未配置生物识别',

@@ -57,6 +57,20 @@ export const useStore = create<StoreState>()((...args) => ({
 // 注册 accessToken getter（打破 store-helpers ↔ store 循环依赖）
 setAccessTokenGetter(() => useStore.getState().accessToken);
 
+// mode-store → 主 store 的 mode 单向同步。
+// 主 store 的 mode 只在模块加载时从 mode-store 快照一次，此后 mode-store 的
+// 变更（首装选择模式 / ?server= 自动连接 / 设置切换）不会自动反映过来，
+// 导致 App 路由按过期的 mode 渲染（v2.5.17 实测：联机首装渲染了
+// StandaloneSetupScreen，账号被创建到本地 IndexedDB，服务端 users 仍为 0）。
+// 注意：显式切换（switchMode）走自己的迁移+回滚逻辑，订阅只同步 mode 字段，
+// 不触碰 repository（由 initRepository / switchMode 各自负责）。
+import { useModeStore } from './mode-store';
+useModeStore.subscribe((state) => {
+  if (useStore.getState().mode !== state.mode) {
+    useStore.setState({ mode: state.mode } as Partial<StoreState>);
+  }
+});
+
 // 启动时同步 i18n 语言
 import i18n, { LANGUAGE_STORAGE_KEY } from './i18n';
 {

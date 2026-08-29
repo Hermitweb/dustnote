@@ -266,6 +266,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   // ========== 单机/联机模式切换（switchMode 内部已带失败回滚） ==========
   const handleSwitchMode = async (target: AppMode) => {
     setSwitchConfirm(null);
+    // 切联机必须有服务器地址：输入为空且 store 也没有历史地址时直接报错，
+    // 否则切过去后所有请求因 serverUrl 缺失而不可用（Windows 真机反馈"无法切换联机"）
+    if (target === 'online' && !switchServerUrl.trim() && !useModeStore.getState().serverUrl) {
+      setSwitchError(t('settings.switch_need_url'));
+      return;
+    }
     setSwitchBusy(true);
     setSwitchError(null);
     try {
@@ -656,14 +662,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   ? t('settings.app_mode_standalone')
                   : t('settings.app_mode_online')}
               </p>
-              {appMode === 'online' && (
-                <input
-                  value={switchServerUrl}
-                  onChange={(e) => setSwitchServerUrl(e.target.value)}
-                  placeholder={t('settings.server_url_placeholder')}
-                  className="mb-2 w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm"
-                />
-              )}
+              {/* 服务器地址：切联机的目标地址。始终显示——单机用户切联机时
+                  也必须能填，否则切过去 serverUrl 为空导致联机不可用 */}
+              <input
+                value={switchServerUrl}
+                onChange={(e) => setSwitchServerUrl(e.target.value)}
+                placeholder={
+                  appMode === 'standalone'
+                    ? t('settings.server_url_switch_hint')
+                    : t('settings.server_url_placeholder')
+                }
+                className="mb-2 w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm"
+              />
               <button
                 onClick={() => setSwitchConfirm(appMode === 'standalone' ? 'online' : 'standalone')}
                 disabled={switchBusy}

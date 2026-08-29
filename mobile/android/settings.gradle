@@ -1,4 +1,12 @@
 rootProject.name = 'DustNote'
-apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesSettingsGradle(settings)
+// node-linker=hoisted 时依赖提升到仓库根 node_modules（../../../），
+// 独立/非 hoisted 布局在 mobile/node_modules（../../）。双路径探测兼容两种。
+def nmGradle = file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+def nmPrefix = "../../node_modules"
+if (!nmGradle.exists()) {
+    nmGradle = file("../../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+    nmPrefix = "../../../node_modules"
+}
+apply from: nmGradle; applyNativeModulesSettingsGradle(settings)
 include ':app'
-includeBuild('../../node_modules/@react-native/gradle-plugin')
+includeBuild("${nmPrefix}/@react-native/gradle-plugin")

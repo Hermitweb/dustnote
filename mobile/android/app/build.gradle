@@ -78,8 +78,8 @@ android {
     applicationId "com.dustnote"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 40
-    versionName "2.5.17"
+    versionCode 41
+    versionName "2.5.18"
     // Explicitly list supported ABIs to exclude the residual `armeabi` (ARMv5)
     // directory. minSdk=23 guarantees armeabi-v7a+ on all devices, but a
     // third-party .so (libconceal.so) ships an armeabi variant that produces an
@@ -151,4 +151,10 @@ dependencies {
 // This is the standard RN 0.74 template line; the older
 // `react { autolinkLibrariesWithApp() }` DSL was removed in 0.74 and is NOT
 // used here.
-apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
+// 双路径探测：hoisted 布局（仓库根 node_modules）与独立布局（mobile/node_modules）兼容，
+// 逻辑与 settings.gradle 一致，见其注释。
+def nativeModulesAppGradle = file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+if (!nativeModulesAppGradle.exists()) {
+    nativeModulesAppGradle = file("../../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+}
+apply from: nativeModulesAppGradle; applyNativeModulesAppBuildGradle(project)

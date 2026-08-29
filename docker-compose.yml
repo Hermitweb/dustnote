@@ -26,6 +26,8 @@ services:
     restart: unless-stopped
     ports:
       # 一体化 nginx 监听 80，web 与 /api/v1 共用此端口
+      # 注意：Docker 发布端口绕过 ufw/firewalld 的 INPUT 规则；如需仅本机访问、
+      # 由外部反代对外，改为 '- "127.0.0.1:${PORT:-8080}:80"'
       - '${PORT:-8080}:80'
     volumes:
       # 持久化 SQLite 数据库（一体化镜像数据目录为 /app/server/data）
@@ -38,7 +40,7 @@ services:
       - DB_PATH=/app/server/data/dustnote.db
       - BACKUP_DIR=/app/server/backups
       - WEB_ORIGIN=${WEB_ORIGIN:-http://localhost}
-      - SERVER_VERSION=${SERVER_VERSION:-2.5.17}
+      - SERVER_VERSION=${SERVER_VERSION:-2.5.18}
       # 必填：未设置时 compose 直接报错，避免容器起来后才崩在 config-validate
       - JWT_SECRET=${JWT_SECRET:?请在 .env 中设置 JWT_SECRET（≥32 字符随机串）}
       # 反代后限流按真实客户端 IP 计数，见 server/src/app.ts
@@ -46,7 +48,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       # 客户端版本策略（详见 update-strategy.md §2.3）
       - MIN_CLIENT_VERSION=${MIN_CLIENT_VERSION:-2.0.2}
-      - RECOMMENDED_CLIENT_VERSION=${RECOMMENDED_CLIENT_VERSION:-2.5.17}
+      - RECOMMENDED_CLIENT_VERSION=${RECOMMENDED_CLIENT_VERSION:-2.5.18}
       - FORCE_UPDATE_VERSION=${FORCE_UPDATE_VERSION:-}
       - EOL_DATE_FOR_V0=${EOL_DATE_FOR_V0:-}
     env_file:

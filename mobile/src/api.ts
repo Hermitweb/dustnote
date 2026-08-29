@@ -18,7 +18,8 @@ import { APP_VERSION } from './lib/version';
 
 let deviceId: string | null = null;
 
-async function getDeviceId(): Promise<string> {
+/** 取设备 ID（持久化；首装生成）。导出供"测试连接"等独立客户端复用 */
+export async function getDeviceId(): Promise<string> {
   if (deviceId) return deviceId;
   const stored = await AsyncStorage.getItem('dustnote_device_id');
   if (stored) {
@@ -33,10 +34,64 @@ async function getDeviceId(): Promise<string> {
 
 let currentToken: string | null = null;
 
+const REFRESH_TOKEN_KEY = 'dustnote_refresh_token';
+
 export function setAccessToken(token: string | null): void {
   currentToken = token;
   if (token) AsyncStorage.setItem('dustnote_access_token', token).catch(() => undefined);
   else AsyncStorage.removeItem('dustnote_access_token').catch(() => undefined);
+}
+
+/** 自管 refresh token（RN 无法依赖 HTTP-only cookie,服务端 /auth/refresh 兼容 X-Refresh-Token header） */
+export async function setRefreshToken(token: string | null): Promise<void> {
+  if (token) await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
+  else await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+async function getRefreshToken(): Promise<string | null> {
+  return AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+/**
+ * 用 refresh token 静默换新 access token（服务端轮换 refresh token）。
+ * 并发 401 只触发一次刷新（refreshInFlight 去重）；刷新失败返回 false
+ * （调用方把 401 原样抛出，由上层引导重新登录）。
+ */
+export async function refreshAccessTokenSilently(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    try {
+      const refresh = await getRefreshToken();
+      if (!refresh) return false;
+      const dId = await getDeviceId();
+      const client = new ApiClient({
+        baseUrl: resolveBaseUrl(),
+        clientVersion: APP_VERSION,
+        platform: 'android' as ClientPlatform,
+        channel: 'stable' as ClientChannel,
+        deviceId: dId,
+        timeoutMs: 30_000,
+      });
+      const r = await client.request<{ accessToken: string; refreshToken?: string }>(
+        'POST',
+        '/auth/refresh',
+        undefined,
+        { headers: { 'X-Refresh-Token': refresh } }
+      );
+      setAccessToken(r.accessToken);
+      if (r.refreshToken) await setRefreshToken(r.refreshToken);
+      return true;
+    } catch {
+      // refresh 失败（过期/吊销）：清掉失效的 refresh token,上层引导重新登录
+      await setRefreshToken(null);
+      return false;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
 }
 
 export const api = new ApiClient({
@@ -46,6 +101,9 @@ export const api = new ApiClient({
   channel: 'stable' as ClientChannel,
   deviceId: '__pending__', // 实际请求时由 interceptor 注入
   accessToken: currentToken ?? undefined,
+  // 移动网络抖动时 fetch 可能长时间无响应：不设超时会让解锁等界面永久卡死
+  //（真机实测：unlock 前置的 /auth/status 探测挂死，UI 停在"正在派生密钥"）。
+  timeoutMs: 30_000,
 });
 
 // 拦截器：每次请求重新构造 client，注入动态 deviceId + token + baseUrl
@@ -60,17 +118,32 @@ const requestImpl: RequestMethod = async function (
   body?: unknown,
   init?: RequestInit
 ) {
-  const dId = await getDeviceId();
-  const token = currentToken ?? (await AsyncStorage.getItem('dustnote_access_token')) ?? undefined;
-  // 重新构造 client（带最新 baseUrl + deviceId + token）
-  const fresh = new ApiClient({
-    baseUrl: resolveBaseUrl(),
-    clientVersion: APP_VERSION,
-    platform: 'android' as ClientPlatform,
-    channel: 'stable' as ClientChannel,
-    deviceId: dId,
-    accessToken: token,
-  });
-  return fresh.request(method, path, body, init);
+  const fresh = async (): Promise<ApiClient> => {
+    const dId = await getDeviceId();
+    const token = currentToken ?? (await AsyncStorage.getItem('dustnote_access_token')) ?? undefined;
+    // 每次请求重新构造 client（带最新 baseUrl + deviceId + token + 超时）
+    return new ApiClient({
+      baseUrl: resolveBaseUrl(),
+      clientVersion: APP_VERSION,
+      platform: 'android' as ClientPlatform,
+      channel: 'stable' as ClientChannel,
+      deviceId: dId,
+      accessToken: token,
+      timeoutMs: 30_000,
+    });
+  };
+  try {
+    return await (await fresh()).request(method, path, body, init);
+  } catch (err) {
+    // access token 过期（15 分钟 TTL）且本地有 refresh token：静默续签后重放一次。
+    // 锁屏超 15 分钟后生物解锁复用旧 token 的场景即由此自愈（v2.5.18）。
+    const status = (err as { status?: number }).status;
+    if (status === 401 && (await getRefreshToken())) {
+      if (await refreshAccessTokenSilently()) {
+        return await (await fresh()).request(method, path, body, init);
+      }
+    }
+    throw err;
+  }
 };
 (api as unknown as { request: RequestMethod }).request = requestImpl;

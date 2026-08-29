@@ -214,15 +214,20 @@ export const KDF_PARAMS: KdfParams = {
  * - 在中端手机上约需 0.5-2 秒
  *
  * 安全取舍：PBKDF2 对 GPU/ASIC 攻击的抗性弱于 Argon2id，
- * 但对于个人笔记应用，600000 次 PBKDF2-SHA256 已足够安全。
+ * 但对于个人笔记应用，PBKDF2-SHA256 已足够安全。
  * 联机模式跨设备解锁时，服务端需记录每个设备的 KDF 算法版本。
+ *
+ * v2.5.18：迭代 600000 → 310000。600k 在中端手机（quick-crypto 原生 JSI）
+ * 上解锁需 3-6 秒，体验不可接受（真机实测）；310000 仍是 OWASP 2023
+ * 文档的推荐档位，安全裕度足够。服务端按设备记录 kdfParams，新旧设备
+ * 各自用创建时的参数派生，互不影响。
  */
 export const KDF_PARAMS_MOBILE: KdfParams = {
   algorithm: 'pbkdf2',
   m: 0, // Argon2id 参数不用
   t: 0,
   p: 0,
-  iterations: 600000, // OWASP 2023 推荐
+  iterations: 310000, // OWASP 2023 推荐档位（移动端性能取舍，见上）
   dkLen: 32,
 };
 
@@ -244,6 +249,9 @@ export async function deriveKey(
     if (hasWebCryptoSubtle()) {
       // PBKDF2-SHA256 via crypto.subtle.deriveBits
       // react-native-quick-crypto 提供原生 JSI 实现，不阻塞主线程
+      if (typeof console !== 'undefined' && typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+        console.log('[KDF] path=webcrypto-subtle iterations=' + (params.iterations ?? 310000));
+      }
       const keyMaterial = await crypto.subtle.importKey(
         'raw',
         encodeUtf8(password) as BufferSource,
@@ -265,6 +273,9 @@ export async function deriveKey(
     }
     // 纯 JS 回退（微信小程序等无 WebCrypto 环境）。@noble/hashes 的
     // PBKDF2 与 WebCrypto deriveBits 同为标准 PBKDF2-HMAC-SHA256，输出完全一致。
+    if (typeof console !== 'undefined') {
+      console.log('[KDF] path=noble-fallback iterations=' + (params.iterations ?? 310000));
+    }
     return new Uint8Array(
       await noblePbkdf2(sha256, encodeUtf8(password), salt, {
         c: params.iterations ?? 310000,

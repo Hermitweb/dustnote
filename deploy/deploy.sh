@@ -10,7 +10,8 @@
 # 参数：
 #   --cn          中国网络加速（apk/npm/docker 均切国内镜像源）
 #   --port N      宿主机端口（默认 8080）
-#   --domain D    域名（设置后启用 Caddy 自动 HTTPS）
+#   --domain D    域名（设置后启用 Caddy 自动证书）
+#   --origin URL  覆盖 WEB_ORIGIN/CORS 白名单（默认 http://<本机IP>:<端口>）
 #   --no-build    跳过重新构建镜像（复用已构建镜像）
 #   -h/--help     帮助
 
@@ -25,6 +26,7 @@ cd "${ROOT_DIR}"
 CN=0
 PORT="8080"
 DOMAIN=""
+ORIGIN=""
 NO_BUILD=0
 
 while [[ $# -gt 0 ]]; do
@@ -32,6 +34,7 @@ while [[ $# -gt 0 ]]; do
     --cn) CN=1; shift ;;
     --port) PORT="${2:-8080}"; shift 2 ;;
     --domain) DOMAIN="${2:-}"; shift 2 ;;
+    --origin) ORIGIN="${2:-}"; shift 2 ;;
     --no-build) NO_BUILD=1; shift ;;
     -h|--help) sed -n '2,20p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "未知参数：$1（-h 查看帮助）" >&2; exit 1 ;;
@@ -137,13 +140,21 @@ if [[ -f .env ]]; then
   info "检测到已存在 .env，跳过生成（如需重置请删除后重跑）"
 else
   info "生成 .env 配置…"
-  VERSION="$(grep -m1 '"version"' package.json 2>/dev/null | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || echo "2.5.17")"
-  [[ -n "${VERSION}" ]] || VERSION="2.5.17"
+  VERSION="$(grep -m1 '"version"' package.json 2>/dev/null | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || echo "2.5.18")"
+  [[ -n "${VERSION}" ]] || VERSION="2.5.18"
   JWT_SECRET="$(openssl rand -hex 32 2>/dev/null || od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
 
-  WEB_ORIGIN="http://localhost"
+  # 服务器 IP（默认路由源地址）：用于 WEB_ORIGIN 推导与最终访问地址输出
+  LAN_IP="$(ip route get 1 2>/dev/null | awk '{print $7; exit}' || hostname -I 2>/dev/null | awk '{print $1}' || echo 'localhost')"
+  [[ -z "${LAN_IP}" ]] && LAN_IP="localhost"
+
+  # WEB_ORIGIN（CORS 白名单）：域名 > --origin > http://<IP>:<PORT>
   if [[ -n "${DOMAIN}" ]]; then
     WEB_ORIGIN="https://${DOMAIN}"
+  elif [[ -n "${ORIGIN}" ]]; then
+    WEB_ORIGIN="${ORIGIN}"
+  else
+    WEB_ORIGIN="http://${LAN_IP}:${PORT}"
   fi
 
   cat > .env <<EOF
@@ -172,15 +183,15 @@ fi
 
 # ─── 启动 ───
 info "启动容器…"
+BUILD_LOG="/tmp/dustnote-compose-build.log"
+BUILD_OPTS=()
+[[ ${NO_BUILD} -eq 1 ]] || BUILD_OPTS+=(--build)
+# 构建输出重定向到日志文件，避免淹没脚本的关键信息；失败时回显尾部
 if [[ -n "${DOMAIN}" ]]; then
   ok "启用 HTTPS 模式（Caddy 自动证书，域名：${DOMAIN}）"
-  BUILD_OPTS=()
-  [[ ${NO_BUILD} -eq 1 ]] || BUILD_OPTS+=(--build)
-  ${compose_cmd} --profile tls up -d "${BUILD_OPTS[@]}"
+  ${compose_cmd} --profile tls up -d "${BUILD_OPTS[@]}" > "${BUILD_LOG}" 2>&1 || { tail -40 "${BUILD_LOG}" >&2; fail "docker compose up 失败，完整构建日志：${BUILD_LOG}"; }
 else
-  BUILD_OPTS=()
-  [[ ${NO_BUILD} -eq 1 ]] || BUILD_OPTS+=(--build)
-  ${compose_cmd} up -d "${BUILD_OPTS[@]}"
+  ${compose_cmd} up -d "${BUILD_OPTS[@]}" > "${BUILD_LOG}" 2>&1 || { tail -40 "${BUILD_LOG}" >&2; fail "docker compose up 失败，完整构建日志：${BUILD_LOG}"; }
 fi
 
 # ─── 等待健康检查 ───
@@ -203,9 +214,8 @@ fi
 if [[ -n "${DOMAIN}" ]]; then
   info "访问地址：https://${DOMAIN}"
 else
-  # 尝试取本机局域网 IP，便于内网其它设备访问
-  LAN_IP="$(ip route get 1 2>/dev/null | awk '{print $7; exit}' || hostname -I 2>/dev/null | awk '{print $1}' || echo 'localhost')"
-  [[ -z "${LAN_IP}" ]] && LAN_IP="localhost"
-  info "访问地址：http://localhost:${PORT}  或  内网 http://${LAN_IP}:${PORT}"
+  # 默认路由源地址：本机为公网 IP 时即公网地址，局域网部署时即内网地址
+  info "访问地址：http://${LAN_IP}:${PORT}（本机/局域网/公网按实际网络位置访问）"
 fi
+info "提示：Docker 发布的端口不受 ufw/iptables INPUT 规则限制，如需限制来源请改 compose 端口绑定或在 DOCKER-USER 链配置"
 ok "部署完成。常用命令：${compose_cmd} logs -f dustnote / ${compose_cmd} down"
