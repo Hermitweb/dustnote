@@ -27,6 +27,12 @@ struct TrayState(Mutex<Option<TrayIcon>>);
 /// GitHub Releases 仓库地址（Velopack 从此读取更新源）
 const GITHUB_REPO_URL: &str = "https://github.com/Hermitweb/dustnote";
 
+/// 最新版本查询结果缓存（省 GitHub API 配额：未认证 60 次/小时/IP，
+/// 多客户端或共享出口 IP 极易耗尽，用户会持续看到限流报错——真机反馈）
+static LATEST_VERSION_CACHE: std::sync::Mutex<Option<(std::time::Instant, String)>> =
+    std::sync::Mutex::new(None);
+const LATEST_VERSION_CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+
 /// 返回给前端的更新检查结果
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -131,7 +137,22 @@ mod velopack_impl {
     /// 使用 reqwest blocking 客户端，支持代理 + 5s 超时。
     /// 相比 Velopack 内置的 check_for_updates，此方法可显式配置代理，
     /// 避免在无代理环境下长时间卡住。
+    ///
+    /// v2.5.19：结果缓存 30 分钟 + 限流降级。GitHub API 未认证配额仅
+    /// 60 次/小时/IP，多客户端或共享出口 IP 下极易耗尽，用户会持续看到
+    /// 限流报错（真机反馈）。命中缓存不发请求；限流时回退到过期缓存，
+    /// 实在没有才返回 RateLimited（前端弱化为提示而非错误）。
     fn fetch_latest_version(proxy: Option<&str>) -> Result<String, UpdaterError> {
+        // 1. 命中未过期缓存直接返回，不消耗 GitHub 配额
+        {
+            let cache = LATEST_VERSION_CACHE.lock().unwrap();
+            if let Some((at, ver)) = cache.as_ref() {
+                if at.elapsed() < LATEST_VERSION_CACHE_TTL {
+                    return Ok(ver.clone());
+                }
+            }
+        }
+
         let mut builder = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(5))
             .user_agent("DustNote-Updater");
@@ -157,10 +178,17 @@ mod velopack_impl {
                 message: format!("无法连接 GitHub: {}", e),
             })?;
 
-        // 检查 GitHub API 限流（未认证 60 次/小时）
+        // 检查 GitHub API 限流（未认证 60 次/小时）：优先用过期缓存回退，
+        // 没有缓存才报 RateLimited（前端按提示而非错误处理）
         if resp.status().as_u16() == 403 {
             if let Some(remaining) = resp.headers().get("x-ratelimit-remaining") {
                 if remaining == "0" {
+                    {
+                        let cache = LATEST_VERSION_CACHE.lock().unwrap();
+                        if let Some((_, ver)) = cache.as_ref() {
+                            return Ok(ver.clone());
+                        }
+                    }
                     let reset_ts = resp
                         .headers()
                         .get("x-ratelimit-reset")
@@ -173,9 +201,9 @@ mod velopack_impl {
                         .as_secs() as i64)
                         .max(0);
                     return Err(UpdaterError {
-                        kind: "Network",
+                        kind: "RateLimited",
                         message: format!(
-                            "GitHub API 请求次数已达上限（每小时 60 次），约 {} 分钟后重置",
+                            "GitHub 更新源限流（每小时 60 次），约 {} 分钟后自动恢复；期间可从 GitHub Releases 页手动下载",
                             (reset_in + 59) / 60
                         ),
                     });
@@ -200,8 +228,13 @@ mod velopack_impl {
             message: "GitHub 响应中缺少 tag_name".into(),
         })?;
 
-        // "v2.4.1" → "2.4.1"
-        Ok(tag.strip_prefix('v').unwrap_or(tag).to_string())
+        // "v2.4.1" → "2.4.1"；写入结果缓存供后续检查复用（省配额）
+        let ver = tag.strip_prefix('v').unwrap_or(tag).to_string();
+        {
+            let mut cache = LATEST_VERSION_CACHE.lock().unwrap();
+            *cache = Some((std::time::Instant::now(), ver.clone()));
+        }
+        Ok(ver)
     }
 
     /// 语义版本比较：latest > current 时返回 true

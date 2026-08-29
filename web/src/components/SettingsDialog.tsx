@@ -344,6 +344,13 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         setUpdateState('idle');
         return;
       }
+      if (err?.kind === 'RateLimited') {
+        // GitHub 更新源限流：提示性信息而非错误态（Rust 侧已用缓存回退，
+        // 走到这里说明连缓存都没有，属首次安装后的短时间内）
+        setUpdateErr(err?.message ?? String(e));
+        setUpdateState('uptodate');
+        return;
+      }
       setUpdateErr(err?.message ?? String(e));
       setUpdateState('error');
     }
