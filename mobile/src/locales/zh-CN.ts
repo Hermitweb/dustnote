@@ -132,6 +132,11 @@ const zhCN = {
     decrypt_failed: '解密失败：密钥与笔记不匹配',
     note_not_found: '笔记不存在',
     decrypt_failed_title: '🔒 解密失败',
+    backlinks: '反向链接',
+    current_note: '当前笔记',
+    wikilink_not_found: '笔记「{{title}}」不存在',
+    jump_failed: '跳转失败',
+    untitled: '未命名',
   },
   templates: {
     title: '选择模板',

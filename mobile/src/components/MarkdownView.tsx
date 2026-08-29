@@ -56,7 +56,15 @@ function parseInline(text: string): Span[] {
   return spans;
 }
 
-function InlineText({ text, colors }: { text: string; colors: ThemeColors }) {
+function InlineText({
+  text,
+  colors,
+  onWikilink,
+}: {
+  text: string;
+  colors: ThemeColors;
+  onWikilink?: (title: string) => void;
+}) {
   const spans = parseInline(text);
   return (
     <Text style={{ color: colors.fg }}>
@@ -102,10 +110,7 @@ function InlineText({ text, colors }: { text: string; colors: ThemeColors }) {
               <Text
                 key={i}
                 style={{ color: colors.accent, textDecorationLine: 'underline', fontWeight: '500' }}
-                onPress={() => {
-                  // TODO: 跳转到目标笔记（需要导航到搜索或笔记详情）
-                  // 当前仅显示为可点击链接样式
-                }}
+                onPress={() => onWikilink?.(s.url ?? '')}
               >
                 📄 {s.text}
               </Text>
@@ -122,10 +127,13 @@ export function MarkdownView({
   title,
   content,
   colors,
+  onWikilink,
 }: {
   title?: string;
   content: string;
   colors: ThemeColors;
+  /** 点击 [[标题]] wikilink 的回调（由调用方解析目标笔记并导航） */
+  onWikilink?: (title: string) => void;
 }) {
   const styles = makeStyles(colors);
   const blocks: React.ReactNode[] = [];
@@ -190,7 +198,7 @@ export function MarkdownView({
     if (/^>\s?/.test(trimmed)) {
       blocks.push(
         <View key={key++} style={styles.quote}>
-          <InlineText text={trimmed.replace(/^>\s?/, '')} colors={colors} />
+          <InlineText text={trimmed.replace(/^>\s?/, '')} colors={colors} onWikilink={onWikilink} />
         </View>
       );
       continue;
@@ -204,7 +212,7 @@ export function MarkdownView({
             {/^\d/.test(list[1]) ? `${list[1].replace(/[.)]/, '')}.` : '•'}
           </Text>
           <View style={styles.listTextWrap}>
-            <InlineText text={list[2]} colors={colors} />
+            <InlineText text={list[2]} colors={colors} onWikilink={onWikilink} />
           </View>
         </View>
       );
@@ -213,7 +221,7 @@ export function MarkdownView({
     // 普通段落
     blocks.push(
       <Text key={key++} style={styles.paragraph}>
-        <InlineText text={line} colors={colors} />
+        <InlineText text={line} colors={colors} onWikilink={onWikilink} />
       </Text>
     );
   }

@@ -30,7 +30,7 @@ function copyLink(url: string) {
 const INLINE_RE = /(`[^`]+`)|(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|(\[\[[^\]|]+(?:\|[^\]]+)?\]\])|(\[[^\]]+\]\([^)\s]+\))/g;
 
 /** 渲染一行内联内容（粗体/斜体/行内代码/链接） */
-function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
+function renderInline(text: string, keyPrefix: string, onWikilink?: (title: string) => void): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   let last = 0;
   let index = 0;
@@ -70,8 +70,11 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
       const display = pipeIdx >= 0 ? inner.slice(pipeIdx + 1).trim() : title;
       nodes.push(
         <Text key={key} className="md-link" onClick={() => {
-          // TODO: 跳转到目标笔记
-          Taro.showToast({ title: `📄 ${title}`, icon: 'none' });
+          if (onWikilink) {
+            onWikilink(title);
+          } else {
+            Taro.showToast({ title: `📄 ${title}`, icon: 'none' });
+          }
         }}>
           📄 {display}
         </Text>
@@ -223,7 +226,7 @@ function groupBlocks(lines: string[]): BlockItem[] {
   return blocks;
 }
 
-function renderList(items: string[], ordered: boolean, keyPrefix: string): React.ReactNode {
+function renderList(items: string[], ordered: boolean, keyPrefix: string, onWikilink?: (title: string) => void): React.ReactNode {
   return (
     <View key={keyPrefix} className={ordered ? 'md-ol' : 'md-ul'}>
       {items.map((item, idx) => {
@@ -234,7 +237,7 @@ function renderList(items: string[], ordered: boolean, keyPrefix: string): React
         return (
           <View key={`${keyPrefix}-${idx}`} className="md-li">
             <Text className="md-li-marker">{prefix}</Text>
-            <Text className="md-li-body">{renderInline(body, `${keyPrefix}-${idx}`)}</Text>
+            <Text className="md-li-body">{renderInline(body, `${keyPrefix}-${idx}`, onWikilink)}</Text>
           </View>
         );
       })}
@@ -242,7 +245,7 @@ function renderList(items: string[], ordered: boolean, keyPrefix: string): React
   );
 }
 
-function renderBlocks(blocks: BlockItem[]): React.ReactNode[] {
+function renderBlocks(blocks: BlockItem[], onWikilink?: (title: string) => void): React.ReactNode[] {
   return blocks.map((b, idx) => {
     const key = `md-${idx}`;
     switch (b.type) {
@@ -256,27 +259,27 @@ function renderBlocks(blocks: BlockItem[]): React.ReactNode[] {
         const cls = `md-h${b.level ?? 1}`;
         return (
           <Text key={key} className={cls}>
-            {renderInline(b.text ?? '', key)}
+            {renderInline(b.text ?? '', key, onWikilink)}
           </Text>
         );
       }
       case 'quote':
         return (
           <View key={key} className="md-quote">
-            <Text className="md-quote-text">{renderInline(b.text ?? '', key)}</Text>
+            <Text className="md-quote-text">{renderInline(b.text ?? '', key, onWikilink)}</Text>
           </View>
         );
       case 'hr':
         return <View key={key} className="md-hr" />;
       case 'ul':
-        return renderList(b.items ?? [], false, key);
+        return renderList(b.items ?? [], false, key, onWikilink);
       case 'ol':
-        return renderList(b.items ?? [], true, key);
+        return renderList(b.items ?? [], true, key, onWikilink);
       case 'para':
       default:
         return (
           <Text key={key} className="md-p">
-            {renderInline(b.text ?? '', key)}
+            {renderInline(b.text ?? '', key, onWikilink)}
           </Text>
         );
     }
@@ -286,8 +289,9 @@ function renderBlocks(blocks: BlockItem[]): React.ReactNode[] {
 /**
  * 轻量 Markdown 渲染组件
  * @param content Markdown 原文（纯文本）
+ * @param onWikilink 点击 [[标题]] 链接时的回调（标题 -> 由调用方解析跳转目标笔记）
  */
-export default function Markdown({ content }: { content: string }) {
+export default function Markdown({ content, onWikilink }: { content: string; onWikilink?: (title: string) => void }) {
   const lines = (content ?? '').split(/\r?\n/);
-  return <View className="md">{renderBlocks(groupBlocks(lines))}</View>;
+  return <View className="md">{renderBlocks(groupBlocks(lines), onWikilink)}</View>;
 }

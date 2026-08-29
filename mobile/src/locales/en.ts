@@ -124,6 +124,11 @@ const en = {
     decrypt_failed: 'Decryption failed: key does not match this note',
     note_not_found: 'Note not found',
     decrypt_failed_title: '🔒 Decrypt failed',
+    backlinks: 'Backlinks',
+    current_note: 'Current note',
+    wikilink_not_found: 'Note "{{title}}" does not exist',
+    jump_failed: 'Failed to jump',
+    untitled: 'Untitled',
   },
   templates: {
     title: 'Choose a Template',

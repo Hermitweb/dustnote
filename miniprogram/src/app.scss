@@ -1007,6 +1007,30 @@ html[data-mode="dark"] .fab {
   padding: 8rpx 4rpx 40rpx;
 }
 
+/* 反向链接面板（wikilink 生态，与 web 端语义一致） */
+.backlinks-card {
+  margin: 16rpx 24rpx 32rpx;
+  padding: 20rpx 24rpx;
+  border-top: 2rpx solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+.backlinks-title {
+  display: block;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--fg-muted);
+  letter-spacing: 2rpx;
+  margin-bottom: 8rpx;
+}
+.backlink-item {
+  display: block;
+  font-size: 26rpx;
+  color: var(--accent);
+  padding: 8rpx 0;
+}
+
 /* ========== 弹窗（分享创建 / 修改密码） ========== */
 .modal-mask {
   position: fixed;

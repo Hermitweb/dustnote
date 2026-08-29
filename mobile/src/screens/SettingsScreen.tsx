@@ -24,7 +24,6 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
-  Share,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -113,9 +112,7 @@ export function SettingsScreen() {
   const [showDevices, setShowDevices] = useState(false);
   const [devices, setDevices] = useState<DeviceItem[]>([]);
   const [devicesLoading, setDevicesLoading] = useState(false);
-  // 删除账户（联机模式，GDPR Article 17）
-  const [deleteBusy, setDeleteBusy] = useState(false);
-
+  // 删除账户（联机模式，GDPR Article 17）：走原生 Alert 流程，无法在弹窗内展示 busy 态
   const styles = makeStyles(colors);
 
   // ========== 设备管理（联机模式） ==========
@@ -192,7 +189,6 @@ export function SettingsScreen() {
         text: t('settings.delete_account'),
         style: 'destructive',
         onPress: async () => {
-          setDeleteBusy(true);
           try {
             const baseUrl = resolveBaseUrl();
             const token = useAuthStore.getState().accessToken;
@@ -214,8 +210,6 @@ export function SettingsScreen() {
               t('settings.delete_account_failed'),
               err instanceof Error ? err.message : String(err)
             );
-          } finally {
-            setDeleteBusy(false);
           }
         },
       },
@@ -713,7 +707,6 @@ export function SettingsScreen() {
   const [show2fa, setShow2fa] = useState(false);
   const [totpEnabled, setTotpEnabled] = useState(false);
   const [totpSecret, setTotpSecret] = useState('');
-  const [totpUri, setTotpUri] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [totpBusy, setTotpBusy] = useState(false);
 
@@ -728,7 +721,6 @@ export function SettingsScreen() {
     try {
       const r = await setup2fa();
       setTotpSecret(r.secret);
-      setTotpUri(r.uri);
     } catch (err) {
       Alert.alert('错误', (err as Error).message);
     } finally {
@@ -1271,7 +1263,7 @@ export function SettingsScreen() {
                 placeholderTextColor={colors.muted}
               />
               <TouchableOpacity
-                style={[styles.modalButton, totpCode.length !== 6 && styles.modalButtonDisabled]}
+                style={[styles.modalButton, totpCode.length !== 6 && { opacity: 0.5 }]}
                 onPress={onEnable2fa}
                 disabled={totpBusy || totpCode.length !== 6}
               >

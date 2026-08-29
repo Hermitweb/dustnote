@@ -84,6 +84,8 @@ export default function NoteEdit() {
   const [showSlash, setShowSlash] = useState(false);
   const [slashQuery, setSlashQuery] = useState('');
   const slashCommands = React.useMemo(() => filterSlashCommands(slashQuery), [slashQuery]);
+  // 反向链接：引用当前笔记标题的其他笔记
+  const [backlinks, setBacklinks] = useState<{ id: string; title: string }[]>([]);
 
   // 用于追踪是否已初始化加载，避免初始 load 触发自动保存
   const loadedRef = useRef(false);
@@ -116,6 +118,26 @@ export default function NoteEdit() {
           setTags(pt.tags);
           // 记录 base 明文（三方合并的公共祖先）
           basePlainRef.current = { title: pt.title, content: pt.content, tags: pt.tags };
+          // 反向链接：解密全部笔记一次，找出引用了本标题的（与 web 端语义一致）
+          const bl: { id: string; title: string }[] = [];
+          const aadUserId = useAuthStore.getState().userId ?? '';
+          for (const other of snapshot.notes) {
+            if (other.id === id || other.deletedAt) continue;
+            try {
+              const oEnv = parseEnvelope(other.ciphertext);
+              const oPt = await decryptNote(
+                masterKey,
+                oEnv,
+                oEnv.payload.a === 1 ? noteAad(other.id, aadUserId) : undefined
+              );
+              if (oPt.content.includes(`[[${pt.title}]]`) || oPt.content.includes(`[[${pt.title}|`)) {
+                bl.push({ id: other.id, title: oPt.title });
+              }
+            } catch {
+              // 单条解密失败（密钥轮换等）不阻塞反向链接构建
+            }
+          }
+          setBacklinks(bl);
         } catch {
           setTitle('🔒 解密失败');
           setContent('');
@@ -436,6 +458,49 @@ export default function NoteEdit() {
     }
   };
 
+  // wikilink 跳转：[[标题]] 点击 -> 解析目标笔记 id -> 重定向到编辑页
+  // （解密全库一次建标题索引，库不大时开销可接受；找不到给提示）
+  const onWikilink = async (targetTitle: string) => {
+    if (!masterKey) {
+      Taro.showToast({ title: '请先解锁', icon: 'none' });
+      return;
+    }
+    try {
+      const snapshot = await getRepo().loadAll();
+      const userId = useAuthStore.getState().userId ?? '';
+      for (const other of snapshot.notes) {
+        if (other.deletedAt) continue;
+        try {
+          const oEnv = parseEnvelope(other.ciphertext);
+          const oPt = await decryptNote(
+            masterKey,
+            oEnv,
+            oEnv.payload.a === 1 ? noteAad(other.id, userId) : undefined
+          );
+          if (oPt.title === targetTitle) {
+            // 同一篇笔记无需跳转
+            if (other.id === id) {
+              Taro.showToast({ title: '当前笔记', icon: 'none' });
+              return;
+            }
+            Taro.redirectTo({ url: `/pages/note/edit?id=${other.id}` });
+            return;
+          }
+        } catch {
+          // 单条解密失败跳过
+        }
+      }
+      Taro.showToast({ title: `笔记「${targetTitle}」不存在`, icon: 'none' });
+    } catch {
+      Taro.showToast({ title: '跳转失败', icon: 'none' });
+    }
+  };
+
+  // 反向链接点击：直接跳转来源笔记
+  const onBacklinkTap = (noteId: string) => {
+    Taro.redirectTo({ url: `/pages/note/edit?id=${noteId}` });
+  };
+
   const statusText = (() => {
     switch (saveStatus) {
       case 'saving':
@@ -510,10 +575,21 @@ export default function NoteEdit() {
         {preview ? (
           <ScrollView scrollY className="flex-1">
             <View className="md-preview">
-              <Markdown content={content} />
+              <Markdown content={content} onWikilink={(t) => void onWikilink(t)} />
             </View>
+            {backlinks.length > 0 && (
+              <View className="backlinks-card">
+                <Text className="backlinks-title">反向链接（{backlinks.length}）</Text>
+                {backlinks.map((bl) => (
+                  <Text key={bl.id} className="backlink-item" onClick={() => onBacklinkTap(bl.id)}>
+                    📄 {bl.title}
+                  </Text>
+                ))}
+              </View>
+            )}
           </ScrollView>
         ) : (
+          <>
           <Textarea
             className="mint-textarea flex-1"
             value={content}
@@ -554,6 +630,7 @@ export default function NoteEdit() {
               ))}
             </View>
           )}
+          </>
         )}
       </View>
       {shareOpen && (

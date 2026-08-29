@@ -52,7 +52,7 @@ import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../lib/offlin
 import { parseEnvelope } from '../lib/envelope';
 import { useColors } from '../theme';
 import { SlashCommandMenu } from '../components/SlashCommandMenu';
-import { filterSlashCommands, resolveSlashCommand, type SlashCommand } from '../lib/slash-commands';
+import { filterSlashCommands, resolveSlashCommand } from '../lib/slash-commands';
 import { toMergeable, type ConflictContext, type NoteMetadata } from '@dustnote/client-core';
 
 interface NoteEnvelope {
@@ -94,6 +94,8 @@ export function NoteEditScreen() {
   const [preview, setPreview] = useState(false);
   // 离线入队标记（保存失败且网络不可用）
   const [offlineQueued, setOfflineQueued] = useState(false);
+  // 反向链接：引用当前笔记标题的其他笔记（预览模式底部展示）
+  const [backlinks, setBacklinks] = useState<{ id: string; title: string }[]>([]);
 
   // 最近一次成功同步的明文（作为 409 三方合并的 base）；加载/保存成功后更新
   const basePlainRef = useRef<{ title: string; content: string; tags: string[] } | null>(null);
@@ -141,6 +143,30 @@ export function NoteEditScreen() {
               content: pt.content,
               tags: Array.isArray(pt.tags) ? pt.tags : [],
             };
+            // 反向链接：解密全部笔记一次，找出引用了本标题的（与 web/小程序语义一致）
+            const userId = useAuthStore.getState().userId ?? '';
+            const bl: { id: string; title: string }[] = [];
+            for (const other of snapshot.notes) {
+              if (other.id === noteId || other.deletedAt) continue;
+              try {
+                const oEnv = parseEnvelope(other.ciphertext);
+                const oPt = await decryptString(
+                  masterKey,
+                  oEnv.payload,
+                  oEnv.payload.a === 1 ? noteAad(other.id, userId) : undefined
+                );
+                const otherPlain = JSON.parse(oPt) as { title: string; content: string };
+                if (
+                  otherPlain.content.includes(`[[${pt.title}]]`) ||
+                  otherPlain.content.includes(`[[${pt.title}|`)
+                ) {
+                  bl.push({ id: other.id, title: otherPlain.title });
+                }
+              } catch {
+                // 单条解密失败（密钥轮换等）不阻塞反向链接构建
+              }
+            }
+            setBacklinks(bl);
           } catch {
             setTitle('🔒 解密失败');
             setContent('');
@@ -154,6 +180,56 @@ export function NoteEditScreen() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteId, masterKey]);
+
+  // ========== wikilink 跳转与反向链接（预览模式） ==========
+
+  /** [[标题]] 点击：解密全库建标题索引 -> 命中则替换当前编辑页栈导航到目标笔记 */
+  const onWikilink = useCallback(
+    async (targetTitle: string) => {
+      if (!masterKey) {
+        Alert.alert(t('common.hint'), t('editor.decrypt_failed'));
+        return;
+      }
+      try {
+        const snapshot = await repo.loadAll();
+        const userId = useAuthStore.getState().userId ?? '';
+        for (const other of snapshot.notes) {
+          if (other.deletedAt) continue;
+          try {
+            const oEnv = parseEnvelope(other.ciphertext);
+            const oPt = await decryptString(
+              masterKey,
+              oEnv.payload,
+              oEnv.payload.a === 1 ? noteAad(other.id, userId) : undefined
+            );
+            const plain = JSON.parse(oPt) as { title: string };
+            if (plain.title === targetTitle) {
+              if (other.id === noteId) {
+                Alert.alert(t('common.hint'), t('editor.current_note') || '当前笔记');
+                return;
+              }
+              // replace 而非 push：跳转链路可回退，避免无限堆栈
+              navigation.replace('NoteEdit', { noteId: other.id });
+              return;
+            }
+          } catch {
+            // 单条解密失败跳过
+          }
+        }
+        Alert.alert(t('common.hint'), t('editor.wikilink_not_found', { title: targetTitle }));
+      } catch {
+        Alert.alert(t('common.hint'), t('editor.jump_failed') || '跳转失败');
+      }
+    },
+    [masterKey, repo, noteId, navigation, t]
+  );
+
+  const onBacklinkTap = useCallback(
+    (targetId: string) => {
+      navigation.replace('NoteEdit', { noteId: targetId });
+    },
+    [navigation]
+  );
 
   const save = useCallback(async () => {
     if (!masterKey || !note) return;
@@ -443,6 +519,48 @@ export function NoteEditScreen() {
     [masterKey, noteId, note, t]
   );
 
+  /** 预览指定历史版本：拉密文 -> 解密 -> 展示（只读，不覆盖编辑器） */
+  const onPreviewVersion = useCallback(
+    async (v: NoteVersionMeta) => {
+      try {
+        if (!masterKey) throw new Error('no masterKey');
+        const { resolveBaseUrl } = await import('../lib/mode-store');
+        const baseUrl = resolveBaseUrl();
+        const token = useAuthStore.getState().accessToken;
+        const r = await fetch(`${baseUrl}/notes/${noteId}/versions/${v.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = (await r.json()) as { ciphertext: string };
+        const env = parseEnvelope(data.ciphertext);
+        const aad = noteAad(noteId, useAuthStore.getState().userId ?? '');
+        const json = await decryptString(
+          masterKey,
+          env.payload,
+          env.payload.a === 1 ? aad : undefined
+        );
+        const pt = JSON.parse(json) as { title: string; content: string };
+        // 轻量预览：标题 + 前 600 字内容（移动端全屏预览页较重，恢复走独立按钮）
+        const body = pt.content.length > 600 ? `${pt.content.slice(0, 600)}…` : pt.content;
+        Alert.alert(`📄 ${pt.title || t('editor.untitled') || '未命名'}`, body, [
+          { text: t('common.close') || '关闭' },
+          {
+            text: t('history.restore'),
+            style: 'destructive',
+            onPress: () => void onRestoreVersionRef.current?.(v.id),
+          },
+        ]);
+      } catch (err) {
+        Alert.alert(t('history.load_failed'), (err as Error).message);
+      }
+    },
+    [masterKey, noteId, t]
+  );
+
+  // onRestoreVersion 是 useCallback,预览回调里引用最新版避免依赖循环
+  const onRestoreVersionRef = useRef<((versionId: string) => Promise<void>) | null>(null);
+  onRestoreVersionRef.current = onRestoreVersion as unknown as (versionId: string) => Promise<void>;
+
   // ========== 移动到文件夹 ==========
   const onLoadFolders = useCallback(async () => {
     setShowFolders(true);
@@ -562,7 +680,28 @@ export function NoteEditScreen() {
       <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
         {preview ? (
           // Markdown 预览（只读，v2.4.4）
-          <MarkdownView title={title} content={content} colors={colors} />
+          <>
+            <MarkdownView
+              title={title}
+              content={content}
+              colors={colors}
+              onWikilink={(target) => void onWikilink(target)}
+            />
+            {backlinks.length > 0 && (
+              <View style={styles.backlinksCard}>
+                <Text style={[styles.backlinksTitle, { color: colors.muted }]}>
+                  {t('editor.backlinks') || '反向链接'} ({backlinks.length})
+                </Text>
+                {backlinks.map((bl) => (
+                  <TouchableOpacity key={bl.id} onPress={() => onBacklinkTap(bl.id)}>
+                    <Text style={[styles.backlinkItem, { color: colors.mint600 }]}>
+                      📄 {bl.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </>
         ) : (
           <>
             <TextInput
@@ -667,7 +806,7 @@ export function NoteEditScreen() {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.templateRow}
-                  onPress={() => void onRestoreVersion(item.id)}
+                  onPress={() => void onPreviewVersion(item)}
                 >
                   <Text style={styles.templateIcon}>🕘</Text>
                   <View style={styles.templateInfo}>
@@ -678,9 +817,19 @@ export function NoteEditScreen() {
                       {new Date(item.createdAt).toLocaleString()}
                     </Text>
                   </View>
-                  <Text style={styles.restoreBtn}>{t('history.restore')}</Text>
+                  <TouchableOpacity
+                    style={styles.restoreBtnWrap}
+                    onPress={() => void onRestoreVersion(item.id)}
+                  >
+                    <Text style={styles.restoreBtn}>{t('history.restore')}</Text>
+                  </TouchableOpacity>
                 </TouchableOpacity>
               )}
+              ListEmptyComponent={
+                <View style={styles.center}>
+                  <Text style={{ color: colors.muted }}>{t('history.empty')}</Text>
+                </View>
+              }
             />
           )}
         </View>
@@ -768,6 +917,23 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     toolbarBtn: { fontSize: 20, padding: 8, color: c.fg },
     toolbarStatus: { fontSize: 12, color: c.muted },
     scroll: { flex: 1 },
+    backlinksCard: {
+      marginTop: 8,
+      borderTopColor: c.border,
+      borderTopWidth: StyleSheet.hairlineWidth * 2,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    backlinksTitle: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1,
+      marginBottom: 6,
+    },
+    backlinkItem: {
+      fontSize: 14,
+      paddingVertical: 6,
+    },
     title: {
       fontSize: 24,
       fontWeight: '700',
@@ -862,5 +1028,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     templateName: { fontSize: 15, fontWeight: '600', color: c.fg, marginBottom: 2 },
     templateDesc: { fontSize: 12, color: c.muted },
     restoreBtn: { fontSize: 13, color: c.mint600, fontWeight: '600' },
+    restoreBtnWrap: { padding: 8 },
   });
 }

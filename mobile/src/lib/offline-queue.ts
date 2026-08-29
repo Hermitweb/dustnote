@@ -29,7 +29,6 @@ import {
   type QueueStorage,
   type QueuedOp,
   type ConflictContext,
-  type MergeableNote,
   type ErrorClass,
 } from '@dustnote/client-core';
 import { noteAad, type ApiException } from '@dustnote/shared';
