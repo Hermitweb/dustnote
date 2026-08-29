@@ -12,12 +12,14 @@ import {
   Alert,
   ScrollView,
   Image,
+  Clipboard,
 } from 'react-native';
 import logoImage from '../assets/logo.png';
 import { useAuthStore } from '../state/auth';
-import { theme } from '../theme';
+import { theme, useColors } from '../theme';
 
 export function SetupScreen() {
+  const colors = useColors();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -65,6 +67,17 @@ export function SetupScreen() {
         <View style={styles.codeBox}>
           <Text style={styles.codeText}>{recoveryCode}</Text>
         </View>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border }]}
+          onPress={() => {
+            // FLAG_SECURE 全局禁截屏（security.md §3.6），截图保存不可行——
+            // 提供复制到剪贴板作为替代保存方式
+            Clipboard.setString(recoveryCode);
+            Alert.alert('已复制', '恢复码已复制到剪贴板，请粘贴保存到安全的地方。');
+          }}
+        >
+          <Text style={[styles.buttonText, { color: colors.mint600 }]}>📋 复制恢复码</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.button}
           onPress={() => {

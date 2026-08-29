@@ -64,6 +64,8 @@ export function FoldersScreen() {
   const [renaming, setRenaming] = useState<Folder | null>(null);
   const [renameText, setRenameText] = useState('');
   const [moving, setMoving] = useState<Folder | null>(null);
+  // 行操作菜单（自定义 Modal，可 ✕ / 遮罩关闭）
+  const [menuFolder, setMenuFolder] = useState<Folder | null>(null);
   // 树形展开状态
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -177,19 +179,10 @@ export function FoldersScreen() {
     ]);
   };
 
+  // 文件夹操作菜单：原生 Alert 必须点按钮才能关闭（无 ✕、点外部无效，
+  // 用户反馈"没有关闭按钮"）→ 改用与重命名/移动一致的自定义 Modal
   const openMenu = (folder: Folder) => {
-    Alert.alert(folder.name, undefined, [
-      {
-        text: t('folders.rename'),
-        onPress: () => {
-          setRenaming(folder);
-          setRenameText(folder.name);
-        },
-      },
-      { text: t('folders.move_folder'), onPress: () => setMoving(folder) },
-      { text: t('folders.delete'), style: 'destructive', onPress: () => handleDelete(folder) },
-      { text: t('common.cancel'), style: 'cancel' },
-    ]);
+    setMenuFolder(folder);
   };
 
   const handleRename = async () => {
@@ -398,6 +391,54 @@ export function FoldersScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+      {/* 行操作菜单 Modal（✕ / 遮罩可关闭，替代原生 Alert） */}
+      <Modal visible={menuFolder !== null} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalMask} onPress={() => setMenuFolder(null)}>
+          <View style={styles.modalCard}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={styles.modalTitle} numberOfLines={1}>
+                📁 {menuFolder?.name}
+              </Text>
+              <TouchableOpacity onPress={() => setMenuFolder(null)}>
+                <Text style={{ fontSize: 18, color: colors.muted }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.menuRow}
+              onPress={() => {
+                const f = menuFolder;
+                setMenuFolder(null);
+                if (f) {
+                  setRenaming(f);
+                  setRenameText(f.name);
+                }
+              }}
+            >
+              <Text style={styles.menuRowText}>✏️ {t('folders.rename')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuRow}
+              onPress={() => {
+                const f = menuFolder;
+                setMenuFolder(null);
+                if (f) setMoving(f);
+              }}
+            >
+              <Text style={styles.menuRowText}>📁 {t('folders.move_folder')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuRow}
+              onPress={() => {
+                const f = menuFolder;
+                setMenuFolder(null);
+                if (f) handleDelete(f);
+              }}
+            >
+              <Text style={[styles.menuRowText, { color: colors.danger }]}>🗑️ {t('folders.delete')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -508,6 +549,13 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       gap: 12,
     },
     modalTitle: { fontSize: 16, fontWeight: '600', color: c.fg },
+    menuRow: {
+      paddingVertical: 12,
+      paddingHorizontal: 4,
+      borderBottomColor: c.border,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    menuRowText: { fontSize: 15, color: c.fg },
     modalHint: { fontSize: 12, color: c.muted },
     modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
     modalBtn: { paddingVertical: 6, paddingHorizontal: 12 },

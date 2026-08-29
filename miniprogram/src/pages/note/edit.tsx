@@ -317,8 +317,10 @@ export default function NoteEdit() {
       return;
     }
     const pwd = sharePwd.trim();
-    if (pwd && (pwd.length < 4 || pwd.length > 64)) {
-      Taro.showToast({ title: '密码需为 4-64 位', icon: 'none' });
+    if (pwd && (pwd.length < 8 || pwd.length > 64)) {
+      // 与服务端 CreateShareSchema（min 8）及 web 端预校验一致；旧文案"4-64 位"
+      // 会引导用户设 4-7 位密码然后在服务端被拒
+      Taro.showToast({ title: '密码需为 8-64 位', icon: 'none' });
       return;
     }
     const opt = SHARE_EXPIRY_OPTIONS.find((o) => o.key === shareExpiry) ?? SHARE_EXPIRY_OPTIONS[3]!;
@@ -640,7 +642,7 @@ export default function NoteEdit() {
             <Input
               className="mint-input"
               password
-              placeholder="可选：设置访问密码（4-64 位）"
+              placeholder="可选：设置访问密码（8-64 位）"
               value={sharePwd}
               onInput={(e) => setSharePwd((e.detail as { value: string }).value)}
             />

@@ -201,7 +201,9 @@ export function PublicShareView({ token }: { token: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-mint-50 dark:bg-slate-900">
+    // 自身滚动容器：全局 CSS 将 html/body/#root 锁死 overflow:hidden（主界面
+    // 依赖内部滚动），分享页是独立路由，若依赖文档流滚动长内容会被裁掉无法滚动
+    <div className="h-screen overflow-y-auto bg-mint-50 dark:bg-slate-900">
       {/* 顶部尘心绿横条 */}
       <div className="h-1.5 bg-gradient-to-r from-mint-400 via-mint-500 to-mint-600" />
       <div className="mx-auto max-w-3xl px-6 py-12">

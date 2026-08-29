@@ -32,8 +32,8 @@ export const createModeSlice: StateCreator<StoreState, [], [], ModeSlice> = (set
   },
 
   async switchMode(target: AppMode, serverUrl: string | null = null): Promise<void> {
-    const { repository, masterKey, localAuthBlob } = get();
-    if (!repository) {
+    const { masterKey, localAuthBlob } = get();
+    if (!get().repository) {
       throw new Error('应用尚未初始化完成，请稍后重试');
     }
     if (!masterKey) {
@@ -61,42 +61,34 @@ export const createModeSlice: StateCreator<StoreState, [], [], ModeSlice> = (set
       return;
     }
     clearGraceUnlock();
-    const prevMode = useModeStore.getState().mode;
-    const prevServerUrl = useModeStore.getState().serverUrl;
-    const prevStore = {
-      mode: get().mode,
-      repository: get().repository,
-      notes: get().notes,
-      notesPlain: get().notesPlain,
-      folders: get().folders,
-    };
-    try {
-      const backup = await repository.exportBackup();
-      useModeStore.getState().setMode(target);
-      if (serverUrl !== null) {
-        useModeStore.getState().setServerUrl(serverUrl);
-      }
-      const newRepo = createRepository(
-        { mode: target, serverUrl: useModeStore.getState().serverUrl },
-        () => get().accessToken
-      );
-      await newRepo.clearBusinessData();
-      await newRepo.importBackup(backup);
-      set({ mode: target, repository: newRepo } as Partial<StoreState>);
-      await get().loadAll();
-    } catch (err) {
-      useModeStore.getState().setMode(prevMode);
-      if (prevServerUrl !== null || serverUrl !== null) {
-        useModeStore.getState().setServerUrl(prevServerUrl);
-      }
-      set({
-        mode: prevStore.mode,
-        repository: prevStore.repository,
-        notes: prevStore.notes,
-        notesPlain: prevStore.notesPlain,
-        folders: prevStore.folders,
-      } as Partial<StoreState>);
-      throw err;
+    // 已解锁分支：模式切换只切通道，不做数据自动迁移。
+    // 旧实现对目标端执行 clearBusinessData/importBackup——切到联机时该端
+    // 尚未注册（无 accessToken），远端操作必然网络失败并回滚，用户看到
+    // "切换模式失败: Failed to fetch"（Windows 真机反馈）。现改为：
+    // 单机数据保留在本机单机库（不丢），联机走注册/解锁后为空库起步，
+    // 需要迁移时用设置里的导出/导入手动完成。
+    useModeStore.getState().setMode(target);
+    if (target === 'online') {
+      useModeStore
+        .getState()
+        .setServerUrl(serverUrl || useModeStore.getState().serverUrl);
+    } else {
+      useModeStore.getState().setServerUrl(null);
     }
+    const newRepo = createRepository(
+      { mode: target, serverUrl: useModeStore.getState().serverUrl },
+      () => get().accessToken
+    );
+    set({
+      mode: target,
+      repository: newRepo,
+      notes: new Map(),
+      notesPlain: new Map(),
+      folders: [],
+      authState: 'unknown',
+      accessToken: null,
+      masterKey: null,
+    } as Partial<StoreState>);
+    await get().checkStatus();
   },
 });
