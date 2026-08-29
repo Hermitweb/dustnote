@@ -10,8 +10,28 @@
 - macOS 桌面 vpk pack 实测（待 macOS 硬件）
 - CRDT 实时协同编辑
 - AI 助手（写作润色、自动标签、问答）
-- 双向链接 / 知识图谱
+- 知识图谱
 - 插件系统
+
+## [2.5.17] - 2026-08-29
+
+### 新功能（多端同步）
+
+- **双向链接全端贯通**：Miniprogram + Mobile 的 `[[标题]]` wikilink 由「仅展示」升级为可点击跳转（解密全库按标题定位，找不到给提示），预览模式底部新增反向链接面板（列出引用当前笔记标题的其他笔记，点击直达），与 Web 端语义一致
+- **Mobile 历史版本支持解密预览**：版本列表点击先解密展示标题+内容摘要，可在预览中直接选择恢复（对齐 Web/Miniprogram 的「先看再恢复」体验）
+- **Web 编辑模式悬浮说明**：编辑/分屏/预览/WYSIWYG 四个模式按钮增加悬浮提示（中英双语），WYSIWYG 补上此前缺失的 i18n key
+
+### 修复
+
+- **Miniprogram 语法错误（阻断 CI typecheck 门禁）**：`note/edit.tsx` 三元表达式分支缺 Fragment 包裹导致 `tsc` 编译失败，连带暴露的 `totp-client.ts` 类型错误（引用了 store 上不存在的字段）改走标准 `getApi()` 通道
+- **Web 分屏/预览模式滚动穿透**：`main#main-content` 缺 `min-h-0`，长笔记把 flex 容器撑到内容高度，顶栏/侧栏跟着整体滚动；补齐约束链后预览面板恢复内部滚动
+- **Web Sidebar 陈旧过滤**：`visibleNotes` 的 useMemo 缺 `folderScope` 依赖，文件夹同步后列表仍按旧范围过滤
+- **Mobile 死代码清理**：5 个 lint 警告清零（未使用 import / 变量），连带修复被增量缓存掩盖的 `styles.modalButtonDisabled` 未定义引用
+
+### 依赖
+
+- **安全治理**：`pnpm.overrides` 新增 webpack-dev-server ^5.2.6、fast-xml-parser ^5.7.0、uuid ^11.1.1，`pnpm audit` 从 11 项降至 3 项（剩余 swiper critical + image-size ×2 high 为 Taro/RN 工具链无补丁项，CI 豁免清单已登记）
+- **仓库卫生**：`desktop/src-tauri/gen/schemas/`（tauri 构建生成物）不再入库；清理根目录 14 个调试遗留日志；`.opencode/`、`.mimosa/` 加入 gitignore
 
 ## [2.5.16] - 2026-08-28
 
