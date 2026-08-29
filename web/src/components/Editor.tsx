@@ -381,6 +381,7 @@ export function Editor() {
         <button
           onClick={() => setMode('edit')}
           disabled={viewMode === 'trash'}
+          title={t('editor.view_edit_tip')}
           className={`rounded px-2 py-1 text-xs ${mode === 'edit' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'} ${viewMode === 'trash' ? 'cursor-not-allowed opacity-50' : ''}`}
         >
           {t('editor.view_edit')}
@@ -388,12 +389,14 @@ export function Editor() {
         <button
           onClick={() => setMode('split')}
           disabled={viewMode === 'trash'}
+          title={t('editor.view_split_tip')}
           className={`rounded px-2 py-1 text-xs ${mode === 'split' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'} ${viewMode === 'trash' ? 'cursor-not-allowed opacity-50' : ''}`}
         >
           {t('editor.view_split')}
         </button>
         <button
           onClick={() => setMode('preview')}
+          title={t('editor.view_preview_tip')}
           className={`rounded px-2 py-1 text-xs ${mode === 'preview' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'}`}
         >
           {t('editor.view_preview')}
@@ -402,7 +405,7 @@ export function Editor() {
           onClick={() => setMode('wysiwyg')}
           disabled={viewMode === 'trash'}
           className={`rounded px-2 py-1 text-xs ${mode === 'wysiwyg' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'} ${viewMode === 'trash' ? 'cursor-not-allowed opacity-50' : ''}`}
-          title={t('editor.view_wysiwyg') || '所见即所得'}
+          title={t('editor.view_wysiwyg_tip') || '所见即所得编辑'}
         >
           ✨ WYSIWYG
         </button>
