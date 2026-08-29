@@ -188,6 +188,20 @@ jobs:
           name: desktop-portable-win
           path: desktop/src-tauri/DustNote_*_x64-portable.zip
           if-no-files-found: ignore
+      - name: Build NSIS installer (traditional install: license page + path selection + WebView2 check + uninstaller)
+        # Velopack Setup.exe 为极简设计（固定 %LocalAppData%，无许可/路径页/环境检测）。
+        # NSIS 安装包满足传统安装诉求：MIT 许可页、目录选择页、WebView2 检测/自动安装、
+        # 控制面板卸载程序。两套并存：NSIS=完整安装体验，Velopack=自动更新链路。
+        # NSIS 仅 Windows 可构建；复用上方 tauri build 的 cargo/vite 缓存，增量较快。
+        if: matrix.os == 'windows-latest'
+        working-directory: desktop
+        run: pnpm tauri build --bundles nsis
+      - uses: actions/upload-artifact@v5
+        if: matrix.os == 'windows-latest'
+        with:
+          name: desktop-nsis-win
+          path: desktop/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: ignore
       - name: Pack with Velopack (Setup.exe + nupkg + RELEASES)
         working-directory: desktop/src-tauri
         shell: bash
@@ -597,6 +611,16 @@ jobs:
           # 重命名 Android APK → DustNote_<version>_android.apk
           if [ -f artifacts/android-apk/app-release.apk ]; then
             cp artifacts/android-apk/app-release.apk "release-assets/DustNote_${DUSTNOTE_VERSION}_android.apk"
+          fi
+
+          # ---- Windows NSIS 传统安装包（许可页 + 路径选择 + WebView2 检测 + 卸载程序）----
+          # 与 Velopack Setup.exe 并存：NSIS=完整安装体验；Setup.exe=自动更新链路
+          nsis_src="$(ls artifacts/desktop-nsis-win/*.exe 2>/dev/null | head -n1 || true)"
+          if [ -n "$nsis_src" ] && [ -f "$nsis_src" ]; then
+            cp "$nsis_src" "release-assets/DustNote_${DUSTNOTE_VERSION}_x64-setup-nsis.exe"
+            echo "✓ Windows NSIS installer found: $(basename "$nsis_src")"
+          else
+            echo "::warning::Windows NSIS installer not generated — Setup.exe still available"
           fi
 
           # ---- Linux 桌面集成包（.desktop + 图标 + 安装/卸载脚本）----

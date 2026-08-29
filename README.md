@@ -50,13 +50,22 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 | 平台               | 状态    | 构建方式                 | 分发                                       |
 | ------------------ | ------- | ------------------------ | ------------------------------------------ |
 | **Web**（PWA）     | ✅      | Vite                     | 静态文件 / Docker / PWA 安装               |
-| **桌面** (Tauri 2) | ✅      | `pnpm build:desktop`     | Windows MSI + Setup.exe / Linux 桌面集成包 |
+| **桌面** (Tauri 2) | ✅      | `pnpm build:desktop`     | Windows NSIS/MSI/Setup.exe / Linux 桌面集成包 |
 | **微信小程序**     | ✅      | `pnpm build:miniprogram` | 微信审核上传                               |
 | **H5 移动版**      | ✅      | `pnpm build:h5`          | 静态文件部署                               |
 | **Android**        | ✅      | `pnpm build:android`     | APK 分发                                   |
 | **iOS**            | ⚠️ 跳过 | 需 macOS + Xcode         | RN 代码已编写，未来可构建                  |
 
 > macOS 桌面 vpk pack 实测需 macOS 硬件，release.yml 已有 `continue-on-error: true`。
+
+### Windows 安装包选择（四选一）
+
+| 安装包 | 安装体验 | 适用 |
+| --- | --- | --- |
+| `*_x64-setup-nsis.exe` | **完整安装向导**：使用许可声明、安装路径选择、WebView2 环境检测/自动安装、控制面板卸载程序（PerUser/PerMachine 可选） | 传统安装偏好、需要自定义路径 |
+| `*_x64-setup.exe` | 一键极简安装（固定 `%LocalAppData%\DustNote`，无需管理员），**支持应用内自动更新** | 追求自动更新 |
+| `*_x64-setup.msi` | Windows Installer（默认 Program Files，`msiexec VELOPACK_INSTALLDIR` 可自定义路径），企业批量部署 | IT 管控 |
+| `*_x64-portable.zip` | 免安装解压即用 | 绿色便携 |
 
 ## 快速开始
 

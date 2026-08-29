@@ -29,8 +29,8 @@
     }
   },
   "bundle": {
-    "active": false,
-    "targets": [],
+    "active": true,
+    "targets": ["nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -42,6 +42,15 @@
     "shortDescription": "DustNote · 尘心笔记",
     "longDescription": "DustNote 是一款单用户跨端个人笔记系统，无需注册，主密码即身份。端到端加密，支持 .txt/.md/.docx 导入导出与可控制分享。",
     "publisher": "DustNote Team",
-    "copyright": "© 2026 DustNote"
+    "copyright": "© 2026 DustNote",
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installMode": "both",
+        "license": "../../LICENSE"
+      }
+    }
   }
 }
