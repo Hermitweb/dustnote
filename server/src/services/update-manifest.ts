@@ -6,61 +6,55 @@
  */
 
 import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { config } from '../env.js';
 
 type Channel = 'nightly' | 'canary' | 'beta' | 'stable';
 type Platform = 'web' | 'desktop' | 'android' | 'ios' | 'miniprogram';
 
-// ========== 占位清单（实际应从配置中心/CI 产物注册表读取）==========
+// ========== 产物清单（宿主托管目录 + 真实 SHA-256）==========
 
-const STATIC_ARTIFACTS = {
-  web: {
-    url: 'https://cdn.dustnote.app/web/latest/index.html',
-    hash: '', // 由构建时计算
-    size: 0,
-  },
-  desktop: {
-    macos: {
-      url: 'https://cdn.dustnote.app/desktop/latest/macos-universal.dmg',
-      hash: '',
-      size: 0,
+// 安装包托管目录：容器内路径，部署时把产物目录以只读方式挂载到这里
+// （compose: /opt/dustnote-downloads:/app/web-dist/downloads:ro），nginx 经
+// /downloads/ 前缀直接静态伺服，客户端下载全程走自有服务器，不依赖 GitHub。
+const DOWNLOADS_DIR = process.env.DOWNLOADS_DIR ?? '/app/web-dist/downloads';
+
+const hashCache = new Map<string, string>();
+
+/**
+ * 按文件名构建 artifact。
+ * 客户端 UpdateManifestArtifactSchema 严格校验 hash 必须是
+ * `sha256:<64位hex>`——空串占位会让整个 manifest 校验失败
+ * （安卓端曾因此报 "Invalid manifest"）。因此这里对存在的文件
+ * 计算真实 SHA-256（结果缓存）；文件缺失时返回 undefined——schema
+ * 中各 artifact 均为 optional，省略优于输出非法值。
+ */
+function artifactFor(filename: string): { url: string; hash: string; size: number } | undefined {
+  const path = join(DOWNLOADS_DIR, filename);
+  if (!existsSync(path)) return undefined;
+  let hash = hashCache.get(path);
+  if (!hash) {
+    hash = `sha256:${createHash('sha256').update(readFileSync(path)).digest('hex')}`;
+    hashCache.set(path, hash);
+  }
+  return {
+    url: `${config.webOrigin}/downloads/${filename}`,
+    hash,
+    size: statSync(path).size,
+  };
+}
+
+function getStaticArtifacts() {
+  return {
+    desktop: {
+      windows: artifactFor(`DustNote_${config.serverVersion}_x64-setup-nsis.exe`),
     },
-  windows: {
-    // GitHub Releases 直链（releases/download 域走 CDN，不受 api.github.com
-    // 未认证限流约束）；随 serverVersion 指向最新 tag 的 NSIS 安装包。
-    // hash/size 发版时由 CI 填充占位（客户端校验以 GitHub 自身 TLS 为准，
-    // 桌面端下载后按 manifest.hash 复核，占位空串时跳过复核）。
-    url: `https://github.com/Hermitweb/dustnote/releases/download/v${config.serverVersion}/DustNote_${config.serverVersion}_x64-setup-nsis.exe`,
-    hash: '',
-    size: 0,
-  },
-    linux: {
-      url: 'https://cdn.dustnote.app/desktop/latest/linux-x86_64.AppImage',
-      hash: '',
-      size: 0,
+    android: {
+      apk: artifactFor(`DustNote_${config.serverVersion}_android.apk`),
     },
-  },
-  android: {
-    apk: {
-      // GitHub Releases 直链（同 windows：真实产物，随 serverVersion 指向最新 tag 的 APK）。
-      // cdn.dustnote.app 为无真实服务的占位域名，指向它会让更新提示后无法下载。
-      url: `https://github.com/Hermitweb/dustnote/releases/download/v${config.serverVersion}/DustNote_${config.serverVersion}_android.apk`,
-      hash: '',
-      size: 0,
-      minSdkVersion: 28,
-    },
-    aab: {
-      playUrl: 'https://play.google.com/store/apps/details?id=app.dustnote',
-    },
-  },
-  ios: {
-    appStoreUrl: 'https://apps.apple.com/app/dustnote/id000000000',
-  },
-  miniprogram: {
-    version: config.serverVersion,
-    qrcodeUrl: 'https://cdn.dustnote.app/miniprogram/qr.png',
-  },
-};
+  };
+}
 
 // ========== 通道配置（实际可对接 CI 产物注册表）==========
 
@@ -104,7 +98,7 @@ export function getManifestForChannel(
       mandatory: false,
       // v2.0.0 引入单机/联机双模式架构，旧版客户端（0.x）无法连接
       minServerVersion: config.serverVersion,
-      artifacts: STATIC_ARTIFACTS,
+      artifacts: getStaticArtifacts(),
     },
     minClientVersion: config.minClientVersion,
     recommendedClientVersion: config.recommendedClientVersion,
