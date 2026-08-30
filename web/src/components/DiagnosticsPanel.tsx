@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18n from '../lib/i18n';
 import { getStorageUsage, cleanupCache } from '../lib/db';
 import { exportDiagnostics } from '../lib/diagnostics';
 import { getLastBackupTime } from '../lib/auto-backup';
@@ -25,10 +26,9 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 ** i).toFixed(1)} ${units[i]}`;
 }
 
-function formatTime(
-  iso: string | null,
-  t: (key: string, opts?: Record<string, unknown>) => string
-): string {
+/** 相对时间格式化：直接用 i18n 实例（desktop 复用此组件且其 react-i18next
+ * 版本无 TFunction 导出，收 t 参数会出现跨包类型不兼容） */
+function formatTime(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
   const now = new Date();
@@ -36,10 +36,10 @@ function formatTime(
   const diffMin = Math.floor(diffMs / 60000);
   const diffHour = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHour / 24);
-  if (diffMin < 1) return t('time.just_now');
-  if (diffMin < 60) return t('time.minutes_ago', { n: diffMin });
-  if (diffHour < 24) return t('time.hours_ago', { n: diffHour });
-  if (diffDay < 30) return t('time.days_ago', { n: diffDay });
+  if (diffMin < 1) return i18n.t('time.just_now');
+  if (diffMin < 60) return i18n.t('time.minutes_ago', { n: diffMin });
+  if (diffHour < 24) return i18n.t('time.hours_ago', { n: diffHour });
+  if (diffDay < 30) return i18n.t('time.days_ago', { n: diffDay });
   return d.toLocaleDateString();
 }
 
@@ -103,7 +103,7 @@ export function DiagnosticsPanel() {
       {/* 上次自动备份 */}
       <div className="mb-2 flex items-center justify-between">
         <span>{t('settings.auto_backup_last')}</span>
-        <span>{lastBackup ? formatTime(lastBackup, t) : t('settings.auto_backup_never')}</span>
+        <span>{lastBackup ? formatTime(lastBackup) : t('settings.auto_backup_never')}</span>
       </div>
 
       {/* 操作按钮 */}

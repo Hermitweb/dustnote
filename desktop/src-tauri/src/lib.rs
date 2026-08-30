@@ -224,33 +224,34 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            // 原生菜单栏
-            let new_note_i = MenuItem::with_id(app, "file_new_note", "新建笔记", true, Some("CommandOrControl+N"))?;
-            let file_quit_i = MenuItem::with_id(app, "file_quit", "退出 尘心笔记", true, Some("CommandOrControl+Q"))?;
-            let file_menu = Submenu::with_items(app, "文件", true, &[&new_note_i, &file_quit_i])?;
+            // 原生菜单栏（原生壳层统一英文：安装包与系统菜单不随应用内容语言本地化；
+            // 窗口标题/托盘 tooltip 由前端按语言动态覆盖，见 App.tsx）
+            let new_note_i = MenuItem::with_id(app, "file_new_note", "New Note", true, Some("CommandOrControl+N"))?;
+            let file_quit_i = MenuItem::with_id(app, "file_quit", "Quit DustNote", true, Some("CommandOrControl+Q"))?;
+            let file_menu = Submenu::with_items(app, "File", true, &[&new_note_i, &file_quit_i])?;
 
-            let undo_i = PredefinedMenuItem::undo(app, Some("撤销"))?;
-            let redo_i = PredefinedMenuItem::redo(app, Some("重做"))?;
-            let cut_i = PredefinedMenuItem::cut(app, Some("剪切"))?;
-            let copy_i = PredefinedMenuItem::copy(app, Some("复制"))?;
-            let paste_i = PredefinedMenuItem::paste(app, Some("粘贴"))?;
-            let select_all_i = PredefinedMenuItem::select_all(app, Some("全选"))?;
-            let edit_menu = Submenu::with_items(app, "编辑", true, &[
+            let undo_i = PredefinedMenuItem::undo(app, Some("Undo"))?;
+            let redo_i = PredefinedMenuItem::redo(app, Some("Redo"))?;
+            let cut_i = PredefinedMenuItem::cut(app, Some("Cut"))?;
+            let copy_i = PredefinedMenuItem::copy(app, Some("Copy"))?;
+            let paste_i = PredefinedMenuItem::paste(app, Some("Paste"))?;
+            let select_all_i = PredefinedMenuItem::select_all(app, Some("Select All"))?;
+            let edit_menu = Submenu::with_items(app, "Edit", true, &[
                 &undo_i, &redo_i, &cut_i, &copy_i, &paste_i, &select_all_i
             ])?;
 
-            let zoom_in_i = MenuItem::with_id(app, "view_zoom_in", "放大", true, Some("CommandOrControl+="))?;
-            let zoom_out_i = MenuItem::with_id(app, "view_zoom_out", "缩小", true, Some("CommandOrControl+-"))?;
-            let zoom_reset_i = MenuItem::with_id(app, "view_zoom_reset", "重置缩放", true, Some("CommandOrControl+0"))?;
-            let fullscreen_i = MenuItem::with_id(app, "view_toggle_fullscreen", "全屏", true, Some("F11"))?;
-            let sidebar_i = MenuItem::with_id(app, "view_toggle_sidebar", "侧边栏", true, Some("CommandOrControl+B"))?;
-            let view_menu = Submenu::with_items(app, "视图", true, &[
+            let zoom_in_i = MenuItem::with_id(app, "view_zoom_in", "Zoom In", true, Some("CommandOrControl+="))?;
+            let zoom_out_i = MenuItem::with_id(app, "view_zoom_out", "Zoom Out", true, Some("CommandOrControl+-"))?;
+            let zoom_reset_i = MenuItem::with_id(app, "view_zoom_reset", "Reset Zoom", true, Some("CommandOrControl+0"))?;
+            let fullscreen_i = MenuItem::with_id(app, "view_toggle_fullscreen", "Fullscreen", true, Some("F11"))?;
+            let sidebar_i = MenuItem::with_id(app, "view_toggle_sidebar", "Sidebar", true, Some("CommandOrControl+B"))?;
+            let view_menu = Submenu::with_items(app, "View", true, &[
                 &zoom_in_i, &zoom_out_i, &zoom_reset_i, &fullscreen_i, &sidebar_i
             ])?;
 
-            let about_i = MenuItem::with_id(app, "help_about", "关于 尘心笔记", true, None::<&str>)?;
-            let check_update_i = MenuItem::with_id(app, "help_check_update", "检查更新", true, None::<&str>)?;
-            let help_menu = Submenu::with_items(app, "帮助", true, &[&about_i, &check_update_i])?;
+            let about_i = MenuItem::with_id(app, "help_about", "About DustNote", true, None::<&str>)?;
+            let check_update_i = MenuItem::with_id(app, "help_check_update", "Check for Updates", true, None::<&str>)?;
+            let help_menu = Submenu::with_items(app, "Help", true, &[&about_i, &check_update_i])?;
 
             let main_menu = Menu::with_items(app, &[&file_menu, &edit_menu, &view_menu, &help_menu])?;
             app.set_menu(main_menu)?;
@@ -281,15 +282,15 @@ pub fn run() {
             }
 
             // 系统托盘
-            let quit_i = MenuItem::with_id(app, "quit", "退出 尘心笔记", true, None::<&str>)?;
-            let show_i = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Quit DustNote", true, None::<&str>)?;
+            let show_i = MenuItem::with_id(app, "show", "Show DustNote", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
             // 系统托盘：default_window_icon 在极少数情况下可能为 None
             //（如配置缺失或资源加载失败），用 unwrap() 会导致启动 panic。
             // 若图标存在则设置到托盘，否则仅打印警告，托盘仍可使用（显示系统默认图标）。
             let mut tray_builder = TrayIconBuilder::with_id("main")
-                .tooltip("尘心笔记")
+                .tooltip("DustNote")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
