@@ -41,7 +41,7 @@ const ConflictDialog = lazy(() => import('./components/ConflictDialog').then((m)
 type StandaloneView = 'setup' | 'unlock' | 'recover';
 
 function App() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const authState = useStore((s) => s.authState);
   const serverError = useStore((s) => s.serverError);
   const mode = useStore((s) => s.mode);
@@ -56,6 +56,11 @@ function App() {
   const modeInitialized = useModeStore((s) => s.initialized);
   const sidebarHidden = useStore((s) => s.sidebarHidden);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
+
+  // 应用名跟随语言：中文「尘心笔记」/ 英文「DustNote」（浏览器标签标题）
+  useEffect(() => {
+    document.title = t('app.name');
+  }, [t, i18n.language]);
 
   // URL 参数自动连接：?server=http://xxx 自动跳过模式选择
   useEffect(() => {

@@ -281,7 +281,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       if (useStore.getState().authState === 'error') {
         toast.error(
           t('settings.mode_switch_fail', {
-            reason: useStore.getState().serverError ?? '网络错误',
+            reason: useStore.getState().serverError ?? t('settings.network_error'),
           })
         );
       } else {
@@ -477,7 +477,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                   >
-                    {l === 'zh-CN' ? '中文' : 'English'}
+                    {l === 'zh-CN' ? t('settings.lang_zh') : t('settings.lang_en')}
                   </button>
                 ))}
               </div>
@@ -904,11 +904,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   className="mt-2 rounded-md bg-mint-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-mint-600"
                   onClick={() => void pwaInstall.install()}
                 >
-                  📲 安装为桌面应用
+                  {t('settings.install_pwa')}
                 </button>
               )}
               {pwaInstall.installed && (
-                <div className="mt-2 text-mint-600 dark:text-mint-400">✓ 已安装为独立应用</div>
+                <div className="mt-2 text-mint-600 dark:text-mint-400">{t('settings.pwa_installed')}</div>
               )}
             </div>
           </div>

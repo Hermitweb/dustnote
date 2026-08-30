@@ -47,7 +47,7 @@ export function SetupScreen() {
           <div className="my-6 rounded-xl bg-mint-50 p-6 font-mono text-3xl font-bold tracking-widest text-mint-700 dark:bg-mint-900/30 dark:text-mint-300">
             {recoveryCode}
           </div>
-          <p className="mb-6 text-xs text-surface-muted">⚠️ 忘记主密码且无恢复码 = 笔记永久丢失</p>
+          <p className="mb-6 text-xs text-surface-muted">{t('auth.no_recovery_warning')}</p>
           <button
             onClick={() => {
               /* 自动跳转主界面 */

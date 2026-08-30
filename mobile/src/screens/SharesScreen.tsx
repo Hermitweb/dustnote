@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { decryptString, unwrapKey, toBase64Url, noteAad, type Ciphertext } from '@dustnote/shared';
 import { api } from '../api';
 import { useAuthStore } from '../state/auth';
@@ -43,6 +44,7 @@ interface ShareItem {
 
 export function SharesScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const masterKey = useAuthStore((s) => s.masterKey);
   const [shares, setShares] = useState<ShareItem[]>([]);
   const [noteTitles, setNoteTitles] = useState<Record<string, string>>({});
@@ -75,9 +77,9 @@ export function SharesScreen() {
               const aad = env.payload.a === 1 ? noteAad(n.id, userId) : undefined;
               const json = await decryptString(masterKey, env.payload, aad);
               const pt = JSON.parse(json) as { title?: string };
-              titles[n.id] = pt.title || '未命名笔记';
+              titles[n.id] = pt.title || t('editor.untitled');
             } catch {
-              titles[n.id] = '🔒 解密失败';
+              titles[n.id] = t('editor.decrypt_failed_title');
             }
           }
         } catch {
@@ -90,7 +92,7 @@ export function SharesScreen() {
     } finally {
       setLoading(false);
     }
-  }, [masterKey]);
+  }, [masterKey, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -100,7 +102,7 @@ export function SharesScreen() {
 
   /** 解封 shareKey，还原完整链接 */
   const buildLink = async (item: ShareItem): Promise<string> => {
-    if (!masterKey) throw new Error('请先解锁');
+    if (!masterKey) throw new Error(t('common.unlock_required'));
     const shareKey = await unwrapKey(masterKey, item.wrappedShareKey);
     const baseUrl = resolveBaseUrl().replace(/\/api\/v1$/, '');
     return `${baseUrl}/share/${item.token}#${toBase64Url(shareKey)}`;
@@ -110,9 +112,9 @@ export function SharesScreen() {
     try {
       const url = await buildLink(item);
       Clipboard.setString(url);
-      Alert.alert('已复制', '分享链接（含解密密钥）已复制到剪贴板。');
+      Alert.alert(t('common.copied'), t('share.copied_detail'));
     } catch (err) {
-      Alert.alert('复制失败', (err as Error).message);
+      Alert.alert(t('share.copy_failed'), (err as Error).message);
     }
   };
 
@@ -121,24 +123,24 @@ export function SharesScreen() {
       const url = await buildLink(item);
       await Share.share({ message: url });
     } catch (err) {
-      Alert.alert('分享失败', (err as Error).message);
+      Alert.alert(t('editor.share_failed'), (err as Error).message);
     }
   };
 
   const onRevoke = (item: ShareItem) => {
-    Alert.alert('吊销分享', '吊销后该链接立即失效，且不可恢复。确定？', [
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('share.revoke_title'), t('share.revoke_confirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '吊销',
+        text: t('share.revoke'),
         style: 'destructive',
         onPress: async () => {
           setBusyId(item.id);
           try {
             await api.delete(`/shares/${item.id}`);
             setShares((prev) => prev.map((s) => (s.id === item.id ? { ...s, revoked: true } : s)));
-            Alert.alert('已吊销', '该分享链接已失效。');
+            Alert.alert(t('share.revoked_title'), t('share.revoked_detail'));
           } catch (err) {
-            Alert.alert('吊销失败', (err as Error).message);
+            Alert.alert(t('share.revoke_failed'), (err as Error).message);
           } finally {
             setBusyId(null);
           }
@@ -154,14 +156,14 @@ export function SharesScreen() {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.mint600} />
-          <Text style={styles.hint}>加载中…</Text>
+          <Text style={styles.hint}>{t('common.loading')}</Text>
         </View>
       ) : error ? (
         <View style={styles.center}>
           <Text style={styles.errorEmoji}>⚠️</Text>
-          <Text style={styles.hint}>加载失败：{error}</Text>
+          <Text style={styles.hint}>{t('share.load_failed_detail', { reason: error })}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={() => void load()}>
-            <Text style={styles.retryText}>重试</Text>
+            <Text style={styles.retryText}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -171,28 +173,29 @@ export function SharesScreen() {
           ListEmptyComponent={
             <View style={styles.center}>
               <Text style={styles.emptyEmoji}>🔗</Text>
-              <Text style={styles.hint}>还没有分享，去编辑页点击 🔗 分享笔记</Text>
+              <Text style={styles.hint}>{t('share.empty')}</Text>
             </View>
           }
           renderItem={({ item }) => (
             <View style={[styles.card, item.revoked && { opacity: 0.5 }]}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle} numberOfLines={1}>
-                  {noteTitles[item.noteId] ?? '未知笔记'}
+                  {noteTitles[item.noteId] ?? t('share.unknown_note')}
                 </Text>
                 {item.revoked ? (
-                  <Text style={styles.revokedBadge}>已吊销</Text>
+                  <Text style={styles.revokedBadge}>{t('share.revoked_title')}</Text>
                 ) : item.hasPassword ? (
-                  <Text style={styles.passwordBadge}>🔑 有密码</Text>
+                  <Text style={styles.passwordBadge}>{t('share.has_password_badge')}</Text>
                 ) : null}
               </View>
               <Text style={styles.cardMeta}>
-                创建于 {new Date(item.createdAt).toLocaleString('zh-CN')} · 查看 {item.viewCount} 次
+                {t('share.created_at', { date: new Date(item.createdAt).toLocaleString('zh-CN') })}{' '}
+                · {t('share.views', { count: item.viewCount })}
                 {'\n'}
-                {item.hasPassword ? '🔑 有访问密码' : '无访问密码'}
+                {item.hasPassword ? t('share.password_protected') : t('share.no_password')}
                 {item.expiresAt
-                  ? ` · 过期：${new Date(item.expiresAt).toLocaleString('zh-CN')}`
-                  : ' · 永不过期'}
+                  ? ` · ${t('share.expires_at', { date: new Date(item.expiresAt).toLocaleString('zh-CN') })}`
+                  : ` · ${t('share.never_expires')}`}
               </Text>
               {!item.revoked && (
                 <View style={styles.actions}>
@@ -201,14 +204,14 @@ export function SharesScreen() {
                     onPress={() => void onCopyLink(item)}
                     disabled={busyId === item.id}
                   >
-                    <Text style={styles.actionText}>📋 复制链接</Text>
+                    <Text style={styles.actionText}>{t('share.copy_link_btn')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.actionBtn}
                     onPress={() => void onShareLink(item)}
                     disabled={busyId === item.id}
                   >
-                    <Text style={styles.actionText}>📤 分享</Text>
+                    <Text style={styles.actionText}>{t('share.share_btn')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionBtn, styles.revokeBtn]}
@@ -216,7 +219,7 @@ export function SharesScreen() {
                     disabled={busyId === item.id}
                   >
                     <Text style={[styles.actionText, { color: colors.danger }]}>
-                      {busyId === item.id ? '处理中…' : '🚫 吊销'}
+                      {busyId === item.id ? t('share.processing') : t('share.revoke_btn')}
                     </Text>
                   </TouchableOpacity>
                 </View>

@@ -83,12 +83,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       const f = arr[i];
       if (!f) continue;
       if (f.size > 50 * 1024 * 1024) {
-        setError(
-          t('import_export.file_too_large', {
-            name: f.name,
-            defaultValue: `文件过大：${f.name}（超过 50MB 限制）`,
-          })
-        );
+        setError(t('import_export.file_too_large', { name: f.name }));
         continue;
       }
       try {

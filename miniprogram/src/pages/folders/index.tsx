@@ -14,6 +14,7 @@ import React, { useState } from 'react';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { getRepo } from '../../lib/get-repo';
+import { t, useLanguage } from '../../lib/i18n';
 
 interface Folder {
   id: string;
@@ -31,6 +32,7 @@ const MAX_DEPTH = 2;
 const BRANCH_ICON: Record<string, string> = { work: '💼', personal: '🌿' };
 
 export default function Folders() {
+  const lang = useLanguage();
   const [folders, setFolders] = useState<Folder[]>([]);
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,7 +51,7 @@ export default function Folders() {
       const snapshot = await getRepo().loadAll();
       setFolders(snapshot.folders as Folder[]);
     } catch {
-      Taro.showToast({ title: '加载失败', icon: 'none' });
+      Taro.showToast({ title: t('common.load_failed'), icon: 'none' });
     } finally {
       setLoading(false);
     }
@@ -61,6 +63,11 @@ export default function Folders() {
   useDidShow(() => {
     void load();
   });
+
+  // 语言切换后同步原生导航栏标题
+  React.useEffect(() => {
+    Taro.setNavigationBarTitle({ title: t('app.name') });
+  }, [lang]);
 
   const findFolder = (id: string | null) => (id ? folders.find((f) => f.id === id) : undefined);
 
@@ -89,7 +96,7 @@ export default function Folders() {
     if (!name) return;
     const parent = findFolder(parentSel);
     if (parent && (parent.depth ?? 1) >= MAX_DEPTH) {
-      Taro.showToast({ title: '最多两级嵌套', icon: 'none' });
+      Taro.showToast({ title: t('folders.max_depth'), icon: 'none' });
       return;
     }
     try {
@@ -112,26 +119,26 @@ export default function Folders() {
         },
       ]);
       setNewName('');
-      Taro.showToast({ title: '已创建', icon: 'success' });
+      Taro.showToast({ title: t('folders.created'), icon: 'success' });
     } catch {
-      Taro.showToast({ title: '创建失败', icon: 'none' });
+      Taro.showToast({ title: t('common.create_failed'), icon: 'none' });
     }
   };
 
   const handleDelete = async (folder: Folder) => {
     const r = await Taro.showModal({
-      title: '删除文件夹',
-      content: `确定删除「${folder.name}」？文件夹内的笔记不会被删除。`,
-      confirmText: '删除',
+      title: t('folders.delete_title'),
+      content: t('folders.delete_content', { name: folder.name }),
+      confirmText: t('common.delete'),
       confirmColor: '#E07B6C',
     });
     if (!r.confirm) return;
     try {
       await getRepo().deleteFolder(folder.id);
       setFolders((prev) => prev.filter((f) => f.id !== folder.id));
-      Taro.showToast({ title: '已删除', icon: 'success' });
+      Taro.showToast({ title: t('common.deleted'), icon: 'success' });
     } catch {
-      Taro.showToast({ title: '删除失败', icon: 'none' });
+      Taro.showToast({ title: t('common.delete_failed'), icon: 'none' });
     }
   };
 
@@ -147,9 +154,9 @@ export default function Folders() {
       await getRepo().renameFolder(renameTarget.id, name);
       setFolders((prev) => prev.map((f) => (f.id === renameTarget.id ? { ...f, name } : f)));
       setRenameTarget(null);
-      Taro.showToast({ title: '已重命名', icon: 'success' });
+      Taro.showToast({ title: t('folders.renamed'), icon: 'success' });
     } catch {
-      Taro.showToast({ title: '重命名失败', icon: 'none' });
+      Taro.showToast({ title: t('folders.rename_failed'), icon: 'none' });
     }
   };
 
@@ -157,7 +164,7 @@ export default function Folders() {
     if (!moving) return;
     const target = findFolder(targetParentId);
     if (target && isSelfOrDescendant(target.id, moving.id)) {
-      Taro.showToast({ title: '不能移动到自身或其子文件夹', icon: 'none' });
+      Taro.showToast({ title: t('folders.move_self_error'), icon: 'none' });
       return;
     }
     try {
@@ -175,15 +182,15 @@ export default function Folders() {
         )
       );
       setMovingId(null);
-      Taro.showToast({ title: '已移动', icon: 'success' });
+      Taro.showToast({ title: t('folders.moved'), icon: 'success' });
     } catch {
-      Taro.showToast({ title: '移动失败', icon: 'none' });
+      Taro.showToast({ title: t('folders.move_failed'), icon: 'none' });
     }
   };
 
   const openMenu = (folder: Folder) => {
     Taro.showActionSheet({
-      itemList: ['✏️ 重命名', '📁 移动到…', '🗑️ 删除'],
+      itemList: [t('folders.menu_rename'), t('folders.menu_move'), t('folders.menu_delete')],
       itemColor: '#E07B6C',
       success: (res) => {
         if (res.tapIndex === 0) {
@@ -201,7 +208,7 @@ export default function Folders() {
         <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
           ←
         </Text>
-        <Text className="topbar-title">{moving ? '移动文件夹' : '文件夹管理'}</Text>
+        <Text className="topbar-title">{moving ? t('folders.moving_title') : t('folders.title')}</Text>
         <Text className="topbar-actions"></Text>
       </View>
 
@@ -210,11 +217,12 @@ export default function Folders() {
         <ScrollView scrollY className="flex-1">
           <View className="settings-group">
             <Text className="settings-group-title">
-              移动「{moving.name}」到：{movingHasChildren ? '（含子文件夹，仅可移到顶层）' : ''}
+              {t('folders.move_to', { name: moving.name })}
+              {movingHasChildren ? t('folders.move_children_note') : ''}
             </Text>
             <View className="settings-row" onClick={() => void handleMove(null)}>
               <View className="settings-row-label">
-                <Text>📁 顶层</Text>
+                <Text>{t('folders.top_level')}</Text>
               </View>
             </View>
             {!movingHasChildren &&
@@ -229,7 +237,7 @@ export default function Folders() {
               ))}
             <View className="settings-row" onClick={() => setMovingId(null)}>
               <View className="settings-row-label">
-                <Text className="text-muted">取消移动</Text>
+                <Text className="text-muted">{t('folders.cancel_move')}</Text>
               </View>
             </View>
           </View>
@@ -243,7 +251,7 @@ export default function Folders() {
             <View className="folder-input-row">
               <Input
                 className="folder-input"
-                placeholder="新建文件夹名称…"
+                placeholder={t('folders.input_placeholder')}
                 value={newName}
                 onInput={(e: any) => setNewName((e.detail as { value: string }).value)}
                 onConfirm={() => void handleCreate()}
@@ -252,7 +260,7 @@ export default function Folders() {
                 className={`mint-btn mint-btn-sm${!newName.trim() ? ' mint-btn-disabled' : ''}`}
                 onClick={() => void handleCreate()}
               >
-                添加
+                {t('folders.add')}
               </Text>
             </View>
 
@@ -262,7 +270,7 @@ export default function Folders() {
                 className={`folder-chip${parentSel === null ? ' folder-chip-active' : ''}`}
                 onClick={() => setParentSel(null)}
               >
-                📁 顶层
+                {t('folders.top_level')}
               </Text>
               {parentCandidates.map((f) => (
                 <Text
@@ -282,24 +290,24 @@ export default function Folders() {
                   className={`folder-chip${branchSel === 'work' ? ' folder-chip-active' : ''}`}
                   onClick={() => setBranchSel('work')}
                 >
-                  💼 业务·项目
+                  {t('folders.branch_work')}
                 </Text>
                 <Text
                   className={`folder-chip${branchSel === 'personal' ? ' folder-chip-active' : ''}`}
                   onClick={() => setBranchSel('personal')}
                 >
-                  🌿 个人·沉淀
+                  {t('folders.branch_personal')}
                 </Text>
               </View>
             )}
           </View>
 
           <ScrollView scrollY className="flex-1">
-            {loading && <View className="loading">加载中…</View>}
+            {loading && <View className="loading">{t('common.loading')}</View>}
             {!loading && folders.length === 0 && (
               <View className="empty-state">
                 <Text className="empty-state-icon">📁</Text>
-                <Text className="empty-state-text">还没有文件夹</Text>
+                <Text className="empty-state-text">{t('folders.empty')}</Text>
               </View>
             )}
             {folders.map((f) => (
@@ -307,7 +315,7 @@ export default function Folders() {
                 <View className="settings-row-label">
                   <Text style={{ paddingLeft: ((f.depth ?? 1) - 1) * 16 }}>
                     {BRANCH_ICON[f.branch ?? 'work'] ?? '📁'} {f.name}
-                    {(f.depth ?? 1) > 1 ? ' (子)' : ''}
+                    {(f.depth ?? 1) > 1 ? t('folders.sub_suffix') : ''}
                   </Text>
                 </View>
                 <Text className="settings-row-value text-muted">⋯</Text>
@@ -320,7 +328,7 @@ export default function Folders() {
       {renameTarget && (
         <View className="modal-mask" onClick={() => setRenameTarget(null)}>
           <View className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <Text className="modal-title">重命名文件夹</Text>
+            <Text className="modal-title">{t('folders.rename_title')}</Text>
             <Input
               className="mint-input"
               value={renameText}
@@ -333,13 +341,13 @@ export default function Folders() {
                 className="mint-btn mint-btn-ghost flex-1"
                 onClick={() => setRenameTarget(null)}
               >
-                取消
+                {t('common.cancel')}
               </View>
               <View
                 className={`mint-btn flex-1${!renameText.trim() ? ' mint-btn-disabled' : ''}`}
                 onClick={() => void submitRename()}
               >
-                确认
+                {t('common.confirm')}
               </View>
             </View>
           </View>

@@ -30,6 +30,7 @@ import { useModeStore } from '../../lib/mode-store';
 import { getRepo } from '../../lib/get-repo';
 import { ensureDefaultContent } from '../../lib/default-content';
 import { noteAad } from '@dustnote/shared';
+import { t, useLanguage } from '../../lib/i18n';
 
 interface Note {
   id: string;
@@ -66,6 +67,12 @@ export default function Index() {
   const [unlocking, setUnlocking] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const lang = useLanguage();
+
+  // 语言切换后同步原生导航栏标题
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: t('app.name') });
+  }, [lang]);
 
   // 模式未选择时重定向到 mode-select
   useEffect(() => {
@@ -103,7 +110,7 @@ export default function Index() {
       setNotes(fresh.notes as Note[]);
       setFolders(fresh.folders as Folder[]);
       if (masterKey) {
-        const t: Record<string, { title: string; content: string }> = {};
+        const plainMap: Record<string, { title: string; content: string }> = {};
         for (const n of fresh.notes) {
           if (n.deletedAt) continue;
           try {
@@ -114,15 +121,15 @@ export default function Index() {
               noteAad(n.id, useAuthStore.getState().userId ?? '')
             );
             // 保留 title + content：列表标题显示 + 全文搜索（v2.5.5 升级为标题+内容）
-            t[n.id] = { title: pt.title, content: pt.content };
+            plainMap[n.id] = { title: pt.title, content: pt.content };
           } catch {
-            t[n.id] = { title: '🔒 解密失败', content: '' };
+            plainMap[n.id] = { title: t('common.decrypt_failed'), content: '' };
           }
         }
-        setPlains(t);
+        setPlains(plainMap);
       }
     } catch {
-      Taro.showToast({ title: '加载失败', icon: 'none' });
+      Taro.showToast({ title: t('common.load_failed'), icon: 'none' });
     } finally {
       setLoading(false);
     }
@@ -196,8 +203,17 @@ export default function Index() {
         /* skip */
       }
     }
-    const label = field === 'isPinned' ? (val ? '置顶' : '取消置顶') : val ? '收藏' : '取消收藏';
-    Taro.showToast({ title: `已${label} ${ok} 条`, icon: 'success' });
+    const label = t(
+      field === 'isPinned'
+        ? val
+          ? 'index.batch_pinned'
+          : 'index.batch_unpinned'
+        : val
+          ? 'index.batch_favorited'
+          : 'index.batch_unfavorited',
+      { count: ok }
+    );
+    Taro.showToast({ title: label, icon: 'success' });
     exitSelect();
     await load();
   };
@@ -206,9 +222,9 @@ export default function Index() {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
     const r = await Taro.showModal({
-      title: '确认删除',
-      content: `确定删除选中的 ${ids.length} 条笔记？`,
-      confirmText: '删除',
+      title: t('index.delete_confirm_title'),
+      content: t('index.delete_confirm_content', { count: ids.length }),
+      confirmText: t('common.delete'),
       confirmColor: '#E07B6C',
     });
     if (!r.confirm) return;
@@ -222,7 +238,7 @@ export default function Index() {
         /* skip */
       }
     }
-    Taro.showToast({ title: `已删除 ${ok} 条`, icon: 'success' });
+    Taro.showToast({ title: t('index.deleted_count', { count: ok }), icon: 'success' });
     exitSelect();
     await load();
   };
@@ -240,7 +256,7 @@ export default function Index() {
         /* skip */
       }
     }
-    Taro.showToast({ title: `已恢复 ${ok} 条`, icon: 'success' });
+    Taro.showToast({ title: t('index.restored_count', { count: ok }), icon: 'success' });
     exitSelect();
     await load();
   };
@@ -249,9 +265,9 @@ export default function Index() {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
     const r = await Taro.showModal({
-      title: '永久删除',
-      content: `该操作不可恢复，确定永久删除 ${ids.length} 条笔记？`,
-      confirmText: '永久删除',
+      title: t('common.perm_delete'),
+      content: t('index.perm_delete_count_content', { count: ids.length }),
+      confirmText: t('common.perm_delete'),
       confirmColor: '#E07B6C',
     });
     if (!r.confirm) return;
@@ -265,7 +281,7 @@ export default function Index() {
         /* skip */
       }
     }
-    Taro.showToast({ title: `已永久删除 ${ok} 条`, icon: 'success' });
+    Taro.showToast({ title: t('index.perm_deleted_count', { count: ok }), icon: 'success' });
     exitSelect();
     await load();
   };
@@ -278,7 +294,7 @@ export default function Index() {
       const snapshot = await repo.loadAll();
       const folderList = snapshot.folders as Folder[];
       if (folderList.length === 0) {
-        Taro.showToast({ title: '请先创建文件夹', icon: 'none' });
+        Taro.showToast({ title: t('index.need_folder'), icon: 'none' });
         return;
       }
       const itemList = folderList.map((f) => f.name);
@@ -301,11 +317,14 @@ export default function Index() {
           /* skip */
         }
       }
-      Taro.showToast({ title: `已移动到 ${fname} (${ok} 条)`, icon: 'success' });
+      Taro.showToast({
+        title: t('index.moved_to_count', { name: fname, count: ok }),
+        icon: 'success',
+      });
       exitSelect();
       await load();
     } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' });
+      Taro.showToast({ title: t('common.operation_failed'), icon: 'none' });
     }
   };
 
@@ -313,26 +332,26 @@ export default function Index() {
   const restoreSingle = async (n: Note) => {
     try {
       await getRepo().restoreNote(n.id);
-      Taro.showToast({ title: '已恢复', icon: 'success' });
+      Taro.showToast({ title: t('common.restored'), icon: 'success' });
       await load();
     } catch {
-      Taro.showToast({ title: '恢复失败', icon: 'none' });
+      Taro.showToast({ title: t('common.restore_failed'), icon: 'none' });
     }
   };
   const permanentDeleteSingle = async (n: Note) => {
     const r = await Taro.showModal({
-      title: '永久删除',
-      content: '该操作不可恢复，确定永久删除？',
-      confirmText: '永久删除',
+      title: t('common.perm_delete'),
+      content: t('common.perm_delete_content'),
+      confirmText: t('common.perm_delete'),
       confirmColor: '#E07B6C',
     });
     if (!r.confirm) return;
     try {
       await getRepo().permanentDeleteNote(n.id);
-      Taro.showToast({ title: '已永久删除', icon: 'success' });
+      Taro.showToast({ title: t('common.perm_deleted'), icon: 'success' });
       await load();
     } catch {
-      Taro.showToast({ title: '删除失败', icon: 'none' });
+      Taro.showToast({ title: t('common.delete_failed'), icon: 'none' });
     }
   };
 
@@ -343,7 +362,7 @@ export default function Index() {
   if (!modeInitialized) {
     return (
       <View className="hero">
-        <Text className="hero-subtitle">加载中…</Text>
+        <Text className="hero-subtitle">{t('common.loading')}</Text>
       </View>
     );
   }
@@ -352,7 +371,7 @@ export default function Index() {
   if (mode === 'standalone' && authState !== 'unlocked') {
     return (
       <View className="hero">
-        <Text className="hero-subtitle">加载中…</Text>
+        <Text className="hero-subtitle">{t('common.loading')}</Text>
       </View>
     );
   }
@@ -362,13 +381,13 @@ export default function Index() {
     return (
       <View className="hero">
         <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
-        <Text className="hero-title">欢迎使用 DustNote</Text>
-        <Text className="hero-subtitle">端到端加密 · 私密笔记</Text>
+        <Text className="hero-title">{t('index.welcome')}</Text>
+        <Text className="hero-subtitle">{t('index.hero_subtitle')}</Text>
         <View
           className="mint-btn mint-btn-block mt-l"
           onClick={() => Taro.navigateTo({ url: '/pages/setup/index' })}
         >
-          创建主密码
+          {t('index.create_master_password')}
         </View>
       </View>
     );
@@ -378,14 +397,17 @@ export default function Index() {
   if (mode === 'online' && authState === 'needs_unlock') {
     const doUnlock = async () => {
       if (!unlockPwd) {
-        Taro.showToast({ title: '请输入主密码', icon: 'none' });
+        Taro.showToast({ title: t('common.pwd_empty'), icon: 'none' });
         return;
       }
       setUnlocking(true);
       try {
         await unlock(unlockPwd);
       } catch (err) {
-        Taro.showToast({ title: err instanceof Error ? err.message : '解锁失败', icon: 'none' });
+        Taro.showToast({
+          title: err instanceof Error ? err.message : t('common.unlock_failed'),
+          icon: 'none',
+        });
       } finally {
         setUnlocking(false);
       }
@@ -394,11 +416,11 @@ export default function Index() {
       <View className="hero">
         <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
         <Text className="hero-title">DustNote</Text>
-        <Text className="hero-subtitle mb-l">输入主密码解锁</Text>
+        <Text className="hero-subtitle mb-l">{t('index.unlock_subtitle')}</Text>
         <Input
           className="mint-input"
           password
-          placeholder="主密码"
+          placeholder={t('common.master_password')}
           value={unlockPwd}
           onInput={(e: any) => setUnlockPwd((e.detail as { value: string }).value)}
         />
@@ -407,7 +429,7 @@ export default function Index() {
           style={{ opacity: unlocking ? 0.5 : 1 }}
           onClick={doUnlock}
         >
-          {unlocking ? '解锁中…' : '解锁'}
+          {unlocking ? t('common.unlocking') : t('common.unlock')}
         </View>
       </View>
     );
@@ -423,7 +445,11 @@ export default function Index() {
               ✕
             </Text>
             <Text className="topbar-title" onClick={toggleAll}>
-              {hasAll ? '取消全选' : `全选 ${selCount ? `(${selCount})` : ''}`}
+              {hasAll
+                ? t('common.deselect_all')
+                : selCount
+                  ? t('common.select_all_n', { count: selCount })
+                  : t('common.select_all')}
             </Text>
             <View className="topbar-actions" />
           </>
@@ -449,7 +475,7 @@ export default function Index() {
         <View className="search-box">
           <Input
             className="search-input"
-            placeholder="搜索笔记"
+            placeholder={t('index.search_placeholder')}
             value={searchQuery}
             onInput={(e) => setSearchQuery((e.detail as { value: string }).value)}
           />
@@ -467,7 +493,7 @@ export default function Index() {
             className={`folder-chip${selectedFolderId === null ? ' folder-chip-active' : ''}`}
             onClick={() => setSelectedFolderId(null)}
           >
-            全部
+            {t('index.tab_all')}
           </Text>
           {folders.map((f) => (
             <Text
@@ -490,7 +516,7 @@ export default function Index() {
               exitSelect();
             }}
           >
-            全部
+            {t('index.tab_all')}
           </Text>
           <Text
             className={`view-tab${viewMode === 'favorite' ? ' view-tab-active' : ''}`}
@@ -499,7 +525,7 @@ export default function Index() {
               exitSelect();
             }}
           >
-            收藏
+            {t('index.tab_favorite')}
           </Text>
           <Text
             className={`view-tab${viewMode === 'trash' ? ' view-tab-active' : ''}`}
@@ -508,13 +534,13 @@ export default function Index() {
               exitSelect();
             }}
           >
-            回收站
+            {t('index.tab_trash')}
           </Text>
         </View>
       )}
 
       <ScrollView scrollY className="flex-1">
-        {loading && <View className="loading">加载中…</View>}
+        {loading && <View className="loading">{t('common.loading')}</View>}
         {!loading && visibleNotes.length === 0 && (
           <View className="empty-state">
             <Text className="empty-state-icon">
@@ -522,15 +548,15 @@ export default function Index() {
             </Text>
             <Text className="empty-state-text">
               {viewMode === 'trash'
-                ? '回收站为空'
+                ? t('index.empty_trash')
                 : viewMode === 'favorite'
-                  ? '还没有收藏笔记'
-                  : '还没有笔记'}
+                  ? t('index.empty_favorite')
+                  : t('index.empty_notes')}
             </Text>
           </View>
         )}
         {visibleNotes.map((n) => {
-          const title = plains[n.id]?.title || '🌿 未命名笔记';
+          const title = plains[n.id]?.title || t('common.unnamed_note');
           const checked = selectedIds.has(n.id);
           return (
             <View
@@ -573,13 +599,13 @@ export default function Index() {
                     className="mint-btn mint-btn-sm mint-btn-ghost"
                     onClick={() => restoreSingle(n)}
                   >
-                    恢复
+                    {t('common.restore')}
                   </Text>
                   <Text
                     className="mint-btn mint-btn-sm mint-btn-danger"
                     onClick={() => permanentDeleteSingle(n)}
                   >
-                    永久删除
+                    {t('common.perm_delete')}
                   </Text>
                 </View>
               )}
@@ -590,33 +616,33 @@ export default function Index() {
 
       {selecting && (
         <View className="batch-bar">
-          <Text className="batch-bar-count">已选 {selCount} 项</Text>
+          <Text className="batch-bar-count">{t('common.selected_count', { count: selCount })}</Text>
           <View className="batch-bar-actions">
             {viewMode !== 'trash' && (
               <>
                 <Text className="batch-btn" onClick={batchMove}>
-                  📁 移动
+                  {t('index.batch_move')}
                 </Text>
                 <Text className="batch-btn" onClick={() => batchPatch('isPinned', true)}>
-                  📌 置顶
+                  {t('index.batch_pin')}
                 </Text>
                 <Text className="batch-btn" onClick={() => batchPatch('isFavorite', true)}>
-                  ⭐ 收藏
+                  {t('index.batch_favorite')}
                 </Text>
               </>
             )}
             {viewMode === 'trash' ? (
               <>
                 <Text className="batch-btn" onClick={batchRestore}>
-                  ↩ 恢复
+                  {t('index.batch_restore')}
                 </Text>
                 <Text className="batch-btn batch-btn-danger" onClick={batchPermDelete}>
-                  🗑️ 彻底删除
+                  {t('index.batch_perm_delete')}
                 </Text>
               </>
             ) : (
               <Text className="batch-btn batch-btn-danger" onClick={batchDelete}>
-                🗑️ 删除
+                {t('index.batch_delete')}
               </Text>
             )}
           </View>
@@ -628,7 +654,7 @@ export default function Index() {
           className="fab"
           onClick={async () => {
             if (!masterKey) {
-              Taro.showToast({ title: '请先解锁', icon: 'none' });
+              Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
               return;
             }
             try {
@@ -640,7 +666,7 @@ export default function Index() {
                   await ensureDefaultContent();
                   const fresh = (await getRepo().loadAll()).folders as Folder[];
                   if (fresh.length === 0) {
-                    Taro.showToast({ title: '请先创建文件夹', icon: 'none' });
+                    Taro.showToast({ title: t('index.need_folder'), icon: 'none' });
                     return;
                   }
                   folderId = fresh[0]!.id;
@@ -651,7 +677,7 @@ export default function Index() {
                   folderId = folderList[res.tapIndex]!.id;
                 }
               }
-              const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
+              const empty: NotePlaintext = { title: t('index.new_note'), content: '', tags: [] };
               const { json: cipherJson } = await encryptNote(masterKey, empty);
               const id = await getRepo().createNote({
                 ciphertext: cipherJson,
@@ -663,7 +689,7 @@ export default function Index() {
               Taro.navigateTo({ url: `/pages/note/edit?id=${id}` });
             } catch (e: any) {
               if (e?.errMsg?.includes?.('cancel')) return;
-              Taro.showToast({ title: '创建失败', icon: 'none' });
+              Taro.showToast({ title: t('common.create_failed'), icon: 'none' });
             }
           }}
         >

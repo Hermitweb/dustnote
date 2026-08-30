@@ -46,7 +46,7 @@ export function UnlockScreen() {
       // 如果服务端返回 totp_required，自动展开 TOTP 输入框
       if (msg.includes('totp_required') || msg.includes('两步验证码')) {
         setShowTotp(true);
-        Alert.alert('需要两步验证码', '请输入你的两步验证码');
+        Alert.alert(t('auth.totp_required_title'), t('auth.totp_required_detail'));
       } else {
         Alert.alert(t('auth.unlock_failed'), msg);
       }
@@ -101,7 +101,7 @@ export function UnlockScreen() {
       {showTotp && (
         <TextInput
           style={styles.input}
-          placeholder="两步验证码（6位数字）"
+          placeholder={t('auth.totp_code_placeholder')}
           keyboardType="number-pad"
           maxLength={6}
           value={totpCode}
@@ -140,9 +140,11 @@ export function UnlockScreen() {
       <Text style={styles.engineDebugText}>
         {(() => {
           const s = (globalThis as Record<string, any>).__QCRYPTO_STATUS;
-          if (!s) return '加密引擎:未知';
-          if (s.requireOk && s.installOk) return '加密引擎:原生(JSI)';
-          return `加密引擎:兼容模式(慢) ${s.requireError ?? s.installError ?? ''}`;
+          if (!s) return t('auth.engine_unknown');
+          if (s.requireOk && s.installOk) return t('auth.engine_native');
+          return t('auth.engine_compat', {
+            error: s.requireError ?? s.installError ?? '',
+          });
         })()}
       </Text>
     </View>

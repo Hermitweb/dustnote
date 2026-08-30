@@ -26,6 +26,7 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
+import { useTranslation } from 'react-i18next';
 import { noteAad, type NoteRow, type Folder } from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
@@ -49,6 +50,7 @@ interface NoteListItem extends NoteRow {
 export function NotesListScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const colors = useColors();
+  const { t } = useTranslation();
   const layout = useResponsiveLayout();
   const masterKey = useAuthStore((s) => s.masterKey);
   const mode = useModeStore((s) => s.mode);
@@ -100,7 +102,7 @@ export function NotesListScreen() {
               noteAad(n.id, useAuthStore.getState().userId ?? '')
             );
           } catch {
-            plain = { title: '🔒 解密失败', content: '', tags: [] };
+            plain = { title: t('editor.decrypt_failed_title'), content: '', tags: [] };
           }
         }
         withPlain.push({ ...n, plain });
@@ -113,11 +115,11 @@ export function NotesListScreen() {
       }
     } catch (err) {
       console.warn('加载失败', err);
-      setError(`加载失败：${(err as Error).message}。下拉可重试。`);
+      setError(t('notes.load_error_detail', { reason: (err as Error).message }));
     } finally {
       setRefreshing(false);
     }
-  }, [masterKey, repo, modeInitialized, mode]);
+  }, [masterKey, repo, modeInitialized, mode, t]);
 
   useEffect(() => {
     void load();
@@ -214,9 +216,14 @@ export function NotesListScreen() {
       setBusy(false);
       exitSelect();
       await load();
-      Alert.alert('移动完成', `成功移动 ${ok} 篇${fail > 0 ? `，失败 ${fail} 篇` : ''}`);
+      Alert.alert(
+        t('notes.batch_move_done_title'),
+        fail > 0
+          ? t('notes.batch_move_done_partial', { ok, fail })
+          : t('notes.batch_move_done_detail', { count: ok })
+      );
     },
-    [selectedIds, busy, repo, exitSelect, load]
+    [selectedIds, busy, repo, exitSelect, load, t]
   );
 
   const doBatchDelete = useCallback(async () => {
@@ -235,17 +242,22 @@ export function NotesListScreen() {
     setBusy(false);
     exitSelect();
     await load();
-    Alert.alert('删除完成', `已把 ${ok} 篇笔记移入回收站${fail > 0 ? `，失败 ${fail} 篇` : ''}`);
-  }, [selectedIds, busy, repo, exitSelect, load]);
+    Alert.alert(
+      t('notes.batch_delete_done_title'),
+      fail > 0
+        ? t('notes.batch_delete_done_partial', { ok, fail })
+        : t('notes.batch_delete_done_detail', { count: ok })
+    );
+  }, [selectedIds, busy, repo, exitSelect, load, t]);
 
   const confirmBatchDelete = useCallback(() => {
     const n = selectedIds.size;
     if (n === 0) return;
-    Alert.alert('批量删除', `确定把选中的 ${n} 篇笔记移入回收站吗？`, [
-      { text: '取消', style: 'cancel' },
-      { text: '删除', style: 'destructive', onPress: () => void doBatchDelete() },
+    Alert.alert(t('notes.batch_delete_confirm_title'), t('notes.batch_delete_confirm', { count: n }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: () => void doBatchDelete() },
     ]);
-  }, [selectedIds, doBatchDelete]);
+  }, [selectedIds, doBatchDelete, t]);
 
   const styles = makeStyles(colors, layout);
 
@@ -264,7 +276,7 @@ export function NotesListScreen() {
       >
         <TextInput
           style={styles.searchInput}
-          placeholder="🔍 搜索笔记…"
+          placeholder={t('notes.search_placeholder')}
           value={search}
           onChangeText={setSearch}
           placeholderTextColor={colors.muted}
@@ -285,7 +297,7 @@ export function NotesListScreen() {
         {/* 文件夹层级导航（路径式下钻）：面包屑 + 当前层子文件夹 */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderRow}>
           <FilterChip
-            label="🏠 全部"
+            label={t('notes.filter_all')}
             active={folderFilter === 'all'}
             onPress={() => setFolderFilter('all')}
             colors={colors}
@@ -327,20 +339,20 @@ export function NotesListScreen() {
               <Text style={styles.emptyEmoji}>⚠️</Text>
               <Text style={styles.emptyText}>{error}</Text>
               <TouchableOpacity onPress={() => void load()} style={styles.retryBtn}>
-                <Text style={styles.retryText}>重试</Text>
+                <Text style={styles.retryText}>{t('common.retry')}</Text>
               </TouchableOpacity>
             </View>
           ) : folderFilter === 'all' && tab === 'all' ? (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>📁</Text>
-              <Text style={styles.emptyText}>笔记按文件夹归类</Text>
-              <Text style={styles.emptyHint}>在上方进入一个文件夹，即可查看其中的笔记</Text>
+              <Text style={styles.emptyText}>{t('notes.empty_folder_view_text')}</Text>
+              <Text style={styles.emptyHint}>{t('notes.empty_folder_view_hint')}</Text>
             </View>
           ) : (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>📝</Text>
-              <Text style={styles.emptyText}>这个文件夹还没有笔记</Text>
-              <Text style={styles.emptyHint}>点击右下角按钮创建第一篇</Text>
+              <Text style={styles.emptyText}>{t('notes.empty_folder_text')}</Text>
+              <Text style={styles.emptyHint}>{t('notes.empty_hint')}</Text>
             </View>
           )
         }
@@ -391,7 +403,7 @@ export function NotesListScreen() {
             onPress={() => setTab(tab === 'fav' ? 'all' : 'fav')}
           >
             <Text style={[styles.fabLikeText, tab === 'fav' && { color: '#fff' }]}>
-              ⭐ {tab === 'fav' ? '查看全部' : '收藏'}
+              ⭐ {tab === 'fav' ? t('notes.view_all') : t('notes.favorites')}
             </Text>
           </TouchableOpacity>
           {/* 新建按钮 */}
@@ -401,12 +413,12 @@ export function NotesListScreen() {
           if (!masterKey) return;
           // 笔记必须归属文件夹：「全部」视图未选中文件夹时不创建
           if (folderFilter === 'all') {
-            Alert.alert('提示', '请先在顶部选择一个文件夹，再创建笔记。');
+            Alert.alert(t('common.hint'), t('notes.create_need_folder'));
             return;
           }
           try {
             // 用真实密文创建空笔记，保证列表展示与其他端一致
-            const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
+            const empty: NotePlaintext = { title: t('app.new_note'), content: '', tags: [] };
             const ciphertext = await packEnvelope(masterKey, empty);
             // 当前选中文件夹 → 新笔记归属该文件夹
             const targetFolderId = folderFilter;
@@ -424,7 +436,7 @@ export function NotesListScreen() {
             // 联机模式网络不可用：入队待同步（离线队列简化版）
             if (mode === 'online' && isNetworkError(err)) {
               try {
-                const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
+                const empty: NotePlaintext = { title: t('app.new_note'), content: '', tags: [] };
                 const ciphertext = await packEnvelope(masterKey, empty);
                 const targetFolderId = folderFilter !== 'all' ? folderFilter : null;
                 await enqueueOffline('POST', '/notes', {
@@ -435,13 +447,13 @@ export function NotesListScreen() {
                   clientUpdatedAt: new Date().toISOString(),
                   folderId: targetFolderId,
                 });
-                Alert.alert('已离线', '笔记已加入离线队列，联网后自动同步。');
+                Alert.alert(t('notes.offline_queued_title'), t('notes.offline_queued_detail'));
               } catch {
-                Alert.alert('创建失败', (err as Error).message);
+                Alert.alert(t('notes.create_failed'), (err as Error).message);
               }
             } else {
               console.warn('创建失败', err);
-              Alert.alert('创建失败', (err as Error).message);
+              Alert.alert(t('notes.create_failed'), (err as Error).message);
             }
           }
         }}
@@ -456,7 +468,9 @@ export function NotesListScreen() {
         <View style={styles.batchBar}>
           <TouchableOpacity style={styles.batchBtn} onPress={toggleSelectAll}>
             <Text style={styles.batchBtnText}>
-              {selectedIds.size === filtered.length && filtered.length > 0 ? '取消全选' : '全选'}
+              {selectedIds.size === filtered.length && filtered.length > 0
+                ? t('notes.batch_deselect_all')
+                : t('notes.batch_select_all')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -465,7 +479,7 @@ export function NotesListScreen() {
             onPress={() => setMoveModalVisible(true)}
           >
             <Text style={[styles.batchBtnText, styles.batchBtnTextStrong]} numberOfLines={1}>
-              移动 ({selectedIds.size})
+              {t('notes.batch_move_btn', { count: selectedIds.size })}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -474,11 +488,11 @@ export function NotesListScreen() {
             onPress={confirmBatchDelete}
           >
             <Text style={[styles.batchBtnText, styles.batchBtnTextDanger]} numberOfLines={1}>
-              删除 ({selectedIds.size})
+              {t('notes.batch_delete_btn', { count: selectedIds.size })}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.batchBtn} onPress={exitSelect}>
-            <Text style={styles.batchBtnText}>取消</Text>
+            <Text style={styles.batchBtnText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -492,10 +506,10 @@ export function NotesListScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>移动 {selectedIds.size} 篇笔记到…</Text>
+            <Text style={styles.modalTitle}>{t('notes.batch_move_title', { count: selectedIds.size })}</Text>
             <ScrollView style={styles.modalList}>
               <TouchableOpacity style={styles.modalItem} onPress={() => void doBatchMove(null)}>
-                <Text style={styles.modalItemText}>📂 根目录（不归类）</Text>
+                <Text style={styles.modalItemText}>{t('notes.batch_move_root')}</Text>
               </TouchableOpacity>
               {folders.map((f) => (
                 <TouchableOpacity
@@ -511,7 +525,7 @@ export function NotesListScreen() {
               style={styles.modalCancel}
               onPress={() => setMoveModalVisible(false)}
             >
-              <Text style={styles.modalCancelText}>取消</Text>
+              <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>

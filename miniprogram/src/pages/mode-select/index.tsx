@@ -19,6 +19,7 @@ import { hasLocalAuthSync } from '../../lib/local-auth-storage';
 import { ApiClient } from '@dustnote/shared';
 import { taroFetch } from '../../lib/taro-fetch';
 import { APP_VERSION } from '../../state/auth';
+import { t, useLanguage } from '../../lib/i18n';
 
 /**
  * 检测当前运行时是否可支撑单机模式（本地 AES-GCM + HKDF）
@@ -57,10 +58,10 @@ function isWebCryptoAvailable(): boolean {
 async function testServerConnection(serverUrl: string): Promise<{ ok: boolean; message: string }> {
   const trimmed = serverUrl.trim().replace(/\/+$/, '');
   if (!trimmed) {
-    return { ok: false, message: '请输入服务器地址' };
+    return { ok: false, message: t('mode_select.err_empty_server') };
   }
   if (!/^https?:\/\//i.test(trimmed)) {
-    return { ok: false, message: '地址需以 http:// 或 https:// 开头' };
+    return { ok: false, message: t('mode_select.err_server_prefix') };
   }
   try {
     const api = new ApiClient({
@@ -75,15 +76,15 @@ async function testServerConnection(serverUrl: string): Promise<{ ok: boolean; m
     const r = await api.get<{ initialized: boolean }>('/auth/status');
     return {
       ok: true,
-      message: r.initialized ? '连接成功（服务器已初始化）' : '连接成功（服务器未初始化）',
+      message: r.initialized ? t('mode_select.ok_initialized') : t('mode_select.ok_uninitialized'),
     };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '连接失败';
+    const msg = err instanceof Error ? err.message : t('mode_select.err_connect');
     if (msg?.includes('abort') || msg?.includes('timeout')) {
-      return { ok: false, message: '连接超时（10秒），请检查地址和网络' };
+      return { ok: false, message: t('mode_select.err_timeout') };
     }
     if (msg?.includes('fetch') || msg?.includes('network') || msg?.includes('Network')) {
-      return { ok: false, message: '网络不可达，请检查地址是否正确' };
+      return { ok: false, message: t('mode_select.err_network') };
     }
     return { ok: false, message: msg };
   }
@@ -99,6 +100,12 @@ export default function ModeSelect() {
   const [serverUrl, setServerUrlInput] = useState('');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const lang = useLanguage();
+
+  // 语言切换后同步原生导航栏标题
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: t('app.name') });
+  }, [lang]);
 
   // 启动时检测 WebCrypto 可用性（决定单机模式是否可选）
   const cryptoAvailable = isWebCryptoAvailable();
@@ -124,11 +131,10 @@ export default function ModeSelect() {
   const chooseStandalone = () => {
     if (!cryptoAvailable) {
       Taro.showModal({
-        title: '当前环境不支持单机模式',
-        content:
-          '当前小程序运行时未提供完整的 WebCrypto API，本地加解密无法工作。请改用联机模式连接服务器，或使用 DustNote Web / 桌面端。',
+        title: t('mode_select.unsupported_title'),
+        content: t('mode_select.unsupported_content'),
         showCancel: false,
-        confirmText: '我知道了',
+        confirmText: t('mode_select.unsupported_ok'),
       });
       return;
     }
@@ -182,7 +188,7 @@ export default function ModeSelect() {
   if (modeInitialized) {
     return (
       <View className="hero">
-        <Text className="hero-subtitle">加载中…</Text>
+        <Text className="hero-subtitle">{t('common.loading')}</Text>
       </View>
     );
   }
@@ -190,8 +196,8 @@ export default function ModeSelect() {
   return (
     <View className="hero">
       <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
-      <Text className="hero-title">欢迎使用 DustNote</Text>
-      <Text className="hero-subtitle">端到端加密 · 单机/联机双模式</Text>
+      <Text className="hero-title">{t('mode_select.welcome')}</Text>
+      <Text className="hero-subtitle">{t('mode_select.subtitle')}</Text>
 
       {/* 单机模式入口 */}
       <View
@@ -204,18 +210,18 @@ export default function ModeSelect() {
         onClick={chooseStandalone}
       >
         <View className="row between">
-          <Text className="text-lg fw-bold">📱 单机模式</Text>
+          <Text className="text-lg fw-bold">{t('mode_select.standalone')}</Text>
           <Text className="text-mint">{cryptoAvailable ? '›' : '🔒'}</Text>
         </View>
         <Text className="hint mt-s" style={{ display: 'block' }}>
-          无需服务器，数据存储在本地，主密码本地验证。
+          {t('mode_select.standalone_desc')}
         </Text>
         <Text className="text-xs text-muted mt-s" style={{ display: 'block' }}>
-          适合：私密笔记 / 离线使用 / 数据完全自持
+          {t('mode_select.standalone_suit')}
         </Text>
         {!cryptoAvailable && (
           <Text className="text-xs error-text mt-s" style={{ display: 'block' }}>
-            ⚠️ 当前运行时不支持 WebCrypto，本模式不可用
+            {t('mode_select.webcrypto_warn')}
           </Text>
         )}
       </View>
@@ -223,11 +229,11 @@ export default function ModeSelect() {
       {/* 联机模式入口 */}
       <View className="mint-card mt-m" style={{ width: '100%', maxWidth: '560rpx' }}>
         <View className="row between">
-          <Text className="text-lg fw-bold">🌐 联机模式</Text>
+          <Text className="text-lg fw-bold">{t('mode_select.online')}</Text>
           <Text className="text-mint">›</Text>
         </View>
         <Text className="hint mt-s" style={{ display: 'block' }}>
-          连接服务器，多端同步、解锁全部功能。
+          {t('mode_select.online_desc')}
         </Text>
         <Input
           className="mint-input mt-m"
@@ -250,20 +256,20 @@ export default function ModeSelect() {
             style={{ opacity: testing ? 0.5 : 1 }}
             onClick={onTestConnection}
           >
-            {testing ? '测试中…' : '测试连接'}
+            {testing ? t('mode_select.testing') : t('mode_select.test_connection')}
           </View>
           <View
             className="mint-btn mint-btn-sm"
             style={{ opacity: testing ? 0.5 : 1 }}
             onClick={chooseOnline}
           >
-            进入联机模式
+            {t('mode_select.enter_online')}
           </View>
         </View>
       </View>
 
       <Text className="text-xs text-muted mt-l" style={{ display: 'block', maxWidth: '560rpx' }}>
-        提示：单机模式可随时在设置中切换为联机模式（需重新设置主密码）。
+        {t('mode_select.tip')}
       </Text>
     </View>
   );

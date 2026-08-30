@@ -10,6 +10,7 @@
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { logger } from '../lib/diagnostics';
+import i18n from '../lib/i18n';
 
 interface Props {
   children: ReactNode;
@@ -73,14 +74,16 @@ export class AppErrorBoundary extends Component<Props, State> {
       <div className="flex h-full items-center justify-center bg-surface-bg p-6">
         <div className="w-full max-w-lg rounded-2xl border border-surface-border bg-surface-card p-8 shadow-xl">
           <div className="mb-4 text-center text-5xl">💔</div>
-          <h1 className="mb-2 text-center text-xl font-bold text-surface-fg">应用遇到了问题</h1>
+          <h1 className="mb-2 text-center text-xl font-bold text-surface-fg">
+            {i18n.t('error_boundary.title')}
+          </h1>
           <p className="mb-4 text-center text-sm text-surface-muted">
-            页面渲染时发生异常。你可以重新加载，或导出诊断信息反馈给开发者。
+            {i18n.t('error_boundary.description')}
           </p>
 
           <div className="mb-4 rounded-lg bg-surface-bg p-3">
             <div className="mb-1 flex items-center justify-between text-xs text-surface-muted">
-              <span>错误码</span>
+              <span>{i18n.t('error_boundary.error_code')}</span>
               <code className="rounded bg-mint-100 px-2 py-0.5 font-mono font-bold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300">
                 {errorCode}
               </code>
@@ -97,19 +100,19 @@ export class AppErrorBoundary extends Component<Props, State> {
               onClick={this.handleCopyDiagnostics}
               className="flex-1 rounded-lg border border-surface-border px-4 py-2.5 text-sm font-medium text-surface-fg hover:bg-surface-bg"
             >
-              📋 导出诊断信息
+              {i18n.t('error_boundary.export_diagnostics')}
             </button>
             <button
               onClick={this.handleRetry}
               className="flex-1 rounded-lg border border-surface-border px-4 py-2.5 text-sm font-medium text-surface-fg hover:bg-surface-bg"
             >
-              🔁 重试
+              {i18n.t('error_boundary.retry')}
             </button>
             <button
               onClick={this.handleReload}
               className="flex-1 rounded-lg bg-mint-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-mint-700"
             >
-              🔄 重新加载
+              {i18n.t('error_boundary.reload')}
             </button>
           </div>
         </div>

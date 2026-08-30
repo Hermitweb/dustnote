@@ -14,6 +14,7 @@ import TaskItem from '@tiptap/extension-task-item';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface WysiwygEditorProps {
   content: string; // Markdown 内容
@@ -97,6 +98,7 @@ function htmlToMarkdown(html: string): string {
 }
 
 export function WysiwygEditor({ content, onChange, placeholder }: WysiwygEditorProps) {
+  const { t } = useTranslation();
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -104,7 +106,7 @@ export function WysiwygEditor({ content, onChange, placeholder }: WysiwygEditorP
         codeBlock: { HTMLAttributes: { class: 'rounded-lg bg-surface-bg p-4 font-mono text-sm' } },
       }),
       Placeholder.configure({
-        placeholder: placeholder || '开始编辑...',
+        placeholder: placeholder || t('editor.wysiwyg_placeholder'),
       }),
       Highlight.configure({ multicolor: false }),
       TaskList,

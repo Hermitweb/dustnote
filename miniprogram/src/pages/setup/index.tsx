@@ -2,18 +2,19 @@
  * 小程序首次设置：创建主密码 + 生成恢复码
  * 接入 E2EE：调用 store.setup 完成 masterKey 派生与包装
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { useAuthStore } from '../../state/auth';
+import { t, useLanguage } from '../../lib/i18n';
 
 type Strength = { label: string; level: 'weak' | 'medium' | 'strong'; width: number };
 
 function evalStrength(p: string): Strength {
-  if (p.length < 8) return { label: '弱', level: 'weak', width: 25 };
-  if (p.length < 12) return { label: '中等', level: 'medium', width: 60 };
-  if (p.length >= 16) return { label: '强', level: 'strong', width: 100 };
-  return { label: '良好', level: 'medium', width: 80 };
+  if (p.length < 8) return { label: t('common.strength_weak'), level: 'weak', width: 25 };
+  if (p.length < 12) return { label: t('common.strength_medium'), level: 'medium', width: 60 };
+  if (p.length >= 16) return { label: t('common.strength_strong'), level: 'strong', width: 100 };
+  return { label: t('common.strength_good'), level: 'medium', width: 80 };
 }
 
 export default function Setup() {
@@ -21,16 +22,22 @@ export default function Setup() {
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const setup = useAuthStore((s) => s.setup);
+  const lang = useLanguage();
+
+  // 语言切换后同步原生导航栏标题
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: t('app.name') });
+  }, [lang]);
 
   const strength = evalStrength(password);
 
   const onSetup = async () => {
     if (password.length < 8) {
-      Taro.showToast({ title: '密码至少 8 位', icon: 'none' });
+      Taro.showToast({ title: t('setup.err_pwd_len'), icon: 'none' });
       return;
     }
     if (password !== confirm) {
-      Taro.showToast({ title: '两次密码不一致', icon: 'none' });
+      Taro.showToast({ title: t('setup.err_pwd_mismatch'), icon: 'none' });
       return;
     }
     setSubmitting(true);
@@ -38,13 +45,13 @@ export default function Setup() {
       // store.setup 内部完成：派生 masterKey、wrap、上传 wrappedMasterKey
       const recoveryCode = await setup(password);
       Taro.showModal({
-        title: '保存恢复码',
-        content: `您的恢复码：${recoveryCode}\n\n请抄写在纸上，忘记密码时唯一找回方式。`,
+        title: t('setup.recovery_title'),
+        content: t('setup.recovery_content', { code: recoveryCode }),
         showCancel: false,
         success: () => Taro.reLaunch({ url: '/pages/index/index' }),
       });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '设置失败';
+      const msg = err instanceof Error ? err.message : t('setup.failed');
       Taro.showToast({ title: msg, icon: 'none' });
     } finally {
       setSubmitting(false);
@@ -53,20 +60,20 @@ export default function Setup() {
 
   return (
     <View className="setup-container">
-      <Text className="hero-title">创建主密码</Text>
-      <Text className="hero-subtitle mb-l">主密码是您访问笔记的唯一凭据</Text>
+      <Text className="hero-title">{t('setup.title')}</Text>
+      <Text className="hero-subtitle mb-l">{t('setup.subtitle')}</Text>
 
       <Input
         className="mint-input"
         password
-        placeholder="主密码（至少 8 位）"
+        placeholder={t('setup.pwd_placeholder')}
         value={password}
         onInput={(e) => setPassword((e.detail as { value: string }).value)}
       />
       <Input
         className="mint-input"
         password
-        placeholder="再次输入主密码"
+        placeholder={t('setup.confirm_placeholder')}
         value={confirm}
         onInput={(e) => setConfirm((e.detail as { value: string }).value)}
       />
@@ -79,7 +86,7 @@ export default function Setup() {
               style={{ width: `${strength.width}%` }}
             />
           </View>
-          <Text className="hint">强度：{strength.label}</Text>
+          <Text className="hint">{t('common.strength_label', { label: strength.label })}</Text>
         </View>
       )}
 
@@ -88,7 +95,7 @@ export default function Setup() {
         onClick={onSetup}
         style={{ opacity: submitting ? 0.5 : 1 }}
       >
-        {submitting ? '设置中…' : '创建'}
+        {submitting ? t('setup.setting_up') : t('setup.create')}
       </View>
     </View>
   );

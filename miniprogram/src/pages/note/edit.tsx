@@ -17,6 +17,7 @@ import { encryptString, randomBytes, toBase64Url, wrapKey, noteAad } from '@dust
 import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
 import { useModeStore } from '../../lib/mode-store';
+import { t, useLanguage } from '../../lib/i18n';
 import Markdown from '../../lib/markdown';
 import { filterSlashCommands, resolveSlashCommand } from '../../lib/slash-commands';
 import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../../lib/offline-queue';
@@ -48,12 +49,12 @@ interface NoteVersionMeta {
   createdAt: string;
 }
 
-/** 分享有效期选项（seconds：秒；0 = 永久） */
+/** 分享有效期选项（labelKey 为词典 key，文案随语言切换；seconds：秒；0 = 永久） */
 const SHARE_EXPIRY_OPTIONS = [
-  { key: '1d', label: '1 天', seconds: 86400 },
-  { key: '7d', label: '7 天', seconds: 604800 },
-  { key: '30d', label: '30 天', seconds: 2592000 },
-  { key: 'forever', label: '永久', seconds: 0 },
+  { key: '1d', labelKey: 'editor.expiry_1d', seconds: 86400 },
+  { key: '7d', labelKey: 'editor.expiry_7d', seconds: 604800 },
+  { key: '30d', labelKey: 'editor.expiry_30d', seconds: 2592000 },
+  { key: 'forever', labelKey: 'editor.expiry_forever', seconds: 0 },
 ] as const;
 type ShareExpiryKey = (typeof SHARE_EXPIRY_OPTIONS)[number]['key'];
 
@@ -62,6 +63,12 @@ export default function NoteEdit() {
   const id = instance && instance.router && instance.router.params && instance.router.params.id;
   const masterKey = useAuthStore((s) => s.masterKey);
   const mode = useModeStore((s) => s.mode);
+  const lang = useLanguage();
+
+  // 语言切换后同步原生导航栏标题
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: t('app.name') });
+  }, [lang]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   // 保留原始 tags，保存时一起加密回去
@@ -101,7 +108,7 @@ export default function NoteEdit() {
         const snapshot = await getRepo().loadAll();
         const n = snapshot.notes.find((x) => x.id === id) as NoteData | undefined;
         if (!n) {
-          Taro.showToast({ title: '笔记不存在', icon: 'none' });
+          Taro.showToast({ title: t('editor.note_not_found'), icon: 'none' });
           return;
         }
         setNote(n);
@@ -139,12 +146,12 @@ export default function NoteEdit() {
           }
           setBacklinks(bl);
         } catch {
-          setTitle('🔒 解密失败');
+          setTitle(t('common.decrypt_failed'));
           setContent('');
         }
         loadedRef.current = true;
       } catch {
-        Taro.showToast({ title: '加载失败', icon: 'none' });
+        Taro.showToast({ title: t('common.load_failed'), icon: 'none' });
       }
     })();
   }, [id, masterKey]);
@@ -171,7 +178,7 @@ export default function NoteEdit() {
     } catch (err: any) {
       const status = err?.err?.status;
       if (status === 409) {
-        Taro.showToast({ title: '版本冲突，请刷新后重试', icon: 'none' });
+        Taro.showToast({ title: t('editor.version_conflict'), icon: 'none' });
         setSaveStatus('error');
       } else if (mode === 'online' && isNetworkError(err)) {
         // 网络不可用：入队待同步（携带三方合并上下文，重放时字段级合并）
@@ -207,13 +214,13 @@ export default function NoteEdit() {
           );
           setSaveStatus('saved');
         } catch {
-          Taro.showToast({ title: '保存失败', icon: 'none', duration: 3000 });
+          Taro.showToast({ title: t('editor.save_failed'), icon: 'none', duration: 3000 });
           setSaveStatus('error');
         }
       } else {
-        const msg = err?.err?.message || err?.message || '未知错误';
+        const msg = err?.err?.message || err?.message || t('common.unknown_error');
         console.error('[save]', err);
-        Taro.showToast({ title: `保存失败：${msg}`, icon: 'none', duration: 3000 });
+        Taro.showToast({ title: t('editor.save_failed_msg', { msg }), icon: 'none', duration: 3000 });
         setSaveStatus('error');
       }
     }
@@ -249,10 +256,10 @@ export default function NoteEdit() {
     try {
       const newVersion = await getRepo().updateNote(cur.id, { isPinned: next });
       setNote((p) => (p ? { ...p, version: newVersion } : p));
-      Taro.showToast({ title: next ? '已置顶' : '已取消置顶', icon: 'none' });
+      Taro.showToast({ title: next ? t('editor.pinned') : t('editor.unpinned'), icon: 'none' });
     } catch {
       setNote({ ...cur, isPinned: !next });
-      Taro.showToast({ title: '操作失败', icon: 'none' });
+      Taro.showToast({ title: t('common.operation_failed'), icon: 'none' });
     }
   };
 
@@ -264,10 +271,10 @@ export default function NoteEdit() {
     try {
       const newVersion = await getRepo().updateNote(cur.id, { isFavorite: next });
       setNote((p) => (p ? { ...p, version: newVersion } : p));
-      Taro.showToast({ title: next ? '已收藏' : '已取消收藏', icon: 'none' });
+      Taro.showToast({ title: next ? t('editor.favorited') : t('editor.unfavorited'), icon: 'none' });
     } catch {
       setNote({ ...cur, isFavorite: !next });
-      Taro.showToast({ title: '操作失败', icon: 'none' });
+      Taro.showToast({ title: t('common.operation_failed'), icon: 'none' });
     }
   };
 
@@ -275,18 +282,18 @@ export default function NoteEdit() {
     const cur = noteRef.current;
     if (!cur) return;
     const confirm = await Taro.showModal({
-      title: '删除笔记',
-      content: '确定删除该笔记？',
-      confirmText: '删除',
+      title: t('editor.delete_title'),
+      content: t('editor.delete_content'),
+      confirmText: t('common.delete'),
       confirmColor: '#E07B6C',
     });
     if (!confirm.confirm) return;
     try {
       await getRepo().deleteNote(cur.id);
-      Taro.showToast({ title: '已删除', icon: 'success' });
+      Taro.showToast({ title: t('common.deleted'), icon: 'success' });
       setTimeout(() => Taro.navigateBack(), 500);
     } catch {
-      Taro.showToast({ title: '删除失败', icon: 'none' });
+      Taro.showToast({ title: t('common.delete_failed'), icon: 'none' });
     }
   };
 
@@ -295,11 +302,11 @@ export default function NoteEdit() {
     const cur = noteRef.current;
     if (!cur) return;
     if (mode === 'standalone') {
-      Taro.showToast({ title: '单机模式不支持在线分享，请使用导出', icon: 'none' });
+      Taro.showToast({ title: t('editor.standalone_no_share'), icon: 'none' });
       return;
     }
     if (!useAuthStore.getState().masterKey) {
-      Taro.showToast({ title: '请先解锁', icon: 'none' });
+      Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
       return;
     }
     setSharePwd('');
@@ -313,14 +320,14 @@ export default function NoteEdit() {
     if (!cur) return;
     const mk = useAuthStore.getState().masterKey;
     if (!mk) {
-      Taro.showToast({ title: '请先解锁', icon: 'none' });
+      Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
       return;
     }
     const pwd = sharePwd.trim();
     if (pwd && (pwd.length < 8 || pwd.length > 64)) {
       // 与服务端 CreateShareSchema（min 8）及 web 端预校验一致；旧文案"4-64 位"
       // 会引导用户设 4-7 位密码然后在服务端被拒
-      Taro.showToast({ title: '密码需为 8-64 位', icon: 'none' });
+      Taro.showToast({ title: t('editor.pwd_length'), icon: 'none' });
       return;
     }
     const opt = SHARE_EXPIRY_OPTIONS.find((o) => o.key === shareExpiry) ?? SHARE_EXPIRY_OPTIONS[3]!;
@@ -330,7 +337,7 @@ export default function NoteEdit() {
       const shareKey = randomBytes(32);
       const ciphertext = await encryptString(
         shareKey,
-        JSON.stringify({ title: title || '未命名笔记', content: content || '' })
+        JSON.stringify({ title: title || t('editor.unnamed_note'), content: content || '' })
       );
       const wrappedShareKey = await wrapKey(mk, shareKey);
 
@@ -353,10 +360,10 @@ export default function NoteEdit() {
           : `/pages/share/index?token=${r.token}&key=${key}`;
       await Taro.setClipboardData({ data: shareUrl });
       setShareOpen(false);
-      Taro.showToast({ title: '分享链接已复制', icon: 'success' });
+      Taro.showToast({ title: t('editor.share_link_copied'), icon: 'success' });
     } catch (err: any) {
-      const msg = err?.err?.message || err?.message || '未知错误';
-      Taro.showToast({ title: `分享失败：${msg}`, icon: 'none', duration: 3000 });
+      const msg = err?.err?.message || err?.message || t('common.unknown_error');
+      Taro.showToast({ title: t('editor.share_failed_msg', { msg }), icon: 'none', duration: 3000 });
     } finally {
       setSharing(false);
     }
@@ -371,10 +378,10 @@ export default function NoteEdit() {
       const snapshot = await getRepo().loadAll();
       folders = snapshot.folders as Folder[];
     } catch {
-      Taro.showToast({ title: '加载文件夹失败', icon: 'none' });
+      Taro.showToast({ title: t('editor.load_folders_failed'), icon: 'none' });
       return;
     }
-    const itemList = ['未分类', ...folders.map((f) => f.name)];
+    const itemList = [t('editor.uncategorized'), ...folders.map((f) => f.name)];
     let tapIndex: number;
     try {
       const res = await Taro.showActionSheet({ itemList });
@@ -383,11 +390,11 @@ export default function NoteEdit() {
       // 用户取消 showActionSheet 也会 throw，过滤掉
       const msg = (err as { errMsg?: string })?.errMsg ?? '';
       if (msg.includes('cancel')) return;
-      Taro.showToast({ title: '操作失败', icon: 'none' });
+      Taro.showToast({ title: t('common.operation_failed'), icon: 'none' });
       return;
     }
     let folderId: string | null = null;
-    let folderName = '未分类';
+    let folderName = t('editor.uncategorized');
     if (tapIndex > 0) {
       const f = folders[tapIndex - 1];
       folderId = f.id;
@@ -396,9 +403,12 @@ export default function NoteEdit() {
     try {
       await getRepo().moveNote(cur.id, folderId);
       setNote({ ...cur, folderId });
-      Taro.showToast({ title: folderId ? `已移动到 ${folderName}` : '已移出文件夹', icon: 'none' });
+      Taro.showToast({
+        title: folderId ? t('editor.moved_to', { name: folderName }) : t('editor.moved_out'),
+        icon: 'none',
+      });
     } catch {
-      Taro.showToast({ title: '移动失败', icon: 'none' });
+      Taro.showToast({ title: t('editor.move_failed'), icon: 'none' });
     }
   };
 
@@ -407,7 +417,7 @@ export default function NoteEdit() {
   /** 打开历史版本弹窗并加载列表 */
   const openHistory = async () => {
     if (mode !== 'online') {
-      Taro.showToast({ title: '单机模式不支持历史版本', icon: 'none' });
+      Taro.showToast({ title: t('editor.no_history_standalone'), icon: 'none' });
       return;
     }
     setHistoryOpen(true);
@@ -416,7 +426,7 @@ export default function NoteEdit() {
       const r = await getApi().get<{ versions: NoteVersionMeta[] }>(`/notes/${id}/versions`);
       setVersions(r.versions ?? []);
     } catch {
-      Taro.showToast({ title: '加载历史失败', icon: 'none' });
+      Taro.showToast({ title: t('editor.load_history_failed'), icon: 'none' });
       setHistoryOpen(false);
     } finally {
       setHistoryLoading(false);
@@ -426,13 +436,16 @@ export default function NoteEdit() {
   /** 恢复指定历史版本：拉密文 → 解密 → 服务端 restore → 更新编辑器 */
   const onRestoreVersion = async (v: NoteVersionMeta) => {
     const confirm = await Taro.showModal({
-      title: '恢复历史版本',
-      content: `恢复到 v${v.version}（${new Date(v.createdAt).toLocaleString()}）？\n当前内容会先自动保存为一个新版本。`,
-      confirmText: '恢复',
+      title: t('editor.restore_title'),
+      content: t('editor.restore_content', {
+        version: v.version,
+        time: new Date(v.createdAt).toLocaleString(),
+      }),
+      confirmText: t('common.restore'),
     });
     if (!confirm.confirm) return;
     try {
-      if (!masterKey) throw new Error('未解锁');
+      if (!masterKey) throw new Error(t('editor.not_unlocked'));
       // 1. 拉取版本密文
       const r = await getApi().get<{ ciphertext: string }>(`/notes/${id}/versions/${v.id}`);
       // 2. 解密（新密文 AAD 绑定 noteId||userId）
@@ -451,10 +464,12 @@ export default function NoteEdit() {
         setNote({ ...noteRef.current, version: restored.version ?? noteRef.current.version + 1 });
       }
       setHistoryOpen(false);
-      Taro.showToast({ title: `已恢复到 v${v.version}`, icon: 'success' });
+      Taro.showToast({ title: t('editor.restored_to', { version: v.version }), icon: 'success' });
     } catch (err) {
       Taro.showToast({
-        title: `恢复失败：${err instanceof Error ? err.message : '未知错误'}`,
+        title: t('editor.restore_failed_msg', {
+          msg: err instanceof Error ? err.message : t('common.unknown_error'),
+        }),
         icon: 'none',
       });
     }
@@ -464,7 +479,7 @@ export default function NoteEdit() {
   // （解密全库一次建标题索引，库不大时开销可接受；找不到给提示）
   const onWikilink = async (targetTitle: string) => {
     if (!masterKey) {
-      Taro.showToast({ title: '请先解锁', icon: 'none' });
+      Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
       return;
     }
     try {
@@ -482,7 +497,7 @@ export default function NoteEdit() {
           if (oPt.title === targetTitle) {
             // 同一篇笔记无需跳转
             if (other.id === id) {
-              Taro.showToast({ title: '当前笔记', icon: 'none' });
+              Taro.showToast({ title: t('editor.current_note'), icon: 'none' });
               return;
             }
             Taro.redirectTo({ url: `/pages/note/edit?id=${other.id}` });
@@ -492,9 +507,9 @@ export default function NoteEdit() {
           // 单条解密失败跳过
         }
       }
-      Taro.showToast({ title: `笔记「${targetTitle}」不存在`, icon: 'none' });
+      Taro.showToast({ title: t('editor.note_not_exist', { title: targetTitle }), icon: 'none' });
     } catch {
-      Taro.showToast({ title: '跳转失败', icon: 'none' });
+      Taro.showToast({ title: t('editor.jump_failed'), icon: 'none' });
     }
   };
 
@@ -506,13 +521,13 @@ export default function NoteEdit() {
   const statusText = (() => {
     switch (saveStatus) {
       case 'saving':
-        return '🔄 保存中…';
+        return t('editor.status_saving');
       case 'saved':
-        return '✅ 已保存';
+        return t('editor.status_saved');
       case 'error':
-        return '⚠️ 保存失败';
+        return t('editor.status_error');
       case 'unsaved':
-        return '✏️ 未保存';
+        return t('editor.status_unsaved');
       default:
         return '';
     }
@@ -530,7 +545,7 @@ export default function NoteEdit() {
             className={`mint-btn mint-btn-sm mint-btn-ghost${preview ? ' icon-btn-active' : ''}`}
             onClick={() => setPreview((v) => !v)}
           >
-            {preview ? '编辑' : '预览'}
+            {preview ? t('editor.edit') : t('editor.preview')}
           </Text>
           <Text
             className={`icon-btn${note?.isPinned ? ' icon-btn-active' : ''}`}
@@ -561,7 +576,7 @@ export default function NoteEdit() {
             🗑️
           </Text>
           <Text className="mint-btn mint-btn-sm" onClick={onManualSave}>
-            保存
+            {t('editor.save')}
           </Text>
         </View>
       </View>
@@ -571,17 +586,19 @@ export default function NoteEdit() {
           className="mint-input-title"
           value={title}
           onInput={(e) => setTitle((e.detail as { value: string }).value)}
-          placeholder="标题"
+          placeholder={t('editor.title_placeholder')}
         />
 
         {preview ? (
           <ScrollView scrollY className="flex-1">
             <View className="md-preview">
-              <Markdown content={content} onWikilink={(t) => void onWikilink(t)} />
+              <Markdown content={content} onWikilink={(target) => void onWikilink(target)} />
             </View>
             {backlinks.length > 0 && (
               <View className="backlinks-card">
-                <Text className="backlinks-title">反向链接（{backlinks.length}）</Text>
+                <Text className="backlinks-title">
+                  {t('editor.backlinks_count', { count: backlinks.length })}
+                </Text>
                 {backlinks.map((bl) => (
                   <Text key={bl.id} className="backlink-item" onClick={() => onBacklinkTap(bl.id)}>
                     📄 {bl.title}
@@ -608,7 +625,7 @@ export default function NoteEdit() {
                 setShowSlash(false);
               }
             }}
-            placeholder="开始记录…"
+            placeholder={t('editor.content_placeholder')}
             autoHeight
           />
           {/* 斜杠命令菜单 */}
@@ -638,15 +655,15 @@ export default function NoteEdit() {
       {shareOpen && (
         <View className="modal-mask" onClick={() => !sharing && setShareOpen(false)}>
           <View className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <Text className="modal-title">创建分享链接</Text>
+            <Text className="modal-title">{t('editor.share_title')}</Text>
             <Input
               className="mint-input"
               password
-              placeholder="可选：设置访问密码（8-64 位）"
+              placeholder={t('editor.share_pwd_placeholder')}
               value={sharePwd}
               onInput={(e) => setSharePwd((e.detail as { value: string }).value)}
             />
-            <Text className="hint">有效期</Text>
+            <Text className="hint">{t('editor.expiry')}</Text>
             <View className="row gap-s mt-s mb-m">
               {SHARE_EXPIRY_OPTIONS.map((opt) => (
                 <Text
@@ -654,7 +671,7 @@ export default function NoteEdit() {
                   className={`expiry-chip${shareExpiry === opt.key ? ' expiry-chip-active' : ''}`}
                   onClick={() => setShareExpiry(opt.key)}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </Text>
               ))}
             </View>
@@ -663,14 +680,14 @@ export default function NoteEdit() {
                 className="mint-btn mint-btn-ghost flex-1"
                 onClick={() => !sharing && setShareOpen(false)}
               >
-                取消
+                {t('common.cancel')}
               </View>
               <View
                 className="mint-btn flex-1"
                 style={{ opacity: sharing ? 0.5 : 1 }}
                 onClick={doCreateShare}
               >
-                {sharing ? '生成中…' : '生成链接'}
+                {sharing ? t('editor.generating') : t('editor.generate_link')}
               </View>
             </View>
           </View>
@@ -679,11 +696,11 @@ export default function NoteEdit() {
       {historyOpen && (
         <View className="modal-mask" onClick={() => setHistoryOpen(false)}>
           <View className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <Text className="modal-title">历史版本</Text>
+            <Text className="modal-title">{t('editor.history_title')}</Text>
             {historyLoading ? (
-              <Text className="modal-text">加载中…</Text>
+              <Text className="modal-text">{t('common.loading')}</Text>
             ) : versions.length === 0 ? (
-              <Text className="modal-text">暂无历史版本</Text>
+              <Text className="modal-text">{t('editor.no_history')}</Text>
             ) : (
               <ScrollView scrollY style={{ maxHeight: '600rpx' }}>
                 {versions.map((v) => (
@@ -695,7 +712,7 @@ export default function NoteEdit() {
                       </Text>
                     </View>
                     <Text className="mint-btn mint-btn-sm" onClick={() => void onRestoreVersion(v)}>
-                      恢复
+                      {t('common.restore')}
                     </Text>
                   </View>
                 ))}
@@ -706,7 +723,7 @@ export default function NoteEdit() {
                 className="mint-btn mint-btn-ghost flex-1"
                 onClick={() => setHistoryOpen(false)}
               >
-                关闭
+                {t('common.close')}
               </View>
             </View>
           </View>

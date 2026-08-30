@@ -17,6 +17,7 @@
  */
 
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { isTauri } from './lib/tauri';
 import { registerAutostartApi } from './lib/autostart';
 import { registerUpdaterApi, useUpdater } from './lib/updater';
@@ -67,6 +68,7 @@ function registerTrayApi() {
 }
 
 export function App() {
+  const { t, i18n } = useTranslation();
   useEffect(() => {
     if (isTauri()) {
       // 标记平台：web 端某些逻辑（如 update-manifest 灰度）可据此区分
@@ -84,11 +86,12 @@ export function App() {
       // 注册托盘 tooltip 更新能力
       registerTrayApi();
 
-      // 设置窗口标题（与 web 端 index.html 的 title 对齐）
+      // 设置窗口标题（跟随语言：中文「尘心笔记」/ 英文「DustNote」，
+      // tauri.conf.json 的静态 title 仅为启动初帧兜底）
       void import('@tauri-apps/api/window')
         .then(async ({ Window }) => {
           try {
-            await Window.getCurrent().setTitle('DustNote · 尘心笔记');
+            await Window.getCurrent().setTitle(t('app.name'));
           } catch {
             /* 忽略：极少数环境下窗口尚未创建 */
           }
@@ -98,6 +101,20 @@ export function App() {
       document.documentElement.dataset.platform = 'web';
     }
   }, []);
+
+  // 语言切换时同步窗口标题（启动 effect 依赖 [] 不会重跑，这里单独跟随 i18n.language）
+  useEffect(() => {
+    if (!isTauri()) return;
+    void import('@tauri-apps/api/window')
+      .then(async ({ Window }) => {
+        try {
+          await Window.getCurrent().setTitle(t('app.name'));
+        } catch {
+          /* 忽略 */
+        }
+      })
+      .catch(() => undefined);
+  }, [t, i18n.language]);
 
   // 桌面端更新检查状态机（启动时静默检查一次；独立于设置页内手动检查）。
   // 必须在上方注册 effect 之后调用：React 按声明顺序执行 effect，
@@ -114,7 +131,7 @@ export function App() {
   }, [updater.state, updater.targetVersion]);
 
   // 托盘 tooltip 显示待同步数量（roadmap M4「托盘显示已同步 N 条」）：
-  // 订阅 web store 的 pendingCount 变化，实时刷新托盘 tooltip。
+  // 订阅 web store 的 pendingCount 变化，实时刷新托盘 tooltip（文案跟随语言）。
   useEffect(() => {
     if (!isTauri()) return undefined;
     const setTip = () => {
@@ -122,12 +139,16 @@ export function App() {
         .__dustnoteSetTrayTooltip;
       if (!api) return;
       const count = useStore.getState().pendingCount;
-      api(count > 0 ? `尘心笔记 · 待同步 ${count} 条` : '尘心笔记 · 已同步');
+      api(
+        count > 0
+          ? t('tray.pending_sync', { app: t('app.name'), count })
+          : t('tray.synced', { app: t('app.name') })
+      );
     };
     setTip();
     const unsub = useStore.subscribe(() => setTip());
     return () => unsub();
-  }, []);
+  }, [t, i18n.language]);
 
   // 直接渲染 web 端 App（已包含 Sidebar / Editor / SetupScreen / UnlockScreen /
   // SettingsDialog / ForceUpdateOverlay / UpdateBanner 以及 useUpdateCheck）

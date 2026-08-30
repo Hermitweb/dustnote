@@ -16,19 +16,20 @@
  * - 必须通过 auth store action 更新状态，否则首页会因 authState 未更新而重定向回此页
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { isValidRecoveryCode } from '@dustnote/shared';
 import { useAuthStore } from '../../state/auth';
+import { t, useLanguage } from '../../lib/i18n';
 
 type Strength = { label: string; level: 'weak' | 'medium' | 'strong'; width: number };
 
 function evalStrength(p: string): Strength {
-  if (p.length < 8) return { label: '弱', level: 'weak', width: 25 };
-  if (p.length < 12) return { label: '中等', level: 'medium', width: 60 };
-  if (p.length >= 16) return { label: '强', level: 'strong', width: 100 };
-  return { label: '良好', level: 'medium', width: 80 };
+  if (p.length < 8) return { label: t('common.strength_weak'), level: 'weak', width: 25 };
+  if (p.length < 12) return { label: t('common.strength_medium'), level: 'medium', width: 60 };
+  if (p.length >= 16) return { label: t('common.strength_strong'), level: 'strong', width: 100 };
+  return { label: t('common.strength_good'), level: 'medium', width: 80 };
 }
 
 export default function StandaloneRecover() {
@@ -37,39 +38,45 @@ export default function StandaloneRecover() {
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const recoverStandalone = useAuthStore((s) => s.recoverStandalone);
+  const lang = useLanguage();
+
+  // 语言切换后同步原生导航栏标题
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: t('app.name') });
+  }, [lang]);
 
   const strength = evalStrength(newPassword);
 
   const onRecover = async () => {
     if (!isValidRecoveryCode(recoveryCode)) {
-      Taro.showToast({ title: '恢复码格式不正确（XXXXX-XXXXX）', icon: 'none' });
+      Taro.showToast({ title: t('recover.err_code'), icon: 'none' });
       return;
     }
     if (newPassword.length < 8) {
-      Taro.showToast({ title: '新密码至少 8 位', icon: 'none' });
+      Taro.showToast({ title: t('recover.err_pwd_len'), icon: 'none' });
       return;
     }
     if (newPassword !== confirm) {
-      Taro.showToast({ title: '两次密码不一致', icon: 'none' });
+      Taro.showToast({ title: t('recover.err_mismatch'), icon: 'none' });
       return;
     }
     setSubmitting(true);
     try {
-      Taro.showLoading({ title: '恢复中…' });
+      Taro.showLoading({ title: t('recover.recovering') });
       // 通过 auth store action：校验恢复码 + 解封 masterKey + 重新包装 + 持久化 + 更新 authState
       const newRecoveryCode = await recoverStandalone(recoveryCode, newPassword);
       Taro.hideLoading();
       // 弹窗显示新恢复码
       Taro.showModal({
-        title: '恢复成功',
-        content: `已设置新主密码\n\n新恢复码：${newRecoveryCode}\n\n请抄写保存，旧恢复码已失效。`,
+        title: t('recover.success_title'),
+        content: t('recover.success_content', { code: newRecoveryCode }),
         showCancel: false,
-        confirmText: '我已保存',
+        confirmText: t('recover.saved_btn'),
         success: () => Taro.reLaunch({ url: '/pages/index/index' }),
       });
     } catch (err) {
       Taro.hideLoading();
-      const msg = err instanceof Error ? err.message : '恢复失败';
+      const msg = err instanceof Error ? err.message : t('recover.failed');
       Taro.showToast({ title: msg, icon: 'none' });
     } finally {
       setSubmitting(false);
@@ -81,14 +88,12 @@ export default function StandaloneRecover() {
       <Text className="hero-logo" style={{ textAlign: 'center' }}>
         🔑
       </Text>
-      <Text className="hero-title text-center">使用恢复码重置主密码</Text>
-      <Text className="hero-subtitle mb-l text-center">
-        输入恢复码 + 新主密码 · 原有笔记不受影响
-      </Text>
+      <Text className="hero-title text-center">{t('recover.title')}</Text>
+      <Text className="hero-subtitle mb-l text-center">{t('recover.subtitle')}</Text>
 
       <Input
         className="mint-input"
-        placeholder="恢复码 (XXXXX-XXXXX)"
+        placeholder={t('recover.code_placeholder')}
         value={recoveryCode}
         maxlength={16}
         onInput={(e) => setRecoveryCode((e.detail as { value: string }).value)}
@@ -96,14 +101,14 @@ export default function StandaloneRecover() {
       <Input
         className="mint-input"
         password
-        placeholder="新主密码（至少 8 位）"
+        placeholder={t('recover.pwd_placeholder')}
         value={newPassword}
         onInput={(e) => setNewPassword((e.detail as { value: string }).value)}
       />
       <Input
         className="mint-input"
         password
-        placeholder="再次输入新主密码"
+        placeholder={t('recover.confirm_placeholder')}
         value={confirm}
         onInput={(e) => setConfirm((e.detail as { value: string }).value)}
       />
@@ -116,7 +121,7 @@ export default function StandaloneRecover() {
               style={{ width: `${strength.width}%` }}
             />
           </View>
-          <Text className="hint">强度：{strength.label}</Text>
+          <Text className="hint">{t('common.strength_label', { label: strength.label })}</Text>
         </View>
       )}
 
@@ -125,18 +130,18 @@ export default function StandaloneRecover() {
         onClick={onRecover}
         style={{ opacity: submitting ? 0.5 : 1 }}
       >
-        {submitting ? '恢复中…' : '重置主密码'}
+        {submitting ? t('recover.recovering') : t('recover.reset_btn')}
       </View>
 
       <Text className="hint mt-l" style={{ display: 'block', textAlign: 'center' }}>
-        ✓ 恢复后原有笔记可继续解密（masterKey 保持不变）
+        {t('recover.note_ok')}
       </Text>
       <Text className="text-xs text-muted mt-s" style={{ display: 'block', textAlign: 'center' }}>
-        恢复成功后，旧恢复码和旧主密码都将失效
+        {t('recover.note_warn')}
       </Text>
 
       <View className="hint-mint mt-l" onClick={() => Taro.navigateBack({ delta: 1 })}>
-        ← 返回解锁
+        {t('recover.back')}
       </View>
     </View>
   );

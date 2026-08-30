@@ -55,6 +55,7 @@ import {
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, setAccessToken, setRefreshToken, refreshAccessTokenSilently } from '../api';
+import i18n from '../lib/i18n';
 import { useModeStore } from '../lib/mode-store';
 import {
   loadLocalAuthBlob,
@@ -291,7 +292,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         wrappedMasterKeyRc: wrappedRc,
         pwSalt: toBase64(pwSalt),
         rcSalt: toBase64(rcSalt),
-        deviceName: 'Android 客户端',
+        deviceName: i18n.t('auth.device_name'),
         kdfParams: KDF_PARAMS_MOBILE,
       }
     );
@@ -328,7 +329,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     if (!salt) {
       const status = await api.get<{ pwSalt: string | null; kdfParams?: { algorithm: string; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/status');
       salt = status.pwSalt;
-      if (!salt) throw new Error('系统未初始化');
+      if (!salt) throw new Error(i18n.t('auth.system_not_initialized'));
       // 根据服务端返回的 KDF 参数选择正确算法（兼容 web 创建的 Argon2id 账号）
       if (status.kdfParams) {
         kdfParams = status.kdfParams.algorithm === 'argon2id' ? KDF_PARAMS : KDF_PARAMS_MOBILE;
@@ -346,7 +347,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const pw = await deriveSecrets(password, fromBase64(salt), kdfParams);
     const body: { authKey: string; deviceName: string; totpCode?: string } = {
       authKey: toBase64(pw.authKey),
-      deviceName: 'Android 客户端',
+      deviceName: i18n.t('auth.device_name'),
     };
     if (totpCode) body.totpCode = totpCode;
     const r = await api.post<{
@@ -474,10 +475,10 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     // lock() 会清空内存中的 localAuthBlob；从持久化层兜底重新加载，
     // 否则锁屏后（杀进程前）无论密码是否正确都报「未初始化」，只能重启 App
     const blob = localAuthBlob ?? (await loadLocalAuthBlob());
-    if (!blob) throw new Error('未初始化');
+    if (!blob) throw new Error(i18n.t('auth.not_initialized'));
     if (isLocked(lockoutState)) {
       const remaining = remainingLockoutMs(lockoutState);
-      throw new Error(`账号已锁定，请 ${Math.ceil(remaining / 1000)} 秒后重试`);
+      throw new Error(i18n.t('auth.locked_retry', { seconds: Math.ceil(remaining / 1000) }));
     }
 
     const result = await unlockLocalAuth(password, blob, KDF_PARAMS_MOBILE);
@@ -486,9 +487,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       await saveLockoutState(newState);
       set({ lockoutState: newState });
       if (isLocked(newState)) {
-        throw new Error(`密码错误次数过多，账号已锁定 ${LOCAL_LOCKOUT_DURATION_MS / 60000} 分钟`);
+        throw new Error(
+          i18n.t('auth.too_many_attempts', { minutes: LOCAL_LOCKOUT_DURATION_MS / 60000 })
+        );
       }
-      throw new Error('主密码错误');
+      throw new Error(i18n.t('auth.wrong_password'));
     }
 
     const successState = recordSuccessfulAttempt();
@@ -517,7 +520,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     // 锁定中不允许生物识别绕过（与密码解锁共用同一锁定状态）
     if (isLocked(lockoutState)) {
       const remaining = remainingLockoutMs(lockoutState);
-      throw new Error(`账号已锁定，请 ${Math.ceil(remaining / 1000)} 秒后重试`);
+      throw new Error(i18n.t('auth.locked_retry', { seconds: Math.ceil(remaining / 1000) }));
     }
 
     // 读取 keychain 中受生物识别保护的 masterKey
@@ -540,10 +543,10 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const { localAuthBlob } = get();
     // 与 unlockStandalone 一致：lock() 清空内存 blob 后从持久化层兜底重新加载
     const blob = localAuthBlob ?? (await loadLocalAuthBlob());
-    if (!blob) throw new Error('未初始化');
+    if (!blob) throw new Error(i18n.t('auth.not_initialized'));
     const result = await recoverLocalAuth(recoveryCode, newPassword, blob, KDF_PARAMS_MOBILE);
     if (!result.success || !result.blob || !result.masterKey || !result.recoveryCode) {
-      throw new Error('恢复码错误');
+      throw new Error(i18n.t('auth.wrong_recovery_code'));
     }
     await saveLocalAuthBlob(result.blob);
     await clearLockoutState();
@@ -580,13 +583,13 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   // ========== 账户操作 ==========
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
-    if (newPassword.length < 8) throw new Error('新主密码至少 8 字符');
+    if (newPassword.length < 8) throw new Error(i18n.t('auth.new_password_too_short'));
     // 1. 用当前密码 unlock 验证身份 + 取回服务端 wrapped masterKey（同时刷新会话）
     let salt = get().pwSalt;
     if (!salt) {
       const status = await api.get<{ pwSalt: string | null }>('/auth/status');
       salt = status.pwSalt;
-      if (!salt) throw new Error('系统未初始化');
+      if (!salt) throw new Error(i18n.t('auth.system_not_initialized'));
     }
     const pw = await deriveSecrets(currentPassword, fromBase64(salt), KDF_PARAMS_MOBILE);
     const r = await api.post<{
@@ -595,7 +598,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       userId: string;
       deviceId: string;
       wrappedMasterKey: Ciphertext;
-    }>('/auth/unlock', { authKey: toBase64(pw.authKey), deviceName: 'Android 客户端' });
+    }>('/auth/unlock', { authKey: toBase64(pw.authKey), deviceName: i18n.t('auth.device_name') });
     if (r.refreshToken) void setRefreshToken(r.refreshToken);
     const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
 
@@ -627,17 +630,19 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   async changePasswordStandalone(currentPassword: string, newPassword: string): Promise<string> {
-    if (newPassword.length < 8) throw new Error('新主密码至少 8 字符');
+    if (newPassword.length < 8) throw new Error(i18n.t('auth.new_password_too_short'));
     const { localAuthBlob, lockoutState } = get();
     const blob = localAuthBlob ?? (await loadLocalAuthBlob());
-    if (!blob) throw new Error('未初始化');
+    if (!blob) throw new Error(i18n.t('auth.not_initialized'));
     if (isLocked(lockoutState)) {
       const remaining = remainingLockoutMs(lockoutState);
-      throw new Error('账号已锁定，请 ' + Math.ceil(remaining / 1000) + ' 秒后重试');
+      throw new Error(
+        i18n.t('auth.locked_retry', { seconds: Math.ceil(remaining / 1000) })
+      );
     }
     const result = await unlockLocalAuth(currentPassword, blob, KDF_PARAMS_MOBILE);
     if (!result.success || !result.masterKey) {
-      throw new Error('当前密码错误');
+      throw new Error(i18n.t('auth.wrong_current_password'));
     }
     // 用同一把 masterKey + 新密码重新包装（新恢复码随之生成，旧恢复码失效）
     const newAuth = await buildLocalAuthBlobForMasterKey(result.masterKey, newPassword);
@@ -656,7 +661,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   async recoverOnline(recoveryCode: string, newPassword: string): Promise<void> {
-    if (newPassword.length < 8) throw new Error('新主密码至少 8 字符');
+    if (newPassword.length < 8) throw new Error(i18n.t('auth.new_password_too_short'));
     // v2：先取恢复码派生所需的 rc_salt + KDF 参数
     const recoveryParams = await api.get<{ rcSalt: string; kdfParams?: { algorithm: string; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/recovery-params');
     const kdfParams = recoveryParams.kdfParams?.algorithm === 'argon2id' ? KDF_PARAMS : KDF_PARAMS_MOBILE;
@@ -669,7 +674,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       wrappedMasterKey: Ciphertext;
     }>('/auth/recover', {
       recoveryAuthKey: toBase64(rc.authKey),
-      deviceName: 'Android 客户端（恢复）',
+      deviceName: i18n.t('auth.device_name_recover'),
     });
 
     // 关键：解封出来的是原来那把 masterKey，历史笔记照常能解开
@@ -776,9 +781,9 @@ async function runPendingMigration(): Promise<void> {
     if (res) {
       const msg =
         res.failed > 0
-          ? '已迁移 ' + res.imported + ' 条笔记，' + res.failed + ' 条因解密失败跳过。'
-          : '已迁移 ' + res.imported + ' 条笔记。';
-      Alert.alert('数据迁移完成', msg);
+          ? i18n.t('auth.migration_complete_partial', { imported: res.imported, failed: res.failed })
+          : i18n.t('auth.migration_complete_detail', { count: res.imported });
+      Alert.alert(i18n.t('auth.migration_complete_title'), msg);
       const k = useAuthStore.getState().pendingMasterKey;
       if (k) k.fill(0);
       useAuthStore.setState({ pendingMasterKey: null });
@@ -787,8 +792,8 @@ async function runPendingMigration(): Promise<void> {
     // 网络等失败：wrappedOldMasterKey 已持久化，下次解锁自动重试
     console.warn('[auth] 待迁移数据导入失败，将在下次解锁时重试', err);
     Alert.alert(
-      '数据迁移',
-      '迁移未完成（' + (err as Error).message + '），将在下次解锁时自动重试。'
+      i18n.t('auth.migration_title'),
+      i18n.t('auth.migration_incomplete', { reason: (err as Error).message })
     );
   }
 }

@@ -17,6 +17,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
 import logoImage from '../assets/logo.png';
+import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import ReactNativeBiometrics from 'react-native-biometrics';
@@ -30,6 +31,7 @@ const rnb = new ReactNativeBiometrics();
 export function StandaloneUnlockScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const colors = useColors();
+  const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [remainingSec, setRemainingSec] = useState(0);
@@ -55,12 +57,12 @@ export function StandaloneUnlockScreen() {
 
   const onUnlock = async () => {
     if (isLocked) {
-      Alert.alert('账号已锁定', `请 ${remainingSec} 秒后重试`);
+      Alert.alert(t('auth.locked_title'), t('auth.locked_retry_body', { seconds: remainingSec }));
       return;
     }
     // 空密码不提交：避免浪费失败计数配额（连续错误会触发客户端锁定）
     if (!password.trim()) {
-      Alert.alert('提示', '请输入主密码');
+      Alert.alert(t('common.hint'), t('auth.password_required'));
       return;
     }
     setSubmitting(true);
@@ -70,7 +72,7 @@ export function StandaloneUnlockScreen() {
       await unlockStandalone(password);
       // store 切换到 unlocked 状态后，App.tsx 会自动路由到主界面
     } catch (err) {
-      Alert.alert('解锁失败', (err as Error).message);
+      Alert.alert(t('auth.unlock_failed'), (err as Error).message);
       setPassword('');
     } finally {
       setSubmitting(false);
@@ -79,25 +81,27 @@ export function StandaloneUnlockScreen() {
 
   const onBiometric = async () => {
     if (isLocked) {
-      Alert.alert('账号已锁定', `请 ${remainingSec} 秒后重试`);
+      Alert.alert(t('auth.locked_title'), t('auth.locked_retry_body', { seconds: remainingSec }));
       return;
     }
     try {
       const { available } = await rnb.isSensorAvailable();
       if (!available) {
-        Alert.alert('不可用', '设备未配置生物识别');
+        Alert.alert(t('auth.unavailable'), t('auth.unlock_biometric_unavailable'));
         return;
       }
       // 先用 simplePrompt 让用户确认指纹 / 面容
-      const { success } = await rnb.simplePrompt({ promptMessage: '解锁 DustNote' });
+      const { success } = await rnb.simplePrompt({
+        promptMessage: t('auth.unlock_biometric_prompt'),
+      });
       if (!success) return;
       // 生物识别通过：从 keychain 读取缓存的 masterKey
       const ok = await unlockStandaloneWithBiometric();
       if (!ok) {
-        Alert.alert('提示', '未找到缓存的解锁信息，请输入主密码完成解锁');
+        Alert.alert(t('common.hint'), t('auth.unlock_biometric_no_cache'));
       }
     } catch (err) {
-      Alert.alert('解锁失败', (err as Error).message);
+      Alert.alert(t('auth.unlock_failed'), (err as Error).message);
     }
   };
 
@@ -106,14 +110,16 @@ export function StandaloneUnlockScreen() {
   return (
     <View style={styles.container}>
       <Image source={logoImage} style={styles.logo} />
-      <Text style={styles.title}>DustNote（单机）</Text>
+      <Text style={styles.title}>{t('auth.unlock_title_standalone')}</Text>
       <Text style={styles.subtitle}>
-        {isLocked ? `账号已锁定，请 ${remainingSec} 秒后重试` : '输入主密码解锁本地笔记'}
+        {isLocked
+          ? t('auth.locked_retry', { seconds: remainingSec })
+          : t('auth.unlock_subtitle_standalone')}
       </Text>
 
       <TextInput
         style={[styles.input, isLocked && { opacity: 0.5 }]}
-        placeholder="主密码"
+        placeholder={t('auth.unlock_password')}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -128,12 +134,14 @@ export function StandaloneUnlockScreen() {
         disabled={submitting || isLocked}
         onPress={onUnlock}
       >
-        <Text style={styles.buttonText}>{submitting ? '解锁中…' : '解锁'}</Text>
+        <Text style={styles.buttonText}>
+          {submitting ? t('auth.unlocking_short') : t('auth.unlock_btn')}
+        </Text>
       </TouchableOpacity>
 
       {hasBiometricCache && !isLocked && (
         <TouchableOpacity style={styles.bioButton} onPress={onBiometric}>
-          <Text style={styles.bioButtonText}>👆 使用生物识别</Text>
+          <Text style={styles.bioButtonText}>{t('auth.unlock_biometric')}</Text>
         </TouchableOpacity>
       )}
 
@@ -141,12 +149,12 @@ export function StandaloneUnlockScreen() {
         style={styles.recoverButton}
         onPress={() => navigation.navigate('StandaloneRecover' as never)}
       >
-        <Text style={styles.recoverButtonText}>使用恢复码重置密码</Text>
+        <Text style={styles.recoverButtonText}>{t('auth.recover_entry')}</Text>
       </TouchableOpacity>
 
       {isLocked && (
         <Text style={styles.lockedHint}>
-          连续 6 次密码错误，账号已锁定 {LOCAL_LOCKOUT_DURATION_MS / 60000} 分钟
+          {t('auth.locked_hint', { minutes: LOCAL_LOCKOUT_DURATION_MS / 60000 })}
         </Text>
       )}
     </View>

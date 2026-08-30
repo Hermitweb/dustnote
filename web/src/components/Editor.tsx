@@ -405,7 +405,7 @@ export function Editor() {
           onClick={() => setMode('wysiwyg')}
           disabled={viewMode === 'trash'}
           className={`rounded px-2 py-1 text-xs ${mode === 'wysiwyg' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'} ${viewMode === 'trash' ? 'cursor-not-allowed opacity-50' : ''}`}
-          title={t('editor.view_wysiwyg_tip') || '所见即所得编辑'}
+          title={t('editor.view_wysiwyg_tip')}
         >
           ✨ WYSIWYG
         </button>
@@ -598,7 +598,7 @@ export function Editor() {
       {/* 内容 */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {mode === 'wysiwyg' ? (
-          <Suspense fallback={<div className="flex flex-1 items-center justify-center text-surface-muted">加载中...</div>}>
+          <Suspense fallback={<div className="flex flex-1 items-center justify-center text-surface-muted">{t('common.loading')}</div>}>
             <WysiwygEditor content={content} onChange={setContent} placeholder={t('editor.md_placeholder')} />
           </Suspense>
         ) : (
@@ -660,7 +660,7 @@ export function Editor() {
                   if (title) {
                     const entry = Array.from(notesPlain.entries()).find(([, p]) => p.title === title);
                     if (entry) selectNote(entry[0]);
-                    else toast.info(t('editor.wikilink_not_found', { title }) || `笔记「${title}」不存在`);
+                    else toast.info(t('editor.wikilink_not_found', { title }));
                   }
                 }
               }}>
@@ -669,7 +669,7 @@ export function Editor() {
                 {backlinks.length > 0 && (
                   <div className="mt-6 border-t border-surface-border pt-4">
                     <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-muted">
-                      {t('editor.backlinks') || '反向链接'} ({backlinks.length})
+                      {t('editor.backlinks')} ({backlinks.length})
                     </h3>
                     <div className="space-y-1">
                       {backlinks.map((bl) => (

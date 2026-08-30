@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "尘心笔记",
+        "title": "DustNote",
         "width": 1280,
         "height": 800,
         "minWidth": 800,
@@ -39,8 +39,8 @@
       "icons/icon.ico"
     ],
     "category": "Productivity",
-    "shortDescription": "DustNote · 尘心笔记",
-    "longDescription": "DustNote 是一款单用户跨端个人笔记系统，无需注册，主密码即身份。端到端加密，支持 .txt/.md/.docx 导入导出与可控制分享。",
+    "shortDescription": "DustNote",
+    "longDescription": "DustNote is a single-user cross-platform personal note system. Passwordless registration with the master password as identity. End-to-end encrypted, supports .txt/.md/.docx import/export and controllable sharing.",
     "publisher": "DustNote Team",
     "copyright": "© 2026 DustNote",
     "windows": {

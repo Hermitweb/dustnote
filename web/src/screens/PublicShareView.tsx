@@ -86,9 +86,7 @@ export function PublicShareView({ token }: { token: string }) {
           // 单分享密码爆破锁定
           setState({
             kind: 'error',
-            message:
-              data.message ??
-              t('public_share.locked', { defaultValue: '该分享已被锁定，请稍后再试' }),
+            message: data.message ?? t('public_share.locked'),
           });
           return;
         }

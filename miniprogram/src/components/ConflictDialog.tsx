@@ -5,39 +5,41 @@
  * 裁决后自动推进到下一条）。每个冲突字段展示「我的版本 / 服务器版本」diff，
  * 提供四种选择：保留我的 / 保留服务器 / 合并 / 暂不处理。
  *
- * 说明：miniprogram 无 i18n，文案直接用中文；颜色读取主题 store 生效态。
+ * 说明：文案已接入 src/lib/i18n（随语言设置切换）；颜色读取主题 store 生效态。
  */
 
 import React, { useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import { useThemeStore } from '../state/theme';
 import { useConflictStore, type PendingConflict } from '../state/conflict-store';
+import { t, useLanguage } from '../lib/i18n';
 
-const FIELD_LABEL: Record<string, string> = {
-  title: '标题',
-  content: '内容',
-  tags: '标签',
-  isPinned: '置顶',
-  isFavorite: '收藏',
-  folderId: '文件夹',
-  deletedAt: '删除状态',
+/** 冲突字段 → 词典 key 映射（文案随语言切换） */
+const FIELD_LABEL_KEY: Record<string, string> = {
+  title: 'conflict.field_title',
+  content: 'conflict.field_content',
+  tags: 'conflict.field_tags',
+  isPinned: 'conflict.field_pinned',
+  isFavorite: 'conflict.field_favorite',
+  folderId: 'conflict.field_folder',
+  deletedAt: 'conflict.field_deleted',
 };
 
 function formatValue(field: string, value: unknown): string {
-  if (value === null || value === undefined) return '（无）';
+  if (value === null || value === undefined) return t('conflict.value_none');
   if (field === 'tags') {
     const arr = Array.isArray(value) ? (value as string[]) : [];
     const s = arr.join('、');
-    return s.length > 120 ? `${s.slice(0, 120)}…` : s || '（无）';
+    return s.length > 120 ? `${s.slice(0, 120)}…` : s || t('conflict.value_none');
   }
   if (field === 'isPinned' || field === 'isFavorite') {
-    return value ? '是' : '否';
+    return value ? t('conflict.value_yes') : t('conflict.value_no');
   }
   if (field === 'deletedAt') {
-    return value ? '已删除' : '未删除';
+    return value ? t('conflict.value_deleted') : t('conflict.value_not_deleted');
   }
   const s = String(value);
-  return s.length > 200 ? `${s.slice(0, 200)}…` : s || '（无）';
+  return s.length > 200 ? `${s.slice(0, 200)}…` : s || t('conflict.value_none');
 }
 
 function palette(effective: 'light' | 'dark') {
@@ -56,6 +58,7 @@ function palette(effective: 'light' | 'dark') {
 }
 
 export default function ConflictDialog(): React.JSX.Element {
+  useLanguage();
   const theme = useThemeStore((s) => s.theme);
   const effective: 'light' | 'dark' =
     theme === 'auto'
@@ -123,10 +126,10 @@ export default function ConflictDialog(): React.JSX.Element {
     <View style={overlay}>
       <View style={card}>
         <Text style={{ fontSize: 17, fontWeight: '700', color: c.fg, marginBottom: 4 }}>
-          检测到笔记冲突
+          {t('conflict.title')}
         </Text>
         <Text style={{ fontSize: 13, color: c.muted, marginBottom: 12 }}>
-          该笔记已在其他设备修改，请选择要保留的版本
+          {t('conflict.subtitle')}
         </Text>
 
         <View style={{ flex: 1, minHeight: 0 }}>
@@ -147,13 +150,17 @@ export default function ConflictDialog(): React.JSX.Element {
                 }}
               >
                 <Text style={{ fontSize: 13, fontWeight: '600', color: c.fg, marginBottom: 6 }}>
-                  {FIELD_LABEL[cf.field] ?? cf.field}
+                  {t(FIELD_LABEL_KEY[cf.field] ?? cf.field)}
                 </Text>
-                <Text style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>我的版本</Text>
+                <Text style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>
+                  {t('conflict.my_version')}
+                </Text>
                 <Text style={{ fontSize: 13, color: c.fg, marginBottom: 2 }}>
                   {formatValue(cf.field, cf.localValue)}
                 </Text>
-                <Text style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>服务器版本</Text>
+                <Text style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>
+                  {t('conflict.server_version')}
+                </Text>
                 <Text style={{ fontSize: 13, color: c.fg }}>
                   {formatValue(cf.field, cf.serverValue)}
                 </Text>
@@ -170,7 +177,7 @@ export default function ConflictDialog(): React.JSX.Element {
             }}
           >
             <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600' }}>
-              {resolving === 'local' ? '处理中…' : '保留我的版本'}
+              {resolving === 'local' ? t('conflict.processing') : t('conflict.keep_local')}
             </Text>
           </View>
           <View
@@ -180,7 +187,7 @@ export default function ConflictDialog(): React.JSX.Element {
             }}
           >
             <Text style={{ color: c.secondaryFg, fontSize: 14, fontWeight: '600' }}>
-              {resolving === 'server' ? '处理中…' : '保留服务器版本'}
+              {resolving === 'server' ? t('conflict.processing') : t('conflict.keep_server')}
             </Text>
           </View>
           <View
@@ -190,11 +197,11 @@ export default function ConflictDialog(): React.JSX.Element {
             }}
           >
             <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600' }}>
-              {resolving === 'merged' ? '处理中…' : '使用合并结果'}
+              {resolving === 'merged' ? t('conflict.processing') : t('conflict.use_merged')}
             </Text>
           </View>
           <View style={{ ...btnBase, backgroundColor: 'transparent' }} onClick={onDismiss}>
-            <Text style={{ color: c.muted, fontSize: 14 }}>暂不处理</Text>
+            <Text style={{ color: c.muted, fontSize: 14 }}>{t('conflict.dismiss')}</Text>
           </View>
         </View>
       </View>

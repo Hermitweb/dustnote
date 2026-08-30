@@ -6,7 +6,7 @@
  * - 清空缓存 —— 调用 Taro.clearStorageSync() 后跳转解锁页
  * - 导入导出 / 分享管理 / 修改密码 —— 占位提示「该功能即将上线」
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { useAuthStore, APP_VERSION, getApi } from '../../state/auth';
@@ -14,6 +14,7 @@ import { useThemeStore, type Theme } from '../../state/theme';
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo, resetRepoCache } from '../../lib/get-repo';
 import { clearStandaloneMasterKey } from '../../lib/standalone-session';
+import { t, setLanguage, useLanguage, type Language } from '../../lib/i18n';
 
 /** 服务端设备列表项（GET /devices 返回结构） */
 interface DeviceItem {
@@ -27,10 +28,11 @@ interface DeviceItem {
 /** 项目 GitHub 仓库地址 */
 const GITHUB_URL = 'https://github.com/Hermitweb/dustnote';
 
-const THEME_LABEL: Record<Theme, string> = {
-  light: '浅色',
-  dark: '暗色',
-  auto: '跟随系统',
+/** 主题词典 key（文案随语言切换） */
+const THEME_KEY: Record<Theme, string> = {
+  light: 'settings.theme_light',
+  dark: 'settings.theme_dark',
+  auto: 'settings.theme_auto',
 };
 
 export default function Settings() {
@@ -39,16 +41,39 @@ export default function Settings() {
   const setTheme = useThemeStore((s) => s.setTheme);
   const mode = useModeStore((s) => s.mode);
   const resetMode = useModeStore((s) => s.resetMode);
+  const lang = useLanguage();
+
+  // 语言切换后同步原生导航栏标题
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: t('app.name') });
+  }, [lang]);
 
   const onThemeChange = async () => {
     try {
       const res = await Taro.showActionSheet({
-        itemList: ['浅色', '暗色', '跟随系统'],
+        itemList: [t('settings.theme_light'), t('settings.theme_dark'), t('settings.theme_auto')],
       });
       const map: Theme[] = ['light', 'dark', 'auto'];
       const next = map[res.tapIndex];
       setTheme(next);
-      Taro.showToast({ title: `已切换：${THEME_LABEL[next]}`, icon: 'none' });
+      Taro.showToast({
+        title: t('settings.theme_switched', { theme: t(THEME_KEY[next]) }),
+        icon: 'none',
+      });
+    } catch {
+      /* 用户取消 */
+    }
+  };
+
+  /** 语言切换：弹出选项（ActionSheet），选中后持久化并全局通知 */
+  const onLanguageChange = async () => {
+    try {
+      const res = await Taro.showActionSheet({ itemList: ['简体中文', 'English'] });
+      const next: Language = res.tapIndex === 1 ? 'en' : 'zh-CN';
+      if (next !== lang) {
+        setLanguage(next);
+        Taro.showToast({ title: t('settings.language_switched'), icon: 'none' });
+      }
     } catch {
       /* 用户取消 */
     }
@@ -56,9 +81,9 @@ export default function Settings() {
 
   const onClearCache = async () => {
     const confirm = await Taro.showModal({
-      title: '清空缓存',
-      content: '将清除本地所有数据（含登录态和单机笔记），确定继续？',
-      confirmText: '清空',
+      title: t('settings.clear_cache_title'),
+      content: t('settings.clear_cache_content'),
+      confirmText: t('settings.clear_btn'),
       confirmColor: '#E07B6C',
     });
     if (!confirm.confirm) return;
@@ -69,11 +94,11 @@ export default function Settings() {
       resetRepoCache();
       resetMode();
       Taro.clearStorageSync();
-      Taro.showToast({ title: '已清空', icon: 'success' });
+      Taro.showToast({ title: t('settings.cleared'), icon: 'success' });
       // 重置后回到模式选择页
       setTimeout(() => Taro.reLaunch({ url: '/pages/mode-select/index' }), 600);
     } catch {
-      Taro.showToast({ title: '清空失败', icon: 'none' });
+      Taro.showToast({ title: t('settings.clear_failed'), icon: 'none' });
     }
   };
 
@@ -91,7 +116,7 @@ export default function Settings() {
       const r = await getApi().get<{ devices: DeviceItem[] }>('/devices');
       setDevices(r.devices ?? []);
     } catch {
-      Taro.showToast({ title: '加载设备失败', icon: 'none' });
+      Taro.showToast({ title: t('settings.load_devices_failed'), icon: 'none' });
       setDevicesOpen(false);
     } finally {
       setDevicesLoading(false);
@@ -100,41 +125,40 @@ export default function Settings() {
 
   const kickDevice = async (device: DeviceItem) => {
     const confirm = await Taro.showModal({
-      title: '踢出设备',
-      content: `确定踢出「${device.name}」？该设备将无法继续同步。`,
-      confirmText: '踢出',
+      title: t('settings.kick_title'),
+      content: t('settings.kick_content', { name: device.name }),
+      confirmText: t('settings.kick'),
       confirmColor: '#E07B6C',
     });
     if (!confirm.confirm) return;
     try {
       await getApi().request('DELETE', `/devices/${device.id}`);
       setDevices((prev) => prev.filter((d) => d.id !== device.id));
-      Taro.showToast({ title: '已踢出', icon: 'success' });
+      Taro.showToast({ title: t('settings.kicked'), icon: 'success' });
     } catch {
-      Taro.showToast({ title: '踢出失败', icon: 'none' });
+      Taro.showToast({ title: t('settings.kick_failed'), icon: 'none' });
     }
   };
 
   // ========== 删除账户（联机模式，GDPR Article 17，两步确认） ==========
   const onDeleteAccount = async () => {
     const step1 = await Taro.showModal({
-      title: '删除账户',
-      content:
-        '将永久删除服务器上的全部数据：笔记、文件夹、标签、分享、设备、偏好。\n此操作不可恢复！建议先导出备份。',
-      confirmText: '继续',
+      title: t('settings.delete_account_title'),
+      content: t('settings.delete_account_content'),
+      confirmText: t('settings.continue_btn'),
       confirmColor: '#E07B6C',
     });
     if (!step1.confirm) return;
     const step2 = await Taro.showModal({
-      title: '最后确认',
-      content: '真的要删除账户吗？服务器数据将被彻底擦除，无法恢复。',
-      confirmText: '确认删除',
+      title: t('settings.final_title'),
+      content: t('settings.final_content'),
+      confirmText: t('settings.confirm_delete'),
       confirmColor: '#E07B6C',
     });
     if (!step2.confirm) return;
     try {
       await getApi().request('DELETE', '/account', { confirm: true });
-      Taro.showToast({ title: '账户已删除', icon: 'success' });
+      Taro.showToast({ title: t('settings.account_deleted'), icon: 'success' });
       // 清本地数据 + 锁定 → 重新探测（服务端已无账户 → setup 页）
       try {
         await getRepo().clearBusinessData();
@@ -148,7 +172,7 @@ export default function Settings() {
         Taro.reLaunch({ url: '/pages/index/index' });
       }, 600);
     } catch {
-      Taro.showToast({ title: '删除失败', icon: 'none' });
+      Taro.showToast({ title: t('settings.delete_failed'), icon: 'none' });
     }
   };
 
@@ -171,15 +195,15 @@ export default function Settings() {
   const onPwdSubmit = async () => {
     if (changing) return;
     if (!oldPwd) {
-      Taro.showToast({ title: '请输入当前密码', icon: 'none' });
+      Taro.showToast({ title: t('settings.err_current_pwd'), icon: 'none' });
       return;
     }
     if (newPwd.length < 8) {
-      Taro.showToast({ title: '新密码至少 8 位', icon: 'none' });
+      Taro.showToast({ title: t('settings.err_new_pwd_len'), icon: 'none' });
       return;
     }
     if (newPwd !== confirmPwd) {
-      Taro.showToast({ title: '两次新密码不一致', icon: 'none' });
+      Taro.showToast({ title: t('settings.err_pwd_mismatch'), icon: 'none' });
       return;
     }
     setChanging(true);
@@ -190,14 +214,14 @@ export default function Settings() {
       setNewPwd('');
       setConfirmPwd('');
       Taro.showModal({
-        title: '修改成功',
-        content: '主密码已更新，请牢记新密码。若忘记密码，可通过恢复码找回。',
+        title: t('settings.pwd_success_title'),
+        content: t('settings.pwd_success_content'),
         showCancel: false,
-        confirmText: '知道了',
+        confirmText: t('common.ok'),
       });
     } catch (err) {
       Taro.showToast({
-        title: err instanceof Error ? err.message : '修改失败',
+        title: err instanceof Error ? err.message : t('settings.pwd_failed'),
         icon: 'none',
         duration: 3000,
       });
@@ -210,13 +234,13 @@ export default function Settings() {
   const onCopyGithub = () => {
     void Taro.setClipboardData({
       data: GITHUB_URL,
-      success: () => Taro.showToast({ title: '仓库地址已复制', icon: 'none' }),
+      success: () => Taro.showToast({ title: t('settings.repo_copied'), icon: 'none' }),
     });
   };
 
   const onExport = async () => {
     try {
-      Taro.showLoading({ title: '导出中…' });
+      Taro.showLoading({ title: t('settings.exporting') });
       const payload = await getRepo().exportBackup();
       Taro.hideLoading();
       const json = JSON.stringify(payload, null, 2);
@@ -229,15 +253,15 @@ export default function Settings() {
         a.download = `dustnote-backup-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        Taro.showToast({ title: '导出成功', icon: 'success' });
+        Taro.showToast({ title: t('settings.export_ok'), icon: 'success' });
       } else {
         // weapp：复制到剪贴板
         await Taro.setClipboardData({ data: json });
-        Taro.showToast({ title: '备份数据已复制到剪贴板', icon: 'success' });
+        Taro.showToast({ title: t('settings.backup_copied'), icon: 'success' });
       }
     } catch {
       Taro.hideLoading();
-      Taro.showToast({ title: '导出失败', icon: 'none' });
+      Taro.showToast({ title: t('settings.export_failed'), icon: 'none' });
     }
   };
 
@@ -254,30 +278,33 @@ export default function Settings() {
           const text = await file.text();
           const data = JSON.parse(text);
           if (!data.notes || !Array.isArray(data.notes)) {
-            Taro.showToast({ title: '无效的备份文件', icon: 'none' });
+            Taro.showToast({ title: t('settings.invalid_backup'), icon: 'none' });
             return;
           }
-          Taro.showLoading({ title: '导入中…' });
+          Taro.showLoading({ title: t('settings.importing') });
           await getRepo().importBackup(data);
           Taro.hideLoading();
-          Taro.showToast({ title: `已导入 ${data.notes.length} 条笔记`, icon: 'success' });
+          Taro.showToast({
+            title: t('settings.imported_count', { count: data.notes.length }),
+            icon: 'success',
+          });
         } catch {
           Taro.hideLoading();
-          Taro.showToast({ title: '文件解析失败', icon: 'none' });
+          Taro.showToast({ title: t('settings.parse_failed'), icon: 'none' });
         }
       };
       input.click();
     } else {
-      Taro.showToast({ title: 'weapp 暂不支持导入，请使用 H5 版本', icon: 'none' });
+      Taro.showToast({ title: t('settings.import_unsupported'), icon: 'none' });
     }
   };
 
   /** 切换模式：重置模式状态，回到模式选择页 */
   const onSwitchMode = async () => {
     const confirm = await Taro.showModal({
-      title: '切换模式',
-      content: '切换模式前请确保数据已导出备份。确定要切换到另一种模式吗？',
-      confirmText: '确定',
+      title: t('settings.switch_title'),
+      content: t('settings.switch_content'),
+      confirmText: t('common.confirm'),
       confirmColor: '#E07B6C',
     });
     if (!confirm.confirm) return;
@@ -293,38 +320,46 @@ export default function Settings() {
         <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
           ←
         </Text>
-        <Text className="topbar-title">设置</Text>
+        <Text className="topbar-title">{t('settings.title')}</Text>
         <Text className="topbar-actions"></Text>
       </View>
 
       <View className="settings-group">
         <View className="settings-row" onClick={onThemeChange}>
           <View className="settings-row-label">
-            <Text>🎨 主题切换</Text>
+            <Text>{t('settings.theme')}</Text>
           </View>
-          <Text className="settings-row-value">{THEME_LABEL[theme]} ›</Text>
+          <Text className="settings-row-value">{t(THEME_KEY[theme])} ›</Text>
+        </View>
+        <View className="settings-row" onClick={onLanguageChange}>
+          <View className="settings-row-label">
+            <Text>{t('settings.language')}</Text>
+          </View>
+          <Text className="settings-row-value">{lang === 'en' ? 'English' : '简体中文'} ›</Text>
         </View>
         <View className="settings-row">
           <View className="settings-row-label">
-            <Text>📱 当前模式</Text>
+            <Text>{t('settings.current_mode')}</Text>
           </View>
-          <Text className="settings-row-value">{mode === 'standalone' ? '单机' : '联机'} ›</Text>
+          <Text className="settings-row-value">
+            {mode === 'standalone' ? t('settings.mode_standalone') : t('settings.mode_online')} ›
+          </Text>
         </View>
         <View className="settings-row" onClick={onSwitchMode}>
           <View className="settings-row-label">
-            <Text>🔄 切换模式</Text>
+            <Text>{t('settings.switch_mode')}</Text>
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
         <View className="settings-row" onClick={onExport}>
           <View className="settings-row-label">
-            <Text>📤 导出备份</Text>
+            <Text>{t('settings.export_backup')}</Text>
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
         <View className="settings-row" onClick={onImport}>
           <View className="settings-row-label">
-            <Text>📥 导入备份</Text>
+            <Text>{t('settings.import_backup')}</Text>
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
@@ -336,7 +371,7 @@ export default function Settings() {
             }}
           >
             <View className="settings-row-label">
-              <Text>🔗 分享管理</Text>
+              <Text>{t('settings.share_mgmt')}</Text>
             </View>
             <Text className="settings-row-value">›</Text>
           </View>
@@ -344,7 +379,7 @@ export default function Settings() {
         {mode === 'online' && (
           <View className="settings-row" onClick={() => void openDevices()}>
             <View className="settings-row-label">
-              <Text>💻 设备管理</Text>
+              <Text>{t('settings.device_mgmt')}</Text>
             </View>
             <Text className="settings-row-value">›</Text>
           </View>
@@ -356,7 +391,7 @@ export default function Settings() {
           }}
         >
           <View className="settings-row-label">
-            <Text>📁 文件夹管理</Text>
+            <Text>{t('settings.folder_mgmt')}</Text>
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
@@ -367,26 +402,26 @@ export default function Settings() {
           }}
         >
           <View className="settings-row-label">
-            <Text>🗑️ 回收站</Text>
+            <Text>{t('settings.trash')}</Text>
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
         <View className="settings-row" onClick={onPwdOpen}>
           <View className="settings-row-label">
-            <Text>🔑 修改密码</Text>
+            <Text>{t('settings.change_pwd')}</Text>
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
         <View className="settings-row" onClick={onClearCache}>
           <View className="settings-row-label">
-            <Text>🧹 清空缓存</Text>
+            <Text>{t('settings.clear_cache')}</Text>
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
         {mode === 'online' && (
           <View className="settings-row" onClick={() => void onDeleteAccount()}>
             <View className="settings-row-label">
-              <Text className="text-danger">🗑️ 删除账户</Text>
+              <Text className="text-danger">{t('settings.delete_account')}</Text>
             </View>
             <Text className="settings-row-value">›</Text>
           </View>
@@ -399,7 +434,7 @@ export default function Settings() {
           }}
         >
           <View className="settings-row-label">
-            <Text className="text-danger">🔒 锁定</Text>
+            <Text className="text-danger">{t('settings.lock')}</Text>
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
@@ -416,54 +451,53 @@ export default function Settings() {
           className="settings-row"
           onClick={() => {
             Taro.showModal({
-              title: '开源协议',
-              content:
-                'DustNote 采用 MIT License 开源。\nCopyright (c) 2025 DustNote\n可自由使用、修改与分发，详见项目 LICENSE 文件。',
+              title: t('settings.license_title'),
+              content: t('settings.license_content'),
               showCancel: false,
-              confirmText: '知道了',
+              confirmText: t('common.ok'),
             });
           }}
         >
           <View className="settings-row-label">
-            <Text>📄 开源协议</Text>
+            <Text>{t('settings.license')}</Text>
           </View>
           <Text className="settings-row-value">MIT ›</Text>
         </View>
         <View className="settings-row">
           <View className="settings-row-label">
-            <Text>🏷️ 版本</Text>
+            <Text>{t('settings.version')}</Text>
           </View>
           <Text className="settings-row-value">v{APP_VERSION}</Text>
         </View>
       </View>
 
       <View className="footer">
-        <Text className="footer-text">DustNote · 尘心笔记 v{APP_VERSION}</Text>
-        <Text className="footer-text">E2EE · 端到端加密 · 单机/联机双模式</Text>
+        <Text className="footer-text">{t('settings.footer_title', { version: APP_VERSION })}</Text>
+        <Text className="footer-text">{t('settings.footer_e2e')}</Text>
         <Text className="footer-text">MIT License · {GITHUB_URL.replace('https://', '')}</Text>
       </View>
       {pwdOpen && (
         <View className="modal-mask" onClick={() => !changing && setPwdOpen(false)}>
           <View className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <Text className="modal-title">修改主密码</Text>
+            <Text className="modal-title">{t('settings.pwd_title')}</Text>
             <Input
               className="mint-input"
               password
-              placeholder="当前密码"
+              placeholder={t('settings.pwd_current_placeholder')}
               value={oldPwd}
               onInput={(e) => setOldPwd((e.detail as { value: string }).value)}
             />
             <Input
               className="mint-input"
               password
-              placeholder="新密码（至少 8 位）"
+              placeholder={t('settings.pwd_new_placeholder')}
               value={newPwd}
               onInput={(e) => setNewPwd((e.detail as { value: string }).value)}
             />
             <Input
               className="mint-input"
               password
-              placeholder="确认新密码"
+              placeholder={t('settings.pwd_confirm_placeholder')}
               value={confirmPwd}
               onInput={(e) => setConfirmPwd((e.detail as { value: string }).value)}
             />
@@ -472,14 +506,14 @@ export default function Settings() {
                 className="mint-btn mint-btn-ghost flex-1"
                 onClick={() => !changing && setPwdOpen(false)}
               >
-                取消
+                {t('common.cancel')}
               </View>
               <View
                 className="mint-btn flex-1"
                 style={{ opacity: changing ? 0.5 : 1 }}
                 onClick={onPwdSubmit}
               >
-                {changing ? '修改中…' : '确认修改'}
+                {changing ? t('settings.changing') : t('settings.confirm_change')}
               </View>
             </View>
           </View>
@@ -488,11 +522,11 @@ export default function Settings() {
       {devicesOpen && (
         <View className="modal-mask" onClick={() => setDevicesOpen(false)}>
           <View className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <Text className="modal-title">设备管理</Text>
+            <Text className="modal-title">{t('settings.devices_title')}</Text>
             {devicesLoading ? (
-              <Text className="modal-text">加载中…</Text>
+              <Text className="modal-text">{t('common.loading')}</Text>
             ) : devices.length === 0 ? (
-              <Text className="modal-text">暂无设备</Text>
+              <Text className="modal-text">{t('settings.no_devices')}</Text>
             ) : (
               <ScrollView scrollY style={{ maxHeight: '500rpx' }}>
                 {devices.map((d) => (
@@ -500,7 +534,7 @@ export default function Settings() {
                     <View className="device-item-info">
                       <Text className="device-item-name">
                         {d.name}
-                        {d.isCurrent ? '（当前）' : ''}
+                        {d.isCurrent ? t('settings.current_tag') : ''}
                       </Text>
                       <Text className="device-item-meta">
                         {d.platform} · {new Date(d.lastActiveAt).toLocaleString()}
@@ -508,7 +542,7 @@ export default function Settings() {
                     </View>
                     {!d.isCurrent && (
                       <Text className="device-item-kick" onClick={() => void kickDevice(d)}>
-                        踢出
+                        {t('settings.kick')}
                       </Text>
                     )}
                   </View>
@@ -520,7 +554,7 @@ export default function Settings() {
                 className="mint-btn mint-btn-ghost flex-1"
                 onClick={() => setDevicesOpen(false)}
               >
-                关闭
+                {t('common.close')}
               </View>
             </View>
           </View>

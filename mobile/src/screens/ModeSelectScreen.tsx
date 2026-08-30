@@ -60,7 +60,7 @@ export function ModeSelectScreen() {
       return;
     }
     if (!/^https?:\/\/.+/i.test(trimmed)) {
-      Alert.alert(t('common.hint'), '地址需以 http:// 或 https:// 开头');
+      Alert.alert(t('common.hint'), t('mode_select.err_url_format'));
       return;
     }
     setTesting(true);
@@ -95,15 +95,12 @@ export function ModeSelectScreen() {
         clearTimeout(timer);
         const msg = (err as Error).message;
         if (msg?.includes('abort') || msg?.includes('timeout') || msg?.includes('AbortError')) {
-          Alert.alert(t('mode_select.connection_failed'), '连接超时（10秒），请检查地址和网络');
+          Alert.alert(t('mode_select.connection_failed'), t('mode_select.err_timeout'));
         } else if (msg?.includes('fetch') || msg?.includes('Network') || msg?.includes('network')) {
           // RN fetch 层失败：可能为地址错误、服务器不可达，或系统级按应用联网管控被禁
-          Alert.alert(
-            t('mode_select.connection_failed'),
-            '无法连接服务器：请检查地址是否正确、服务器是否可达，以及系统设置中是否允许本应用联网'
-          );
+          Alert.alert(t('mode_select.connection_failed'), t('mode_select.err_unreachable'));
         } else {
-          Alert.alert(t('mode_select.connection_failed'), msg || '未知错误');
+          Alert.alert(t('mode_select.connection_failed'), msg || t('errors.unknown'));
         }
       }
     } finally {

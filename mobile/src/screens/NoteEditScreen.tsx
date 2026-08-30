@@ -119,7 +119,7 @@ export function NoteEditScreen() {
         const snapshot = await repo.loadAll();
         const n = snapshot.notes.find((x) => x.id === noteId);
         if (!n) {
-          setLoadError('笔记不存在');
+          setLoadError(t('editor.note_not_found'));
           return;
         }
         setNote(n);
@@ -169,7 +169,7 @@ export function NoteEditScreen() {
             }
             setBacklinks(bl);
           } catch {
-            setTitle('🔒 解密失败');
+            setTitle(t('editor.decrypt_failed_title'));
             setContent('');
             setTags([]);
             setDecryptFailed(true);
@@ -206,7 +206,7 @@ export function NoteEditScreen() {
             const plain = JSON.parse(oPt) as { title: string };
             if (plain.title === targetTitle) {
               if (other.id === noteId) {
-                Alert.alert(t('common.hint'), t('editor.current_note') || '当前笔记');
+                Alert.alert(t('common.hint'), t('editor.current_note'));
                 return;
               }
               // replace 而非 push：跳转链路可回退，避免无限堆栈
@@ -219,7 +219,7 @@ export function NoteEditScreen() {
         }
         Alert.alert(t('common.hint'), t('editor.wikilink_not_found', { title: targetTitle }));
       } catch {
-        Alert.alert(t('common.hint'), t('editor.jump_failed') || '跳转失败');
+        Alert.alert(t('common.hint'), t('editor.jump_failed'));
       }
     },
     [masterKey, repo, noteId, navigation, t]
@@ -292,10 +292,10 @@ export function NoteEditScreen() {
           );
           setOfflineQueued(true);
         } catch {
-          Alert.alert('保存失败', (err as Error).message);
+          Alert.alert(t('editor.save_failed'), (err as Error).message);
         }
       } else {
-        Alert.alert('保存失败', (err as Error).message);
+        Alert.alert(t('editor.save_failed'), (err as Error).message);
       }
     } finally {
       setSaving(false);
@@ -323,17 +323,17 @@ export function NoteEditScreen() {
   }, []);
 
   const onDelete = () => {
-    Alert.alert('确认', '确定要删除这篇笔记吗？', [
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('common.confirm'), t('editor.confirm_delete'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '删除',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           try {
             await repo.deleteNote(noteId);
             navigation.goBack();
           } catch (err) {
-            Alert.alert('删除失败', (err as Error).message);
+            Alert.alert(t('editor.delete_failed'), (err as Error).message);
           }
         },
       },
@@ -351,10 +351,10 @@ export function NoteEditScreen() {
       });
       setNote({ ...note, isPinned: next, version });
     } catch (err) {
-      Alert.alert('操作失败', (err as Error).message);
+      Alert.alert(t('editor.operation_failed'), (err as Error).message);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [note, noteId, saving, repo]);
+  }, [note, noteId, saving, repo, t]);
 
   const toggleFavorite = useCallback(async () => {
     if (!note || saving) return;
@@ -366,19 +366,19 @@ export function NoteEditScreen() {
       });
       setNote({ ...note, isFavorite: next, version });
     } catch (err) {
-      Alert.alert('操作失败', (err as Error).message);
+      Alert.alert(t('editor.operation_failed'), (err as Error).message);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [note, noteId, saving, repo]);
+  }, [note, noteId, saving, repo, t]);
 
   const onShare = useCallback(async () => {
     if (!masterKey || !note) {
-      Alert.alert('提示', '请先解锁笔记');
+      Alert.alert(t('common.hint'), t('editor.share_unlock_required'));
       return;
     }
     // 联机模式才可分享（单机模式无服务端）
     if (mode !== 'online') {
-      Alert.alert('提示', '分享功能仅在联机模式下可用');
+      Alert.alert(t('common.hint'), t('editor.share_online_only'));
       return;
     }
     try {
@@ -386,7 +386,7 @@ export function NoteEditScreen() {
       const shareKey = randomBytes(32);
       const ciphertext = await encryptString(
         shareKey,
-        JSON.stringify({ title: title || '未命名笔记', content })
+        JSON.stringify({ title: title || t('editor.untitled'), content })
       );
       const wrappedShareKey = await wrapKey(masterKey, shareKey);
 
@@ -410,16 +410,16 @@ export function NoteEditScreen() {
       });
       const data = (await r.json()) as { token: string; error?: string; message?: string };
       if (!r.ok) {
-        Alert.alert('分享失败', data.message ?? data.error ?? `HTTP ${r.status}`);
+        Alert.alert(t('editor.share_failed'), data.message ?? data.error ?? `HTTP ${r.status}`);
         return;
       }
       // 密钥放 fragment：与 web 端一致，浏览器不会把 # 之后的内容发给服务端
       const shareUrl = `${baseUrl}/share/${data.token}#${toBase64Url(shareKey)}`;
-      await Share.share({ message: shareUrl, title: title || '分享笔记' });
+      await Share.share({ message: shareUrl, title: title || t('editor.share_title') });
     } catch (err) {
-      Alert.alert('分享失败', (err as Error).message);
+      Alert.alert(t('editor.share_failed'), (err as Error).message);
     }
-  }, [masterKey, note, mode, title, content, noteId]);
+  }, [masterKey, note, mode, title, content, noteId, t]);
 
   // ========== 模板选择（简化版：仅预设模板） ==========
   const onApplyTemplate = useCallback(
@@ -555,8 +555,8 @@ export function NoteEditScreen() {
         const pt = JSON.parse(json) as { title: string; content: string };
         // 轻量预览：标题 + 前 600 字内容（移动端全屏预览页较重，恢复走独立按钮）
         const body = pt.content.length > 600 ? `${pt.content.slice(0, 600)}…` : pt.content;
-        Alert.alert(`📄 ${pt.title || t('editor.untitled') || '未命名'}`, body, [
-          { text: t('common.close') || '关闭' },
+        Alert.alert(`📄 ${pt.title || t('editor.untitled')}`, body, [
+          { text: t('common.close') },
           {
             text: t('history.restore'),
             style: 'destructive',
@@ -703,7 +703,7 @@ export function NoteEditScreen() {
             {backlinks.length > 0 && (
               <View style={styles.backlinksCard}>
                 <Text style={[styles.backlinksTitle, { color: colors.muted }]}>
-                  {t('editor.backlinks') || '反向链接'} ({backlinks.length})
+                  {t('editor.backlinks')} ({backlinks.length})
                 </Text>
                 {backlinks.map((bl) => (
                   <TouchableOpacity key={bl.id} onPress={() => onBacklinkTap(bl.id)}>

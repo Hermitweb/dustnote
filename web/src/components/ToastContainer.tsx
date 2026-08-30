@@ -5,6 +5,7 @@
  * 错误 toast 用 role="alert" 提高优先级。
  */
 
+import { useTranslation } from 'react-i18next';
 import { useToast, type ToastKind } from '../lib/toast';
 
 const KIND_STYLES: Record<ToastKind, string> = {
@@ -20,6 +21,7 @@ const KIND_ICONS: Record<ToastKind, string> = {
 };
 
 export function ToastContainer() {
+  const { t } = useTranslation();
   const toasts = useToast((s) => s.toasts);
   const dismiss = useToast((s) => s.dismiss);
 
@@ -29,7 +31,7 @@ export function ToastContainer() {
     <div
       className="pointer-events-none fixed bottom-4 right-4 z-[100] flex flex-col gap-2"
       role="region"
-      aria-label="通知"
+      aria-label={t('common.notifications')}
     >
       {toasts.map((t) => (
         <div

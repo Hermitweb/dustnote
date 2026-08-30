@@ -11,6 +11,7 @@ import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
 import { getCurrentMode } from '../../lib/mode-store';
+import { t, useLanguage } from '../../lib/i18n';
 import Markdown from '../../lib/markdown';
 
 /**
@@ -37,6 +38,12 @@ export default function Share() {
   const [content, setContent] = useState<string | null>(null);
   const [needsPassword, setNeedsPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lang = useLanguage();
+
+  // 语言切换后同步原生导航栏标题
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: t('app.name') });
+  }, [lang]);
 
   useEffect(() => {
     if (!token) return;
@@ -48,7 +55,7 @@ export default function Share() {
     try {
       const apiBase = resolveApiBase();
       if (!apiBase) {
-        setError('未配置服务器地址，请先在主应用中选择联机模式并填写服务器地址');
+        setError(t('share.err_no_server'));
         return;
       }
       // 密码通过 POST body 传输，避免出现在 URL/访问日志中
@@ -67,28 +74,28 @@ export default function Share() {
           return;
         }
         if (e === 'invalid_password') {
-          setError('密码错误');
+          setError(t('share.err_wrong_pwd'));
           return;
         }
       }
       if (res.statusCode === 423) {
         const errData = res.data as { message?: string };
-        setError(errData.message ? errData.message : '该分享已被锁定，请稍后再试');
+        setError(errData.message ? errData.message : t('share.err_locked'));
         return;
       }
       if (res.statusCode === 410) {
         const errData = res.data as { message?: string };
-        setError(errData.message ? errData.message : '分享已失效');
+        setError(errData.message ? errData.message : t('share.err_expired'));
         return;
       }
       if (res.statusCode === 200) {
         if (!keyParam) {
-          setError('链接不完整：缺少解密密钥，请使用完整的分享链接');
+          setError(t('share.err_incomplete'));
           return;
         }
         const data = res.data as { ciphertext?: unknown };
         if (!isCiphertext(data.ciphertext)) {
-          setError('分享数据格式异常');
+          setError(t('share.err_format'));
           return;
         }
         try {
@@ -100,13 +107,13 @@ export default function Share() {
           setNeedsPassword(false);
           setError(null);
         } catch {
-          setError('解密失败：密钥与该分享不匹配');
+          setError(t('share.err_decrypt'));
         }
       } else {
-        setError('加载失败');
+        setError(t('common.load_failed'));
       }
     } catch (err) {
-      setError((err as { errMsg?: string })?.errMsg || '网络错误');
+      setError((err as { errMsg?: string })?.errMsg || t('share.err_network'));
     }
   };
 
@@ -114,7 +121,7 @@ export default function Share() {
     return (
       <View className="empty-state">
         <Text className="empty-state-icon">⚠️</Text>
-        <Text className="empty-state-text">无效的分享链接</Text>
+        <Text className="empty-state-text">{t('share.invalid_link')}</Text>
       </View>
     );
   }
@@ -122,16 +129,16 @@ export default function Share() {
   if (needsPassword) {
     return (
       <View className="hero">
-        <Text className="hero-title">🔐 需要密码</Text>
+        <Text className="hero-title">{t('share.need_pwd')}</Text>
         <Input
           className="mint-input"
           password
-          placeholder="分享密码"
+          placeholder={t('share.pwd_placeholder')}
           value={password}
           onInput={(e) => setPassword((e.detail as { value: string }).value)}
         />
         <View className="mint-btn mint-btn-block mt-m" onClick={() => load(password)}>
-          解锁
+          {t('common.unlock')}
         </View>
       </View>
     );
@@ -147,19 +154,19 @@ export default function Share() {
   }
 
   if (!title || !content) {
-    return <View className="loading">加载中…</View>;
+    return <View className="loading">{t('common.loading')}</View>;
   }
 
   return (
     <View className="page px-page">
       <View className="share-banner" />
-      <Text className="text-xs text-muted">🌿 DustNote 分享</Text>
+      <Text className="text-xs text-muted">{t('share.banner')}</Text>
       <Text className="text-lg fw-bold mt-m mb-l">{title}</Text>
       <View className="share-content">
         <Markdown content={content} />
       </View>
       <View className="text-center text-xs text-muted mt-l">
-        <Text>由 DustNote 分享</Text>
+        <Text>{t('share.footer')}</Text>
       </View>
     </View>
   );

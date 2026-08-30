@@ -15,11 +15,13 @@ import {
 } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import logoImage from '../assets/logo.png';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/auth';
 import { theme, useColors } from '../theme';
 
 export function SetupScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -28,21 +30,21 @@ export function SetupScreen() {
   const confirmSetupComplete = useAuthStore((s) => s.confirmSetupComplete);
 
   const strength = (() => {
-    if (password.length < 8) return { level: 0, text: '至少 8 位' };
-    if (password.length < 12) return { level: 1, text: '弱' };
+    if (password.length < 8) return { level: 0, text: t('auth.strength_min8') };
+    if (password.length < 12) return { level: 1, text: t('auth.strength_weak') };
     if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password))
-      return { level: 2, text: '中等' };
-    if (password.length >= 16) return { level: 4, text: '强' };
-    return { level: 3, text: '良好' };
+      return { level: 2, text: t('auth.strength_medium') };
+    if (password.length >= 16) return { level: 4, text: t('auth.strength_strong') };
+    return { level: 3, text: t('auth.strength_good') };
   })();
 
   const onSubmit = async () => {
     if (password.length < 8) {
-      Alert.alert('错误', '密码至少 8 位');
+      Alert.alert(t('common.error'), t('auth.too_weak'));
       return;
     }
     if (password !== confirm) {
-      Alert.alert('错误', '两次密码不一致');
+      Alert.alert(t('common.error'), t('auth.mismatch'));
       return;
     }
     setSubmitting(true);
@@ -50,7 +52,7 @@ export function SetupScreen() {
       const code = await setup(password);
       setRecoveryCode(code);
     } catch (err) {
-      Alert.alert('设置失败', (err as Error).message);
+      Alert.alert(t('auth.setup_failed'), (err as Error).message);
     } finally {
       setSubmitting(false);
     }
@@ -60,10 +62,8 @@ export function SetupScreen() {
     return (
       <View style={styles.container}>
         <Text style={styles.emoji}>🔑</Text>
-        <Text style={styles.title}>保存恢复码</Text>
-        <Text style={styles.subtitle}>
-          忘记密码时唯一找回方式。请抄写在纸上或保存到密码管理器。
-        </Text>
+        <Text style={styles.title}>{t('auth.recovery_save_title')}</Text>
+        <Text style={styles.subtitle}>{t('auth.recovery_save_subtitle_online')}</Text>
         <View style={styles.codeBox}>
           <Text style={styles.codeText}>{recoveryCode}</Text>
         </View>
@@ -73,10 +73,10 @@ export function SetupScreen() {
             // FLAG_SECURE 全局禁截屏（security.md §3.6），截图保存不可行——
             // 提供复制到剪贴板作为替代保存方式
             Clipboard.setString(recoveryCode);
-            Alert.alert('已复制', '恢复码已复制到剪贴板，请粘贴保存到安全的地方。');
+            Alert.alert(t('common.copied'), t('auth.code_copied_detail'));
           }}
         >
-          <Text style={[styles.buttonText, { color: colors.mint600 }]}>📋 复制恢复码</Text>
+          <Text style={[styles.buttonText, { color: colors.mint600 }]}>{t('auth.copy_code_btn')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.button}
@@ -85,7 +85,7 @@ export function SetupScreen() {
             confirmSetupComplete();
           }}
         >
-          <Text style={styles.buttonText}>我已保存，继续</Text>
+          <Text style={styles.buttonText}>{t('auth.recovery_save_btn')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -94,19 +94,19 @@ export function SetupScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Image source={logoImage} style={styles.logo} />
-      <Text style={styles.title}>创建主密码</Text>
-      <Text style={styles.subtitle}>主密码是您访问笔记的唯一凭据。我们无法找回，请妥善保管。</Text>
+      <Text style={styles.title}>{t('auth.online_setup_title')}</Text>
+      <Text style={styles.subtitle}>{t('auth.online_setup_subtitle')}</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="主密码（至少 8 位）"
+        placeholder={t('auth.password_placeholder')}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
       />
       <TextInput
         style={styles.input}
-        placeholder="再次输入主密码"
+        placeholder={t('auth.confirm_password_placeholder')}
         secureTextEntry
         value={confirm}
         onChangeText={setConfirm}
@@ -130,7 +130,9 @@ export function SetupScreen() {
         disabled={submitting}
         onPress={onSubmit}
       >
-        <Text style={styles.buttonText}>{submitting ? '设置中…' : '下一步'}</Text>
+        <Text style={styles.buttonText}>
+          {submitting ? t('auth.creating') : t('auth.next_btn')}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );

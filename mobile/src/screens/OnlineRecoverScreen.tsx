@@ -19,11 +19,13 @@ import {
   ScrollView,
 } from 'react-native';
 import { isValidRecoveryCode } from '@dustnote/shared';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
 
 export function OnlineRecoverScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const recoverOnline = useAuthStore((s) => s.recoverOnline);
 
   const [recoveryCode, setRecoveryCode] = useState('');
@@ -34,15 +36,15 @@ export function OnlineRecoverScreen() {
 
   const onSubmit = async () => {
     if (!isValidRecoveryCode(recoveryCode)) {
-      Alert.alert('错误', '恢复码格式不正确（应为 XXXXX-XXXXX）');
+      Alert.alert(t('common.error'), t('auth.recover_code_invalid'));
       return;
     }
     if (newPassword.length < 8) {
-      Alert.alert('错误', '新密码至少 8 位');
+      Alert.alert(t('common.error'), t('auth.too_weak'));
       return;
     }
     if (newPassword !== confirm) {
-      Alert.alert('错误', '两次密码不一致');
+      Alert.alert(t('common.error'), t('auth.mismatch'));
       return;
     }
     setSubmitting(true);
@@ -51,7 +53,7 @@ export function OnlineRecoverScreen() {
       // recoverOnline 已把 authState 置为 unlocked，App.tsx 会自动路由到主界面
       setDone(true);
     } catch (err) {
-      Alert.alert('恢复失败', (err as Error).message);
+      Alert.alert(t('auth.recover_failed'), (err as Error).message);
     } finally {
       setSubmitting(false);
     }
@@ -63,10 +65,8 @@ export function OnlineRecoverScreen() {
     return (
       <View style={styles.container}>
         <Text style={styles.emoji}>✅</Text>
-        <Text style={styles.title}>密码已重置</Text>
-        <Text style={styles.subtitle}>
-          已用新主密码重新包装 masterKey，原有笔记全部可正常解密。{'\n'}即将进入应用…
-        </Text>
+        <Text style={styles.title}>{t('auth.recovered_title')}</Text>
+        <Text style={styles.subtitle}>{t('auth.recovered_online_subtitle')}</Text>
       </View>
     );
   }
@@ -74,14 +74,12 @@ export function OnlineRecoverScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.emoji}>🔄</Text>
-      <Text style={styles.title}>恢复码重置密码</Text>
-      <Text style={styles.subtitle}>
-        输入你的 10 位恢复码和新主密码。{'\n'}恢复后 masterKey 保留，已有笔记可继续解密。
-      </Text>
+      <Text style={styles.title}>{t('auth.recover_title')}</Text>
+      <Text style={styles.subtitle}>{t('auth.recover_screen_subtitle')}</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="恢复码 (XXXXX-XXXXX)"
+        placeholder={t('auth.recover_code_placeholder')}
         autoCapitalize="characters"
         maxLength={16}
         value={recoveryCode}
@@ -90,7 +88,7 @@ export function OnlineRecoverScreen() {
       />
       <TextInput
         style={styles.input}
-        placeholder="新主密码（至少 8 位）"
+        placeholder={t('auth.new_password_placeholder')}
         secureTextEntry
         value={newPassword}
         onChangeText={setNewPassword}
@@ -98,7 +96,7 @@ export function OnlineRecoverScreen() {
       />
       <TextInput
         style={styles.input}
-        placeholder="再次输入新主密码"
+        placeholder={t('auth.confirm_new_password_placeholder')}
         secureTextEntry
         value={confirm}
         onChangeText={setConfirm}
@@ -110,7 +108,9 @@ export function OnlineRecoverScreen() {
         disabled={submitting}
         onPress={onSubmit}
       >
-        <Text style={styles.buttonText}>{submitting ? '恢复中…' : '重置密码'}</Text>
+        <Text style={styles.buttonText}>
+          {submitting ? t('auth.recovering') : t('auth.recover_btn')}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );

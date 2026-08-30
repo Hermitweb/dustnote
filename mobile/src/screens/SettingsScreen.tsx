@@ -228,19 +228,23 @@ export function SettingsScreen() {
       const r = await checkUpdateOnce();
       setUpdateResult(r);
       if (r.status === 'force_update' && r.updateUrl) {
-        Alert.alert('发现新版本', `当前版本已过期，请升级到最新版本。\n\n${r.message ?? ''}`, [
-          { text: '稍后', style: 'cancel' },
-          { text: '去下载', onPress: () => void Linking.openURL(r.updateUrl!) },
-        ]);
+        Alert.alert(
+          t('settings.update_available'),
+          t('settings.update_force_detail', { message: r.message ?? '' }),
+          [
+            { text: t('settings.update_later'), style: 'cancel' },
+            { text: t('settings.update_download'), onPress: () => void Linking.openURL(r.updateUrl!) },
+          ]
+        );
       } else if (r.hasUpdate && r.manifest) {
         const latest = r.manifest.latest.version;
         Alert.alert(
-          '发现新版本',
-          `最新版本：v${latest}\n当前版本：v${APP_VERSION}\n\n是否前往下载？`,
+          t('settings.update_available'),
+          t('settings.update_detail', { latest, current: APP_VERSION }),
           [
-            { text: '稍后', style: 'cancel' },
+            { text: t('settings.update_later'), style: 'cancel' },
             {
-              text: '去下载',
+              text: t('settings.update_download'),
               onPress: () => {
                 if (r.updateUrl) void Linking.openURL(r.updateUrl);
               },
@@ -248,9 +252,9 @@ export function SettingsScreen() {
           ]
         );
       } else if (r.status === 'ok') {
-        Alert.alert('已是最新版本', `当前版本：v${APP_VERSION}`);
+        Alert.alert(t('settings.update_up_to_date'), t('settings.update_current_detail', { version: APP_VERSION }));
       } else if (r.status === 'error') {
-        Alert.alert('检查更新失败', r.message ?? '未知错误');
+        Alert.alert(t('settings.update_check_failed'), r.message ?? t('errors.unknown'));
       }
     } finally {
       setUpdateChecking(false);
@@ -263,7 +267,7 @@ export function SettingsScreen() {
   // 会导致生成只含无关文字的 TXT。RNShare 通过 FileProvider 分享 cache 目录下的文件。
   const onExport = async () => {
     if (!masterKey) {
-      Alert.alert('提示', '请先解锁');
+      Alert.alert(t('common.hint'), t('common.unlock_required'));
       return;
     }
     setBusy(true);
@@ -285,8 +289,8 @@ export function SettingsScreen() {
       // 通过 react-native-share 打开分享面板，分享真实 .json 文件
       try {
         await RNShare.open({
-          title: 'DustNote 备份',
-          subject: `DustNote 数据备份 ${ts}`,
+          title: t('settings.export_title'),
+          subject: t('settings.export_message', { ts }),
           url: `file://${path}`,
           type: 'application/json',
           filename,
@@ -295,12 +299,12 @@ export function SettingsScreen() {
       } catch (shareErr) {
         // 分享失败（非取消）：文件仍在缓存目录，提示用户
         Alert.alert(
-          '已生成备份',
-          `备份文件已生成：\n${filename}\n\n请通过分享菜单保存到云盘或本地。`
+          t('settings.export_backup_generated'),
+          t('settings.export_backup_generated_detail', { filename })
         );
       }
     } catch (err) {
-      Alert.alert('导出失败', (err as Error).message);
+      Alert.alert(t('settings.export_failed'), (err as Error).message);
     } finally {
       setBusy(false);
     }
@@ -309,26 +313,30 @@ export function SettingsScreen() {
   // ========== 导入 ==========
   const onImportConfirm = async () => {
     if (!masterKey) {
-      Alert.alert('提示', '请先解锁');
+      Alert.alert(t('common.hint'), t('common.unlock_required'));
       return;
     }
     if (!importJson.trim()) {
-      Alert.alert('提示', '请粘贴备份 JSON');
+      Alert.alert(t('common.hint'), t('settings.import_paste_hint'));
       return;
     }
     setBusy(true);
     try {
       const payload = JSON.parse(importJson) as BackupPayload;
       if (!payload.notes || !Array.isArray(payload.notes)) {
-        throw new Error('无效的备份格式：缺少 notes 字段');
+        throw new Error(t('settings.import_invalid'));
       }
       Alert.alert(
-        '确认导入',
-        `将覆盖当前所有数据：\n笔记 ${payload.notes.length} 条\n文件夹 ${payload.folders?.length ?? 0} 个\n标签 ${payload.tags?.length ?? 0} 个\n\n继续？`,
+        t('settings.import_confirm_title'),
+        t('settings.import_confirm_detail', {
+          notes: payload.notes.length,
+          folders: payload.folders?.length ?? 0,
+          tags: payload.tags?.length ?? 0,
+        }),
         [
-          { text: '取消', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: '确认导入',
+            text: t('settings.import_confirm'),
             style: 'destructive',
             onPress: async () => {
               try {
@@ -340,9 +348,9 @@ export function SettingsScreen() {
                 });
                 await repo.clearBusinessData();
                 await repo.importBackup(payload);
-                Alert.alert('导入成功', '数据已恢复，请重新加载应用', [
+                Alert.alert(t('settings.import_success'), t('settings.import_success_detail'), [
                   {
-                    text: '确定',
+                    text: t('common.ok'),
                     onPress: () => {
                       setShowImport(false);
                       setImportJson('');
@@ -362,16 +370,16 @@ export function SettingsScreen() {
                   },
                 ]);
               } catch (err) {
-                Alert.alert('导入失败', (err as Error).message);
+                Alert.alert(t('settings.import_failed'), (err as Error).message);
               } finally {
                 setBusy(false);
               }
             },
-          },
+          }
         ]
       );
     } catch (err) {
-      Alert.alert('解析失败', `JSON 格式错误：${(err as Error).message}`);
+      Alert.alert(t('settings.import_parse_failed'), t('settings.import_json_error', { reason: (err as Error).message }));
       setBusy(false);
     }
   };
@@ -380,7 +388,7 @@ export function SettingsScreen() {
   // 解密所有笔记，格式化为单个 .md 文件（每篇笔记以 # 标题 + --- 分隔）
   const onExportMarkdown = async () => {
     if (!masterKey) {
-      Alert.alert('提示', '请先解锁');
+      Alert.alert(t('common.hint'), t('common.unlock_required'));
       return;
     }
     setBusy(true);
@@ -410,7 +418,7 @@ export function SettingsScreen() {
             Array.isArray(pt.tags) && pt.tags.length > 0
               ? `\n\n> 标签：${pt.tags.map((t) => `#${t}`).join(' ')}`
               : '';
-          parts.push(`# ${pt.title || '无标题'}\n\n${pt.content}${tagsLine}\n\n---\n`);
+          parts.push(`# ${pt.title || t('editor.untitled')}\n\n${pt.content}${tagsLine}\n\n---\n`);
           ok++;
         } catch {
           // 解密失败的笔记跳过
@@ -427,19 +435,22 @@ export function SettingsScreen() {
 
       try {
         await RNShare.open({
-          title: 'DustNote 笔记导出',
-          subject: `DustNote 笔记 ${ts}`,
+          title: t('settings.export_md_title'),
+          subject: t('settings.export_md_message', { ts }),
           url: `file://${path}`,
           type: 'text/markdown',
           filename,
           failOnCancel: false,
         });
       } catch {
-        Alert.alert('已生成文件', `Markdown 文件已生成：\n${filename}\n\n请通过分享菜单保存。`);
+        Alert.alert(
+          t('settings.export_file_generated'),
+          t('settings.export_md_generated_detail', { filename })
+        );
       }
-      Alert.alert('导出成功', `共导出 ${ok} 篇笔记为 Markdown`);
+      Alert.alert(t('settings.export_success'), t('settings.export_md_success_detail', { count: ok }));
     } catch (err) {
-      Alert.alert('导出失败', (err as Error).message);
+      Alert.alert(t('settings.export_failed'), (err as Error).message);
     } finally {
       setBusy(false);
     }
@@ -449,7 +460,7 @@ export function SettingsScreen() {
   // 支持 .json（备份文件）和 .md/.txt（Markdown 笔记）
   const onImportFile = async () => {
     if (!masterKey) {
-      Alert.alert('提示', '请先解锁');
+      Alert.alert(t('common.hint'), t('common.unlock_required'));
       return;
     }
     try {
@@ -467,15 +478,15 @@ export function SettingsScreen() {
         // JSON 备份格式 — 走原有 importBackup 流程
         const payload = JSON.parse(trimmed) as BackupPayload;
         if (!payload.notes || !Array.isArray(payload.notes)) {
-          throw new Error('无效的备份格式：缺少 notes 字段');
+          throw new Error(t('settings.import_invalid'));
         }
         Alert.alert(
-          '确认导入',
-          `检测到 JSON 备份文件：\n笔记 ${payload.notes.length} 条\n\n将覆盖当前所有数据，继续？`,
+          t('settings.import_confirm_title'),
+          t('settings.import_file_json_detail', { count: payload.notes.length }),
           [
-            { text: '取消', style: 'cancel' },
+            { text: t('common.cancel'), style: 'cancel' },
             {
-              text: '确认导入',
+              text: t('settings.import_confirm'),
               style: 'destructive',
               onPress: async () => {
                 setBusy(true);
@@ -488,9 +499,9 @@ export function SettingsScreen() {
                   });
                   await repo.clearBusinessData();
                   await repo.importBackup(payload);
-                  Alert.alert('导入成功', '数据已恢复', [
+                  Alert.alert(t('settings.import_success'), t('settings.import_restored'), [
                     {
-                      text: '确定',
+                      text: t('common.ok'),
                       onPress: () => {
                         lock();
                         navigation.reset({
@@ -506,7 +517,7 @@ export function SettingsScreen() {
                     },
                   ]);
                 } catch (e) {
-                  Alert.alert('导入失败', (e as Error).message);
+                  Alert.alert(t('settings.import_failed'), (e as Error).message);
                 } finally {
                   setBusy(false);
                 }
@@ -521,16 +532,16 @@ export function SettingsScreen() {
           .map((s) => s.trim())
           .filter((s) => s.length > 0);
         if (sections.length === 0) {
-          Alert.alert('导入失败', '文件内容为空');
+          Alert.alert(t('settings.import_failed'), t('settings.import_file_empty'));
           return;
         }
         Alert.alert(
-          '确认导入',
-          `检测到 Markdown 文件：\n将导入 ${sections.length} 篇笔记（追加，不覆盖现有数据）\n\n继续？`,
+          t('settings.import_confirm_title'),
+          t('settings.import_file_md_detail', { count: sections.length }),
           [
-            { text: '取消', style: 'cancel' },
+            { text: t('common.cancel'), style: 'cancel' },
             {
-              text: '确认导入',
+              text: t('settings.import_confirm'),
               onPress: async () => {
                 setBusy(true);
                 try {
@@ -544,7 +555,7 @@ export function SettingsScreen() {
                   for (const section of sections) {
                     // 解析 Markdown：第一行 # 开头为标题，其余为正文
                     const lines = section.split('\n');
-                    let title = '导入的笔记';
+                    let title = t('settings.imported_note_title');
                     let contentStart = 0;
                     if (lines[0] && lines[0].startsWith('# ')) {
                       title = lines[0].slice(2).trim();
@@ -577,9 +588,9 @@ export function SettingsScreen() {
                     });
                     imported++;
                   }
-                  Alert.alert('导入成功', `共导入 ${imported} 篇笔记`);
+                  Alert.alert(t('settings.import_success'), t('settings.import_md_success_detail', { count: imported }));
                 } catch (e) {
-                  Alert.alert('导入失败', (e as Error).message);
+                  Alert.alert(t('settings.import_failed'), (e as Error).message);
                 } finally {
                   setBusy(false);
                 }
@@ -590,7 +601,7 @@ export function SettingsScreen() {
       }
     } catch (err) {
       if (DocumentPicker.isCancel(err)) return;
-      Alert.alert('文件读取失败', (err as Error).message);
+      Alert.alert(t('settings.read_file_failed'), (err as Error).message);
     }
   };
 
@@ -605,19 +616,19 @@ export function SettingsScreen() {
   //    并用新模式 masterKey 重加密 —— 迁移后所有笔记可正常解密，不出现「🔒 解密失败」。
   const onSwitchModeConfirm = async () => {
     if (!masterKey) {
-      Alert.alert('提示', '请先解锁');
+      Alert.alert(t('common.hint'), t('common.unlock_required'));
       return;
     }
     if (!switchTarget) {
-      Alert.alert('提示', '请选择目标模式');
+      Alert.alert(t('common.hint'), t('settings.err_target_required'));
       return;
     }
     if (switchTarget === 'online' && !switchServerUrl.trim()) {
-      Alert.alert('提示', '联机模式需要填写服务器地址');
+      Alert.alert(t('common.hint'), t('settings.err_server_required'));
       return;
     }
     if (switchTarget === appMode) {
-      Alert.alert('提示', '目标模式与当前模式相同');
+      Alert.alert(t('common.hint'), t('settings.err_same_mode'));
       return;
     }
     setBusy(true);
@@ -653,13 +664,18 @@ export function SettingsScreen() {
       void useAuthStore.getState().init();
 
       Alert.alert(
-        '切换成功',
-        `已切换到${switchTarget === 'online' ? '联机' : '单机'}模式。\n\n数据将在解锁 / 设置主密码后自动迁移（笔记、文件夹、标签、偏好）。`,
-        [{ text: '确定' }]
+        t('settings.switch_success'),
+        t('settings.switch_success_migration_detail', {
+          mode:
+            switchTarget === 'online'
+              ? t('settings.switch_mode_short_online')
+              : t('settings.switch_mode_short_standalone'),
+        }),
+        [{ text: t('common.ok') }]
       );
     } catch (err) {
       // 失败：模式未变更，数据未受影响（DM-7 原子化回滚）
-      Alert.alert('切换失败', (err as Error).message);
+      Alert.alert(t('settings.switch_failed'), (err as Error).message);
     } finally {
       setBusy(false);
     }
@@ -668,15 +684,15 @@ export function SettingsScreen() {
   // ========== 修改主密码 ==========
   const onChangePasswordSubmit = async () => {
     if (!pwCurrent.trim() || !pwNew.trim()) {
-      Alert.alert('提示', '请输入当前密码和新密码');
+      Alert.alert(t('common.hint'), t('settings.change_pw_required'));
       return;
     }
     if (pwNew.length < 8) {
-      Alert.alert('提示', '新密码至少 8 位');
+      Alert.alert(t('common.hint'), t('settings.change_pw_too_short'));
       return;
     }
     if (pwNew !== pwConfirm) {
-      Alert.alert('提示', '两次输入的新密码不一致');
+      Alert.alert(t('common.hint'), t('settings.change_pw_mismatch'));
       return;
     }
     setPwBusy(true);
@@ -684,12 +700,12 @@ export function SettingsScreen() {
       const auth = useAuthStore.getState();
       if (appMode === 'online') {
         await auth.changePassword(pwCurrent, pwNew);
-        Alert.alert('修改成功', '主密码已更新，历史笔记不受影响。');
+        Alert.alert(t('settings.change_password_success'), t('settings.change_password_success_detail'));
       } else {
         const newCode = await auth.changePasswordStandalone(pwCurrent, pwNew);
         Alert.alert(
-          '修改成功',
-          `主密码已更新，历史笔记不受影响。\n\n⚠️ 新恢复码（请妥善保存，旧恢复码已失效）：\n\n${newCode}`
+          t('settings.change_password_success'),
+          t('settings.change_password_success_standalone_detail', { code: newCode })
         );
       }
       setShowChangePassword(false);
@@ -697,7 +713,7 @@ export function SettingsScreen() {
       setPwNew('');
       setPwConfirm('');
     } catch (err) {
-      Alert.alert('修改失败', (err as Error).message);
+      Alert.alert(t('settings.change_password_failed'), (err as Error).message);
     } finally {
       setPwBusy(false);
     }
@@ -724,14 +740,14 @@ export function SettingsScreen() {
       const r = await setup2fa();
       setTotpSecret(r.secret);
     } catch (err) {
-      Alert.alert('错误', (err as Error).message);
+      Alert.alert(t('common.error'), (err as Error).message);
     } finally {
       setTotpBusy(false);
     }
   };
 
   const onEnable2fa = async () => {
-    if (totpCode.length !== 6) { Alert.alert('提示', '请输入6位验证码'); return; }
+    if (totpCode.length !== 6) { Alert.alert(t('common.hint'), t('settings.totp_code_required')); return; }
     setTotpBusy(true);
     try {
       await enable2fa(totpCode);
@@ -739,30 +755,30 @@ export function SettingsScreen() {
       setShow2fa(false);
       setTotpSecret('');
       setTotpCode('');
-      Alert.alert('已启用', '两步验证已开启。下次解锁需输入验证码。');
+      Alert.alert(t('settings.totp_enabled_title'), t('settings.totp_enabled_detail'));
     } catch (err) {
-      Alert.alert('错误', (err as Error).message);
+      Alert.alert(t('common.error'), (err as Error).message);
     } finally {
       setTotpBusy(false);
     }
   };
 
   const onDisable2fa = async () => {
-    Alert.alert('关闭两步验证', '请输入当前验证码以确认关闭', [
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('settings.totp_disable_title'), t('settings.totp_disable_detail'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '确认',
+        text: t('common.confirm'),
         onPress: async () => {
           // 简化：复用 totpCode 状态
-          if (totpCode.length !== 6) { Alert.alert('提示', '请输入6位验证码'); return; }
+          if (totpCode.length !== 6) { Alert.alert(t('common.hint'), t('settings.totp_code_required')); return; }
           setTotpBusy(true);
           try {
             await disable2fa(totpCode);
             setTotpEnabled(false);
             setTotpCode('');
-            Alert.alert('已关闭', '两步验证已关闭。');
+            Alert.alert(t('settings.totp_disabled_title'), t('settings.totp_disabled_detail'));
           } catch (err) {
-            Alert.alert('错误', (err as Error).message);
+            Alert.alert(t('common.error'), (err as Error).message);
           } finally {
             setTotpBusy(false);
           }
@@ -773,10 +789,10 @@ export function SettingsScreen() {
 
   // ========== 清空数据 ==========
   const onClearData = () => {
-    Alert.alert('清空数据', '将删除全部笔记、文件夹、标签和偏好设置，且不可恢复。确定继续？', [
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('settings.clear_data'), t('settings.clear_data_confirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '清空',
+        text: t('settings.clear_data_btn'),
         style: 'destructive',
         onPress: async () => {
           setBusy(true);
@@ -802,7 +818,7 @@ export function SettingsScreen() {
                 language: 'zh-CN',
               };
               await repo.setPreferences(defaultPrefs).catch(() => undefined);
-              Alert.alert('已清空', '所有笔记已删除');
+              Alert.alert(t('settings.clear_data_success'), t('settings.clear_data_success_detail'));
             } else {
               await repo.clearBusinessData();
               // 单机模式：一并清空本地鉴权，回到首次设置
@@ -817,7 +833,7 @@ export function SettingsScreen() {
               });
             }
           } catch (err) {
-            Alert.alert('清空失败', (err as Error).message);
+            Alert.alert(t('settings.clear_data_failed'), (err as Error).message);
           } finally {
             setBusy(false);
           }
@@ -922,7 +938,7 @@ export function SettingsScreen() {
 
       <Section title={t('settings.data_section')} colors={colors}>
         <Row label={t('settings.export')} onPress={onExport} colors={colors} />
-        <Row label="📄 导出为 Markdown" onPress={onExportMarkdown} colors={colors} />
+        <Row label={t('settings.export_md_row')} onPress={onExportMarkdown} colors={colors} />
         <Row
           label={t('settings.import')}
           onPress={() => {
@@ -931,13 +947,13 @@ export function SettingsScreen() {
           }}
           colors={colors}
         />
-        <Row label="📁 从文件导入 (.md/.txt/.json)" onPress={onImportFile} colors={colors} />
+        <Row label={t('settings.import_file_row')} onPress={onImportFile} colors={colors} />
         <Text style={styles.modeHint}>{t('settings.data_hint')}</Text>
       </Section>
 
       <Section title={t('settings.account_section')} colors={colors}>
         <Row
-          label="🔑 修改主密码"
+          label={t('settings.change_password_row')}
           onPress={() => {
             setPwCurrent('');
             setPwNew('');
@@ -948,7 +964,7 @@ export function SettingsScreen() {
         />
         {appMode === 'online' && (
           <Row
-            label={totpEnabled ? '🔒 两步验证（已开启）' : '🔓 两步验证（未开启）'}
+            label={totpEnabled ? t('settings.totp_row_on') : t('settings.totp_row_off')}
             onPress={() => {
               if (totpEnabled) {
                 setTotpCode('');
@@ -971,7 +987,7 @@ export function SettingsScreen() {
         {appMode === 'online' && (
           <Row label={t('settings.devices')} onPress={openDevices} colors={colors} />
         )}
-        <Row label="🧹 清空数据" onPress={onClearData} colors={colors} />
+        <Row label={t('settings.clear_data_row')} onPress={onClearData} colors={colors} />
         {appMode === 'online' && (
           <Row
             label={t('settings.delete_account')}
@@ -1018,11 +1034,15 @@ export function SettingsScreen() {
           onPress={() => void onCheckUpdate()}
           disabled={updateChecking || appMode === 'standalone'}
         >
-          <Text style={styles.rowLabel}>{updateChecking ? '检查更新中…' : '🔍 检查更新'}</Text>
+          <Text style={styles.rowLabel}>
+            {updateChecking ? t('settings.update_checking') : t('settings.update_check')}
+          </Text>
           {appMode === 'standalone' ? (
-            <Text style={styles.rowDetail}>单机模式不可用</Text>
+            <Text style={styles.rowDetail}>{t('settings.update_unavailable_standalone')}</Text>
           ) : updateResult?.status === 'ok' && updateResult.manifest ? (
-            <Text style={styles.rowDetail}>最新 v{updateResult.manifest.latest.version}</Text>
+            <Text style={styles.rowDetail}>
+              {t('settings.update_latest_short', { version: updateResult.manifest.latest.version })}
+            </Text>
           ) : (
             <Text style={styles.rowDetail}>›</Text>
           )}
@@ -1076,12 +1096,12 @@ export function SettingsScreen() {
       <Modal visible={showImport} animationType="slide" transparent={false}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>导入备份</Text>
+            <Text style={styles.modalTitle}>{t('settings.import_title')}</Text>
             <TouchableOpacity onPress={() => setShowImport(false)}>
               <Text style={styles.modalClose}>✕</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.modalHint}>粘贴备份 JSON 内容（导出时获得的 JSON 字符串）：</Text>
+          <Text style={styles.modalHint}>{t('settings.import_hint')}</Text>
           <TextInput
             style={styles.modalInput}
             multiline
@@ -1099,7 +1119,7 @@ export function SettingsScreen() {
             {busy ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.modalButtonText}>确认导入（覆盖现有数据）</Text>
+              <Text style={styles.modalButtonText}>{t('settings.import_confirm')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -1109,16 +1129,25 @@ export function SettingsScreen() {
       <Modal visible={showSwitchMode} animationType="slide" transparent={false}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>切换模式</Text>
+            <Text style={styles.modalTitle}>{t('settings.switch_title')}</Text>
             <TouchableOpacity onPress={() => setShowSwitchMode(false)}>
               <Text style={styles.modalClose}>✕</Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.modalHint}>
-            当前模式：{appMode === 'standalone' ? '单机' : '联机'}
-            {'\n'}目标模式：
-            {switchTarget === 'standalone' ? '单机（本地存储）' : '联机（服务器同步）'}
-            {'\n\n'}将迁移所有数据（笔记、文件夹、标签、偏好）。
+            {t('settings.switch_current')}
+            {'：'}
+            {appMode === 'standalone'
+              ? t('settings.switch_mode_short_standalone')
+              : t('settings.switch_mode_short_online')}
+            {'\n'}
+            {t('settings.switch_target')}
+            {'：'}
+            {switchTarget === 'standalone'
+              ? t('settings.mode_detail_standalone')
+              : t('settings.mode_detail_online')}
+            {'\n\n'}
+            {t('settings.switch_migrate_hint')}
           </Text>
           <View style={styles.switchModeRow}>
             <TouchableOpacity
@@ -1137,7 +1166,7 @@ export function SettingsScreen() {
                   switchTarget === 'standalone' && { color: 'white' },
                 ]}
               >
-                📱 单机
+                📱 {t('settings.switch_mode_short_standalone')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -1153,14 +1182,14 @@ export function SettingsScreen() {
               <Text
                 style={[styles.switchModeChipText, switchTarget === 'online' && { color: 'white' }]}
               >
-                🌐 联机
+                🌐 {t('settings.switch_mode_short_online')}
               </Text>
             </TouchableOpacity>
           </View>
           {switchTarget === 'online' && (
             <TextInput
               style={styles.modalInput}
-              placeholder="服务器地址 https://your-server.com"
+              placeholder={t('settings.switch_server_placeholder')}
               value={switchServerUrl}
               onChangeText={setSwitchServerUrl}
               autoCapitalize="none"
@@ -1177,7 +1206,7 @@ export function SettingsScreen() {
             {busy ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.modalButtonText}>迁移数据并切换</Text>
+              <Text style={styles.modalButtonText}>{t('settings.switch_migrate_btn')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -1187,19 +1216,19 @@ export function SettingsScreen() {
       <Modal visible={showChangePassword} animationType="slide" transparent={false}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>修改主密码</Text>
+            <Text style={styles.modalTitle}>{t('settings.change_password')}</Text>
             <TouchableOpacity onPress={() => setShowChangePassword(false)}>
               <Text style={styles.modalClose}>✕</Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.modalHint}>
             {appMode === 'online'
-              ? '修改后仅密码包装变更，masterKey 与所有笔记密文不变，历史笔记照常可读。'
-              : '修改后 masterKey 与所有笔记密文不变；将生成新恢复码，旧恢复码失效。'}
+              ? t('settings.change_password_hint_online')
+              : t('settings.change_password_hint_standalone')}
           </Text>
           <TextInput
             style={styles.pwInput}
-            placeholder="当前主密码"
+            placeholder={t('settings.change_pw_current_placeholder')}
             secureTextEntry
             value={pwCurrent}
             onChangeText={setPwCurrent}
@@ -1207,7 +1236,7 @@ export function SettingsScreen() {
           />
           <TextInput
             style={styles.pwInput}
-            placeholder="新主密码（至少 8 位）"
+            placeholder={t('settings.change_pw_new_placeholder')}
             secureTextEntry
             value={pwNew}
             onChangeText={setPwNew}
@@ -1215,7 +1244,7 @@ export function SettingsScreen() {
           />
           <TextInput
             style={styles.pwInput}
-            placeholder="再次输入新主密码"
+            placeholder={t('settings.change_pw_confirm_placeholder')}
             secureTextEntry
             value={pwConfirm}
             onChangeText={setPwConfirm}
@@ -1229,7 +1258,7 @@ export function SettingsScreen() {
             {pwBusy ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.modalButtonText}>确认修改</Text>
+              <Text style={styles.modalButtonText}>{t('settings.change_pw_btn')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -1239,14 +1268,12 @@ export function SettingsScreen() {
       <Modal visible={show2fa && !totpEnabled} animationType="slide" transparent={false}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>设置两步验证</Text>
+            <Text style={styles.modalTitle}>{t('settings.totp_setup_title')}</Text>
             <TouchableOpacity onPress={() => { setShow2fa(false); setTotpSecret(''); setTotpCode(''); }}>
               <Text style={styles.modalClose}>✕</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.modalHint}>
-            使用 Google Authenticator、Authy 或 1Password 扫描以下密钥，输入6位验证码确认启用。
-          </Text>
+          <Text style={styles.modalHint}>{t('settings.totp_setup_hint')}</Text>
           {totpSecret ? (
             <>
               <View style={{ padding: 16, backgroundColor: colors.card, borderRadius: 8, marginVertical: 12 }}>
@@ -1254,10 +1281,10 @@ export function SettingsScreen() {
                   {totpSecret}
                 </Text>
               </View>
-              <Text style={[styles.modalHint, { marginBottom: 4 }]}>手动输入密钥或扫描二维码（如支持）</Text>
+              <Text style={[styles.modalHint, { marginBottom: 4 }]}>{t('settings.totp_manual_hint')}</Text>
               <TextInput
                 style={styles.pwInput}
-                placeholder="输入6位验证码"
+                placeholder={t('settings.totp_code_placeholder')}
                 keyboardType="number-pad"
                 maxLength={6}
                 value={totpCode}
@@ -1272,7 +1299,7 @@ export function SettingsScreen() {
                 {totpBusy ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text style={styles.modalButtonText}>确认启用</Text>
+                  <Text style={styles.modalButtonText}>{t('settings.totp_enable_btn')}</Text>
                 )}
               </TouchableOpacity>
             </>

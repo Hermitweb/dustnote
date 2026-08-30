@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 中文系统下的应用显示名：默认 values/strings.xml 为 DustNote（英文），此处覆盖为中文 -->
+<resources>
+    <string name="app_name">尘心笔记</string>
+</resources>

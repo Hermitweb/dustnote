@@ -453,7 +453,7 @@ export function FoldersScreen() {
           <View style={styles.modalCard}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <Text style={styles.modalTitle} numberOfLines={1}>
-                新建子文件夹
+                {t('folders.create_sub_title')}
               </Text>
               <TouchableOpacity onPress={() => setCreateModal(null)}>
                 <Text style={{ fontSize: 18, color: colors.muted }}>✕</Text>
@@ -463,7 +463,7 @@ export function FoldersScreen() {
               style={styles.input}
               value={createName}
               onChangeText={setCreateName}
-              placeholder="文件夹名称"
+              placeholder={t('folders.name_placeholder')}
               autoFocus
               returnKeyType="done"
               onSubmitEditing={() => void handleCreateIn()}

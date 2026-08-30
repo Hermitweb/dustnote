@@ -27,6 +27,7 @@ import {
 } from '@dustnote/shared';
 import { loadLockoutStateSync } from '../../lib/local-auth-storage';
 import { useAuthStore } from '../../state/auth';
+import { t, useLanguage } from '../../lib/i18n';
 
 export default function StandaloneUnlock() {
   const [password, setPassword] = useState('');
@@ -34,6 +35,12 @@ export default function StandaloneUnlock() {
   const [lockout, setLockout] = useState<LocalLockoutState>(INITIAL_LOCKOUT_STATE);
   const [now, setNow] = useState(Date.now());
   const unlockStandalone = useAuthStore((s) => s.unlockStandalone);
+  const lang = useLanguage();
+
+  // 语言切换后同步原生导航栏标题
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: t('app.name') });
+  }, [lang]);
 
   // 启动时加载锁定状态
   useEffect(() => {
@@ -60,11 +67,11 @@ export default function StandaloneUnlock() {
 
   const onUnlock = async () => {
     if (locked) {
-      Taro.showToast({ title: `已锁定，请 ${remainingMin} 分钟后再试`, icon: 'none' });
+      Taro.showToast({ title: t('standalone_unlock.locked_toast', { min: remainingMin }), icon: 'none' });
       return;
     }
     if (!password) {
-      Taro.showToast({ title: '请输入主密码', icon: 'none' });
+      Taro.showToast({ title: t('common.pwd_empty'), icon: 'none' });
       return;
     }
     setSubmitting(true);
@@ -75,7 +82,7 @@ export default function StandaloneUnlock() {
       // 成功：authState 已更新为 unlocked，跳转首页不会触发重定向循环
       Taro.reLaunch({ url: '/pages/index/index' });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '解锁失败';
+      const msg = err instanceof Error ? err.message : t('common.unlock_failed');
       // action 内部已更新 store 的 lockoutState，这里同步刷新本地展示
       setLockout(loadLockoutStateSync());
       Taro.showToast({ title: msg, icon: 'none' });
@@ -88,7 +95,7 @@ export default function StandaloneUnlock() {
     <View className="hero">
       <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
       <Text className="hero-title text-mint">DustNote</Text>
-      <Text className="hero-subtitle mb-l">单机模式 · 输入主密码解锁</Text>
+      <Text className="hero-subtitle mb-l">{t('standalone_unlock.subtitle')}</Text>
 
       {locked && (
         <View
@@ -96,10 +103,10 @@ export default function StandaloneUnlock() {
           style={{ width: '100%', maxWidth: '560rpx', background: 'var(--danger-soft)' }}
         >
           <Text className="text-danger fw-bold" style={{ display: 'block' }}>
-            🔒 已锁定
+            {t('standalone_unlock.locked_title')}
           </Text>
           <Text className="text-sm mt-s" style={{ display: 'block' }}>
-            连续失败 6 次，请 {remainingMin} 分钟后再试
+            {t('standalone_unlock.locked_hint', { min: remainingMin })}
           </Text>
         </View>
       )}
@@ -107,7 +114,7 @@ export default function StandaloneUnlock() {
       <Input
         className="mint-input"
         password
-        placeholder="主密码"
+        placeholder={t('common.master_password')}
         value={password}
         disabled={locked}
         onInput={(e) => setPassword((e.detail as { value: string }).value)}
@@ -118,14 +125,18 @@ export default function StandaloneUnlock() {
         onClick={onUnlock}
         style={{ opacity: submitting || locked ? 0.5 : 1 }}
       >
-        {submitting ? '解锁中…' : locked ? `已锁定（${remainingMin} 分钟）` : '解锁'}
+        {submitting
+          ? t('common.unlocking')
+          : locked
+            ? t('standalone_unlock.locked_btn', { min: remainingMin })
+            : t('common.unlock')}
       </View>
 
       <View
         className="hint-mint mt-l"
         onClick={() => Taro.navigateTo({ url: '/pages/standalone-recover/index' })}
       >
-        忘记主密码？使用恢复码
+        {t('standalone_unlock.forgot')}
       </View>
     </View>
   );

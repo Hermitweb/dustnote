@@ -27,6 +27,7 @@ import {
   Alert,
 } from 'react-native';
 import { noteAad, type NoteRow } from '@dustnote/shared';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
@@ -41,6 +42,7 @@ interface NotePlaintext {
 
 export function TrashScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const masterKey = useAuthStore((s) => s.masterKey);
   const mode = useModeStore((s) => s.mode);
   const modeInitialized = useModeStore((s) => s.initialized);
@@ -76,7 +78,7 @@ export function TrashScreen() {
               noteAad(n.id, useAuthStore.getState().userId ?? '')
             );
           } catch {
-            plain = { title: '🔒 解密失败', content: '', tags: [] };
+            plain = { title: t('editor.decrypt_failed_title'), content: '', tags: [] };
           }
         }
         withPlain.push({ ...n, plain });
@@ -89,7 +91,7 @@ export function TrashScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [masterKey, repo, modeInitialized]);
+  }, [masterKey, repo, modeInitialized, t]);
 
   useEffect(() => {
     void load();
@@ -100,22 +102,22 @@ export function TrashScreen() {
       await repo.restoreNote(id);
       setNotes((prev) => prev.filter((n) => n.id !== id));
     } catch (err) {
-      Alert.alert('恢复失败', err instanceof Error ? err.message : String(err));
+      Alert.alert(t('trash.restore_failed'), err instanceof Error ? err.message : String(err));
     }
   };
 
   const handlePermanentDelete = (id: string, title: string) => {
-    Alert.alert('永久删除', `确定永久删除「${title}」？此操作不可恢复。`, [
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('trash.perm_delete'), t('trash.perm_delete_detail', { title }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '永久删除',
+        text: t('trash.perm_delete'),
         style: 'destructive',
         onPress: async () => {
           try {
             await repo.permanentDeleteNote(id);
             setNotes((prev) => prev.filter((n) => n.id !== id));
           } catch (err) {
-            Alert.alert('删除失败', err instanceof Error ? err.message : String(err));
+            Alert.alert(t('trash.delete_failed'), err instanceof Error ? err.message : String(err));
           }
         },
       },
@@ -124,10 +126,10 @@ export function TrashScreen() {
 
   const handleEmptyTrash = () => {
     if (notes.length === 0) return;
-    Alert.alert('清空回收站', `确定永久删除回收站中的 ${notes.length} 条笔记？此操作不可恢复。`, [
-      { text: '取消', style: 'cancel' },
+    Alert.alert(t('trash.empty_title'), t('trash.empty_confirm', { count: notes.length }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '清空',
+        text: t('trash.empty_btn'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -135,7 +137,7 @@ export function TrashScreen() {
             await repo.emptyTrash();
             setNotes([]);
           } catch (err) {
-            Alert.alert('清空失败', err instanceof Error ? err.message : String(err));
+            Alert.alert(t('trash.empty_failed'), err instanceof Error ? err.message : String(err));
             void load();
           }
         },
@@ -149,9 +151,9 @@ export function TrashScreen() {
     <View style={styles.container}>
       {notes.length > 0 && (
         <View style={styles.toolbar}>
-          <Text style={styles.toolbarText}>{notes.length} 条笔记</Text>
+          <Text style={styles.toolbarText}>{t('trash.count', { count: notes.length })}</Text>
           <TouchableOpacity onPress={handleEmptyTrash} style={styles.emptyBtn}>
-            <Text style={styles.emptyBtnText}>清空回收站</Text>
+            <Text style={styles.emptyBtnText}>{t('trash.empty_title')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -162,7 +164,7 @@ export function TrashScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>🗑️</Text>
-            <Text style={styles.emptyText}>回收站为空</Text>
+            <Text style={styles.emptyText}>{t('trash.empty')}</Text>
           </View>
         }
         renderItem={({ item }) => (
@@ -178,13 +180,13 @@ export function TrashScreen() {
                 style={styles.restoreBtn}
                 onPress={() => void handleRestore(item.id)}
               >
-                <Text style={styles.restoreText}>↩ 恢复</Text>
+                <Text style={styles.restoreText}>{'↩ ' + t('trash.restore')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.permBtn}
-                onPress={() => handlePermanentDelete(item.id, item.plain?.title ?? '该笔记')}
+                onPress={() => handlePermanentDelete(item.id, item.plain?.title ?? t('trash.this_note'))}
               >
-                <Text style={styles.permText}>永久删除</Text>
+                <Text style={styles.permText}>{t('trash.perm_delete')}</Text>
               </TouchableOpacity>
             </View>
           </View>

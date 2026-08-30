@@ -8,7 +8,7 @@ import { initReactI18next } from 'react-i18next';
 const resources = {
   'zh-CN': {
     translation: {
-      app: { name: '尘心笔记', tagline: '端到端加密 · 跨端同步', skip_to_content: '跳转到主要内容' },
+      app: { name: '尘心笔记', tagline: '端到端加密 · 跨端同步', skip_to_content: '跳转到主要内容', github_repo: 'GitHub 项目主页' },
       env: {
         http_notice:
           '当前经 HTTP 访问，部分浏览器功能受限（离线缓存、读剪贴板、语音输入）。笔记加密与同步不受影响，配置 HTTPS 可获得完整体验',
@@ -38,6 +38,9 @@ const resources = {
         too_weak: '密码至少需要 8 个字符',
         grace_unlock: '继续使用（免密）',
         locked_retry: '账号已锁定，请 {{sec}} 秒后重试',
+        no_recovery_warning: '⚠️ 忘记主密码且无恢复码 = 笔记永久丢失',
+        recover_code_invalid: '恢复码格式不正确（应为 XXXXX-XXXXX）',
+        recover_standalone_subtitle: '输入恢复码重置主密码（masterKey 保留，笔记可继续解密）',
       },
       app_bar: {
         lock: '锁定',
@@ -54,6 +57,7 @@ const resources = {
         strength_very_strong: '很强',
       },
       sidebar: {
+        title: '侧边栏',
         all: '全部笔记',
         favorites: '收藏',
         trash: '回收站',
@@ -91,6 +95,7 @@ const resources = {
           '目录最多三层（分类 → 子文件夹 → 笔记），已到最深层。请直接在该层平铺管理笔记。',
         matched: '匹配 {{count}} 条',
         no_match: '无匹配笔记',
+        load_more: '加载更多 ({{count}})',
         empty_trash: '清空回收站',
         confirm_empty_trash: '确定要清空回收站（{{count}} 条笔记将被永久删除）吗？',
         trash_empty: '回收站为空',
@@ -155,6 +160,7 @@ const resources = {
         view_split_tip: '左侧写 Markdown，右侧实时预览渲染效果',
         view_preview_tip: '只读查看笔记的渲染效果',
         view_wysiwyg_tip: '所见即所得编辑：直接在排版效果上写作（加粗、标题、列表），无需 Markdown 语法；保存内容仍为 Markdown',
+        wysiwyg_placeholder: '开始编辑...',
         trash_readonly: '🗑️ 回收站 · 只读',
         restore: '恢复',
         perm_delete: '永久删除',
@@ -311,6 +317,30 @@ const resources = {
         switch_to_standalone: '切换到单机模式',
         mode_switch_success: '✅ 模式切换成功',
         mode_switch_fail: '切换模式失败：{{reason}}',
+        network_error: '网络错误',
+        install_pwa: '📲 安装为桌面应用',
+        pwa_installed: '✓ 已安装为独立应用',
+      },
+      update: {
+        new_version: '新版本 {{version}} 可用',
+        suggest_upgrade: '建议尽快升级以获得最佳体验',
+        available: '有新版本可用，建议更新',
+        now: '立即更新',
+        stopped_support: '当前版本已停止支持，请升级到最新版本后继续使用。',
+      },
+      time: {
+        just_now: '刚刚',
+        minutes_ago: '{{n}} 分钟前',
+        hours_ago: '{{n}} 小时前',
+        days_ago: '{{n}} 天前',
+      },
+      error_boundary: {
+        title: '应用遇到了问题',
+        description: '页面渲染时发生异常。你可以重新加载，或导出诊断信息反馈给开发者。',
+        error_code: '错误码',
+        export_diagnostics: '📋 导出诊断信息',
+        retry: '🔁 重试',
+        reload: '🔄 重新加载',
       },
       mode_select: {
         title: '选择使用模式',
@@ -339,6 +369,7 @@ const resources = {
         save: '保存',
         close: '关闭',
         loading: '加载中…',
+        notifications: '通知',
       },
       import_export: {
         title: '📥📤 导入 / 导出',
@@ -604,10 +635,18 @@ const resources = {
         merged_hint: '合并会保留两边的改动，冲突字段优先采用你的编辑',
       },
     },
+    tray: {
+      pending_sync: '{{app}} · 待同步 {{count}} 条',
+      synced: '{{app}} · 已同步',
+    },
+    update: {
+      available_title: '{{app}} 有新版本',
+      available_body: '新版本 {{version}} 已可用，打开「设置 → 检查更新」即可下载。',
+    },
   },
   en: {
     translation: {
-      app: { name: 'DustNote', tagline: 'E2E Encrypted · Cross-platform Sync', skip_to_content: 'Skip to main content' },
+      app: { name: 'DustNote', tagline: 'E2E Encrypted · Cross-platform Sync', skip_to_content: 'Skip to main content', github_repo: 'GitHub Project Homepage' },
       env: {
         http_notice:
           'Accessing via plain HTTP. Some browser features are limited (offline cache, clipboard read, voice input). Note encryption and sync are unaffected; configure HTTPS for the full experience',
@@ -637,6 +676,10 @@ const resources = {
         too_weak: 'Password must be at least 8 characters',
         grace_unlock: 'Continue without password',
         locked_retry: 'Account locked, retry in {{sec}}s',
+        no_recovery_warning: '⚠️ Forgot the master password with no recovery code = notes lost forever',
+        recover_code_invalid: 'Invalid recovery code format (expected XXXXX-XXXXX)',
+        recover_standalone_subtitle:
+          'Enter the recovery code to reset the master password (the master key is preserved, so notes stay decryptable)',
       },
       app_bar: {
         lock: 'Lock',
@@ -653,6 +696,7 @@ const resources = {
         strength_very_strong: 'Very strong',
       },
       sidebar: {
+        title: 'Sidebar',
         all: 'All Notes',
         favorites: 'Favorites',
         trash: 'Trash',
@@ -690,6 +734,7 @@ const resources = {
           'Folders can be at most 3 levels deep (category → subfolder → note). You are at the deepest level.',
         matched: '{{count}} matches',
         no_match: 'No matching notes',
+        load_more: 'Load more ({{count}})',
         empty_trash: 'Empty Trash',
         confirm_empty_trash: 'Empty trash? {{count}} notes will be permanently deleted.',
         trash_empty: 'Trash is empty',
@@ -754,6 +799,7 @@ const resources = {
         view_split_tip: 'Write Markdown on the left, live-rendered preview on the right',
         view_preview_tip: 'Read-only view of the rendered note',
         view_wysiwyg_tip: 'WYSIWYG editing: write directly on the formatted result (bold, headings, lists) — no Markdown syntax needed; still saved as Markdown',
+        wysiwyg_placeholder: 'Start editing...',
         trash_readonly: '🗑️ Trash · Read-only',
         restore: 'Restore',
         perm_delete: 'Delete Forever',
@@ -915,6 +961,32 @@ const resources = {
         switch_to_standalone: 'Switch to Standalone',
         mode_switch_success: '✅ Mode switched',
         mode_switch_fail: 'Failed to switch mode: {{reason}}',
+        network_error: 'Network error',
+        install_pwa: '📲 Install as desktop app',
+        pwa_installed: '✓ Installed as standalone app',
+      },
+      update: {
+        new_version: 'New version {{version}} available',
+        suggest_upgrade: 'Update soon for the best experience',
+        available: 'A new version is available — update recommended',
+        now: 'Update now',
+        stopped_support:
+          'This version is no longer supported. Please update to the latest version to continue.',
+      },
+      time: {
+        just_now: 'Just now',
+        minutes_ago: '{{n}} min ago',
+        hours_ago: '{{n}} h ago',
+        days_ago: '{{n}} d ago',
+      },
+      error_boundary: {
+        title: 'Something went wrong',
+        description:
+          'An error occurred while rendering the page. You can reload, or export diagnostics to report the issue to the developer.',
+        error_code: 'Error code',
+        export_diagnostics: '📋 Export diagnostics',
+        retry: '🔁 Retry',
+        reload: '🔄 Reload',
       },
       mode_select: {
         title: 'Choose a mode',
@@ -944,6 +1016,7 @@ const resources = {
         save: 'Save',
         close: 'Close',
         loading: 'Loading…',
+        notifications: 'Notifications',
       },
       import_export: {
         title: '📥📤 Import / Export',
@@ -1216,6 +1289,14 @@ const resources = {
         unfavorited: 'Not favorited',
         merged_hint: 'Merge keeps both sides; conflicting fields prefer your edits',
       },
+    },
+    tray: {
+      pending_sync: '{{app}} · {{count}} pending sync',
+      synced: '{{app}} · Synced',
+    },
+    update: {
+      available_title: 'New version of {{app}} available',
+      available_body: 'Version {{version}} is now available. Open Settings → Check for Updates to download.',
     },
   },
 };

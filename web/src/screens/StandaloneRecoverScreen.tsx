@@ -28,7 +28,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
 
   async function handleSubmit() {
     if (!isValidRecoveryCode(recoveryCode)) {
-      setError('恢复码格式不正确（应为 XXXXX-XXXXX）');
+      setError(t('auth.recover_code_invalid'));
       return;
     }
     if (newPassword.length < 8) {
@@ -60,7 +60,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('auth.recover_title')}</h1>
           <p className="mt-2 text-sm text-surface-muted">
-            输入恢复码重置主密码（masterKey 保留，笔记可继续解密）
+            {t('auth.recover_standalone_subtitle')}
           </p>
         </div>
 

@@ -12,6 +12,7 @@ import {
   requestPermission,
   sendNotification,
 } from '@tauri-apps/plugin-notification';
+import i18n from '../../../web/src/lib/i18n';
 import { isTauri } from './tauri';
 
 /** 权限请求结果缓存：同一会话只申请一次（避免重复弹系统权限框） */
@@ -46,8 +47,8 @@ export async function notifyUpdateAvailable(version: string): Promise<void> {
   if (!(await ensureNotificationPermission())) return;
   try {
     sendNotification({
-      title: 'DustNote 有新版本',
-      body: `新版本 ${version} 已可用，打开「设置 → 检查更新」即可下载。`,
+      title: i18n.t('update.available_title', { version }) as string,
+      body: i18n.t('update.available_body', { version }) as string,
     });
     notifiedVersions.add(version);
   } catch {

@@ -31,16 +31,16 @@ export function UpdateBanner({ result }: { result: CheckUpdateResult }) {
         </div>
         <div className="flex-1">
           <div className="text-sm font-semibold text-surface-fg">
-            {t('update.new_version', { version }) || `新版本 ${version} 可用`}
+            {t('update.new_version', { version })}
           </div>
           {level === 'L2_strong_prompt' && (
             <div className="text-xs text-slate-500">
-              {t('update.suggest_upgrade') || '建议尽快升级以获得最佳体验'}
+              {t('update.suggest_upgrade')}
             </div>
           )}
           {level === 'L3_soft_prompt' && (
             <div className="text-xs text-slate-500">
-              {t('update.available') || '有新版本可用，建议更新'}
+              {t('update.available')}
             </div>
           )}
         </div>
@@ -48,12 +48,12 @@ export function UpdateBanner({ result }: { result: CheckUpdateResult }) {
           href={url}
           className="rounded-lg bg-mint-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-mint-700"
         >
-          {t('update.now') || '立即更新'}
+          {t('update.now')}
         </a>
         <button
           onClick={() => setDismissed(true)}
           className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
-          aria-label={t('common.close') || '关闭'}
+          aria-label={t('common.close')}
         >
           ✕
         </button>

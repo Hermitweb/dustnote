@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { getApi } from '../../state/auth';
+import { t, useLanguage } from '../../lib/i18n';
 
 interface ShareItem {
   id: string;
@@ -28,6 +29,12 @@ export default function Shares() {
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchBusy, setBatchBusy] = useState(false);
+  const lang = useLanguage();
+
+  // 语言切换后同步原生导航栏标题
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: t('app.name') });
+  }, [lang]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,7 +43,9 @@ export default function Shares() {
       setShares(r.shares);
     } catch (err: any) {
       Taro.showToast({
-        title: `加载失败：${err?.err?.message || err?.message || '未知错误'}`,
+        title: t('share_mgr.load_failed', {
+          msg: err?.err?.message || err?.message || t('common.unknown_error'),
+        }),
         icon: 'none',
         duration: 3000,
       });
@@ -86,9 +95,9 @@ export default function Shares() {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
     const r = await Taro.showModal({
-      title: '批量吊销',
-      content: `确定吊销选中的 ${ids.length} 个分享？吊销后链接将失效。`,
-      confirmText: '吊销',
+      title: t('share_mgr.revoke_title'),
+      content: t('share_mgr.revoke_content', { count: ids.length }),
+      confirmText: t('share_mgr.revoke'),
       confirmColor: '#E07B6C',
     });
     if (!r.confirm) return;
@@ -103,7 +112,7 @@ export default function Shares() {
       }
     }
     setBatchBusy(false);
-    Taro.showToast({ title: `已吊销 ${ok} 个分享`, icon: 'success' });
+    Taro.showToast({ title: t('share_mgr.revoked_count', { count: ok }), icon: 'success' });
     exitSelect();
     await load();
   };
@@ -122,7 +131,11 @@ export default function Shares() {
               ✕
             </Text>
             <Text className="topbar-title" onClick={toggleAll}>
-              {hasAllSelected ? '取消全选' : `全选 ${selCount ? `(${selCount})` : ''}`}
+              {hasAllSelected
+                ? t('common.deselect_all')
+                : selCount
+                  ? t('common.select_all_n', { count: selCount })
+                  : t('common.select_all')}
             </Text>
             <View className="topbar-actions" />
           </>
@@ -131,23 +144,27 @@ export default function Shares() {
             <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
               ←
             </Text>
-            <Text className="topbar-title">分享管理</Text>
+            <Text className="topbar-title">{t('share_mgr.title')}</Text>
             <View className="topbar-actions" />
           </>
         )}
       </View>
 
       <ScrollView scrollY className="flex-1">
-        {loading && <View className="loading">加载中…</View>}
+        {loading && <View className="loading">{t('common.loading')}</View>}
         {!loading && shares.length === 0 && (
           <View className="empty-state">
             <Text className="empty-state-icon">🔗</Text>
-            <Text className="empty-state-text">还没有分享</Text>
+            <Text className="empty-state-text">{t('share_mgr.empty')}</Text>
           </View>
         )}
         {shares.map((s) => {
           const expired = isExpired(s.expiresAt);
-          const status = s.revoked ? '已吊销' : expired ? '已过期' : '有效';
+          const status = s.revoked
+            ? t('share_mgr.status_revoked')
+            : expired
+              ? t('share_mgr.status_expired')
+              : t('share_mgr.status_valid');
           const canAct = !s.revoked && !expired;
           const checked = selectedIds.has(s.id);
           return (
@@ -181,24 +198,24 @@ export default function Shares() {
                       onClick={async () => {
                         try {
                           await getApi().delete(`/shares/${s.id}`);
-                          Taro.showToast({ title: '已吊销', icon: 'success' });
+                          Taro.showToast({ title: t('share_mgr.revoked'), icon: 'success' });
                           await load();
                         } catch {
-                          Taro.showToast({ title: '操作失败', icon: 'none' });
+                          Taro.showToast({ title: t('common.operation_failed'), icon: 'none' });
                         }
                       }}
                     >
-                      吊销
+                      {t('share_mgr.revoke')}
                     </Text>
                   </View>
                 )}
               </View>
               <Text className="share-meta">
                 {new Date(s.createdAt).toLocaleString('zh-CN')}
-                {` · 👁️ ${s.viewCount} 次`}
-                {s.hasPassword ? ' · 🔐 加密' : ' · 公开'}
+                {t('share_mgr.views', { count: s.viewCount })}
+                {s.hasPassword ? t('share_mgr.encrypted') : t('share_mgr.public')}
               </Text>
-              <Text className="share-meta">状态：{status}</Text>
+              <Text className="share-meta">{t('share_mgr.status_label', { status })}</Text>
             </View>
           );
         })}
@@ -206,10 +223,10 @@ export default function Shares() {
 
       {selecting && (
         <View className="batch-bar">
-          <Text className="batch-bar-count">已选 {selCount} 项</Text>
+          <Text className="batch-bar-count">{t('common.selected_count', { count: selCount })}</Text>
           <View className="batch-bar-actions">
             <Text className="batch-btn batch-btn-danger" onClick={batchRevoke}>
-              🗑️ 批量吊销
+              {t('share_mgr.batch_revoke')}
             </Text>
           </View>
         </View>

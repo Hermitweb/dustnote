@@ -478,7 +478,7 @@ export function Sidebar() {
         onClick={() => useStore.getState().toggleSidebar()}
         aria-hidden="true"
       />
-      <aside role="navigation" aria-label={t('sidebar.title') || '侧边栏'} className="fixed inset-y-0 left-0 z-40 flex h-full w-72 max-w-[85vw] flex-col border-r border-surface-border bg-surface-card sm:static sm:z-auto sm:max-w-none">
+      <aside role="navigation" aria-label={t('sidebar.title')} className="fixed inset-y-0 left-0 z-40 flex h-full w-72 max-w-[85vw] flex-col border-r border-surface-border bg-surface-card sm:static sm:z-auto sm:max-w-none">
         {/* 顶栏 */}
         <div className="border-b border-surface-border p-4">
           <div className="mb-3 flex items-center gap-2">
@@ -906,7 +906,7 @@ export function Sidebar() {
               {/* 渐进加载触发器：IntersectionObserver 检测到时追加更多笔记 */}
               {showNoteList && visibleCount < visibleNotes.length && (
                 <div ref={loadMoreRef} className="py-2 text-center text-xs text-surface-muted">
-                  {t('sidebar.load_more', { count: Math.min(50, visibleNotes.length - visibleCount) }) || `加载更多 (${visibleNotes.length - visibleCount})`}
+                  {t('sidebar.load_more', { count: Math.min(50, visibleNotes.length - visibleCount) })}
                 </div>
               )}
             </div>

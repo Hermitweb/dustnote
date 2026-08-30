@@ -19,7 +19,7 @@ export function ForceUpdateOverlay({ result }: { result: CheckUpdateResult }) {
           {t('settings.force_update_title')}
         </h1>
         <p className="mb-6 text-sm text-slate-600 dark:text-slate-400">
-          {result.message ?? '当前版本已停止支持，请升级到最新版本后继续使用。'}
+          {result.message ?? t('update.stopped_support')}
         </p>
         <a
           href={url}

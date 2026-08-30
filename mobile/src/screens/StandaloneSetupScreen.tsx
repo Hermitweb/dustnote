@@ -26,11 +26,13 @@ import {
   Image,
 } from 'react-native';
 import logoImage from '../assets/logo.png';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
 
 export function StandaloneSetupScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const setupStandalone = useAuthStore((s) => s.setupStandalone);
   const confirmSetupComplete = useAuthStore((s) => s.confirmSetupComplete);
 
@@ -40,21 +42,21 @@ export function StandaloneSetupScreen() {
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
 
   const strength = (() => {
-    if (password.length < 8) return { level: 0, text: '至少 8 位' };
-    if (password.length < 12) return { level: 1, text: '弱' };
+    if (password.length < 8) return { level: 0, text: t('auth.strength_min8') };
+    if (password.length < 12) return { level: 1, text: t('auth.strength_weak') };
     if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password))
-      return { level: 2, text: '中等' };
-    if (password.length >= 16) return { level: 4, text: '强' };
-    return { level: 3, text: '良好' };
+      return { level: 2, text: t('auth.strength_medium') };
+    if (password.length >= 16) return { level: 4, text: t('auth.strength_strong') };
+    return { level: 3, text: t('auth.strength_good') };
   })();
 
   const onSubmit = async () => {
     if (password.length < 8) {
-      Alert.alert('错误', '密码至少 8 位');
+      Alert.alert(t('common.error'), t('auth.too_weak'));
       return;
     }
     if (password !== confirm) {
-      Alert.alert('错误', '两次密码不一致');
+      Alert.alert(t('common.error'), t('auth.mismatch'));
       return;
     }
     // 诊断：检查 crypto.subtle 是否就绪（v2.3.5 新增）
@@ -63,16 +65,15 @@ export function StandaloneSetupScreen() {
       const st =
         (globalThis as { __QCRYPTO_STATUS?: Record<string, unknown> }).__QCRYPTO_STATUS || {};
       Alert.alert(
-        '加密模块未就绪',
-        'crypto.subtle 不可用，无法进行加密操作。\n\n' +
-          '诊断信息：\n' +
-          `global.crypto: ${typeof global.crypto}\n` +
-          `crypto.subtle: ${global.crypto ? typeof global.crypto.subtle : 'N/A'}\n` +
-          `requireOk: ${st.requireOk}\n` +
-          `installOk: ${st.installOk}\n` +
-          `requireError: ${st.requireError ?? '无'}\n` +
-          `installError: ${st.installError ?? '无'}\n\n` +
-          '请重启应用；若仍失败请重新安装。'
+        t('auth.crypto_not_ready'),
+        t('auth.crypto_not_ready_detail', {
+          cryptoType: typeof global.crypto,
+          subtleType: global.crypto ? typeof global.crypto.subtle : 'N/A',
+          requireOk: String(st.requireOk),
+          installOk: String(st.installOk),
+          requireError: st.requireError != null ? String(st.requireError) : t('common.none'),
+          installError: st.installError != null ? String(st.installError) : t('common.none'),
+        })
       );
       return;
     }
@@ -87,7 +88,7 @@ export function StandaloneSetupScreen() {
     } catch (err) {
       console.error('[DustNote] setupStandalone failed:', err);
       const msg = err instanceof Error ? err.message : String(err);
-      Alert.alert('设置失败', msg);
+      Alert.alert(t('auth.setup_failed'), msg);
     } finally {
       setSubmitting(false);
     }
@@ -99,17 +100,12 @@ export function StandaloneSetupScreen() {
     return (
       <View style={styles.container}>
         <Text style={styles.emoji}>🔑</Text>
-        <Text style={styles.title}>保存恢复码</Text>
-        <Text style={styles.subtitle}>
-          忘记主密码时唯一的找回方式。请抄写在纸上或保存到密码管理器。
-          {'\n'}⚠️ 恢复码仅显示一次，丢失后笔记将永久无法找回。
-        </Text>
+        <Text style={styles.title}>{t('auth.recovery_save_title')}</Text>
+        <Text style={styles.subtitle}>{t('auth.recovery_save_subtitle')}</Text>
         <View style={styles.codeBox}>
           <Text style={styles.codeText}>{recoveryCode}</Text>
         </View>
-        <Text style={styles.hint}>
-          恢复后主密码会重置，但已加密的笔记可继续解密（masterKey 保留）。
-        </Text>
+        <Text style={styles.hint}>{t('auth.recovery_save_hint')}</Text>
         <TouchableOpacity
           style={styles.button}
           onPress={() => {
@@ -117,7 +113,7 @@ export function StandaloneSetupScreen() {
             confirmSetupComplete();
           }}
         >
-          <Text style={styles.buttonText}>我已保存，继续</Text>
+          <Text style={styles.buttonText}>{t('auth.recovery_save_btn')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -126,14 +122,12 @@ export function StandaloneSetupScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Image source={logoImage} style={styles.logo} />
-      <Text style={styles.title}>创建主密码（单机模式）</Text>
-      <Text style={styles.subtitle}>
-        主密码用于加密本地存储的所有笔记。我们无法找回，请妥善保管。
-      </Text>
+      <Text style={styles.title}>{t('auth.standalone_setup_title')}</Text>
+      <Text style={styles.subtitle}>{t('auth.standalone_setup_subtitle')}</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="主密码（至少 8 位）"
+        placeholder={t('auth.password_placeholder')}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -141,7 +135,7 @@ export function StandaloneSetupScreen() {
       />
       <TextInput
         style={styles.input}
-        placeholder="再次输入主密码"
+        placeholder={t('auth.confirm_password_placeholder')}
         secureTextEntry
         value={confirm}
         onChangeText={setConfirm}
@@ -166,7 +160,9 @@ export function StandaloneSetupScreen() {
         disabled={submitting}
         onPress={onSubmit}
       >
-        <Text style={styles.buttonText}>{submitting ? '设置中…' : '创建笔记空间'}</Text>
+        <Text style={styles.buttonText}>
+          {submitting ? t('auth.creating') : t('auth.setup_btn')}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );
