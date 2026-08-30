@@ -48,8 +48,7 @@
         "type": "downloadBootstrapper"
       },
       "nsis": {
-        "installMode": "both",
-        "license": "../../LICENSE"
+        "installMode": "both"
       }
     }
   }
