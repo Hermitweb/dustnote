@@ -918,36 +918,36 @@ export function Sidebar() {
           <div className="flex gap-1">
             <button
               onClick={() => setViewMode('all')}
-              className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded px-1.5 py-1.5 text-xs transition-colors ${
+              className={`flex flex-1 items-center justify-center gap-1 rounded px-1.5 py-1.5 text-xs transition-colors ${
                 viewMode === 'all'
                   ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
                   : 'text-surface-fg hover:bg-surface-bg'
               }`}
             >
-              <span>📋</span>
-              <span>{t('sidebar.all')}</span>
+              <span className="min-w-fit">📋</span>
+              <span className="min-w-fit whitespace-nowrap">{t('sidebar.all')}</span>
             </button>
             <button
               onClick={() => setViewMode('favorites')}
-              className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
+              className={`flex flex-1 items-center justify-center gap-1 rounded px-1.5 py-1.5 text-xs transition-colors ${
                 viewMode === 'favorites'
                   ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
                   : 'text-surface-fg hover:bg-surface-bg'
               }`}
             >
-              <span>⭐</span>
-              <span>{t('sidebar.favorites')}</span>
+              <span className="min-w-fit">⭐</span>
+              <span className="min-w-fit whitespace-nowrap">{t('sidebar.favorites')}</span>
             </button>
             <button
               onClick={() => setViewMode('trash')}
-              className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
+              className={`flex flex-1 items-center justify-center gap-1 rounded px-1.5 py-1.5 text-xs transition-colors ${
                 viewMode === 'trash'
                   ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
                   : 'text-surface-fg hover:bg-surface-bg'
               }`}
             >
-              <span>🗑️</span>
-              <span>
+              <span className="min-w-fit">🗑️</span>
+              <span className="min-w-fit whitespace-nowrap">
                 {t('sidebar.trash')}
                 {trashCount > 0 ? ` (${trashCount})` : ''}
               </span>
