@@ -169,11 +169,15 @@ function App() {
     return cleanup;
   }, [preferences.theme, preferences.mode, preferences.font, preferences.density]);
 
-  // 解锁后加载数据 + 启动 WS + 刷新待同步计数
+  // 解锁后加载数据 + 初始化默认内容 + 启动 WS + 刷新待同步计数
   useEffect(() => {
     if (authState === 'unlocked') {
-      void loadAll();
-      void refreshPendingCount();
+      void (async () => {
+        await loadAll();
+        // 首次使用创建默认文件夹与引导笔记；历史未分类笔记迁入（幂等）
+        await useStore.getState().ensureDefaultContent();
+        void refreshPendingCount();
+      })();
       // 仅联机模式启动 WS 同步
       if (mode === 'online') {
         startSyncWs();

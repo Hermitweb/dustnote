@@ -122,7 +122,9 @@ export function registerUpdaterApi(): void {
       const updateAvailable = isNewerVersion(m.latestVersion, currentVersion);
       if (updateAvailable && m.installerUrl) {
         cachedInstallerUrl = m.installerUrl;
-        cachedInstallerSha256 = m.installerSha256;
+        // hash 空串归一为 null：服务端 manifest 的 hash 是占位空串，
+        // 若原样透传会被 Rust 侧当作期望值做 SHA-256 比对 → 恒失败
+        cachedInstallerSha256 = m.installerSha256 || null;
       } else {
         cachedInstallerUrl = null;
         cachedInstallerSha256 = null;
@@ -186,6 +188,9 @@ export function useUpdater(): {
   async function check(): Promise<void> {
     const api = getUpdaterApi();
     if (!api) return;
+    // 单机模式（无 serverUrl）：manifest 无从谈起，静默跳过（每次启动
+    // 白跑一次并置 error 态无任何 UI 消费）
+    if (!useModeStore.getState().serverUrl) return;
     setState('checking');
     setError(null);
     try {

@@ -28,6 +28,7 @@ import {
 } from '../../state/auth';
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo } from '../../lib/get-repo';
+import { ensureDefaultContent } from '../../lib/default-content';
 import { noteAad } from '@dustnote/shared';
 
 interface Note {
@@ -95,11 +96,15 @@ export default function Index() {
     try {
       const repo = getRepo();
       const snapshot = await repo.loadAll();
-      setNotes(snapshot.notes as Note[]);
-      setFolders(snapshot.folders as Folder[]);
+      // 首次使用初始化：默认文件夹 + 引导笔记 + 未分类迁移（幂等）
+      await ensureDefaultContent();
+      // 初始化可能新建/迁移了数据，重取最新快照
+      const fresh = (snapshot.folders ?? []).length === 0 ? await repo.loadAll() : snapshot;
+      setNotes(fresh.notes as Note[]);
+      setFolders(fresh.folders as Folder[]);
       if (masterKey) {
         const t: Record<string, { title: string; content: string }> = {};
-        for (const n of snapshot.notes) {
+        for (const n of fresh.notes) {
           if (n.deletedAt) continue;
           try {
             const e = parseEnvelope(n.ciphertext);
@@ -272,7 +277,11 @@ export default function Index() {
       const repo = getRepo();
       const snapshot = await repo.loadAll();
       const folderList = snapshot.folders as Folder[];
-      const itemList = ['未分类', ...folderList.map((f) => f.name)];
+      if (folderList.length === 0) {
+        Taro.showToast({ title: '请先创建文件夹', icon: 'none' });
+        return;
+      }
+      const itemList = folderList.map((f) => f.name);
       let ti: number;
       try {
         const res = await Taro.showActionSheet({ itemList });
@@ -281,8 +290,8 @@ export default function Index() {
         if (e?.errMsg?.includes?.('cancel')) return;
         throw e;
       }
-      const fid = ti > 0 ? folderList[ti - 1].id : null;
-      const fname = ti > 0 ? folderList[ti - 1].name : '未分类';
+      const fid = folderList[ti]!.id;
+      const fname = folderList[ti]!.name;
       let ok = 0;
       for (const id of ids) {
         try {
@@ -623,6 +632,25 @@ export default function Index() {
               return;
             }
             try {
+              // 笔记必须归属文件夹：选中文件夹直接用；否则 ActionSheet 必选
+              let folderId: string | null = selectedFolderId;
+              const folderList = folders as Folder[];
+              if (folderId == null || !folderList.some((f) => f.id === folderId)) {
+                if (folderList.length === 0) {
+                  await ensureDefaultContent();
+                  const fresh = (await getRepo().loadAll()).folders as Folder[];
+                  if (fresh.length === 0) {
+                    Taro.showToast({ title: '请先创建文件夹', icon: 'none' });
+                    return;
+                  }
+                  folderId = fresh[0]!.id;
+                } else {
+                  const res = await Taro.showActionSheet({
+                    itemList: folderList.map((f) => f.name),
+                  });
+                  folderId = folderList[res.tapIndex]!.id;
+                }
+              }
               const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
               const { json: cipherJson } = await encryptNote(masterKey, empty);
               const id = await getRepo().createNote({
@@ -630,10 +658,11 @@ export default function Index() {
                 keyVersion: 1,
                 isPinned: false,
                 isFavorite: false,
-                folderId: null,
+                folderId,
               });
               Taro.navigateTo({ url: `/pages/note/edit?id=${id}` });
-            } catch {
+            } catch (e: any) {
+              if (e?.errMsg?.includes?.('cancel')) return;
               Taro.showToast({ title: '创建失败', icon: 'none' });
             }
           }}

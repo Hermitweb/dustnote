@@ -32,9 +32,6 @@ import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
 import { decryptNote } from '../lib/envelope';
 import { useColors } from '../theme';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../App';
 
 interface NotePlaintext {
   title: string;
@@ -44,7 +41,6 @@ interface NotePlaintext {
 
 export function TrashScreen() {
   const colors = useColors();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const masterKey = useAuthStore((s) => s.masterKey);
   const mode = useModeStore((s) => s.mode);
   const modeInitialized = useModeStore((s) => s.initialized);
@@ -151,14 +147,6 @@ export function TrashScreen() {
 
   return (
     <View style={styles.container}>
-      {/* 顶部返回栏（此前无返回按钮，只能靠系统手势） */}
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>← 返回</Text>
-        </TouchableOpacity>
-        <Text style={styles.topTitle}>🗑️ 回收站</Text>
-        <View style={{ width: 60 }} />
-      </View>
       {notes.length > 0 && (
         <View style={styles.toolbar}>
           <Text style={styles.toolbarText}>{notes.length} 条笔记</Text>
@@ -210,17 +198,6 @@ export function TrashScreen() {
 function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.bg },
-    topBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: 12,
-      backgroundColor: c.card,
-      borderBottomColor: c.border,
-      borderBottomWidth: 1,
-    },
-    backBtn: { padding: 4 },
-    backText: { fontSize: 15, color: c.mint600 },
     topTitle: { fontSize: 15, fontWeight: '600', color: c.fg },
     toolbar: {
       flexDirection: 'row',

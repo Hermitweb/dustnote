@@ -12,8 +12,8 @@ import {
   Alert,
   ScrollView,
   Image,
-  Clipboard,
 } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import logoImage from '../assets/logo.png';
 import { useAuthStore } from '../state/auth';
 import { theme, useColors } from '../theme';

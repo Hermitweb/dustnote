@@ -272,10 +272,6 @@ export function Sidebar() {
     Array.from(notes.values())
       .filter((n) => !n.deletedAt && n.folderId === folderId)
       .sort((a, b) => b.serverUpdatedAt.localeCompare(a.serverUpdatedAt));
-  // 未分类笔记（folderId 为空），单独成组展示
-  const unfiledNotes = Array.from(notes.values())
-    .filter((n) => !n.deletedAt && !n.folderId)
-    .sort((a, b) => b.serverUpdatedAt.localeCompare(a.serverUpdatedAt));
   // 顶层文件夹（用户自建，无预设分支）
   const topFolders = folders.filter((f) => !f.parentId);
   // 右键菜单
@@ -513,6 +509,12 @@ export function Sidebar() {
             <div className="flex gap-1">
               <button
                 onClick={() => {
+                  // 笔记必须归属文件夹：未选中文件夹时不创建（收藏/回收站/搜索
+                  // 视图下 selectedFolderId 也为 null，同样引导先选文件夹）
+                  if (!selectedFolderId) {
+                    toast.info(t('sidebar.select_folder_first'));
+                    return;
+                  }
                   void createNote(selectedFolderId);
                 }}
                 className="flex-1 rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
@@ -774,15 +776,8 @@ export function Sidebar() {
                 );
               })}
 
-              {/* 未分类笔记 */}
-              {unfiledNotes.length > 0 && (
-                <div className="mt-2">
-                  <div className="mb-1 px-2 text-xs font-semibold text-surface-muted">
-                    {t('sidebar.unfiled')}
-                  </div>
-                  {unfiledNotes.map((n) => renderNoteLeaf(n, 'pl-6'))}
-                </div>
-              )}
+              {/* 未分类分组已移除：笔记必须归属文件夹（历史未分类笔记由
+                  ensureDefaultContent 迁入默认文件夹） */}
             </div>
           )}
 

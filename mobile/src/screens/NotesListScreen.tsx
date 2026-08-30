@@ -31,6 +31,7 @@ import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
 import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../lib/offline-queue';
 import { decryptNote, packEnvelope } from '../lib/envelope';
+import { ensureDefaultContent } from '../lib/default-content';
 import { useColors } from '../theme';
 import { useResponsiveLayout } from '../lib/useResponsiveLayout';
 
@@ -80,6 +81,8 @@ export function NotesListScreen() {
     setError(null);
     try {
       const snapshot = await repo.loadAll();
+      // 首次使用初始化：默认文件夹 + 引导笔记 + 未分类迁移（幂等）
+      await ensureDefaultContent(repo, masterKey, snapshot);
       // 在主线程逐条解密（v1 简化；后续可放到 worker）
       const withPlain: NoteListItem[] = [];
       for (const n of snapshot.notes) {
@@ -291,12 +294,17 @@ export function NotesListScreen() {
         style={styles.fab}
         onPress={async () => {
           if (!masterKey) return;
+          // 笔记必须归属文件夹：「全部」视图未选中文件夹时不创建
+          if (folderFilter === 'all') {
+            Alert.alert('提示', '请先在顶部选择一个文件夹，再创建笔记。');
+            return;
+          }
           try {
             // 用真实密文创建空笔记，保证列表展示与其他端一致
             const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
             const ciphertext = await packEnvelope(masterKey, empty);
             // 当前选中文件夹 → 新笔记归属该文件夹
-            const targetFolderId = folderFilter !== 'all' ? folderFilter : null;
+            const targetFolderId = folderFilter;
             const newId = await repo.createNote({
               ciphertext,
               keyVersion: 1,

@@ -27,6 +27,38 @@ import {
 import { randomUuid } from '../device';
 import { cacheFolders, loadCachedNotes, loadCachedFolders } from '../db';
 import i18n, { LANGUAGE_STORAGE_KEY } from '../i18n';
+import { toast } from '../toast';
+
+/** 初始默认文件夹与引导笔记（ensureDefaultContent 幂等创建） */
+export const DEFAULT_FOLDER_NAME = '关于尘心笔记';
+export const INTRO_NOTE_TITLE = '关于尘心笔记';
+export const INTRO_NOTE_CONTENT = `## 欢迎使用尘心笔记
+
+尘心笔记是一款**极简、安全**的跨端个人笔记系统。
+
+### 核心特性
+
+- **端到端加密**：笔记在本地加密后才同步，服务器也看不到内容
+- **多端同步**：Web / Windows / 安卓 / 小程序全端覆盖
+- **双向链接**：用 [[关于尘心笔记]] 语法引用其他笔记，预览模式可点击跳转
+- **历史版本**：联机模式下每次保存自动留档，可随时回滚
+- **离线可用**：断网也能正常记录，联网后自动同步
+
+### 快速上手
+
+1. 在左侧选择或新建**文件夹**，笔记必须归属某个文件夹
+2. 点击「新建笔记」开始记录，支持 Markdown 语法
+3. 输入 \`/\` 呼出快捷命令菜单（日期 / 列表 / 待办等）
+4. 分屏模式下左侧编辑、右侧实时预览
+5. ⭐ 收藏 / 📌 置顶常用笔记，🗑️ 删除的笔记可在回收站恢复
+
+### 隐私与安全
+
+- 主密码是唯一凭据，请务必妥善保管（无法找回）
+- 建议在设置中开启两步验证与自动锁屏
+- 恢复码请抄写在纸上或保存到密码管理器
+
+*本文件夹为初始引导内容，可以随意修改或删除。*`;
 
 export interface DataSlice {
   notes: Map<string, NoteRow>;
@@ -40,6 +72,8 @@ export interface DataSlice {
   searchFocusToken: number;
 
   loadAll: () => Promise<void>;
+  /** 首次使用初始化：默认文件夹 + 引导笔记 + 未分类笔记迁移（幂等） */
+  ensureDefaultContent: () => Promise<void>;
   createNote: (folderId?: string | null) => Promise<string>;
   createNoteFromTemplate: (templateId: string, folderId?: string | null) => Promise<string>;
   updateNote: (id: string, patch: Partial<NotePlaintext> & { isPinned?: boolean; isFavorite?: boolean }) => Promise<void>;
@@ -431,6 +465,38 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const r = await api().post<{ id: string }>('/folders', body);
     set({ folders: [...get().folders, { id: r.id, name, parentId, icon: null, sortOrder: 0, createdAt: new Date().toISOString(), depth, branch }] } as Partial<StoreState>);
     return r.id;
+  },
+
+  /**
+   * 首次使用初始化（幂等，解锁并 loadAll 后调用一次）：
+   * 1. 无任何文件夹时创建默认文件夹「关于尘心笔记」+ 引导笔记
+   * 2. 历史未分类笔记（folderId=null 且未删除）迁入默认文件夹
+   *    ——「未分类」分组已从产品移除，笔记必须归属文件夹
+   */
+  async ensureDefaultContent(): Promise<void> {
+    const { folders, notes, masterKey } = get();
+    if (!masterKey) return;
+    if (folders.length > 0) return;
+
+    const folderId = await get().createFolder(DEFAULT_FOLDER_NAME);
+    // 迁移历史未分类笔记（先迁移再建引导笔记，避免引导笔记被重复处理）
+    let migrated = 0;
+    for (const n of notes.values()) {
+      if (!n.deletedAt && !n.folderId) {
+        try {
+          await get().moveNote(n.id, folderId);
+          migrated++;
+        } catch {
+          /* 单条失败不阻塞初始化 */
+        }
+      }
+    }
+    // 引导笔记（E2EE 加密后创建，与普通笔记无异，可编辑可删除）
+    const noteId = await get().createNote(folderId);
+    await get().updateNote(noteId, { title: INTRO_NOTE_TITLE, content: INTRO_NOTE_CONTENT });
+    if (migrated > 0) {
+      toast.info(i18n.t('sidebar.unfiled_migrated', { count: migrated }) || `已把 ${migrated} 条未分类笔记移入「${DEFAULT_FOLDER_NAME}」`);
+    }
   },
 
   async deleteFolder(id: string): Promise<void> {

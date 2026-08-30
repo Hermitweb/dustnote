@@ -153,7 +153,7 @@ export function PublicShareView({ token }: { token: string }) {
 
   if (state.kind === 'password_required') {
     return (
-      <div className="flex h-screen items-center justify-center bg-mint-50 p-4 dark:bg-slate-900">
+      <div className="flex h-screen items-center justify-center overflow-y-auto bg-mint-50 p-4 dark:bg-slate-900">
         <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl dark:bg-slate-800">
           <div className="mb-2 text-center text-3xl">🔐</div>
           <h1 className="mb-4 text-center text-lg font-bold text-slate-900 dark:text-slate-100">
@@ -188,7 +188,7 @@ export function PublicShareView({ token }: { token: string }) {
 
   if (state.kind === 'error') {
     return (
-      <div className="flex h-screen items-center justify-center bg-mint-50 p-4 dark:bg-slate-900">
+      <div className="flex h-screen items-center justify-center overflow-y-auto bg-mint-50 p-4 dark:bg-slate-900">
         <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl dark:bg-slate-800">
           <div className="mb-2 text-3xl">⚠️</div>
           <p className="text-slate-700 dark:text-slate-200">{state.message}</p>

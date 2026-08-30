@@ -70,8 +70,9 @@ export function createApp(): Application {
     'http://localhost:1420',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:1420',
-    'tauri://localhost', // Tauri 桌面客户端生产模式
-    'https://tauri.localhost', // Tauri 桌面客户端生产模式（HTTPS）
+    'tauri://localhost', // Tauri 桌面客户端生产模式（mac/Linux）
+    'https://tauri.localhost', // Tauri v1 桌面客户端生产模式（HTTPS 写法）
+    'http://tauri.localhost', // Tauri v2 桌面客户端生产模式（Windows WebView2 实际源）
   ];
   app.use(
     cors({

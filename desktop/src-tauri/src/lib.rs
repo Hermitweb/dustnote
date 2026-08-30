@@ -77,8 +77,14 @@ async fn download_and_run_installer(
     file.flush().ok();
     drop(file);
 
-    // SHA-256 校验：manifest 携带期望哈希（"sha256:<hex>"），不匹配即删除并拒绝
-    if let Some(expected) = expected_sha256 {
+    // SHA-256 校验：manifest 携带期望哈希（"sha256:<hex>"），不匹配即删除并拒绝。
+    // 空串/空白视为未提供（服务端当前 hash 为占位空串），跳过校验。
+    let expected = expected_sha256
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    if let Some(expected) = expected {
         let expected_hex = expected
             .strip_prefix("sha256:")
             .unwrap_or(&expected)

@@ -559,7 +559,7 @@ export function NoteEditScreen() {
 
   // onRestoreVersion 是 useCallback,预览回调里引用最新版避免依赖循环
   const onRestoreVersionRef = useRef<((versionId: string) => Promise<void>) | null>(null);
-  onRestoreVersionRef.current = onRestoreVersion as unknown as (versionId: string) => Promise<void>;
+  onRestoreVersionRef.current = onRestoreVersion;
 
   // ========== 移动到文件夹 ==========
   const onLoadFolders = useCallback(async () => {
@@ -858,28 +858,16 @@ export function NoteEditScreen() {
             </View>
           ) : (
             <FlatList
-              data={[
-                {
-                  id: '__none__',
-                  name: t('folders.move_none'),
-                  parentId: null,
-                  icon: null,
-                  sortOrder: 0,
-                  createdAt: '',
-                } as Folder,
-                ...folders,
-              ]}
+              data={folders}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => {
-                const isNone = item.id === '__none__';
-                const targetId = isNone ? null : item.id;
-                const active = note?.folderId === targetId || (note?.folderId == null && isNone);
+                const active = note?.folderId === item.id;
                 return (
                   <TouchableOpacity
                     style={[styles.templateRow, active && { backgroundColor: colors.accentSoft }]}
-                    onPress={() => void onMoveToFolder(targetId)}
+                    onPress={() => void onMoveToFolder(item.id)}
                   >
-                    <Text style={styles.templateIcon}>{isNone ? '📂' : '📁'}</Text>
+                    <Text style={styles.templateIcon}>📁</Text>
                     <View style={styles.templateInfo}>
                       <Text style={styles.templateName}>{item.name}</Text>
                     </View>

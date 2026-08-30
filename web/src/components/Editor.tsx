@@ -507,15 +507,7 @@ export function Editor() {
                     {/* 点击外部关闭 */}
                     <div className="fixed inset-0 z-10" onClick={() => setShowMoveMenu(false)} />
                     <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-surface-border bg-surface-card py-1 shadow-lg">
-                      <button
-                        onClick={() => {
-                          void moveNote(note.id, null);
-                          setShowMoveMenu(false);
-                        }}
-                        className={`block w-full px-3 py-1.5 text-left text-xs hover:bg-surface-bg ${note.folderId === null ? 'font-semibold text-mint-600' : 'text-surface-fg'}`}
-                      >
-                        {t('editor.unfiled')}
-                      </button>
+                      {/* 「未分类」已移除：笔记必须归属文件夹 */}
                       {folders.length > 0 && (
                         <div className="my-1 border-t border-surface-border" />
                       )}

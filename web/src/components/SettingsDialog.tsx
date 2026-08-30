@@ -276,7 +276,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     setSwitchError(null);
     try {
       await switchMode(target, target === 'online' ? switchServerUrl.trim() || null : null);
-      toast.success(t('settings.mode_switch_success'));
+      // checkStatus 失败不抛错（内部置 authState='error' 并渲染全屏错误页），
+      // 此处读最终状态避免"先报成功、再跳错误页"的自相矛盾体验
+      if (useStore.getState().authState === 'error') {
+        toast.error(
+          t('settings.mode_switch_fail', {
+            reason: useStore.getState().serverError ?? '网络错误',
+          })
+        );
+      } else {
+        toast.success(t('settings.mode_switch_success'));
+      }
     } catch (err) {
       setSwitchError((err as Error).message);
     } finally {
@@ -340,10 +350,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       setUpdateState(r.updateAvailable ? 'available' : 'uptodate');
     } catch (e) {
       const err = e as { kind?: string; message?: string };
-      if (err?.kind === 'NotInstalled') {
-        setUpdateState('idle');
-        return;
-      }
       if (err?.kind === 'RateLimited') {
         // GitHub 更新源限流：提示性信息而非错误态（Rust 侧已用缓存回退，
         // 走到这里说明连缓存都没有，属首次安装后的短时间内）
