@@ -912,9 +912,20 @@ export function Sidebar() {
           )}
         </nav>
 
-        {/* 收藏 / 回收站：固定在左侧栏底部，一左一右 */}
+        {/* 视图切换：全部笔记（文件夹树）/ 收藏 / 回收站 */}
         <div className="border-t border-surface-border p-2">
           <div className="flex gap-1">
+            <button
+              onClick={() => setViewMode('all')}
+              className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
+                viewMode === 'all'
+                  ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
+                  : 'text-surface-fg hover:bg-surface-bg'
+              }`}
+            >
+              <span>📋</span>
+              <span>{t('sidebar.all')}</span>
+            </button>
             <button
               onClick={() => setViewMode('favorites')}
               className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${

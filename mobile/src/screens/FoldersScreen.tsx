@@ -65,7 +65,6 @@ export function FoldersScreen() {
   const [renameText, setRenameText] = useState('');
   const [moving, setMoving] = useState<Folder | null>(null);
   // 行操作菜单（自定义 Modal，可 ✕ / 遮罩关闭）
-  const [menuFolder, setMenuFolder] = useState<Folder | null>(null);
   // 树形展开状态
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -179,10 +178,34 @@ export function FoldersScreen() {
     ]);
   };
 
-  // 文件夹操作菜单：原生 Alert 必须点按钮才能关闭（无 ✕、点外部无效，
-  // 用户反馈"没有关闭按钮"）→ 改用与重命名/移动一致的自定义 Modal
-  const openMenu = (folder: Folder) => {
-    setMenuFolder(folder);
+  // 行内 ➕ 的创建子文件夹 Modal（在该文件夹下新建）
+  const [createModal, setCreateModal] = useState<{ parentId: string } | null>(null);
+  const [createName, setCreateName] = useState('');
+
+  const handleCreateIn = async () => {
+    const name = createName.trim();
+    if (!name || !createModal) return;
+    try {
+      const id = await repo.createFolder({ name, parentId: createModal.parentId });
+      const parent = findFolder(createModal.parentId);
+      setFolders((prev) => [
+        ...prev,
+        {
+          id,
+          name,
+          parentId: createModal.parentId,
+          icon: null,
+          sortOrder: 0,
+          createdAt: new Date().toISOString(),
+          depth: parent ? (parent.depth ?? 1) + 1 : 1,
+          branch: parent ? (parent.branch ?? null) : null,
+        },
+      ]);
+      setCreateModal(null);
+      setCreateName('');
+    } catch (err) {
+      Alert.alert(t('folders.create_failed'), err instanceof Error ? err.message : String(err));
+    }
   };
 
   const handleRename = async () => {
@@ -290,32 +313,65 @@ export function FoldersScreen() {
           const isExpanded = expanded.has(item.id);
           return (
             <View style={[styles.row, { paddingLeft: ((item.depth ?? 1) - 1) * 20 }]}>
-              {/* 展开/折叠按钮 */}
-              {hasChildren ? (
-                <TouchableOpacity
-                  onPress={() =>
-                    setExpanded((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(item.id)) next.delete(item.id);
-                      else next.add(item.id);
-                      return next;
-                    })
-                  }
-                  style={{ marginRight: 4 }}
-                >
-                  <Text style={{ fontSize: 12, color: colors.muted }}>{isExpanded ? '▼' : '▶'}</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={{ width: 20, textAlign: 'center', marginRight: 4, color: colors.muted }}>·</Text>
-              )}
-              <Text style={styles.rowIcon}>📁</Text>
-              <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+              {/* 点击行：有子文件夹则展开/折叠 */}
               <TouchableOpacity
-                style={styles.deleteBtn}
-                onPress={() => openMenu(item)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={styles.rowMain}
+                onPress={() =>
+                  setExpanded((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(item.id)) next.delete(item.id);
+                    else next.add(item.id);
+                    return next;
+                  })
+                }
               >
-                <Text style={styles.deleteText}>⋯</Text>
+                {hasChildren ? (
+                  <Text style={{ fontSize: 12, color: colors.muted, marginRight: 4 }}>
+                    {isExpanded ? '▼' : '▶'}
+                  </Text>
+                ) : null}
+                <Text style={styles.rowIcon}>📁</Text>
+                <Text style={styles.rowName} numberOfLines={1}>
+                  {item.name}
+                  {hasChildren ? ` (${folders.filter((f) => f.parentId === item.id).length})` : ''}
+                </Text>
+              </TouchableOpacity>
+              {/* 行内操作：添加子文件夹 / 重命名 / 移动 / 删除 */}
+              <TouchableOpacity
+                style={styles.rowAction}
+                onPress={() => {
+                  setParentSel(item.id);
+                  setCreateModal({ parentId: item.id });
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              >
+                <Text style={styles.rowActionText}>➕</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rowAction}
+                onPress={() => {
+                  setRenaming(item);
+                  setRenameText(item.name);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              >
+                <Text style={styles.rowActionText}>✏️</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rowAction}
+                onPress={() => {
+                  setMoving(item);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              >
+                <Text style={styles.rowActionText}>📁</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rowAction}
+                onPress={() => handleDelete(item)}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              >
+                <Text style={styles.rowActionText}>🗑️</Text>
               </TouchableOpacity>
             </View>
           );
@@ -391,51 +447,39 @@ export function FoldersScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
-      {/* 行操作菜单 Modal（✕ / 遮罩可关闭，替代原生 Alert） */}
-      <Modal visible={menuFolder !== null} transparent animationType="fade">
-        <TouchableOpacity style={styles.modalMask} onPress={() => setMenuFolder(null)}>
+      {/* 行内 ➕ 的创建子文件夹 Modal */}
+      <Modal visible={createModal !== null} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalMask} onPress={() => setCreateModal(null)}>
           <View style={styles.modalCard}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <Text style={styles.modalTitle} numberOfLines={1}>
-                📁 {menuFolder?.name}
+                新建子文件夹
               </Text>
-              <TouchableOpacity onPress={() => setMenuFolder(null)}>
+              <TouchableOpacity onPress={() => setCreateModal(null)}>
                 <Text style={{ fontSize: 18, color: colors.muted }}>✕</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.menuRow}
-              onPress={() => {
-                const f = menuFolder;
-                setMenuFolder(null);
-                if (f) {
-                  setRenaming(f);
-                  setRenameText(f.name);
-                }
-              }}
-            >
-              <Text style={styles.menuRowText}>✏️ {t('folders.rename')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuRow}
-              onPress={() => {
-                const f = menuFolder;
-                setMenuFolder(null);
-                if (f) setMoving(f);
-              }}
-            >
-              <Text style={styles.menuRowText}>📁 {t('folders.move_folder')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuRow}
-              onPress={() => {
-                const f = menuFolder;
-                setMenuFolder(null);
-                if (f) handleDelete(f);
-              }}
-            >
-              <Text style={[styles.menuRowText, { color: colors.danger }]}>🗑️ {t('folders.delete')}</Text>
-            </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              value={createName}
+              onChangeText={setCreateName}
+              placeholder="文件夹名称"
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => void handleCreateIn()}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalBtn} onPress={() => setCreateModal(null)}>
+                <Text style={styles.modalBtnCancel}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, !createName.trim() && { opacity: 0.5 }]}
+                onPress={() => void handleCreateIn()}
+                disabled={!createName.trim()}
+              >
+                <Text style={styles.modalBtnOk}>{t('common.confirm')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -549,6 +593,9 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       gap: 12,
     },
     modalTitle: { fontSize: 16, fontWeight: '600', color: c.fg },
+    rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+    rowAction: { paddingHorizontal: 3 },
+    rowActionText: { fontSize: 13 },
     menuRow: {
       paddingVertical: 12,
       paddingHorizontal: 4,

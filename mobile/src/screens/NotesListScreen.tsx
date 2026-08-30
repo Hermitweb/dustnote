@@ -56,10 +56,9 @@ export function NotesListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
-  // 筛选 / 排序（v2.4.4 新增）
+  // 筛选（排序分类 UI 已移除，固定按更新时间倒序）
   const [tab, setTab] = useState<'all' | 'fav'>('all');
   const [folderFilter, setFolderFilter] = useState<string>('all'); // 'all' | folderId
-  const [sortBy, setSortBy] = useState<'time' | 'title' | 'words'>('time');
   const [folders, setFolders] = useState<Folder[]>([]);
 
   // 创建 Repository（按当前模式分流）
@@ -142,17 +141,31 @@ export function NotesListScreen() {
         return title.includes(keyword) || content.includes(keyword);
       })
       .sort((a, b) => {
-        // 置顶优先（所有排序方式都保持）
+        // 置顶优先；排序分类 UI 已移除，固定按更新时间倒序
         if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-        if (sortBy === 'title') {
-          return (a.plain?.title ?? '').localeCompare(b.plain?.title ?? '', 'zh-CN');
-        }
-        if (sortBy === 'words') {
-          return (b.plain?.content?.length ?? 0) - (a.plain?.content?.length ?? 0);
-        }
         return b.serverUpdatedAt.localeCompare(a.serverUpdatedAt);
       });
-  }, [notes, search, tab, folderFilter, sortBy]);
+  }, [notes, search, tab, folderFilter]);
+
+  // 文件夹层级导航（路径式下钻）：面包屑链 + 当前层子文件夹
+  const folderMap = useMemo(() => {
+    const m = new Map<string, Folder>();
+    for (const f of folders) m.set(f.id, f);
+    return m;
+  }, [folders]);
+  const crumbs = useMemo(() => {
+    const chain: Folder[] = [];
+    let cur = folderFilter !== 'all' ? folderMap.get(folderFilter) : undefined;
+    while (cur) {
+      chain.unshift(cur);
+      cur = cur.parentId ? folderMap.get(cur.parentId) : undefined;
+    }
+    return chain;
+  }, [folderFilter, folderMap]);
+  const subFolders = useMemo(() => {
+    const parentId = folderFilter === 'all' ? null : folderFilter;
+    return folders.filter((f) => f.parentId === parentId);
+  }, [folders, folderFilter]);
 
   const styles = makeStyles(colors, layout);
 
@@ -187,7 +200,7 @@ export function NotesListScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 筛选 / 排序栏（v2.4.4 新增） */}
+      {/* 筛选栏（时间/标题/字数分类已移除，笔记按更新时间排序） */}
       <View style={styles.filterBar}>
         <View style={styles.chipRow}>
           <FilterChip
@@ -202,43 +215,39 @@ export function NotesListScreen() {
             onPress={() => setTab('fav')}
             colors={colors}
           />
-          <View style={{ flex: 1 }} />
-          <FilterChip
-            label="⏱ 时间"
-            active={sortBy === 'time'}
-            onPress={() => setSortBy('time')}
-            colors={colors}
-          />
-          <FilterChip
-            label="🔤 标题"
-            active={sortBy === 'title'}
-            onPress={() => setSortBy('title')}
-            colors={colors}
-          />
-          <FilterChip
-            label="🔢 字数"
-            active={sortBy === 'words'}
-            onPress={() => setSortBy('words')}
-            colors={colors}
-          />
         </View>
+        {/* 文件夹层级导航（路径式下钻）：面包屑 + 当前层子文件夹 */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderRow}>
           <FilterChip
-            label="📂 全部文件夹"
+            label="🏠 全部"
             active={folderFilter === 'all'}
             onPress={() => setFolderFilter('all')}
             colors={colors}
           />
-          {folders.map((f) => (
+          {crumbs.map((c) => (
             <FilterChip
-              key={f.id}
-              label={`📁 ${f.name}`}
-              active={folderFilter === f.id}
-              onPress={() => setFolderFilter(f.id)}
+              key={c.id}
+              label={`▸ ${c.name}`}
+              active={folderFilter === c.id}
+              onPress={() => setFolderFilter(c.id)}
               colors={colors}
             />
           ))}
         </ScrollView>
+        {/* 当前层的子文件夹（点击下钻） */}
+        {subFolders.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderRow}>
+            {subFolders.map((f) => (
+              <FilterChip
+                key={f.id}
+                label={`📁 ${f.name}`}
+                active={false}
+                onPress={() => setFolderFilter(f.id)}
+                colors={colors}
+              />
+            ))}
+          </ScrollView>
+        )}
       </View>
 
       {/* 笔记列表 */}
@@ -255,10 +264,16 @@ export function NotesListScreen() {
                 <Text style={styles.retryText}>重试</Text>
               </TouchableOpacity>
             </View>
+          ) : folderFilter === 'all' && tab === 'all' ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>📁</Text>
+              <Text style={styles.emptyText}>笔记按文件夹归类</Text>
+              <Text style={styles.emptyHint}>在上方进入一个文件夹，即可查看其中的笔记</Text>
+            </View>
           ) : (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>📝</Text>
-              <Text style={styles.emptyText}>还没有笔记</Text>
+              <Text style={styles.emptyText}>这个文件夹还没有笔记</Text>
               <Text style={styles.emptyHint}>点击右下角按钮创建第一篇</Text>
             </View>
           )
