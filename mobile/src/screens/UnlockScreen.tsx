@@ -134,6 +134,17 @@ export function UnlockScreen() {
       >
         <Text style={styles.recoverButtonText}>{t('auth.recover_forgot')}</Text>
       </TouchableOpacity>
+
+      {/* 加密引擎诊断（v2.5.19：定位解锁派生耗时过长的根因——
+          quick-crypto 原生 JSI 未生效时会回退纯 JS 实现，分钟级 vs 秒级） */}
+      <Text style={styles.engineDebugText}>
+        {(() => {
+          const s = (globalThis as Record<string, any>).__QCRYPTO_STATUS;
+          if (!s) return '加密引擎:未知';
+          if (s.requireOk && s.installOk) return '加密引擎:原生(JSI)';
+          return `加密引擎:兼容模式(慢) ${s.requireError ?? s.installError ?? ''}`;
+        })()}
+      </Text>
     </View>
   );
 }
@@ -173,6 +184,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     bioButton: { marginTop: 16, padding: 12, alignItems: 'center' },
     bioButtonText: { color: c.mint600, fontSize: 14 },
     recoverButton: { marginTop: 8, padding: 12, alignItems: 'center' },
+    engineDebugText: { fontSize: 10, color: c.muted, textAlign: 'center', marginTop: 16, opacity: 0.7 },
     recoverButtonText: { color: c.muted, fontSize: 13, textDecorationLine: 'underline' },
   });
 }
