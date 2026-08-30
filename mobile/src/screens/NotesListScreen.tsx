@@ -21,6 +21,7 @@ import {
   TextInput,
   Alert,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -60,6 +61,11 @@ export function NotesListScreen() {
   const [tab, setTab] = useState<'all' | 'fav'>('all');
   const [folderFilter, setFolderFilter] = useState<string>('all'); // 'all' | folderId
   const [folders, setFolders] = useState<Folder[]>([]);
+  // 批量操作：长按笔记进入多选，底部操作栏支持全选/移动/删除
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [moveModalVisible, setMoveModalVisible] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   // 创建 Repository（按当前模式分流）
   // mode 可能因 hydrated 延迟而短暂为 null，使用 ?? 'online' 兜底避免类型错误
@@ -167,6 +173,80 @@ export function NotesListScreen() {
     return folders.filter((f) => f.parentId === parentId);
   }, [folders, folderFilter]);
 
+  // ── 批量操作 ──────────────────────────────────────────────
+  const exitSelect = useCallback(() => {
+    setSelecting(false);
+    setSelectedIds(new Set());
+  }, []);
+  const enterSelect = useCallback((id: string) => {
+    setSelecting(true);
+    setSelectedIds(new Set([id]));
+  }, []);
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) =>
+      prev.size === filtered.length && filtered.length > 0 ? new Set() : new Set(filtered.map((n) => n.id))
+    );
+  }, [filtered]);
+
+  const doBatchMove = useCallback(
+    async (folderId: string | null) => {
+      setMoveModalVisible(false);
+      if (selectedIds.size === 0 || busy) return;
+      setBusy(true);
+      let ok = 0;
+      let fail = 0;
+      for (const id of selectedIds) {
+        try {
+          await repo.moveNote(id, folderId);
+          ok++;
+        } catch {
+          fail++;
+        }
+      }
+      setBusy(false);
+      exitSelect();
+      await load();
+      Alert.alert('移动完成', `成功移动 ${ok} 篇${fail > 0 ? `，失败 ${fail} 篇` : ''}`);
+    },
+    [selectedIds, busy, repo, exitSelect, load]
+  );
+
+  const doBatchDelete = useCallback(async () => {
+    if (selectedIds.size === 0 || busy) return;
+    setBusy(true);
+    let ok = 0;
+    let fail = 0;
+    for (const id of selectedIds) {
+      try {
+        await repo.deleteNote(id); // 软删除 → 进回收站
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    setBusy(false);
+    exitSelect();
+    await load();
+    Alert.alert('删除完成', `已把 ${ok} 篇笔记移入回收站${fail > 0 ? `，失败 ${fail} 篇` : ''}`);
+  }, [selectedIds, busy, repo, exitSelect, load]);
+
+  const confirmBatchDelete = useCallback(() => {
+    const n = selectedIds.size;
+    if (n === 0) return;
+    Alert.alert('批量删除', `确定把选中的 ${n} 篇笔记移入回收站吗？`, [
+      { text: '取消', style: 'cancel' },
+      { text: '删除', style: 'destructive', onPress: () => void doBatchDelete() },
+    ]);
+  }, [selectedIds, doBatchDelete]);
+
   const styles = makeStyles(colors, layout);
 
   return (
@@ -200,22 +280,8 @@ export function NotesListScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 筛选栏（时间/标题/字数分类已移除，笔记按更新时间排序） */}
+      {/* 筛选栏（"全部/收藏"切换已移至底部按钮区；笔记按更新时间排序） */}
       <View style={styles.filterBar}>
-        <View style={styles.chipRow}>
-          <FilterChip
-            label="全部"
-            active={tab === 'all'}
-            onPress={() => setTab('all')}
-            colors={colors}
-          />
-          <FilterChip
-            label="⭐ 收藏"
-            active={tab === 'fav'}
-            onPress={() => setTab('fav')}
-            colors={colors}
-          />
-        </View>
         {/* 文件夹层级导航（路径式下钻）：面包屑 + 当前层子文件夹 */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderRow}>
           <FilterChip
@@ -280,10 +346,23 @@ export function NotesListScreen() {
         }
         renderItem={({ item }) => (
           <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate('NoteEdit', { noteId: item.id })}
+            style={[styles.card, selecting && selectedIds.has(item.id) && styles.cardSelected]}
+            onPress={() => {
+              if (selecting) {
+                toggleSelect(item.id);
+                return;
+              }
+              navigation.navigate('NoteEdit', { noteId: item.id });
+            }}
+            onLongPress={() => {
+              if (!selecting) enterSelect(item.id);
+            }}
+            delayLongPress={350}
           >
             <View style={styles.cardHeader}>
+              {selecting ? (
+                <Text style={styles.checkMark}>{selectedIds.has(item.id) ? '☑' : '☐'}</Text>
+              ) : null}
               {item.isPinned ? <Text style={styles.pin}>📌</Text> : null}
               {item.isFavorite ? <Text style={styles.fav}>⭐</Text> : null}
               <Text style={styles.cardTitle} numberOfLines={1}>
@@ -296,7 +375,7 @@ export function NotesListScreen() {
           </TouchableOpacity>
         )}
         contentContainerStyle={{
-          paddingBottom: 80,
+          paddingBottom: selecting ? 130 : 80,
           // 平板：限制内容宽度并居中，提升阅读体验
           ...(layout.isTablet
             ? { maxWidth: layout.maxContentWidth, alignSelf: 'center', width: '100%' }
@@ -304,10 +383,21 @@ export function NotesListScreen() {
         }}
       />
 
-      {/* 新建按钮 */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={async () => {
+      {/* 收藏切换 + 新建按钮（多选模式下隐藏，让位给批量操作栏） */}
+      {!selecting && (
+        <>
+          <TouchableOpacity
+            style={[styles.fabLike, tab === 'fav' && { backgroundColor: colors.mint600 }]}
+            onPress={() => setTab(tab === 'fav' ? 'all' : 'fav')}
+          >
+            <Text style={[styles.fabLikeText, tab === 'fav' && { color: '#fff' }]}>
+              ⭐ {tab === 'fav' ? '查看全部' : '收藏'}
+            </Text>
+          </TouchableOpacity>
+          {/* 新建按钮 */}
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={async () => {
           if (!masterKey) return;
           // 笔记必须归属文件夹：「全部」视图未选中文件夹时不创建
           if (folderFilter === 'all') {
@@ -357,7 +447,75 @@ export function NotesListScreen() {
         }}
       >
         <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
+          </TouchableOpacity>
+        </>
+      )}
+
+      {/* 批量操作栏（多选模式下显示） */}
+      {selecting && (
+        <View style={styles.batchBar}>
+          <TouchableOpacity style={styles.batchBtn} onPress={toggleSelectAll}>
+            <Text style={styles.batchBtnText}>
+              {selectedIds.size === filtered.length && filtered.length > 0 ? '取消全选' : '全选'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.batchBtn}
+            disabled={selectedIds.size === 0 || busy}
+            onPress={() => setMoveModalVisible(true)}
+          >
+            <Text style={[styles.batchBtnText, styles.batchBtnTextStrong]} numberOfLines={1}>
+              移动 ({selectedIds.size})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.batchBtn}
+            disabled={selectedIds.size === 0 || busy}
+            onPress={confirmBatchDelete}
+          >
+            <Text style={[styles.batchBtnText, styles.batchBtnTextDanger]} numberOfLines={1}>
+              删除 ({selectedIds.size})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.batchBtn} onPress={exitSelect}>
+            <Text style={styles.batchBtnText}>取消</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* 移动到文件夹弹层 */}
+      <Modal
+        visible={moveModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMoveModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>移动 {selectedIds.size} 篇笔记到…</Text>
+            <ScrollView style={styles.modalList}>
+              <TouchableOpacity style={styles.modalItem} onPress={() => void doBatchMove(null)}>
+                <Text style={styles.modalItemText}>📂 根目录（不归类）</Text>
+              </TouchableOpacity>
+              {folders.map((f) => (
+                <TouchableOpacity
+                  key={f.id}
+                  style={styles.modalItem}
+                  onPress={() => void doBatchMove(f.id)}
+                >
+                  <Text style={styles.modalItemText}>📁 {f.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalCancel}
+              onPress={() => setMoveModalVisible(false)}
+            >
+              <Text style={styles.modalCancelText}>取消</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -449,7 +607,72 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
       shadowRadius: 4,
       elevation: 5,
     },
+    fabLike: {
+      position: 'absolute',
+      right: 20,
+      bottom: 88,
+      paddingHorizontal: 16,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: c.card,
+      borderWidth: 1,
+      borderColor: c.border,
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
+    },
+    fabLikeText: { fontSize: 14, color: c.fg, fontWeight: '600' },
     fabText: { color: 'white', fontSize: 28, fontWeight: '300' },
+    // ── 批量操作 ──
+    cardSelected: { borderColor: c.mint600, borderWidth: 2 },
+    checkMark: { fontSize: 18, marginRight: 4 },
+    batchBar: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      flexDirection: 'row',
+      backgroundColor: c.card,
+      borderTopWidth: 1,
+      borderTopColor: c.border,
+      paddingTop: 10,
+      paddingBottom: 24,
+      paddingHorizontal: 4,
+    },
+    batchBtn: { flex: 1, alignItems: 'center', paddingVertical: 10 },
+    batchBtnText: { fontSize: 13, color: c.fg },
+    batchBtnTextStrong: { color: c.mint600, fontWeight: '700' },
+    batchBtnTextDanger: { color: '#e5484d', fontWeight: '700' },
+    // ── 移动到文件夹弹层 ──
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    modalSheet: {
+      backgroundColor: c.card,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      maxHeight: '70%',
+      paddingBottom: 24,
+    },
+    modalTitle: { fontSize: 15, fontWeight: '700', color: c.fg, padding: 16 },
+    modalList: { paddingHorizontal: 12 },
+    modalItem: {
+      paddingVertical: 14,
+      paddingHorizontal: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.border,
+    },
+    modalItemText: { fontSize: 15, color: c.fg },
+    modalCancel: {
+      marginTop: 8,
+      marginHorizontal: 16,
+      paddingVertical: 12,
+      alignItems: 'center',
+      borderRadius: 8,
+      backgroundColor: c.bg,
+    },
+    modalCancelText: { fontSize: 15, color: c.muted },
   });
 }
 

@@ -47,6 +47,7 @@ import { clearLocalAuthBlob, clearLockoutState } from '../lib/local-auth-storage
 import { setup2fa, enable2fa, disable2fa, get2faStatus } from '../lib/totp-client';
 import type { CheckUpdateResult } from '@dustnote/shared';
 import { resolveBaseUrl } from '../lib/mode-store';
+import { buildClientHeaders } from '../api';
 
 /** 服务端设备列表项（GET /devices 返回结构） */
 interface DeviceItem {
@@ -122,7 +123,7 @@ export function SettingsScreen() {
       const baseUrl = resolveBaseUrl();
       const token = useAuthStore.getState().accessToken;
       const r = await fetch(`${baseUrl}/devices`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, ...(await buildClientHeaders()) },
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = (await r.json()) as { devices: DeviceItem[] };
@@ -157,7 +158,7 @@ export function SettingsScreen() {
               const token = useAuthStore.getState().accessToken;
               const r = await fetch(`${baseUrl}/devices/${device.id}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
+                headers: { Authorization: `Bearer ${token}`, ...(await buildClientHeaders()) },
               });
               if (!r.ok) throw new Error(`HTTP ${r.status}`);
               setDevices((prev) => prev.filter((d) => d.id !== device.id));
@@ -197,6 +198,7 @@ export function SettingsScreen() {
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${token}`,
+                ...(await buildClientHeaders()),
               },
               body: JSON.stringify({ confirm: true }),
             });

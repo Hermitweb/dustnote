@@ -48,6 +48,24 @@ export async function setRefreshToken(token: string | null): Promise<void> {
   else await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
+/**
+ * 裸 fetch 用的客户端标识头（X-Client-*）。
+ * 服务端 version-check 中间件要求这些头（缺失返回 400 missing_client_headers）；
+ * 走 ApiClient 的请求由拦截器自动注入，绕过 ApiClient 的直接 fetch 需手动带上。
+ */
+export async function buildClientHeaders(
+  extra?: Record<string, string>
+): Promise<Record<string, string>> {
+  const dId = await getDeviceId();
+  return {
+    'X-Client-Version': APP_VERSION,
+    'X-Client-Platform': 'android' as ClientPlatform,
+    'X-Client-Channel': 'stable' as ClientChannel,
+    'X-Client-Device-Id': dId,
+    ...(extra ?? {}),
+  };
+}
+
 async function getRefreshToken(): Promise<string | null> {
   return AsyncStorage.getItem(REFRESH_TOKEN_KEY);
 }

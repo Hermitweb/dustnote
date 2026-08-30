@@ -45,6 +45,7 @@ import {
   type Folder,
 } from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
+import { buildClientHeaders } from '../api';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
 import { MarkdownView } from '../components/MarkdownView';
@@ -392,9 +393,15 @@ export function NoteEditScreen() {
       const { resolveBaseUrl } = await import('../lib/mode-store');
       const baseUrl = resolveBaseUrl().replace(/\/api\/v1$/, '');
       const token = useAuthStore.getState().accessToken;
+      // 服务端 version-check 要求 X-Client-* 头（缺失 400）
+      const clientHeaders = await buildClientHeaders();
       const r = await fetch(`${baseUrl}/api/v1/shares`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          ...clientHeaders,
+        },
         body: JSON.stringify({
           noteId,
           ciphertext,
@@ -451,8 +458,9 @@ export function NoteEditScreen() {
       const { resolveBaseUrl } = await import('../lib/mode-store');
       const baseUrl = resolveBaseUrl();
       const token = useAuthStore.getState().accessToken;
+      const clientHeaders = await buildClientHeaders();
       const r = await fetch(`${baseUrl}/notes/${noteId}/versions`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, ...clientHeaders },
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = (await r.json()) as { versions: NoteVersionMeta[] };
@@ -477,9 +485,10 @@ export function NoteEditScreen() {
               const { resolveBaseUrl } = await import('../lib/mode-store');
               const baseUrl = resolveBaseUrl();
               const token = useAuthStore.getState().accessToken;
+              const ch = await buildClientHeaders();
               // 1. 拉取版本密文
               const r = await fetch(`${baseUrl}/notes/${noteId}/versions/${versionId}`, {
-                headers: { Authorization: `Bearer ${token}` },
+                headers: { Authorization: `Bearer ${token}`, ...ch },
               });
               if (!r.ok) throw new Error(`HTTP ${r.status}`);
               const data = (await r.json()) as { ciphertext: string };
@@ -497,7 +506,11 @@ export function NoteEditScreen() {
                 `${baseUrl}/notes/${noteId}/versions/${versionId}/restore`,
                 {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                    ...ch,
+                  },
                   body: JSON.stringify({ version: note?.version ?? 1 }),
                 }
               );
@@ -528,7 +541,7 @@ export function NoteEditScreen() {
         const baseUrl = resolveBaseUrl();
         const token = useAuthStore.getState().accessToken;
         const r = await fetch(`${baseUrl}/notes/${noteId}/versions/${v.id}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}`, ...(await buildClientHeaders()) },
         });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = (await r.json()) as { ciphertext: string };

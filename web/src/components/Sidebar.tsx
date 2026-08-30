@@ -576,8 +576,9 @@ export function Sidebar() {
             )}
           </div>
 
-          {/* 文件夹（用户自建，无预设分支）+ 扁平优先 + 层级拦截 */}
-          {viewMode !== 'trash' && (
+          {/* 文件夹树仅在「全部笔记」视图显示（收藏/回收站/搜索时只显示对应列表，
+              用户反馈：收藏视图不要显示多余文件夹） */}
+          {viewMode === 'all' && (
             <div className="mt-4">
               <div className="mb-1 flex items-center justify-between px-2 text-xs font-semibold text-surface-muted">
                 <span>{t('sidebar.folders')}</span>
@@ -917,7 +918,7 @@ export function Sidebar() {
           <div className="flex gap-1">
             <button
               onClick={() => setViewMode('all')}
-              className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
+              className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded px-1.5 py-1.5 text-xs transition-colors ${
                 viewMode === 'all'
                   ? 'bg-mint-50 font-semibold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300'
                   : 'text-surface-fg hover:bg-surface-bg'

@@ -425,7 +425,12 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
   async loadTemplates(): Promise<void> {
     const { mode } = get();
     if (mode === 'standalone') { set({ templates: PRESET_TEMPLATES } as Partial<StoreState>); return; }
-    try { const r = await api().get<{ templates: Template[] }>('/templates'); set({ templates: r.templates ?? PRESET_TEMPLATES } as Partial<StoreState>); } catch { set({ templates: PRESET_TEMPLATES } as Partial<StoreState>); }
+    try {
+      // 服务端只存用户自定义模板（预设在前端内置），两者合并展示——
+      // 旧实现整体覆盖导致联机模式预设模板消失
+      const r = await api().get<{ templates: Template[] }>('/templates');
+      set({ templates: [...PRESET_TEMPLATES, ...(r.templates ?? [])] } as Partial<StoreState>);
+    } catch { set({ templates: PRESET_TEMPLATES } as Partial<StoreState>); }
   },
 
   async saveAsTemplate(name: string, plain: NotePlaintext): Promise<void> {
