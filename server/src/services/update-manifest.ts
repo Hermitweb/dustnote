@@ -42,7 +42,9 @@ const STATIC_ARTIFACTS = {
   },
   android: {
     apk: {
-      url: 'https://cdn.dustnote.app/android/latest/app.apk',
+      // GitHub Releases 直链（同 windows：真实产物，随 serverVersion 指向最新 tag 的 APK）。
+      // cdn.dustnote.app 为无真实服务的占位域名，指向它会让更新提示后无法下载。
+      url: `https://github.com/Hermitweb/dustnote/releases/download/v${config.serverVersion}/DustNote_${config.serverVersion}_android.apk`,
       hash: '',
       size: 0,
       minSdkVersion: 28,
