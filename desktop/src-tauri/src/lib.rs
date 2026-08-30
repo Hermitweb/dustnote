@@ -4,7 +4,7 @@
 //! - 注册全局快捷键（Ctrl+Shift+M 唤起主窗口）
 //! - 注册 autostart 启动项
 //! - 启动时静默运行（如果传了 --silent）
-//! - Velopack 自动更新命令（检查/下载/应用）
+//! - 应用内更新（检查走自建 manifest，下载 NSIS 包 + SHA-256 校验后启动向导）
 //! - 与 Web 端共享前端 bundle
 
 use std::sync::Mutex;
@@ -21,444 +21,87 @@ use tauri_plugin_global_shortcut::ShortcutState;
 struct TrayState(Mutex<Option<TrayIcon>>);
 
 // ============================================================================
-// Velopack 自动更新（仅桌面平台编译）
+// 应用内更新（v2.5.19 起，替代 Velopack）
+//
+// 策略：检查走自建服务器 /api/v1/update-manifest（web 层 useUpdateCheck 已接），
+// 下载走 GitHub Releases 直链（releases/download 域走 CDN，不受 api.github.com
+// 未认证 60 次/小时限流约束）。下载完成后校验 SHA-256（manifest 携带哈希，
+// 供应链防护：文件被替换时拒绝执行），再启动 NSIS 安装向导由用户接管升级。
 // ============================================================================
 
-/// GitHub Releases 仓库地址（Velopack 从此读取更新源）
-const GITHUB_REPO_URL: &str = "https://github.com/Hermitweb/dustnote";
+/// 允许的安装包下载地址前缀（白名单防 SSRF/任意 URL 下载）
+const INSTALLER_URL_PREFIX: &str =
+    "https://github.com/Hermitweb/dustnote/releases/download/";
 
-/// 最新版本查询结果缓存（省 GitHub API 配额：未认证 60 次/小时/IP，
-/// 多客户端或共享出口 IP 极易耗尽，用户会持续看到限流报错——真机反馈）
-static LATEST_VERSION_CACHE: std::sync::Mutex<Option<(std::time::Instant, String)>> =
-    std::sync::Mutex::new(None);
-const LATEST_VERSION_CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(30 * 60);
-
-/// 返回给前端的更新检查结果
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateCheckResult {
-    pub update_available: bool,
-    pub target_version: Option<String>,
-    pub current_version: String,
-    pub is_downgrade: bool,
+/// 当前应用版本（tauri.conf.json 的 version 经 CARGO_PKG_VERSION 注入）
+#[tauri::command]
+fn app_version() -> Result<String, String> {
+    Ok(env!("CARGO_PKG_VERSION").to_string())
 }
 
-/// 结构化错误（前端据此区分 dev 期 NotInstalled 等）
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdaterError {
-    pub kind: &'static str, // "NotInstalled" | "Network" | "Unknown"
-    pub message: String,
+/// 流式下载更新安装包到临时目录，校验 SHA-256 后启动 NSIS 安装向导。
+/// 进度经 `updater://download-progress` 事件（0-100）推送给前端。
+#[tauri::command]
+async fn download_and_run_installer(
+    app: tauri::AppHandle,
+    url: String,
+    expected_sha256: Option<String>,
+) -> Result<String, String> {
+    use std::io::Write;
+
+    if !url.starts_with(INSTALLER_URL_PREFIX) {
+        return Err("非法的下载地址".into());
+    }
+
+    let resp = reqwest::get(&url).await.map_err(|e| format!("下载失败：{}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("下载失败：HTTP {}", resp.status()));
+    }
+    let total = resp.content_length().unwrap_or(0);
+
+    let tmp = std::env::temp_dir().join("DustNote-setup.exe");
+    let mut file = std::fs::File::create(&tmp).map_err(|e| format!("写入临时文件失败：{}", e))?;
+    let mut hasher = sha2::Sha256::new();
+    let mut stream = resp;
+    let mut received: u64 = 0;
+    while let Some(chunk) = stream.chunk().await.map_err(|e| format!("下载中断：{}", e))? {
+        hasher.update(&chunk);
+        file.write_all(&chunk)
+            .map_err(|e| format!("写入临时文件失败：{}", e))?;
+        received += chunk.len() as u64;
+        if total > 0 {
+            let pct = ((received as f64 / total as f64) * 100.0) as i16;
+            let _ = app.emit("updater://download-progress", pct);
+        }
+    }
+    file.flush().ok();
+    drop(file);
+
+    // SHA-256 校验：manifest 携带期望哈希（"sha256:<hex>"），不匹配即删除并拒绝
+    if let Some(expected) = expected_sha256 {
+        let expected_hex = expected
+            .strip_prefix("sha256:")
+            .unwrap_or(&expected)
+            .to_lowercase();
+        let actual_hex = format!("{:x}", hasher.finalize());
+        if actual_hex != expected_hex {
+            let _ = std::fs::remove_file(&tmp);
+            return Err("安装包校验失败（SHA-256 不匹配），已取消更新".into());
+        }
+    }
+
+    // 启动 NSIS 安装向导；当前应用保持运行，用户完成向导后手动重启生效
+    std::process::Command::new(&tmp)
+        .spawn()
+        .map_err(|e| format!("启动安装程序失败：{}", e))?;
+
+    Ok(tmp.to_string_lossy().to_string())
 }
 
-// ---- 桌面平台：完整 Velopack 实现 ----
+// ============================================================================
+// 应用内更新（替代 Velopack）结束
+// ============================================================================
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-mod velopack_impl {
-    use super::{UpdaterError, UpdateCheckResult, GITHUB_REPO_URL};
-    use std::sync::mpsc;
-    use tauri::{AppHandle, Emitter};
-    use velopack::{sources::GithubSource, UpdateCheck, UpdateManager};
-
-    /// GitHub API 端点 — 获取最新 release 信息
-    const GITHUB_API_RELEASES: &str = "https://api.github.com/repos/Hermitweb/dustnote/releases/latest";
-
-    /// 构造 UpdateManager（dev 期未安装时返回 NotInstalled 错误）
-    fn build_manager() -> Result<UpdateManager, velopack::Error> {
-        let source = GithubSource::new(GITHUB_REPO_URL, None, false);
-        UpdateManager::new(source, None, None)
-    }
-
-    /// 把 velopack::Error 映射为前端可读的 UpdaterError
-    fn map_err(e: velopack::Error) -> UpdaterError {
-        let kind = match &e {
-            velopack::Error::NotInstalled(_) => "NotInstalled",
-            velopack::Error::Network(_) => "Network",
-            _ => "Unknown",
-        };
-        UpdaterError {
-            kind,
-            message: e.to_string(),
-        }
-    }
-
-    /// 自动检测本地代理（Clash 7890 / SOCKS 1080 / HTTP 8080）
-    ///
-    /// 部分用户网络环境无法直连 github.com（GFW / 企业防火墙等），
-    /// 但本机可能运行了代理软件。此函数尝试 TCP 连接常见代理端口，
-    /// 若可达则返回代理 URL。
-    fn detect_local_proxy() -> Option<String> {
-        // 优先尊重已设置的 env var
-        if let Ok(proxy) = std::env::var("HTTPS_PROXY").or_else(|_| std::env::var("HTTP_PROXY")) {
-            if !proxy.is_empty() {
-                return Some(proxy);
-            }
-        }
-        // 尝试常见本地代理端口（300ms 超时，最多 ~1s）
-        for port in [7890, 1080, 8080] {
-            let addr: std::net::SocketAddr = match format!("127.0.0.1:{}", port).parse() {
-                Ok(a) => a,
-                Err(_) => continue,
-            };
-            if std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(300))
-                .is_ok()
-            {
-                return Some(format!("http://127.0.0.1:{}", port));
-            }
-        }
-        None
-    }
-
-    /// 为 Velopack 内部的 reqwest 客户端设置代理 env var
-    ///
-    /// Velopack 的 download_updates / apply_updates 也会发起网络请求，
-    /// 需要通过 env var 让其走代理。
-    ///
-    /// 使用 OnceLock 保证线程安全：仅首次调用时写入，后续读取复用同一值。
-    /// env var 写入本身仍有理论上的 race condition（std::env 非线程安全），
-    /// 但 Rust 1.85+ 的 set_var 已标记 unsafe，且代理值在进程生命周期内不变，
-    /// 实际影响可忽略。
-    fn set_proxy_env(proxy: &str) {
-        use std::sync::OnceLock;
-        static PROXY_SET: OnceLock<()> = OnceLock::new();
-        // 只在首次调用时写入 env var，避免重复写入
-        PROXY_SET.get_or_init(|| {
-            // SAFETY: 代理 env var 在进程启动后写入一次，后续不再修改，
-            // 且仅被 Velopack 内部 reqwest client 消费。
-            unsafe {
-                std::env::set_var("HTTPS_PROXY", proxy);
-                std::env::set_var("HTTP_PROXY", proxy);
-            }
-        });
-    }
-
-    /// 通过 GitHub API 检查最新 release 版本号
-    ///
-    /// 使用 reqwest blocking 客户端，支持代理 + 5s 超时。
-    /// 相比 Velopack 内置的 check_for_updates，此方法可显式配置代理，
-    /// 避免在无代理环境下长时间卡住。
-    ///
-    /// v2.5.19：结果缓存 30 分钟 + 限流降级。GitHub API 未认证配额仅
-    /// 60 次/小时/IP，多客户端或共享出口 IP 下极易耗尽，用户会持续看到
-    /// 限流报错（真机反馈）。命中缓存不发请求；限流时回退到过期缓存，
-    /// 实在没有才返回 RateLimited（前端弱化为提示而非错误）。
-    fn fetch_latest_version(proxy: Option<&str>) -> Result<String, UpdaterError> {
-        // 1. 命中未过期缓存直接返回，不消耗 GitHub 配额
-        {
-            let cache = LATEST_VERSION_CACHE.lock().unwrap();
-            if let Some((at, ver)) = cache.as_ref() {
-                if at.elapsed() < LATEST_VERSION_CACHE_TTL {
-                    return Ok(ver.clone());
-                }
-            }
-        }
-
-        let mut builder = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(5))
-            .user_agent("DustNote-Updater");
-
-        if let Some(p) = proxy {
-            builder = builder
-                .proxy(reqwest::Proxy::all(p).map_err(|e| UpdaterError {
-                    kind: "Network",
-                    message: format!("代理配置错误: {}", e),
-                })?);
-        }
-
-        let client = builder.build().map_err(|e| UpdaterError {
-            kind: "Network",
-            message: format!("HTTP 客户端初始化失败: {}", e),
-        })?;
-
-        let resp = client
-            .get(GITHUB_API_RELEASES)
-            .send()
-            .map_err(|e| UpdaterError {
-                kind: "Network",
-                message: format!("无法连接 GitHub: {}", e),
-            })?;
-
-        // 检查 GitHub API 限流（未认证 60 次/小时）：优先用过期缓存回退，
-        // 没有缓存才报 RateLimited（前端按提示而非错误处理）
-        if resp.status().as_u16() == 403 {
-            if let Some(remaining) = resp.headers().get("x-ratelimit-remaining") {
-                if remaining == "0" {
-                    {
-                        let cache = LATEST_VERSION_CACHE.lock().unwrap();
-                        if let Some((_, ver)) = cache.as_ref() {
-                            return Ok(ver.clone());
-                        }
-                    }
-                    let reset_ts = resp
-                        .headers()
-                        .get("x-ratelimit-reset")
-                        .and_then(|v| v.to_str().ok())
-                        .and_then(|v| v.parse::<i64>().ok())
-                        .unwrap_or(0);
-                    let reset_in = (reset_ts - std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs() as i64)
-                        .max(0);
-                    return Err(UpdaterError {
-                        kind: "RateLimited",
-                        message: format!(
-                            "GitHub 更新源限流（每小时 60 次），约 {} 分钟后自动恢复；期间可从 GitHub Releases 页手动下载",
-                            (reset_in + 59) / 60
-                        ),
-                    });
-                }
-            }
-        }
-
-        if !resp.status().is_success() {
-            return Err(UpdaterError {
-                kind: "Network",
-                message: format!("GitHub API 返回错误: HTTP {}", resp.status()),
-            });
-        }
-
-        let json: serde_json::Value = resp.json().map_err(|e| UpdaterError {
-            kind: "Network",
-            message: format!("解析 GitHub 响应失败: {}", e),
-        })?;
-
-        let tag = json["tag_name"].as_str().ok_or_else(|| UpdaterError {
-            kind: "Network",
-            message: "GitHub 响应中缺少 tag_name".into(),
-        })?;
-
-        // "v2.4.1" → "2.4.1"；写入结果缓存供后续检查复用（省配额）
-        let ver = tag.strip_prefix('v').unwrap_or(tag).to_string();
-        {
-            let mut cache = LATEST_VERSION_CACHE.lock().unwrap();
-            *cache = Some((std::time::Instant::now(), ver.clone()));
-        }
-        Ok(ver)
-    }
-
-    /// 语义版本比较：latest > current 时返回 true
-    ///
-    /// 遵循 SemVer 2.0.0 规范：
-    /// 1. 先比较 major.minor.patch 数字部分
-    /// 2. 若数字部分相同，有预发布标签的版本 < 无预发布标签的版本
-    ///    （例如 2.5.12-beta.1 < 2.5.12）
-    /// 3. 预发布标签按点分段逐段比较：数字段按数值，混合段按字典序
-    ///    （例如 2.5.12-alpha.1 < 2.5.12-beta.1）
-    fn is_newer_version(latest: &str, current: &str) -> bool {
-        /// 分离 "X.Y.Z-prerelease+build" 中的各部分
-        fn split_semv(s: &str) -> (Vec<u32>, &str) {
-            let (version, rest) = s.split_once('-').unwrap_or((s, ""));
-            let (pre, _build) = rest.split_once('+').unwrap_or((rest, ""));
-            let nums: Vec<u32> = version.split('.').filter_map(|p| p.parse().ok()).collect();
-            (nums, pre)
-        }
-
-        let (l_nums, l_pre) = split_semv(latest);
-        let (c_nums, c_pre) = split_semv(current);
-
-        // 1. 比较 major.minor.patch
-        for i in 0..l_nums.len().max(c_nums.len()) {
-            let lv = *l_nums.get(i).unwrap_or(&0);
-            let cv = *c_nums.get(i).unwrap_or(&0);
-            if lv > cv { return true; }
-            if lv < cv { return false; }
-        }
-
-        // 数字部分相同：有预发布标签的一方版本更低
-        if l_pre.is_empty() && !c_pre.is_empty() { return true; }   // 2.5.12 > 2.5.12-beta.1
-        if !l_pre.is_empty() && c_pre.is_empty() { return false; }  // 2.5.12-beta.1 < 2.5.12
-
-        // 2. 两者都有预发布标签：逐段比较
-        let l_parts: Vec<&str> = l_pre.split('.').collect();
-        let c_parts: Vec<&str> = c_pre.split('.').collect();
-        for i in 0..l_parts.len().max(c_parts.len()) {
-            let lp = l_parts.get(i);
-            let cp = c_parts.get(i);
-            match (lp, cp) {
-                (None, Some(_)) => return false, // l 更短 → 更旧
-                (Some(_), None) => return true,  // l 更长 → 更新
-                (Some(la), Some(ca)) => {
-                    // 数字段按数值比较，混合段按字典序
-                    match (la.parse::<u64>(), ca.parse::<u64>()) {
-                        (Ok(ln), Ok(cn)) => {
-                            if ln > cn { return true; }
-                            if ln < cn { return false; }
-                        }
-                        _ => {
-                            if la > ca { return true; }
-                            if la < ca { return false; }
-                        }
-                    }
-                }
-                (None, None) => unreachable!(),
-            }
-        }
-        false
-    }
-
-    /// 检查是否有可用更新（不下载）
-    ///
-    /// 实现策略：
-    /// 1. 自动检测本地代理（Clash 7890 等），设置 HTTPS_PROXY env var
-    /// 2. 使用 reqwest 直接查询 GitHub API（5s 超时 + 代理支持）
-    /// 3. 与 Velopack 当前版本比较
-    /// 4. 外层 8s tokio 超时兜底
-    ///
-    /// 相比原来的 Velopack check_for_updates，此方案：
-    /// - 支持代理自动检测（解决 GFW 环境下直连超时问题）
-    /// - 超时时间更可控（reqwest 5s + tokio 8s 双保险）
-    /// - 错误信息更精确（区分代理/连接/API 错误）
-    #[tauri::command]
-    pub async fn vp_check_for_updates() -> Result<UpdateCheckResult, UpdaterError> {
-        let timeout_dur = tokio::time::Duration::from_secs(8);
-        let inner = tokio::time::timeout(timeout_dur, async {
-            tokio::task::spawn_blocking(move || {
-                // 1. 检测代理并设置 env var（Velopack download 也会用到）
-                let proxy = detect_local_proxy();
-                if let Some(ref p) = proxy {
-                    set_proxy_env(p);
-                }
-
-                // 2. 获取当前版本（dev 期未安装时返回 NotInstalled）
-                let mgr = build_manager().map_err(map_err)?;
-                let current = mgr.get_current_version_as_string();
-
-                // 3. 通过 GitHub API 查询最新版本
-                let latest = fetch_latest_version(proxy.as_deref())?;
-
-                // 4. 比较版本
-                let update_available = is_newer_version(&latest, &current);
-
-                Ok(UpdateCheckResult {
-                    update_available,
-                    target_version: if update_available {
-                        Some(latest)
-                    } else {
-                        None
-                    },
-                    current_version: current,
-                    is_downgrade: false,
-                })
-            })
-            .await
-            .map_err(|e| UpdaterError {
-                kind: "Unknown",
-                message: format!("update check task failed: {}", e),
-            })?
-        })
-        .await;
-        match inner {
-            Ok(result) => result,
-            Err(_) => Err(UpdaterError {
-                kind: "Network",
-                message: "检查更新超时，请检查网络或代理设置".into(),
-            }),
-        }
-    }
-
-    /// 下载更新；进度通过 event `vp://download-progress` 推送
-    ///
-    /// 注意：Velopack 的 `download_updates` 需要 `UpdateInfo` 对象，
-    /// 只能通过 `mgr.check_for_updates()` 获取，因此会再次请求 GitHub API。
-    /// 这是 Velopack SDK 的设计约束——无法绕过。
-    /// 好消息是 Velopack 内部会做缓存，短时间内重复调用开销较小。
-    #[tauri::command]
-    pub fn vp_download_updates(app: AppHandle) -> Result<bool, UpdaterError> {
-        // 确保 Velopack 内部 HTTP 客户端走代理（与 check 阶段一致）
-        let proxy = detect_local_proxy();
-        if let Some(ref p) = proxy {
-            set_proxy_env(p);
-        }
-
-        let mgr = build_manager().map_err(map_err)?;
-        let check = mgr.check_for_updates().map_err(map_err)?;
-        let info = match check {
-            UpdateCheck::UpdateAvailable(info) => *info, // dereference Box<UpdateInfo>
-            _ => return Ok(false),                       // 没有更新可下载
-        };
-
-        // 进度转发：channel → Tauri event
-        let (tx, rx) = mpsc::channel::<i16>();
-        let app_clone = app.clone();
-        std::thread::spawn(move || {
-            while let Ok(pct) = rx.recv() {
-                let _ = app_clone.emit("vp://download-progress", pct);
-            }
-        });
-
-        let updates = &info;
-        mgr.download_updates(updates, Some(tx)).map_err(map_err)?;
-        Ok(true)
-    }
-
-    /// 应用已下载的更新并立即重启
-    #[tauri::command]
-    pub fn vp_apply_and_restart() -> Result<(), UpdaterError> {
-        let mgr = build_manager().map_err(map_err)?;
-        if let Some(pending) = mgr.get_update_pending_restart() {
-            mgr.apply_updates_and_restart(&pending).map_err(map_err)?;
-            Ok(())
-        } else {
-            Err(UpdaterError {
-                kind: "Unknown",
-                message: "No pending update to apply".into(),
-            })
-        }
-    }
-
-    /// 查询是否有已下载待应用的更新
-    #[tauri::command]
-    pub fn vp_get_pending_update() -> Result<Option<String>, UpdaterError> {
-        let mgr = build_manager().map_err(map_err)?;
-        Ok(mgr.get_update_pending_restart().map(|a| a.Version))
-    }
-
-    /// 返回当前应用版本
-    #[tauri::command]
-    pub fn vp_current_version() -> Result<String, UpdaterError> {
-        let mgr = build_manager().map_err(map_err)?;
-        Ok(mgr.get_current_version_as_string())
-    }
-}
-
-// ---- Mobile 平台：占位 stub（不引入 velopack crate） ----
-
-#[cfg(any(target_os = "android", target_os = "ios"))]
-mod velopack_impl {
-    use super::UpdaterError;
-
-    const NOT_SUPPORTED: UpdaterError = UpdaterError {
-        kind: "Unknown",
-        message: "Velopack not supported on mobile",
-    };
-
-    #[tauri::command]
-    pub fn vp_check_for_updates() -> Result<serde_json::Value, UpdaterError> {
-        Err(NOT_SUPPORTED)
-    }
-    #[tauri::command]
-    pub fn vp_download_updates() -> Result<bool, UpdaterError> {
-        Err(NOT_SUPPORTED)
-    }
-    #[tauri::command]
-    pub fn vp_apply_and_restart() -> Result<(), UpdaterError> {
-        Err(NOT_SUPPORTED)
-    }
-    #[tauri::command]
-    pub fn vp_get_pending_update() -> Result<Option<String>, UpdaterError> {
-        Err(NOT_SUPPORTED)
-    }
-    #[tauri::command]
-    pub fn vp_current_version() -> Result<String, UpdaterError> {
-        Err(NOT_SUPPORTED)
-    }
-}
-
-use velopack_impl::{
-    vp_apply_and_restart, vp_check_for_updates, vp_current_version, vp_download_updates,
-    vp_get_pending_update,
-};
 
 // ============================================================================
 // 既有命令
@@ -754,11 +397,8 @@ pub fn run() {
             show_main_window,
             save_file_dialog,
             set_tray_tooltip,
-            vp_check_for_updates,
-            vp_download_updates,
-            vp_apply_and_restart,
-            vp_get_pending_update,
-            vp_current_version,
+            app_version,
+            download_and_run_installer,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

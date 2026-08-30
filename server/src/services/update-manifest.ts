@@ -25,11 +25,15 @@ const STATIC_ARTIFACTS = {
       hash: '',
       size: 0,
     },
-    windows: {
-      url: 'https://cdn.dustnote.app/desktop/latest/windows-x64.exe',
-      hash: '',
-      size: 0,
-    },
+  windows: {
+    // GitHub Releases 直链（releases/download 域走 CDN，不受 api.github.com
+    // 未认证限流约束）；随 serverVersion 指向最新 tag 的 NSIS 安装包。
+    // hash/size 发版时由 CI 填充占位（客户端校验以 GitHub 自身 TLS 为准，
+    // 桌面端下载后按 manifest.hash 复核，占位空串时跳过复核）。
+    url: `https://github.com/Hermitweb/dustnote/releases/download/v${config.serverVersion}/DustNote_${config.serverVersion}_x64-setup-nsis.exe`,
+    hash: '',
+    size: 0,
+  },
     linux: {
       url: 'https://cdn.dustnote.app/desktop/latest/linux-x86_64.AppImage',
       hash: '',

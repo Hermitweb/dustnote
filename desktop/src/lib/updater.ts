@@ -1,23 +1,26 @@
 /**
- * Velopack 自动更新前端桥接
+ * 应用内更新前端桥接（v2.5.19 起替代 Velopack）
  *
- * 设计同 autostart.ts：
- * - 仅 Tauri 桌面环境下注册
- * - 暴露 window.__DUSTNOTE_UPDATER__ 给复用的 web SettingsDialog 调用
- * - web 端不静态 import 任何 Tauri 包，走全局变量
+ * 更新通道：
+ * - 检查：自建服务器 /api/v1/update-manifest（RECOMMENDED_CLIENT_VERSION /
+ *   latest.version，无 GitHub API 限流问题）
+ * - 下载：GitHub Releases 直链（manifest 的 desktop.windows.url，指向 NSIS
+ *   安装包；releases/download 域走 CDN 不限流），Rust 侧流式下载 + SHA-256
+ *   校验（manifest 携带哈希）后启动安装向导
  *
- * 更新流程状态机：
- *   idle → checking → available → downloading → ready → (apply & restart)
- *                    → uptodate                                  ↑
- *                    → error ──────────── (retry) ───────────────┘
+ * 状态机：idle → checking → available → downloading → ready（向导已启动）
+ *                  → uptodate                                  ↑
+ *                  → error ──────────── (retry) ───────────────┘
  */
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useEffect, useState } from 'react';
 import { isTauri } from './tauri';
+import { useModeStore } from '../../../web/src/lib/mode-store';
+import { getDeviceId } from '../../../web/src/lib/device';
 
-/** 更新检查结果（对应 Rust 侧 UpdateCheckResult） */
+/** 更新检查结果（对应 Rust 侧结构；保持与旧 Velopack 版接口形状一致） */
 export interface UpdateCheckResult {
   updateAvailable: boolean;
   targetVersion: string | null;
@@ -25,9 +28,9 @@ export interface UpdateCheckResult {
   isDowngrade: boolean;
 }
 
-/** Rust 侧返回的结构化错误 */
+/** Rust 侧结构化错误 */
 interface UpdaterError {
-  kind: string; // "NotInstalled" | "Network" | "Unknown"
+  kind: string;
   message: string;
 }
 
@@ -48,22 +51,103 @@ export interface UpdaterApi {
   applyAndRestart: () => Promise<void>;
   getPendingUpdate: () => Promise<string | null>;
   getCurrentVersion: () => Promise<string>;
-  onDownloadProgress: (cb: (pct: number) => void) => Promise<UnlistenFn>;
+  onDownloadProgress: (cb: (pct: number) => Promise<void> | void) => Promise<UnlistenFn>;
 }
 
 const UPDATER_GLOBAL = '__DUSTNOTE_UPDATER__';
+
+/** manifest 返回的 Windows 安装包直链 + 哈希（checkForUpdates 成功后缓存） */
+let cachedInstallerUrl: string | null = null;
+let cachedInstallerSha256: string | null = null;
+
+/** 简单语义版本比较：latest > current 返回 true（major.minor.patch 逐段数值） */
+function isNewerVersion(latest: string, current: string): boolean {
+  const l = latest.replace(/^v/, '').split('-')[0]!.split('.').map((p) => parseInt(p, 10) || 0);
+  const c = current.replace(/^v/, '').split('-')[0]!.split('.').map((p) => parseInt(p, 10) || 0);
+  for (let i = 0; i < Math.max(l.length, c.length); i++) {
+    const lv = l[i] ?? 0;
+    const cv = c[i] ?? 0;
+    if (lv > cv) return true;
+    if (lv < cv) return false;
+  }
+  return false;
+}
+
+/** 拉取自建 update-manifest（与 web 端 useUpdateCheck 同源，无限流问题） */
+async function fetchManifest(): Promise<{
+  latestVersion: string;
+  installerUrl: string | null;
+  installerSha256: string | null;
+}> {
+  const { serverUrl } = useModeStore.getState();
+  if (!serverUrl) throw Object.assign(new Error('未配置服务器地址'), { kind: 'NoServer' });
+  const apiBase = `${serverUrl.replace(/\/+$/, '')}/api/v1`;
+  const deviceId = await getDeviceId();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const r = await fetch(`${apiBase}/update-manifest`, {
+      headers: {
+        'X-Client-Version': __APP_VERSION__,
+        'X-Client-Platform': 'desktop',
+        'X-Client-Channel': 'stable',
+        'X-Client-Device-Id': deviceId,
+      },
+      signal: controller.signal,
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const m = (await r.json()) as {
+      latest?: { version?: string; artifacts?: { desktop?: { windows?: { url?: string; hash?: string } } } };
+    };
+    const latestVersion = m.latest?.version ?? '';
+    if (!latestVersion) throw new Error('manifest 缺少 latest.version');
+    return {
+      latestVersion,
+      installerUrl: m.latest?.artifacts?.desktop?.windows?.url ?? null,
+      installerSha256: m.latest?.artifacts?.desktop?.windows?.hash ?? null,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /** 把 Velopack 更新 API 挂到 window 上，供复用的 web 组件访问 */
 export function registerUpdaterApi(): void {
   if (!isTauri()) return;
   if (typeof window === 'undefined') return;
   const api: UpdaterApi = {
-    checkForUpdates: () => invoke<UpdateCheckResult>('vp_check_for_updates'),
-    downloadUpdates: () => invoke<boolean>('vp_download_updates'),
-    applyAndRestart: () => invoke<void>('vp_apply_and_restart'),
-    getPendingUpdate: () => invoke<string | null>('vp_get_pending_update'),
-    getCurrentVersion: () => invoke<string>('vp_current_version'),
-    onDownloadProgress: (cb) => listen<number>('vp://download-progress', (e) => cb(e.payload)),
+    checkForUpdates: async () => {
+      const currentVersion = await invoke<string>('app_version');
+      const m = await fetchManifest();
+      const updateAvailable = isNewerVersion(m.latestVersion, currentVersion);
+      if (updateAvailable && m.installerUrl) {
+        cachedInstallerUrl = m.installerUrl;
+        cachedInstallerSha256 = m.installerSha256;
+      } else {
+        cachedInstallerUrl = null;
+        cachedInstallerSha256 = null;
+      }
+      return {
+        updateAvailable,
+        targetVersion: updateAvailable ? m.latestVersion : null,
+        currentVersion,
+        isDowngrade: false,
+      };
+    },
+    downloadUpdates: async () => {
+      if (!cachedInstallerUrl) return false;
+      await invoke<string>('download_and_run_installer', {
+        url: cachedInstallerUrl,
+        expectedSha256: cachedInstallerSha256,
+      });
+      return true;
+    },
+    // NSIS 安装向导接管升级；无"应用重启"步骤
+    applyAndRestart: () => Promise.resolve(),
+    getPendingUpdate: () => Promise.resolve(null),
+    getCurrentVersion: () => invoke<string>('app_version'),
+    onDownloadProgress: (cb) =>
+      listen<number>('updater://download-progress', (e) => void cb(e.payload)),
   };
   (window as unknown as Record<string, unknown>)[UPDATER_GLOBAL] = api;
 }
@@ -77,7 +161,7 @@ export function getUpdaterApi(): UpdaterApi | null {
 }
 
 /**
- * React hook：管理检查/下载/应用全流程状态机
+ * React hook：管理检查/下载全流程状态机
  * 仅桌面端有效，web 端返回 idle 状态 no-op
  */
 export function useUpdater(): {
@@ -105,9 +189,9 @@ export function useUpdater(): {
     setState('checking');
     setError(null);
     try {
-      // 超时保护：Tauri IPC 挂起时避免界面卡死（10s）
+      // 超时保护：网络挂起时避免界面卡死（15s，含 manifest 请求）
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('检查更新超时，请稍后重试')), 10_000)
+        setTimeout(() => reject(new Error('检查更新超时，请稍后重试')), 15_000)
       );
       const r = await Promise.race([api.checkForUpdates(), timeoutPromise]);
       setCurrentVersion(r.currentVersion);
@@ -115,11 +199,6 @@ export function useUpdater(): {
       setState(r.updateAvailable ? 'available' : 'uptodate');
     } catch (e) {
       const err = e as UpdaterError;
-      // dev 期 NotInstalled 属预期，静默回 idle
-      if (err?.kind === 'NotInstalled') {
-        setState('idle');
-        return;
-      }
       setError(err?.message ?? String(e));
       setState('error');
     }
@@ -132,10 +211,12 @@ export function useUpdater(): {
     setProgress(0);
     const unlisten = await api.onDownloadProgress((pct) => setProgress(pct));
     try {
+      // NSIS 包约 100-200MB，按较慢网络放宽超时（10 分钟）
       const downloadTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('下载超时')), 300_000)
+        setTimeout(() => reject(new Error('下载超时')), 600_000)
       );
       const ok = await Promise.race([api.downloadUpdates(), downloadTimeout]);
+      // 'ready' = 安装向导已启动，用户在向导中完成升级
       setState(ok ? 'ready' : 'uptodate');
     } catch (e) {
       setError((e as UpdaterError)?.message ?? String(e));
@@ -145,34 +226,19 @@ export function useUpdater(): {
     }
   }
 
+  // 兼容旧状态机签名：NSIS 流程无"应用已下载的更新并重启"，no-op
   async function applyAndRestart(): Promise<void> {
     const api = getUpdaterApi();
     if (!api) return;
-    try {
-      const restartTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('重启超时')), 30_000)
-      );
-      await Promise.race([api.applyAndRestart(), restartTimeout]);
-    } catch (e) {
-      setError((e as UpdaterError)?.message ?? String(e));
-      setState('error');
-    }
+    await api.applyAndRestart();
   }
 
-  // 桌面端启动时静默检查 + 检查是否有待应用更新
+  // 桌面端启动时静默检查一次（失败静默：错误在设置页手动检查时可见）
   useEffect(() => {
     const api = getUpdaterApi();
     if (!api) return;
     void (async () => {
       try {
-        // 若有 pending 更新，直接进入 ready 状态等用户点击
-        const pending = await api.getPendingUpdate();
-        if (pending) {
-          setTargetVersion(pending);
-          setState('ready');
-          return;
-        }
-        // 否则启动后静默检查一次
         await check();
       } catch {
         /* swallow: dev 环境正常 */

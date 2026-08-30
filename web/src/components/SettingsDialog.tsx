@@ -379,19 +379,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     }
   }
 
-  async function handleApplyAndRestart(): Promise<void> {
-    const api = getUpdaterApi();
-    if (!api) return;
-    try {
-      // 应用更新会触发重启，promise 通常不会 resolve（进程退出）；
-      // 15s 超时仅作为重启失败的兜底
-      await withTimeout(api.applyAndRestart(), 15000);
-    } catch (e) {
-      setUpdateErr((e as { message?: string })?.message ?? String(e));
-      setUpdateState('error');
-    }
-  }
-
   return (
     <>
       <div
@@ -852,19 +839,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     </div>
                   )}
 
-                  {/* 更新就绪 */}
+                  {/* 安装向导已启动（NSIS 流程：下载完成→SHA-256 校验→向导自动弹出） */}
                   {updateState === 'ready' && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-mint-700">
-                        {t('settings.update_ready')}
-                        {targetVer ? ` (v${targetVer})` : ''}
-                      </span>
-                      <button
-                        onClick={() => void handleApplyAndRestart()}
-                        className="rounded bg-mint-600 px-3 py-1 text-xs font-medium text-white hover:bg-mint-700"
-                      >
-                        {t('settings.restart_now')}
-                      </button>
+                    <div className="text-sm text-mint-700">
+                      {t('settings.update_ready')}
+                      {targetVer ? ` (v${targetVer})` : ''}
                     </div>
                   )}
 
