@@ -34,6 +34,7 @@ const en = {
     mode_select_title: 'Choose a mode',
     setup_title: 'Set master password',
     recover_title: 'Recover password',
+    shares_title: 'Share Manager',
   },
   mode_select: {
     welcome: 'Welcome to DustNote',

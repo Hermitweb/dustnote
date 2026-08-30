@@ -42,6 +42,36 @@ import { ConflictDialog } from './components/ConflictDialog';
 import { useIsDark, useColors } from './theme';
 import { checkUpdateOnce } from './lib/use-update-check';
 
+// ── 加密引擎接入（v2.5.21）────────────────────────────────────────
+// react-native-quick-crypto 此前仅在 package.json 中声明，JS 侧从未调用
+// install()，RN 无 WebCrypto → shared deriveKey 的 hasWebCryptoSubtle()
+// 探测失败，一直走 @noble/hashes 纯 JS 回退（PBKDF2 310k 迭代分钟级）——
+// 这就是「解锁要几分钟」的真根因。install() 把原生 JSI 实现的
+// crypto.subtle 挂到 globalThis，deriveKey 随即走原生路径（100k ≈ 0.3-0.8s）。
+// 必须在任何 KDF/加解密之前执行；结果写入 __QCRYPTO_STATUS 供解锁页诊断小字。
+{
+  const status: Record<string, unknown> = {};
+  try {
+    const qc = require('react-native-quick-crypto');
+    status.requireOk = true;
+    try {
+      qc.install();
+      status.installOk = !!(globalThis.crypto as { subtle?: unknown } | undefined)?.subtle;
+      if (!status.installOk) {
+        status.installError = 'install() did not throw but crypto.subtle is still missing';
+      }
+    } catch (e) {
+      status.installOk = false;
+      status.installError = String((e as Error)?.message ?? e);
+    }
+  } catch (e) {
+    status.requireOk = false;
+    status.installOk = false;
+    status.requireError = String((e as Error)?.message ?? e);
+  }
+  (globalThis as { __QCRYPTO_STATUS?: Record<string, unknown> }).__QCRYPTO_STATUS = status;
+}
+
 // 全局 JS 错误兜底：ErrorBoundary 只覆盖渲染错误，不覆盖异步回调错误。
 // 生产环境记录告警日志（内容经 console 过滤，不打印敏感数据），避免崩溃静默。
 const ErrorUtilsApi = (
@@ -259,7 +289,7 @@ function AppInner() {
             <Stack.Screen
               name="NotesList"
               component={NotesListScreen}
-              options={{ title: '尘心笔记' }}
+              options={{ title: t('app.name') }}
             />
             <Stack.Screen
               name="NoteEdit"
@@ -281,7 +311,7 @@ function AppInner() {
               component={TrashScreen}
               options={{ title: t('app.trash_title') }}
             />
-            <Stack.Screen name="Shares" component={SharesScreen} options={{ title: '分享管理' }} />
+            <Stack.Screen name="Shares" component={SharesScreen} options={{ title: t('app.shares_title') }} />
           </Stack.Navigator>
         </NavigationContainer>
         {/* 同步冲突裁决（pendingConflicts 非空时弹出） */}
@@ -328,7 +358,7 @@ function AppInner() {
                   <Stack.Screen
                     name="StandaloneUnlock"
                     component={StandaloneUnlockScreen}
-                    options={{ title: '尘心笔记', headerBackVisible: false }}
+                    options={{ title: t('app.name'), headerBackVisible: false }}
                   />
                   <Stack.Screen
                     name="StandaloneRecover"
@@ -351,7 +381,7 @@ function AppInner() {
                 <Stack.Screen
                   name="Unlock"
                   component={UnlockScreen}
-                  options={{ title: '尘心笔记', headerBackVisible: false }}
+                  options={{ title: t('app.name'), headerBackVisible: false }}
                 />
               )}
               <Stack.Screen

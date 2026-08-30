@@ -44,6 +44,7 @@ const zhCN = {
     mode_select_title: '选择使用模式',
     setup_title: '设置主密码',
     recover_title: '恢复密码',
+    shares_title: '分享管理',
   },
   mode_select: {
     welcome: '欢迎使用 DustNote',
