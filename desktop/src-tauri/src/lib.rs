@@ -48,6 +48,7 @@ async fn download_and_run_installer(
     expected_sha256: Option<String>,
 ) -> Result<String, String> {
     use std::io::Write;
+    use sha2::Digest;
 
     if !url.starts_with(INSTALLER_URL_PREFIX) {
         return Err("非法的下载地址".into());
