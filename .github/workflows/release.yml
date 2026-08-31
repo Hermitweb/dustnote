@@ -208,8 +208,10 @@ jobs:
         if: matrix.os == 'windows-latest'
         with:
           name: desktop-nsis-${{ matrix.runtime }}
-          path: desktop/src-tauri/target/${{ matrix.rust_target || 'release' }}/bundle/nsis/*.exe
-          if-no-files-found: ignore
+          # arm64 条目：target/aarch64-pc-windows-msvc/release/bundle/nsis；
+          # x64 条目：target/release/bundle/nsis（rust_target 为空串时拼接为空）
+          path: desktop/src-tauri/target/${{ matrix.rust_target != '' && format('{0}/', matrix.rust_target) || '' }}release/bundle/nsis/*.exe
+          if-no-files-found: error
 
   build-mobile:
     name: Build Mobile Android
