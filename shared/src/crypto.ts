@@ -192,11 +192,24 @@ export interface KdfParams {
   dkLen: number;
 }
 
+/**
+ * 全端默认 KDF 参数（v2.5.23 起统一为 PBKDF2-SHA256 100000）。
+ *
+ * 此前 web/desktop 注册默认 Argon2id（纯 JS 在移动端分钟级，真机实测
+ * 182s）。PBKDF2 在所有端都可达原生或快速实现：
+ * - web/desktop：浏览器 WebCrypto subtle.deriveBits（原生）
+ * - mobile：quick-crypto 原生绑定（setPbkdf2NativeImpl 直连）
+ * - miniprogram：@noble/hashes 纯 JS（约 1-2s，可接受）
+ *
+ * Argon2id 派生分支保留——历史账号（web 端创建）按服务端记录的
+ * kdf_params 仍走 Argon2id，互不影响。
+ */
 export const KDF_PARAMS: KdfParams = {
-  algorithm: 'argon2id',
-  m: 64 * 1024, // 64 MB
-  t: 3,
-  p: 4,
+  algorithm: 'pbkdf2',
+  m: 0,
+  t: 0,
+  p: 0,
+  iterations: 100000,
   dkLen: 32,
 };
 

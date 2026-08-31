@@ -327,19 +327,21 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     let salt = get().pwSalt;
     let kdfParams = KDF_PARAMS_MOBILE;
     if (!salt) {
-      const status = await api.get<{ pwSalt: string | null; kdfParams?: { algorithm: string; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/status');
+      const status = await api.get<{ pwSalt: string | null; kdfParams?: { algorithm: 'argon2id' | 'pbkdf2'; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/status');
       salt = status.pwSalt;
       if (!salt) throw new Error(i18n.t('auth.system_not_initialized'));
-      // 根据服务端返回的 KDF 参数选择正确算法（兼容 web 创建的 Argon2id 账号）
+      // 直接采用服务端记录的账号 KDF 参数（含 Argon2id 老账号的 m/t/p）——
+      // 不能映射到本地常量：常量切换默认算法后映射会把 Argon2id 账号
+      // 错误地按 PBKDF2 参数派生导致解密失败
       if (status.kdfParams) {
-        kdfParams = status.kdfParams.algorithm === 'argon2id' ? KDF_PARAMS : KDF_PARAMS_MOBILE;
+        kdfParams = status.kdfParams;
       }
     } else {
       // 即使有缓存的 salt，也要检查 KDF 参数
       try {
-        const status = await api.get<{ kdfParams?: { algorithm: string; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/status');
+        const status = await api.get<{ kdfParams?: { algorithm: 'argon2id' | 'pbkdf2'; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/status');
         if (status.kdfParams) {
-          kdfParams = status.kdfParams.algorithm === 'argon2id' ? KDF_PARAMS : KDF_PARAMS_MOBILE;
+          kdfParams = status.kdfParams;
         }
       } catch { /* 使用默认 PBKDF2 */ }
     }
@@ -662,9 +664,9 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
   async recoverOnline(recoveryCode: string, newPassword: string): Promise<void> {
     if (newPassword.length < 8) throw new Error(i18n.t('auth.new_password_too_short'));
-    // v2：先取恢复码派生所需的 rc_salt + KDF 参数
-    const recoveryParams = await api.get<{ rcSalt: string; kdfParams?: { algorithm: string; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/recovery-params');
-    const kdfParams = recoveryParams.kdfParams?.algorithm === 'argon2id' ? KDF_PARAMS : KDF_PARAMS_MOBILE;
+    // v2：先取恢复码派生所需的 rc_salt + KDF 参数（直接用服务端记录的账号参数）
+    const recoveryParams = await api.get<{ rcSalt: string; kdfParams?: { algorithm: 'argon2id' | 'pbkdf2'; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/recovery-params');
+    const kdfParams = recoveryParams.kdfParams ?? KDF_PARAMS_MOBILE;
     const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), fromBase64(recoveryParams.rcSalt), kdfParams);
 
     const r = await api.post<{

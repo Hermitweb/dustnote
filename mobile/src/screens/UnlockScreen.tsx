@@ -117,7 +117,7 @@ export function UnlockScreen() {
         onPress={onUnlock}
       >
         <Text style={styles.buttonText}>
-          {submitting ? t('auth.unlocking') : t('auth.unlock_btn')}
+          {submitting ? t('auth.unlocking_short') : t('auth.unlock_btn')}
         </Text>
       </TouchableOpacity>
 
@@ -135,30 +135,9 @@ export function UnlockScreen() {
         <Text style={styles.recoverButtonText}>{t('auth.recover_forgot')}</Text>
       </TouchableOpacity>
 
-      {/* 加密引擎诊断（v2.5.19：定位解锁派生耗时过长的根因——
-          quick-crypto 原生 JSI 未生效时会回退纯 JS 实现，分钟级 vs 秒级；
-          v2.5.22 起附带最近一次派生的实际耗时与迭代数） */}
-      <Text style={styles.engineDebugText}>
-        {(() => {
-          const s = (globalThis as Record<string, any>).__QCRYPTO_STATUS;
-          const kdf = (globalThis as Record<string, any>).__LAST_KDF as
-            | { ms: number; iterations: number; path?: string }
-            | undefined;
-          const kdfTail = kdf
-            ? ' ' +
-              t('auth.kdf_diag', {
-                ms: (kdf.ms / 1000).toFixed(1),
-                iters: kdf.iterations,
-                path: kdf.path ?? '-',
-              })
-            : '';
-          if (!s) return t('auth.engine_unknown') + kdfTail;
-          if (s.requireOk && s.installOk) return t('auth.engine_native') + kdfTail;
-          return t('auth.engine_compat', {
-            error: s.requireError ?? s.installError ?? '',
-          }) + kdfTail;
-        })()}
-      </Text>
+      {/* 加密引擎诊断小字已按产品决策移除（v2.5.23 完成历史使命：
+          定位到 Argon2id 账号纯 JS 182s 的根因）；__QCRYPTO_STATUS /
+          __LAST_KDF 埋点保留供调试读取 */}
     </View>
   );
 }
@@ -198,7 +177,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     bioButton: { marginTop: 16, padding: 12, alignItems: 'center' },
     bioButtonText: { color: c.mint600, fontSize: 14 },
     recoverButton: { marginTop: 8, padding: 12, alignItems: 'center' },
-    engineDebugText: { fontSize: 10, color: c.muted, textAlign: 'center', marginTop: 16, opacity: 0.7 },
     recoverButtonText: { color: c.muted, fontSize: 13, textDecorationLine: 'underline' },
   });
 }
