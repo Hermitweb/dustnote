@@ -34,6 +34,10 @@ services:
       - dustnote-data:/app/server/data
       # 持久化自动备份（BACKUP_DIR=/app/server/backups）
       - dustnote-backups:/app/server/backups
+      # 安装包托管目录：宿主放置当前版本产物（x64/arm64-setup.exe、android.apk），
+      # nginx 经 /downloads/ 静态伺服，update-manifest 按文件存在与否输出产物
+      # （update-manifest.ts 的 artifactFor；缺失时对应字段省略）
+      - /opt/dustnote-downloads:/app/web-dist/downloads:ro
     environment:
       - NODE_ENV=production
       - PORT=3210
