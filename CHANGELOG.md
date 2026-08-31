@@ -12,6 +12,27 @@
 - 知识图谱
 - 插件系统
 
+## [2.5.24] - 2026-08-31
+
+### 修复：初始文件夹/引导笔记创建两份（三端）
+
+- 安卓列表页 useEffect 与 useFocusEffect 首挂双跑 load，并发的
+  ensureDefaultContent 都读到「0 文件夹」各建一份初始内容；
+  小程序（useEffect + useDidShow）与 web（unlock effect 重入/StrictMode）同病
+- 三端 ensureDefaultContent 加并发单飞（共享同一 Promise，完成后重入由
+  folders 检查挡住）；安卓列表页移除叠加的 useEffect，载入统一由 focus 驱动
+
+### 变更：全端新账号默认 KDF 统一为 PBKDF2-100k
+
+- web/desktop 注册从 Argon2id 切换为 PBKDF2-SHA256 100000——浏览器
+  WebCrypto 原生实现，注册与解锁亚秒级；miniprogram 走纯 JS 约 1-2s；
+  历史 Argon2id 账号按服务端记录参数解锁，不受影响
+- 客户端不再把服务端 KDF 参数映射到本地常量，直接采用记录值
+
+### 界面（Android）
+
+- 移除解锁页诊断小字（历史使命完成）；解锁按钮提交态文案改为「解锁中…」
+
 ## [2.5.23] - 2026-08-31
 
 ### 修复（Android，关键）：PBKDF2 直连原生绑定
