@@ -10,7 +10,7 @@
  * 不再直接调用 api.get/post，避免单机模式下因无服务端而崩溃
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -121,11 +121,8 @@ export function NotesListScreen() {
     }
   }, [masterKey, repo, modeInitialized, mode, t]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  // 从 NoteEditScreen 返回（屏幕重新聚焦）时重新加载，确保标题修改后列表立即更新
+  // 载入统一由 useFocusEffect 驱动（首挂也会触发）——不再叠加 useEffect,
+  // 否则首挂双跑 load 并触发两次 ensureDefaultContent(初始内容双份竞态)
   useFocusEffect(
     useCallback(() => {
       void load();

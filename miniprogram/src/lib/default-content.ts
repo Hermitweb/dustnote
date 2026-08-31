@@ -24,7 +24,22 @@ const INTRO_CONTENT = `## 欢迎使用尘心笔记
 
 *本文件夹为初始引导内容，可以随意修改或删除。*`;
 
+/**
+ * 并发单飞：首页 useEffect 与 useDidShow 会同时触发 load(),并发的
+ * ensureDefaultContent 都读到「0 文件夹」会各建一份初始内容。
+ * 内部自行 loadAll 取最新快照,串行重入由 folders 检查挡住。
+ */
+let inFlight: Promise<void> | null = null;
+
 export async function ensureDefaultContent(): Promise<void> {
+  if (inFlight) return inFlight;
+  inFlight = runEnsure().finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+async function runEnsure(): Promise<void> {
   const masterKey = useAuthStore.getState().masterKey;
   if (!masterKey) return;
   const repo = getRepo();

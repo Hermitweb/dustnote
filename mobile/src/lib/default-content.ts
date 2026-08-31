@@ -34,7 +34,27 @@ const INTRO_CONTENT = `## 欢迎使用尘心笔记
 /**
  * @param snapshot 调用方刚完成的 loadAll 快照（避免二次全量加载）
  */
+/**
+ * 并发单飞：列表页 useEffect 与 useFocusEffect 会同时触发 load(),
+ * 两个 ensureDefaultContent 并发时都读到「0 文件夹」并各建一份——
+ * 真机实锤的「初始文件夹/笔记创建两份」根因。并发调用共享同一 Promise;
+ * 串行重入由 folders>0 检查挡住(调用方每次传入的都是新快照)。
+ */
+let inFlight: Promise<void> | null = null;
+
 export async function ensureDefaultContent(
+  repo: DataRepository,
+  masterKey: Uint8Array | null,
+  snapshot: { folders?: Array<{ id: string }>; notes?: Array<{ id: string; folderId: string | null; deletedAt: string | null }> }
+): Promise<void> {
+  if (inFlight) return inFlight;
+  inFlight = runEnsure(repo, masterKey, snapshot).finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+async function runEnsure(
   repo: DataRepository,
   masterKey: Uint8Array | null,
   snapshot: { folders?: Array<{ id: string }>; notes?: Array<{ id: string; folderId: string | null; deletedAt: string | null }> }

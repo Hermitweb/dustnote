@@ -32,6 +32,12 @@ import { toast } from '../toast';
 /** 初始默认文件夹与引导笔记（ensureDefaultContent 幂等创建） */
 export const DEFAULT_FOLDER_NAME = '关于尘心笔记';
 export const INTRO_NOTE_TITLE = '关于尘心笔记';
+/**
+ * 并发单飞：ensureDefaultContent 可能在 unlocked effect 重入/StrictMode
+ * 双跑时并发执行,都读到「0 文件夹」会各建一份初始内容。并发调用共享
+ * 同一 Promise;串行重入由 store 内 folders 实时状态检查挡住。
+ */
+let ensureInFlight: Promise<void> | null = null;
 export const INTRO_NOTE_CONTENT = `## 欢迎使用尘心笔记
 
 尘心笔记是一款**极简、安全**的跨端个人笔记系统。
@@ -479,29 +485,35 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
    *    ——「未分类」分组已从产品移除，笔记必须归属文件夹
    */
   async ensureDefaultContent(): Promise<void> {
-    const { folders, notes, masterKey } = get();
-    if (!masterKey) return;
-    if (folders.length > 0) return;
+    if (ensureInFlight) return ensureInFlight;
+    ensureInFlight = (async () => {
+      const { folders, notes, masterKey } = get();
+      if (!masterKey) return;
+      if (folders.length > 0) return;
 
-    const folderId = await get().createFolder(DEFAULT_FOLDER_NAME);
-    // 迁移历史未分类笔记（先迁移再建引导笔记，避免引导笔记被重复处理）
-    let migrated = 0;
-    for (const n of notes.values()) {
-      if (!n.deletedAt && !n.folderId) {
-        try {
-          await get().moveNote(n.id, folderId);
-          migrated++;
-        } catch {
-          /* 单条失败不阻塞初始化 */
+      const folderId = await get().createFolder(DEFAULT_FOLDER_NAME);
+      // 迁移历史未分类笔记（先迁移再建引导笔记，避免引导笔记被重复处理）
+      let migrated = 0;
+      for (const n of notes.values()) {
+        if (!n.deletedAt && !n.folderId) {
+          try {
+            await get().moveNote(n.id, folderId);
+            migrated++;
+          } catch {
+            /* 单条失败不阻塞初始化 */
+          }
         }
       }
-    }
-    // 引导笔记（E2EE 加密后创建，与普通笔记无异，可编辑可删除）
-    const noteId = await get().createNote(folderId);
-    await get().updateNote(noteId, { title: INTRO_NOTE_TITLE, content: INTRO_NOTE_CONTENT });
-    if (migrated > 0) {
-      toast.info(i18n.t('sidebar.unfiled_migrated', { count: migrated }) || `已把 ${migrated} 条未分类笔记移入「${DEFAULT_FOLDER_NAME}」`);
-    }
+      // 引导笔记（E2EE 加密后创建，与普通笔记无异，可编辑可删除）
+      const noteId = await get().createNote(folderId);
+      await get().updateNote(noteId, { title: INTRO_NOTE_TITLE, content: INTRO_NOTE_CONTENT });
+      if (migrated > 0) {
+        toast.info(i18n.t('sidebar.unfiled_migrated', { count: migrated }) || `已把 ${migrated} 条未分类笔记移入「${DEFAULT_FOLDER_NAME}」`);
+      }
+    })().finally(() => {
+      ensureInFlight = null;
+    });
+    return ensureInFlight;
   },
 
   async deleteFolder(id: string): Promise<void> {
