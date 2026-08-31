@@ -48,7 +48,7 @@ function artifactFor(filename: string): { url: string; hash: string; size: numbe
 function getStaticArtifacts() {
   return {
     desktop: {
-      windows: artifactFor(`DustNote_${config.serverVersion}_x64-setup-nsis.exe`),
+      windows: artifactFor(`DustNote_${config.serverVersion}_x64-setup.exe`),
     },
     android: {
       apk: artifactFor(`DustNote_${config.serverVersion}_android.apk`),

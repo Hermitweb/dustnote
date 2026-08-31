@@ -501,7 +501,7 @@ jobs:
           # ---- Windows NSIS 传统安装包（许可页 + 路径选择 + WebView2 检测 + 卸载程序）----
           nsis_src="$(ls artifacts/desktop-nsis-win/*.exe 2>/dev/null | head -n1 || true)"
           if [ -n "$nsis_src" ] && [ -f "$nsis_src" ]; then
-            cp "$nsis_src" "release-assets/DustNote_${DUSTNOTE_VERSION}_x64-setup-nsis.exe"
+            cp "$nsis_src" "release-assets/DustNote_${DUSTNOTE_VERSION}_x64-setup.exe"
             echo "✓ Windows NSIS installer found: $(basename "$nsis_src")"
           else
             echo "::warning::Windows NSIS installer not generated — Setup.exe still available"
@@ -546,7 +546,7 @@ jobs:
             适用于终端用户的各平台安装包，下载对应平台版本安装即可。
 
             ### Windows
-            - **标准安装包（推荐）**: [DustNote_${{ steps.meta.outputs.version }}_x64-setup-nsis.exe](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_x64-setup-nsis.exe)
+            - **标准安装包（推荐）**: [DustNote_${{ steps.meta.outputs.version }}_x64-setup.exe](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_x64-setup.exe)
               - 完整安装向导：使用许可声明、安装路径选择、WebView2 环境检测/自动安装
               - 自带卸载程序（控制面板"应用和功能"可卸载）；PerUser/PerMachine 安装器内可选
               - 内置应用内更新检查（走自建服务器 manifest + GitHub Releases 直链下载）
