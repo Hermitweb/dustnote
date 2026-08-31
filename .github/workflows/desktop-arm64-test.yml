@@ -42,7 +42,14 @@ jobs:
       - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - name: Build Tauri app for ARM64 (NSIS)
         working-directory: desktop
-        run: pnpm tauri build --target aarch64-pc-windows-msvc --bundles nsis
+        shell: pwsh
+        run: |
+          Write-Host "RUSTUP_TOOLCHAIN=$env:RUSTUP_TOOLCHAIN"
+          where.exe rustup
+          rustup target list --installed
+          rustup target add aarch64-pc-windows-msvc
+          rustup target list --installed
+          pnpm tauri build --target aarch64-pc-windows-msvc --bundles nsis
       - name: List NSIS outputs
         shell: bash
         run: |
