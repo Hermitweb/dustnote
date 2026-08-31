@@ -142,10 +142,15 @@ export function UnlockScreen() {
         {(() => {
           const s = (globalThis as Record<string, any>).__QCRYPTO_STATUS;
           const kdf = (globalThis as Record<string, any>).__LAST_KDF as
-            | { ms: number; iterations: number }
+            | { ms: number; iterations: number; path?: string }
             | undefined;
           const kdfTail = kdf
-            ? ' ' + t('auth.kdf_diag', { ms: (kdf.ms / 1000).toFixed(1), iters: kdf.iterations })
+            ? ' ' +
+              t('auth.kdf_diag', {
+                ms: (kdf.ms / 1000).toFixed(1),
+                iters: kdf.iterations,
+                path: kdf.path ?? '-',
+              })
             : '';
           if (!s) return t('auth.engine_unknown') + kdfTail;
           if (s.requireOk && s.installOk) return t('auth.engine_native') + kdfTail;

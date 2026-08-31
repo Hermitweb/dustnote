@@ -178,7 +178,7 @@ const zhCN = {
     engine_unknown: '加密引擎:未知',
     engine_native: '加密引擎:原生(JSI)',
     engine_compat: '加密引擎:兼容模式(慢) {{error}}',
-    kdf_diag: '派生 {{ms}}s · {{iters}} 次迭代',
+    kdf_diag: '派生 {{ms}}s · {{iters}} 次 · {{path}}',
   },
   notes: {
     search_placeholder: '🔍 搜索笔记…',

@@ -42,13 +42,14 @@ import { ConflictDialog } from './components/ConflictDialog';
 import { useIsDark, useColors } from './theme';
 import { checkUpdateOnce } from './lib/use-update-check';
 
-// ── 加密引擎接入（v2.5.21）────────────────────────────────────────
+// ── 加密引擎接入（v2.5.21 起多次迭代）──────────────────────────────
 // react-native-quick-crypto 此前仅在 package.json 中声明，JS 侧从未调用
 // install()，RN 无 WebCrypto → shared deriveKey 的 hasWebCryptoSubtle()
-// 探测失败，一直走 @noble/hashes 纯 JS 回退（PBKDF2 310k 迭代分钟级）——
-// 这就是「解锁要几分钟」的真根因。install() 把原生 JSI 实现的
-// crypto.subtle 挂到 globalThis，deriveKey 随即走原生路径（100k ≈ 0.3-0.8s）。
-// 必须在任何 KDF/加解密之前执行；结果写入 __QCRYPTO_STATUS 供解锁页诊断小字。
+// 推测失败，一直走 @noble/hashes 纯 JS 回退（PBKDF2 310k 迭代分钟级）——
+// 这就是「解锁要几分钟」的真根因。v2.5.23 进一步改为**直连原生绑定**：
+// Node 风格 quickCrypto.pbkdf2 不经 globalThis.crypto（install() 是否
+// 接管全局取决于其它 polyfill 加载顺序，subtle「存在」≠ 原生——真机
+// 曾出现诊断「原生」但派生仍分钟级）。注册结果写入 __QCRYPTO_STATUS。
 {
   const status: Record<string, unknown> = {};
   try {
@@ -59,6 +60,31 @@ import { checkUpdateOnce } from './lib/use-update-check';
       status.installOk = !!(globalThis.crypto as { subtle?: unknown } | undefined)?.subtle;
       if (!status.installOk) {
         status.installError = 'install() did not throw but crypto.subtle is still missing';
+      }
+      // 原生 PBKDF2 直连：deriveKey 最优先走这里（见 shared setPbkdf2NativeImpl）
+      if (typeof qc.pbkdf2 === 'function') {
+        const { setPbkdf2NativeImpl } = require('@dustnote/shared') as {
+          setPbkdf2NativeImpl: (
+            fn: (
+              password: string | Uint8Array,
+              salt: Uint8Array,
+              iterations: number,
+              dkLen: number,
+            ) => Promise<Uint8Array>,
+          ) => void;
+        };
+        setPbkdf2NativeImpl((password, salt, iterations, dkLen) =>
+          new Promise<Uint8Array>((resolve, reject) => {
+            qc.pbkdf2(password, salt, iterations, dkLen, 'sha256', (err: Error | null, key: Uint8Array) => {
+              if (err) reject(err);
+              else resolve(key instanceof Uint8Array ? key : new Uint8Array(key));
+            });
+          }),
+        );
+        status.nativePbkdf2 = true;
+      } else {
+        status.nativePbkdf2 = false;
+        status.installError = status.installError ?? 'qc.pbkdf2 is not a function';
       }
     } catch (e) {
       status.installOk = false;

@@ -241,6 +241,35 @@ export const KDF_PARAMS_MOBILE: KdfParams = {
  * 改为 async 是因为 PBKDF2 通过 crypto.subtle 异步执行。
  * Argon2id 路径保持同步，但函数签名统一为 async 以兼容两种算法。
  */
+// ========== 平台原生 PBKDF2 注入（mobile 直连 quick-crypto Node 风格 API）==========
+
+/**
+ * 移动端注入的原生 PBKDF2 实现。
+ *
+ * 为什么不直接用 globalThis.crypto.subtle：install() 是否真正接管了
+ * globalThis.crypto 取决于运行时里其它 polyfill 的加载顺序——subtle
+ * 「存在」不代表它是 quick-crypto 的原生实现（真机曾出现诊断显示
+ * 「原生(JSI)」但派生仍走纯 JS 分钟级的案例）。Node 风格
+ * quickCrypto.pbkdf2 是直接拿到的原生绑定，与 globalThis 状态无关。
+ */
+let pbkdf2NativeImpl: ((
+  password: string | Uint8Array,
+  salt: Uint8Array,
+  iterations: number,
+  dkLen: number,
+) => Promise<Uint8Array>) | null = null;
+
+export function setPbkdf2NativeImpl(
+  fn: (
+    password: string | Uint8Array,
+    salt: Uint8Array,
+    iterations: number,
+    dkLen: number,
+  ) => Promise<Uint8Array>
+): void {
+  pbkdf2NativeImpl = fn;
+}
+
 export async function deriveKey(
   password: string,
   salt: Uint8Array,
@@ -249,13 +278,24 @@ export async function deriveKey(
   // 解锁耗时诊断（移动端解锁页读取 __LAST_KDF 显示实际耗时与迭代数，
   // 用于区分「原生引擎+老账号高迭代」与「引擎未生效走纯 JS 回退」两种慢）
   const t0 = Date.now();
+  let path = 'native-node';
   try {
+    if (params.algorithm === 'pbkdf2' && pbkdf2NativeImpl) {
+      path = 'native-node';
+      return await pbkdf2NativeImpl(password, salt, params.iterations ?? 0, params.dkLen);
+    }
+    if (params.algorithm === 'pbkdf2') {
+      path = hasWebCryptoSubtle() ? 'webcrypto-subtle' : 'noble-fallback';
+    } else {
+      path = 'argon2id-js';
+    }
     return await deriveKeyInner(password, salt, params);
   } finally {
     (globalThis as Record<string, unknown>).__LAST_KDF = {
       ms: Date.now() - t0,
       algorithm: params.algorithm,
       iterations: params.iterations ?? 0,
+      path,
     };
   }
 }

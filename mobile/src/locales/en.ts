@@ -178,7 +178,7 @@ const en = {
     engine_unknown: 'Crypto engine: unknown',
     engine_native: 'Crypto engine: native (JSI)',
     engine_compat: 'Crypto engine: fallback mode (slow) {{error}}',
-    kdf_diag: 'derive {{ms}}s · {{iters}} iterations',
+    kdf_diag: 'derive {{ms}}s · {{iters}} · {{path}}',
   },
   notes: {
     search_placeholder: '🔍 Search notes…',
