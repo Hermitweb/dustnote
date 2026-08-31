@@ -29,7 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fi
 powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.ps1 | iex"
 ```
 
-> 指定版本：追加 `--version v2.5.21`（Linux/macOS）或 `-Version v2.5.21`（Windows）；默认自动获取 GitHub 最新 Release。
+> 指定版本：追加 `--version v2.5.22`（Linux/macOS）或 `-Version v2.5.22`（Windows）；默认自动获取 GitHub 最新 Release。
 >
 > ℹ️ 引导脚本（install.sh / install.ps1）从开发分支拉取以便获取最新修复；**实际部署产物按 tag 固定**（Release 里的 `dustnote-server-v<version>.zip`）。对引导脚本本身有强稳定性要求时，可用 `--version` 固定版本并离线执行 `deploy/deploy.sh`。
 

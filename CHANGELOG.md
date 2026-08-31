@@ -12,6 +12,29 @@
 - 知识图谱
 - 插件系统
 
+## [2.5.22] - 2026-08-31
+
+本版为 Windows 双架构发布 + 更新链路完全自托管批次。
+
+### 新特性：Windows ARM64 安装包
+
+- 新增 `DustNote_<ver>_arm64-setup.exe`（Surface Pro X / Snapdragon 设备）；
+  发布资产按架构区分：x64 / arm64
+- 客户端按本机 CPU 架构（Rust `std::env::consts::ARCH`）自动选择对应安装包，
+  Windows ARM64 上浏览器 UA 伪装 x64 的坑已绕开；旧清单无 ARM64 字段时回退 x64
+
+### 修复：应用内更新完全自托管（脱离 GitHub 依赖）
+
+- 更新清单产物改为**服务器自托管下载**（`/downloads/` 静态伺服）+ 现场计算
+  真实 SHA-256——修复安卓端因 hash 空串占位被严格校验拒绝的
+  "Invalid manifest"，以及下载直连 GitHub 在部分网络不可达的问题
+- 桌面端下载白名单放宽：GitHub Releases 前缀 + 用户配置的服务器地址，
+  应用内更新直接从服务器下载安装包
+
+### 其他
+
+- 安装包命名统一去掉 `-nsis` 后缀（`DustNote_<ver>_x64-setup.exe`）
+
 ## [2.5.21] - 2026-08-30
 
 本版为安卓解锁性能根治 + 全平台本地化批次。

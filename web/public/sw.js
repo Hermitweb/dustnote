@@ -10,7 +10,7 @@
  * 前端可通过 controllerchange 事件提示用户刷新。
  */
 
-const SW_VERSION = 'dustnote-v2.5.21-001';
+const SW_VERSION = 'dustnote-v2.5.22-001';
 const CACHE_PREFIX = 'dustnote';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${SW_VERSION}`;
 const RUNTIME_CACHE = `${CACHE_PREFIX}-runtime`;
