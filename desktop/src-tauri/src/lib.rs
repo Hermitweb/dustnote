@@ -39,18 +39,36 @@ fn app_version() -> Result<String, String> {
     Ok(env!("CARGO_PKG_VERSION").to_string())
 }
 
+/// 本机 CPU 架构（std::env::consts::ARCH：x86_64 / aarch64），前端据此
+/// 从 update-manifest 选择对应架构的安装包（Windows UA 在 ARM64 上会
+/// 伪装 x64，不能依赖 navigator 判断）
+#[tauri::command]
+fn app_arch() -> Result<String, String> {
+    Ok(std::env::consts::ARCH.to_string())
+}
+
 /// 流式下载更新安装包到临时目录，校验 SHA-256 后启动 NSIS 安装向导。
 /// 进度经 `updater://download-progress` 事件（0-100）推送给前端。
+///
+/// 白名单由前端下发（allowed_prefixes：GitHub Releases 前缀 + 用户配置的
+/// 服务器 origin）——manifest 本就来自该服务器，产物已切到自托管下载，
+/// 固定 GitHub 前缀会让服务器直链被拒。缺省回退到 GitHub 前缀（兼容旧调用）。
 #[tauri::command]
 async fn download_and_run_installer(
     app: tauri::AppHandle,
     url: String,
     expected_sha256: Option<String>,
+    allowed_prefixes: Option<Vec<String>>,
 ) -> Result<String, String> {
     use std::io::Write;
     use sha2::Digest;
 
-    if !url.starts_with(INSTALLER_URL_PREFIX) {
+    let prefixes = allowed_prefixes
+        .unwrap_or_else(|| vec![INSTALLER_URL_PREFIX.to_string()]);
+    let allowed = prefixes
+        .iter()
+        .any(|p| !p.is_empty() && url.starts_with(p.as_str()));
+    if !allowed {
         return Err("非法的下载地址".into());
     }
 
@@ -406,6 +424,7 @@ pub fn run() {
             save_file_dialog,
             set_tray_tooltip,
             app_version,
+            app_arch,
             download_and_run_installer,
         ])
         .run(tauri::generate_context!())

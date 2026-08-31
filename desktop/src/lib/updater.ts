@@ -97,14 +97,29 @@ async function fetchManifest(): Promise<{
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const m = (await r.json()) as {
-      latest?: { version?: string; artifacts?: { desktop?: { windows?: { url?: string; hash?: string } } } };
+      latest?: {
+        version?: string;
+        artifacts?: {
+          desktop?: {
+            windows?: { url?: string; hash?: string };
+            windowsArm64?: { url?: string; hash?: string };
+          };
+        };
+      };
     };
     const latestVersion = m.latest?.version ?? '';
     if (!latestVersion) throw new Error('manifest 缺少 latest.version');
+    // 按本机 CPU 架构选安装包：Rust std::env::consts::ARCH（Windows ARM64 上
+    // navigator UA 会伪装 x64，不能依赖浏览器判断）；旧服务器清单没有
+    // windowsArm64 字段时回退 x64 包。
+    const arch = await invoke<string>('app_arch');
+    const desktopArt = m.latest?.artifacts?.desktop;
+    const target =
+      arch === 'aarch64' ? (desktopArt?.windowsArm64 ?? desktopArt?.windows) : desktopArt?.windows;
     return {
       latestVersion,
-      installerUrl: m.latest?.artifacts?.desktop?.windows?.url ?? null,
-      installerSha256: m.latest?.artifacts?.desktop?.windows?.hash ?? null,
+      installerUrl: target?.url ?? null,
+      installerSha256: target?.hash ?? null,
     };
   } finally {
     clearTimeout(timer);
@@ -138,9 +153,17 @@ export function registerUpdaterApi(): void {
     },
     downloadUpdates: async () => {
       if (!cachedInstallerUrl) return false;
+      // 白名单由前端下发：GitHub Releases 前缀 + 用户配置的服务器 origin
+      //（manifest 与安装包都来自该服务器，产物已切自托管下载）
+      const { serverUrl } = useModeStore.getState();
+      const origin = serverUrl?.replace(/\/+$/, '') ?? '';
       await invoke<string>('download_and_run_installer', {
         url: cachedInstallerUrl,
         expectedSha256: cachedInstallerSha256,
+        allowedPrefixes: [
+          'https://github.com/Hermitweb/dustnote/releases/download/',
+          origin ? `${origin}/` : '',
+        ].filter(Boolean),
       });
       return true;
     },

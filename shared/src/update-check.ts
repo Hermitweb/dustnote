@@ -22,6 +22,7 @@ export const DesktopArtifactSchema = z
   .object({
     macos: UpdateManifestArtifactSchema.optional(),
     windows: UpdateManifestArtifactSchema.optional(),
+    windowsArm64: UpdateManifestArtifactSchema.optional(),
     linux: UpdateManifestArtifactSchema.optional(),
   })
   .optional();

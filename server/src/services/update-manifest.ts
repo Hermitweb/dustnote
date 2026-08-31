@@ -49,6 +49,7 @@ function getStaticArtifacts() {
   return {
     desktop: {
       windows: artifactFor(`DustNote_${config.serverVersion}_x64-setup.exe`),
+      windowsArm64: artifactFor(`DustNote_${config.serverVersion}_arm64-setup.exe`),
     },
     android: {
       apk: artifactFor(`DustNote_${config.serverVersion}_android.apk`),
