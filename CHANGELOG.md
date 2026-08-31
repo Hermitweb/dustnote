@@ -12,6 +12,18 @@
 - 知识图谱
 - 插件系统
 
+## [2.5.23] - 2026-08-31
+
+### 修复（Android，关键）：PBKDF2 直连原生绑定
+
+- 真机证据：诊断显示「原生(JSI)」但解锁仍分钟级——`install()` 后
+  `globalThis.crypto.subtle` 存在**不代表**它是 quick-crypto 原生实现
+  （其它 polyfill 的加载顺序可能污染/覆盖全局对象）
+- 现在 deriveKey 最优先走 `setPbkdf2NativeImpl` 注入的 Node 风格
+  `quickCrypto.pbkdf2`（应用启动时直接从原生绑定注入，与全局状态无关）
+- 诊断小字显示真实派生路径（native-node / webcrypto-subtle /
+  noble-fallback）与耗时、迭代数，数据可定位
+
 ## [2.5.22] - 2026-08-31
 
 本版为 Windows 双架构发布 + 更新链路完全自托管批次。
