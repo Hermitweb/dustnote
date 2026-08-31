@@ -18,3 +18,7 @@
 [toolchain]
 channel = "1.96.0"
 profile = "minimal"
+# Windows ARM64 交叉编译目标（aarch64 安装包）。必须在文件里声明：
+# tauri-cli 在本目录下 spawn rustup 时按此文件 override 工具链，
+# 装到 default 工具链上的 target 在检测时不可见。
+targets = ["aarch64-pc-windows-msvc"]
