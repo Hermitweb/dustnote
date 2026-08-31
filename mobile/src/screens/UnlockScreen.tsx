@@ -136,15 +136,22 @@ export function UnlockScreen() {
       </TouchableOpacity>
 
       {/* 加密引擎诊断（v2.5.19：定位解锁派生耗时过长的根因——
-          quick-crypto 原生 JSI 未生效时会回退纯 JS 实现，分钟级 vs 秒级） */}
+          quick-crypto 原生 JSI 未生效时会回退纯 JS 实现，分钟级 vs 秒级；
+          v2.5.22 起附带最近一次派生的实际耗时与迭代数） */}
       <Text style={styles.engineDebugText}>
         {(() => {
           const s = (globalThis as Record<string, any>).__QCRYPTO_STATUS;
-          if (!s) return t('auth.engine_unknown');
-          if (s.requireOk && s.installOk) return t('auth.engine_native');
+          const kdf = (globalThis as Record<string, any>).__LAST_KDF as
+            | { ms: number; iterations: number }
+            | undefined;
+          const kdfTail = kdf
+            ? ' ' + t('auth.kdf_diag', { ms: (kdf.ms / 1000).toFixed(1), iters: kdf.iterations })
+            : '';
+          if (!s) return t('auth.engine_unknown') + kdfTail;
+          if (s.requireOk && s.installOk) return t('auth.engine_native') + kdfTail;
           return t('auth.engine_compat', {
             error: s.requireError ?? s.installError ?? '',
-          });
+          }) + kdfTail;
         })()}
       </Text>
     </View>

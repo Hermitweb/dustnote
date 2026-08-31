@@ -246,6 +246,25 @@ export async function deriveKey(
   salt: Uint8Array,
   params = KDF_PARAMS
 ): Promise<Uint8Array> {
+  // 解锁耗时诊断（移动端解锁页读取 __LAST_KDF 显示实际耗时与迭代数，
+  // 用于区分「原生引擎+老账号高迭代」与「引擎未生效走纯 JS 回退」两种慢）
+  const t0 = Date.now();
+  try {
+    return await deriveKeyInner(password, salt, params);
+  } finally {
+    (globalThis as Record<string, unknown>).__LAST_KDF = {
+      ms: Date.now() - t0,
+      algorithm: params.algorithm,
+      iterations: params.iterations ?? 0,
+    };
+  }
+}
+
+async function deriveKeyInner(
+  password: string,
+  salt: Uint8Array,
+  params: KdfParams
+): Promise<Uint8Array> {
   if (params.algorithm === 'pbkdf2') {
     if (hasWebCryptoSubtle()) {
       // PBKDF2-SHA256 via crypto.subtle.deriveBits
