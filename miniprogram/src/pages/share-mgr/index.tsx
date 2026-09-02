@@ -123,7 +123,7 @@ export default function Shares() {
   const selCount = selectedIds.size;
 
   return (
-    <View className="page">
+      <View className="page">
       <View className="topbar">
         {selecting ? (
           <>

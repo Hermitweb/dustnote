@@ -23,6 +23,7 @@ import Taro from '@tarojs/taro';
 import {
   ApiClient,
   type Ciphertext,
+  type KdfParams,
   deriveSecrets,
   generateMasterKey,
   generateRecoveryCode,
@@ -236,15 +237,26 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   async unlock(password: string, totpCode?: string): Promise<void> {
-    // v2：pwSalt 在 init 时已拿到；兜底再取一次
+    // v2：pwSalt 在 init 时已拿到；兜底再取一次（同时读取账号 KDF 参数——
+    // Argon2id 老账号必须按服务端记录的参数派生，新默认 PBKDF2 会得到
+    // 不匹配的 authKey 而恒 401）
     let salt = get().pwSalt;
+    let kdfParams: KdfParams | undefined;
     if (!salt) {
-      const status = await getApi().get<{ pwSalt: string | null }>('/auth/status');
+      const status = await getApi().get<{ pwSalt: string | null; kdfParams?: KdfParams }>('/auth/status');
       salt = status.pwSalt;
+      kdfParams = status.kdfParams;
       if (!salt) throw new Error('系统未初始化');
+    } else {
+      try {
+        const status = await getApi().get<{ kdfParams?: KdfParams }>('/auth/status');
+        kdfParams = status.kdfParams;
+      } catch {
+        /* 用默认参数 */
+      }
     }
 
-    const pw = await deriveSecrets(password, fromBase64(salt));
+    const pw = await deriveSecrets(password, fromBase64(salt), kdfParams);
     const body: { authKey: string; deviceName: string; totpCode?: string } = {
       authKey: toBase64(pw.authKey),
       deviceName: '小程序',

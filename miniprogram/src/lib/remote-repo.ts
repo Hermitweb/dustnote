@@ -31,6 +31,11 @@ import type {
 export class RemoteRepository implements DataRepository {
   readonly kind = 'remote' as const;
 
+  /** 最近一次 loadAll 快照中各笔记的 version——PATCH 乐观锁必带
+   * （服务端 UpdateNoteSchema.version 必填，缺失一律 400，
+   *  曾致小程序自动保存/置顶/收藏/移动全不可用） */
+  private lastVersions = new Map<string, number>();
+
   /**
    * @param getApi 返回最新的 ApiClient 实例的函数
    *   （由调用方注入，通常绑定到 state/auth.ts 的 getApi()，
@@ -47,6 +52,7 @@ export class RemoteRepository implements DataRepository {
       a.get<{ folders: Folder[] }>('/folders'),
       a.get<{ tags: Tag[] }>('/tags'),
     ]);
+    this.lastVersions = new Map(notesRes.notes.map((n) => [n.id, n.version]));
     // preferences 单独获取（可能不存在）
     let preferences: Preferences | null = null;
     try {
@@ -86,17 +92,23 @@ export class RemoteRepository implements DataRepository {
     if (input.isFavorite !== undefined) body.isFavorite = input.isFavorite;
     if (input.folderId !== undefined) body.folderId = input.folderId;
     if (input.deletedAt !== undefined) body.deletedAt = input.deletedAt;
-    if (input.version !== undefined) body.version = input.version;
+    // 乐观锁 version 必带：优先调用方显式传入，否则用最近快照记录值
+    const version = input.version ?? this.lastVersions.get(id);
+    if (version !== undefined) body.version = version;
 
     const r = await this.getApi().patch<{ version: number }>(`/notes/${id}`, body);
+    this.lastVersions.set(id, r.version);
     return r.version;
   }
 
   async moveNote(id: string, folderId: string | null): Promise<void> {
-    await this.getApi().patch(`/notes/${id}`, {
+    const body: Record<string, unknown> = {
       folderId,
       clientUpdatedAt: new Date().toISOString(),
-    });
+    };
+    const version = this.lastVersions.get(id);
+    if (version !== undefined) body.version = version;
+    await this.getApi().patch(`/notes/${id}`, body);
   }
 
   async deleteNote(id: string): Promise<void> {
@@ -108,10 +120,13 @@ export class RemoteRepository implements DataRepository {
   }
 
   async restoreNote(id: string): Promise<void> {
-    await this.getApi().patch(`/notes/${id}`, {
+    const body: Record<string, unknown> = {
       deletedAt: null,
       clientUpdatedAt: new Date().toISOString(),
-    });
+    };
+    const version = this.lastVersions.get(id);
+    if (version !== undefined) body.version = version;
+    await this.getApi().patch(`/notes/${id}`, body);
   }
 
   async emptyTrash(): Promise<{ deleted: number; failed: number }> {

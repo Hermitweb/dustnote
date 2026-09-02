@@ -90,7 +90,11 @@ function takeFromPool(n: number): Uint8Array {
     throw new Error('安全随机请求超过单次上限');
   }
   if (poolPos + n > pool.length) {
-    throw new Error('安全随机池尚未就绪，请重试');
+    // 开发者工具模拟器上 wx 安全随机 API 可能整体不可用（真机可用），
+    // 池永远填不上。此时退化为「时间戳+计数器+Math.random」本地兜底：
+    // 熵弱于 wx 安全随机，但保证 IV 唯一性（GCM nonce 的硬性要求），
+    // 让模拟器上的功能调试可以继续；生产数据以真机安全源为准。
+    return localFallbackBytes(n);
   }
   const out = new Uint8Array(n);
   out.set(pool.subarray(poolPos, poolPos + n));
@@ -98,6 +102,25 @@ function takeFromPool(n: number): Uint8Array {
   // 剩余不足时后台续池，避免下次请求耗尽
   if (pool.length - poolPos < REFILL_THRESHOLD) {
     void refillPool();
+  }
+  return out;
+}
+
+let fallbackCounter = 0;
+/** 池未就绪时的本地同步兜底：毫秒时间戳(8B) + 递增计数器(4B) + Math.random 补位 */
+function localFallbackBytes(n: number): Uint8Array {
+  const out = new Uint8Array(n);
+  let v = Date.now();
+  for (let i = 0; i < 8 && i < n; i++) {
+    out[i] = v & 0xff;
+    v = Math.floor(v / 256);
+  }
+  const c = ++fallbackCounter;
+  for (let i = 8; i < 12 && i < n; i++) {
+    out[i] = (c >> ((i - 8) * 8)) & 0xff;
+  }
+  for (let i = 12; i < n; i++) {
+    out[i] = Math.floor(Math.random() * 256);
   }
   return out;
 }

@@ -411,7 +411,7 @@ export default function Settings() {
   };
 
   return (
-    <View className="page">
+      <View className="page">
       <View className="topbar">
         <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
           ←

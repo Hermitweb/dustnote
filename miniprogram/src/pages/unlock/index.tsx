@@ -45,7 +45,7 @@ export default function Unlock() {
   };
 
   return (
-    <View className="hero">
+      <View className="hero">
       <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
       <Text className="hero-title text-mint">DustNote</Text>
       <Text className="hero-subtitle mb-l">{t('unlock.subtitle')}</Text>

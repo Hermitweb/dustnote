@@ -451,7 +451,7 @@ export default function Index() {
 
   // 已解锁：显示主界面
   return (
-    <View className="page">
+      <View className="page">
       <View className="topbar">
         {selecting ? (
           <>

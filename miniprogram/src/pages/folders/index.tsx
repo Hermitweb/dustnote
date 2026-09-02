@@ -203,7 +203,7 @@ export default function Folders() {
   };
 
   return (
-    <View className="page">
+      <View className="page">
       <View className="topbar">
         <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
           ←

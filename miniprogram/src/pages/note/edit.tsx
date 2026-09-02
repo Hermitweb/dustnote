@@ -533,7 +533,7 @@ export default function NoteEdit() {
   })();
 
   return (
-    <View className="page">
+      <View className="page">
       <View className="topbar">
         <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
           ←
