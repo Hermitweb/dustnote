@@ -239,7 +239,13 @@ export default function ModeSelect() {
           className="mint-input mt-m"
           placeholder="http://192.168.x.x:3210"
           value={serverUrl}
-          onInput={(e) => setServerUrlInput((e.detail as { value: string }).value)}
+          onInput={(e) => {
+            // 返回值强制 Taro 同步到原生输入框：否则输入过程中原生 value
+            // 一直为空，placeholder 不消失、与文字叠显（小程序特有）
+            const v = (e.detail as { value: string }).value;
+            setServerUrlInput(v);
+            return v;
+          }}
         />
         {testResult && (
           <Text
