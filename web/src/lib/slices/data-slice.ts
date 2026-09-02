@@ -173,7 +173,9 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
       set({
         notes: new Map(notesRes.notes.map((n: NoteRow) => [n.id, n])),
         folders: foldersRes.folders,
-        templates: templatesRes.templates ?? PRESET_TEMPLATES,
+        // 服务端 templates 表可能未 seed 预设（返回空数组）——必须与预设合并,
+        // 空数组 ?? 兜底不生效（?? 只认 null/undefined）,曾致联机模式模板空白
+        templates: [...PRESET_TEMPLATES, ...(templatesRes.templates ?? [])],
       } as Partial<StoreState>);
 
       const masterKey = get().masterKey;
