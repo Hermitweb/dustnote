@@ -49,6 +49,7 @@ import {
   KDF_PARAMS_MOBILE,
   KDF_VERSION,
   type Ciphertext,
+  type KdfParams,
   type LocalAuthBlob,
   type LocalLockoutState,
 } from '@dustnote/shared';
@@ -588,12 +589,23 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     if (newPassword.length < 6) throw new Error(i18n.t('auth.new_password_too_short'));
     // 1. 用当前密码 unlock 验证身份 + 取回服务端 wrapped masterKey（同时刷新会话）
     let salt = get().pwSalt;
+    let kdfParams: KdfParams = KDF_PARAMS_MOBILE;
     if (!salt) {
-      const status = await api.get<{ pwSalt: string | null }>('/auth/status');
+      const status = await api.get<{ pwSalt: string | null; kdfParams?: KdfParams }>('/auth/status');
       salt = status.pwSalt;
+      if (status.kdfParams) kdfParams = status.kdfParams;
       if (!salt) throw new Error(i18n.t('auth.system_not_initialized'));
+    } else {
+      // 账号 KDF 参数以服务端记录为准（Argon2id 老账号必须按旧参数派生
+      // 当前密码 authKey；新密码也沿用同一参数,否则 rewrap 后跨端锁死）
+      try {
+        const status = await api.get<{ kdfParams?: KdfParams }>('/auth/status');
+        if (status.kdfParams) kdfParams = status.kdfParams;
+      } catch {
+        /* 用默认参数 */
+      }
     }
-    const pw = await deriveSecrets(currentPassword, fromBase64(salt), KDF_PARAMS_MOBILE);
+    const pw = await deriveSecrets(currentPassword, fromBase64(salt), kdfParams);
     const r = await api.post<{
       accessToken: string;
       refreshToken?: string;
@@ -604,9 +616,10 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     if (r.refreshToken) void setRefreshToken(r.refreshToken);
     const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
 
-    // 2. 新密码派生新 KEK，重新包装同一把 masterKey（masterKey 不变，笔记照常可解）
+    // 2. 新密码派生新 KEK，重新包装同一把 masterKey（masterKey 不变，笔记照常可解；
+    //    派生沿用账号 KDF 参数，服务端记录不变,避免 rewrap 后跨端解锁失败）
     const newPwSalt = randomBytes(16);
-    const np = await deriveSecrets(newPassword, newPwSalt, KDF_PARAMS_MOBILE);
+    const np = await deriveSecrets(newPassword, newPwSalt, kdfParams);
     const wrappedPw = await wrapKey(np.kek, masterKey);
 
     // 3. 上传新包装（rewrap 需要鉴权，先落 token）
@@ -682,9 +695,10 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     // 关键：解封出来的是原来那把 masterKey，历史笔记照常能解开
     const masterKey = await unwrapKey(rc.kek, r.wrappedMasterKey);
 
-    // 拿回 masterKey 后立刻用新密码重新包装（masterKey 本身不变）
+    // 拿回 masterKey 后立刻用新密码重新包装（masterKey 本身不变；
+    // 派生沿用账号 KDF 参数,服务端记录不变,避免 rewrap 后跨端锁死）
     const newPwSalt = randomBytes(16);
-    const pw = await deriveSecrets(newPassword, newPwSalt, KDF_PARAMS_MOBILE);
+    const pw = await deriveSecrets(newPassword, newPwSalt, kdfParams);
     const wrappedPw = await wrapKey(pw.kek, masterKey);
 
     // 先落 token，rewrap 是需要鉴权的接口

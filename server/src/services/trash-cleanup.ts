@@ -15,6 +15,7 @@ import { logger } from '../logger.js';
 import { broadcastNoteChanged } from './sync-ws.js';
 
 export const TRASH_RETENTION_DAYS = 30;
+export const SHARE_RETENTION_DAYS = 30; // 分享失效后密文保留天数
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 小时
 
 /**
@@ -61,6 +62,33 @@ export function purgeExpiredTrash(now: Date = new Date()): number {
       '回收站自动清理：已永久删除过期笔记'
     );
   }
+
+  // 过期/吊销分享的密文清除：shares 表的 ciphertext/wrapped_share_key 在
+  // 分享失效 30 天后删除，兑现「服务端最小化留存」承诺（非致命，表缺失/
+  // 局部异常不影响主流程）
+  const shareCutoff = new Date(now.getTime() - SHARE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  try {
+    const purgedShares = db
+      .prepare(
+        `UPDATE shares
+         SET ciphertext = NULL, wrapped_share_key = NULL
+         WHERE (
+           (expires_at IS NOT NULL AND expires_at < ?)
+           OR revoked = 1
+         )
+         AND (ciphertext IS NOT NULL OR wrapped_share_key IS NOT NULL)`,
+      )
+      .run(shareCutoff);
+    if (purgedShares.changes > 0) {
+      logger.info(
+        { purged: purgedShares.changes, cutoff: shareCutoff, retentionDays: SHARE_RETENTION_DAYS },
+        '分享自动清理：已清除失效分享的密文'
+      );
+    }
+  } catch (err) {
+    logger.warn({ err }, '分享密文清理失败（非致命）');
+  }
+
   return result.changes;
 }
 

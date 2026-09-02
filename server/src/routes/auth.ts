@@ -112,7 +112,7 @@ function validateClientHeaders(client: { deviceId: string; platform: string }): 
 function writeRefreshCookie(res: Response, token: string): void {
   res.cookie('dustnote_refresh', token, {
     httpOnly: true,
-    secure: config.nodeEnv === 'production',
+    secure: config.cookieSecure,
     sameSite: 'strict',
     maxAge: REFRESH_TTL * 1000,
     path: '/api/v1/auth',
@@ -143,6 +143,7 @@ interface UserRow {
   locked_until: string | null;
   totp_secret: string | null;
   totp_enabled: number;
+  totp_last_counter: number;
   kdf_params: string;
 }
 
@@ -151,7 +152,7 @@ function loadUser(): UserRow | undefined {
     .prepare(
       `SELECT id, pw_salt, rc_salt, auth_hash, recovery_auth_hash,
               wrapped_master_key_pw, wrapped_master_key_rc,
-              failed_attempts, locked_until, totp_secret, totp_enabled, kdf_params
+              failed_attempts, locked_until, totp_secret, totp_enabled, totp_last_counter, kdf_params
        FROM users WHERE auth_hash IS NOT NULL ORDER BY id LIMIT 1`
     )
     .get() as UserRow | undefined;
@@ -423,25 +424,37 @@ authRouter.post(
       return;
     }
 
-    // 登录成功：清零失败计数
-    const clean = recordSuccess();
-    db.prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?').run(
-      clean.failedAttempts,
-      clean.lockedUntil,
-      user.id
-    );
-
+    // 登录成功：清零失败计数（移到 2FA 通过之后——TOTP 失败也计入
+    // 防爆破锁定，否则已知主密码的攻击者可无限爆破 6 位验证码）
     // 2FA 检查：密码正确后，若启用了 TOTP 则要求验证码
     if (user.totp_enabled && user.totp_secret) {
       if (!parsed.data.totpCode) {
         res.status(401).json({ error: 'totp_required', message: '请输入两步验证码' });
         return;
       }
-      if (!verifyTotp(parsed.data.totpCode, user.totp_secret)) {
-        logger.warn({ userId: user.id }, 'TOTP 验证码错误');
+      // 防重放：verifyTotpWithCounter 返回命中窗口的计数器，落库后
+      // 同一窗口的验证码不可再次使用
+      const vr = verifyTotpWithCounter(parsed.data.totpCode, user.totp_secret, user.totp_last_counter);
+      if (!vr.ok) {
+        const next = recordFailureAtomic(db, 'users', user.id);
+        logger.warn({ userId: user.id, attempts: next.failedAttempts }, 'TOTP 验证码错误');
         res.status(401).json({ error: 'invalid_totp', message: '两步验证码错误' });
         return;
       }
+      db.prepare('UPDATE users SET totp_last_counter = ? WHERE id = ?').run(vr.counter, user.id);
+      const clean = recordSuccess();
+      db.prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?').run(
+        clean.failedAttempts,
+        clean.lockedUntil,
+        user.id
+      );
+    } else {
+      const clean = recordSuccess();
+      db.prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?').run(
+        clean.failedAttempts,
+        clean.lockedUntil,
+        user.id
+      );
     }
 
     touchDevice(user.id, client.deviceId, client.platform, parsed.data.deviceName);
@@ -735,7 +748,7 @@ authRouter.get('/auth/me', (req, res) => {
 
 // ========== 2FA / TOTP ==========
 
-import { generateTotpSecret, generateTotpUri, verifyTotp } from '../auth/totp.js';
+import { generateTotpSecret, generateTotpUri, verifyTotp, verifyTotpWithCounter } from '../auth/totp.js';
 
 const Verify2faSchema = z.object({
   code: z.string().length(6).regex(/^\d{6}$/),

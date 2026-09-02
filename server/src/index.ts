@@ -10,6 +10,7 @@ import { getDb, runMigrations, closeDb } from './db.js';
 import { migrations } from './migrations.js';
 import { setupSyncWss, closeWss } from './services/sync-ws.js';
 import { startTrashCleanup, stopTrashCleanup } from './services/trash-cleanup.js';
+import { startBackupSchedule, stopBackupSchedule } from './services/backup-scheduler.js';
 import { initSentry, captureException } from './sentry.js';
 import { ACTIVE_ALGORITHM } from './auth/jwt.js';
 
@@ -23,6 +24,16 @@ async function main(): Promise<void> {
   // 1. 初始化数据库 + 跑迁移
   const db = getDb();
   runMigrations(db, migrations);
+
+  // 1.5 幂等列 ensure：TOTP 防重放计数器（轻量列级 ensure,不占迁移条目；
+  // 首次部署/升级自动补列,已存在则跳过）
+  const totpCol = (
+    db.prepare("PRAGMA table_info('users')").all() as { name: string }[]
+  ).some((c) => c.name === 'totp_last_counter');
+  if (!totpCol) {
+    db.exec('ALTER TABLE users ADD COLUMN totp_last_counter INTEGER NOT NULL DEFAULT -1');
+    logger.info('已补列 users.totp_last_counter（TOTP 防重放）');
+  }
 
   // 2. 创建 HTTP 服务
   const app = createApp();
@@ -39,6 +50,7 @@ async function main(): Promise<void> {
 
   // 4. 启动回收站定期清理（30 天过期笔记永久删除）
   startTrashCleanup();
+  startBackupSchedule();
 
   // 5. 启动
   httpServer.listen(config.port, () => {
@@ -62,6 +74,7 @@ async function main(): Promise<void> {
     try {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));
       stopTrashCleanup();
+      stopBackupSchedule();
       await closeWss();
       closeDb();
       logger.info('已关闭 HTTP/WS/DB');

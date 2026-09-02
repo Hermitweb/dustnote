@@ -22,6 +22,13 @@ const DEFAULT_JWT_SECRET = 'dev-secret-change-me-do-not-use-in-production-32plus
 
 export const config = {
   nodeEnv: getEnv('NODE_ENV', 'development'),
+  // 刷新 cookie 的 Secure 标志：默认生产环境开启；非 HTTPS 部署（裸 IP/局域网
+  // HTTP）时浏览器会丢弃 Secure cookie 导致 refresh 静默失效，可显式设
+  // COOKIE_SECURE=false 覆盖（需自行承担明文传输风险）
+  cookieSecure:
+    getEnvOpt('COOKIE_SECURE') !== undefined
+      ? getEnvOpt('COOKIE_SECURE') === 'true'
+      : getEnv('NODE_ENV', 'development') === 'production',
   port: Number.parseInt(getEnv('PORT', '3210'), 10),
   logLevel: getEnv('LOG_LEVEL', 'info'),
   dbPath: getEnv('DB_PATH', './data/dustnote.db'),

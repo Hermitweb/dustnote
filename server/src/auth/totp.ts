@@ -45,17 +45,39 @@ export function generateTotp(secret: string, time?: number): string {
  * @param secret base32 编码的密钥
  * @returns 验证是否通过
  */
-export function verifyTotp(token: string, secret: string): boolean {
+/**
+ * 验证 TOTP 验证码（允许前后 1 个时间窗口的偏移，共 3 个窗口），
+ * 并返回命中窗口的计数器供调用方做防重放记录。
+ *
+ * @param token 用户输入的 6 位验证码
+ * @param secret base32 编码的密钥
+ * @param lastUsedCounter 最近一次成功验证已使用的计数器（小于等于它的窗口拒绝，防重放）
+ */
+export function verifyTotpWithCounter(
+  token: string,
+  secret: string,
+  lastUsedCounter: number,
+): { ok: boolean; counter: number } {
   const now = Math.floor(Date.now() / 1000);
   // 检查当前窗口和前后各 1 个窗口（允许 ±30 秒的时钟偏移）
   for (const offset of [0, -1, 1]) {
     const counter = Math.floor((now + offset * PERIOD) / PERIOD);
+    // 防重放：已使用过的窗口计数器直接跳过
+    if (counter <= lastUsedCounter) continue;
     const expected = computeHotp(base32Decode(secret), counter);
     if (timingSafeEqualCompare(token, expected)) {
-      return true;
+      return { ok: true, counter };
     }
   }
-  return false;
+  return { ok: false, counter: -1 };
+}
+
+/**
+ * 兼容包装：仅验证、不做防重放记录。登录等安全敏感路径请改用
+ * verifyTotpWithCounter 并持久化返回的 counter。
+ */
+export function verifyTotp(token: string, secret: string): boolean {
+  return verifyTotpWithCounter(token, secret, -1).ok;
 }
 
 // ========== HOTP (RFC 4226) ==========

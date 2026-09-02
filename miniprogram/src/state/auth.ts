@@ -20,6 +20,7 @@
 import { create } from 'zustand';
 import React from 'react';
 import Taro from '@tarojs/taro';
+import { t } from '../lib/i18n';
 import {
   ApiClient,
   type Ciphertext,
@@ -408,10 +409,19 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     }
 
     // 联机模式：rewrap（已解锁时 masterKey 在内存中，服务端只收到新包装的密文）
+    // 新密码派生沿用账号当前 KDF 参数（/auth/status），服务端记录不变，
+    // 避免 rewrap 后按记录参数派生不一致导致跨端解锁失败
     const masterKey = get().masterKey;
-    if (!masterKey) throw new Error('请先解锁');
+    if (!masterKey) throw new Error(t('common.need_unlock'));
+    let kdfParams: KdfParams | undefined;
+    try {
+      const status = await getApi().get<{ kdfParams?: KdfParams }>('/auth/status');
+      kdfParams = status.kdfParams;
+    } catch {
+      /* 用默认参数 */
+    }
     const newPwSalt = randomBytes(16);
-    const pw = await deriveSecrets(newPassword, newPwSalt);
+    const pw = await deriveSecrets(newPassword, newPwSalt, kdfParams);
     const wrappedMasterKey = await wrapKey(pw.kek, masterKey);
     await getApi().post('/auth/rewrap', {
       password: {

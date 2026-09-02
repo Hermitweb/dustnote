@@ -7,22 +7,12 @@ on:
       - '**.md'
       - 'docs/**'
       - '.trae/**'
-      - '*.yml'
-      - 'scripts/**'
-      - 'deploy/**'
-      - 'docker-compose.yml'
-      - 'Dockerfile'
   pull_request:
     branches: [main, dev]
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - '.trae/**'
-      - '*.yml'
-      - 'scripts/**'
-      - 'deploy/**'
-      - 'docker-compose.yml'
-      - 'Dockerfile'
   workflow_dispatch:
 
 permissions:

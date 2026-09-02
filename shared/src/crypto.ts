@@ -323,7 +323,7 @@ async function deriveKeyInner(
       // PBKDF2-SHA256 via crypto.subtle.deriveBits
       // react-native-quick-crypto 提供原生 JSI 实现，不阻塞主线程
       if (typeof console !== 'undefined' && typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
-        console.log('[KDF] path=webcrypto-subtle iterations=' + (params.iterations ?? 310000));
+        console.log('[KDF] path=webcrypto-subtle iterations=' + (params.iterations ?? 100000));
       }
       const keyMaterial = await crypto.subtle.importKey(
         'raw',
@@ -336,7 +336,7 @@ async function deriveKeyInner(
         {
           name: 'PBKDF2',
           salt: salt as BufferSource,
-          iterations: params.iterations ?? 310000,
+          iterations: params.iterations ?? 100000,
           hash: 'SHA-256',
         } as Pbkdf2Params,
         keyMaterial,
@@ -347,11 +347,11 @@ async function deriveKeyInner(
     // 纯 JS 回退（微信小程序等无 WebCrypto 环境）。@noble/hashes 的
     // PBKDF2 与 WebCrypto deriveBits 同为标准 PBKDF2-HMAC-SHA256，输出完全一致。
     if (typeof console !== 'undefined') {
-      console.log('[KDF] path=noble-fallback iterations=' + (params.iterations ?? 310000));
+        console.log('[KDF] path=noble-fallback iterations=' + (params.iterations ?? 100000));
     }
     return new Uint8Array(
       await noblePbkdf2(sha256, encodeUtf8(password), salt, {
-        c: params.iterations ?? 310000,
+        c: params.iterations ?? 100000,
         dkLen: params.dkLen,
       })
     );

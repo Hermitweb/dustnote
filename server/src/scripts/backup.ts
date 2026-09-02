@@ -37,9 +37,10 @@ export async function backupDatabase(): Promise<string> {
 
   await mkdir(BACKUP_DIR, { recursive: true });
 
-  // SQLite Online Backup：不锁库，可在线执行，传文件路径
+  // SQLite Online Backup：不锁库，可在线执行；**必须 await**——
+  // 该 API 返回 Promise，不等待就 stat 会读到未写完的备份文件
   const sourceDb = getDb() as unknown as InstanceType<typeof Database>;
-  sourceDb.backup(backupPath);
+  await sourceDb.backup(backupPath);
   const stats = await stat(backupPath);
   logger.info({ path: backupPath, sizeMB: (stats.size / 1048576).toFixed(2) }, 'SQLite 备份完成');
   return backupPath;
