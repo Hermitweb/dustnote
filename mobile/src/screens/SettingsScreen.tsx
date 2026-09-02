@@ -687,7 +687,7 @@ export function SettingsScreen() {
       Alert.alert(t('common.hint'), t('settings.change_pw_required'));
       return;
     }
-    if (pwNew.length < 8) {
+    if (pwNew.length < 6) {
       Alert.alert(t('common.hint'), t('settings.change_pw_too_short'));
       return;
     }

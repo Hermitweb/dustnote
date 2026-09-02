@@ -26,7 +26,7 @@ import { t, useLanguage } from '../../lib/i18n';
 type Strength = { label: string; level: 'weak' | 'medium' | 'strong'; width: number };
 
 function evalStrength(p: string): Strength {
-  if (p.length < 8) return { label: t('common.strength_weak'), level: 'weak', width: 25 };
+  if (p.length < 6) return { label: t('common.strength_weak'), level: 'weak', width: 25 };
   if (p.length < 12) return { label: t('common.strength_medium'), level: 'medium', width: 60 };
   if (p.length >= 16) return { label: t('common.strength_strong'), level: 'strong', width: 100 };
   return { label: t('common.strength_good'), level: 'medium', width: 80 };
@@ -52,7 +52,7 @@ export default function StandaloneRecover() {
       Taro.showToast({ title: t('recover.err_code'), icon: 'none' });
       return;
     }
-    if (newPassword.length < 8) {
+    if (newPassword.length < 6) {
       Taro.showToast({ title: t('recover.err_pwd_len'), icon: 'none' });
       return;
     }

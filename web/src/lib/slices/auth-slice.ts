@@ -302,7 +302,7 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
   },
 
   async changePassword(masterPassword: string, newPassword: string): Promise<void> {
-    if (newPassword.length < 8) throw new Error('新主密码至少 8 个字符');
+    if (newPassword.length < 6) throw new Error('新主密码至少 6 个字符');
     const { mode } = get();
 
     if (mode === 'standalone') {

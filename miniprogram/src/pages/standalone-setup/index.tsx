@@ -24,7 +24,7 @@ import { t, useLanguage } from '../../lib/i18n';
 type Strength = { label: string; level: 'weak' | 'medium' | 'strong'; width: number };
 
 function evalStrength(p: string): Strength {
-  if (p.length < 8) return { label: t('common.strength_weak'), level: 'weak', width: 25 };
+  if (p.length < 6) return { label: t('common.strength_weak'), level: 'weak', width: 25 };
   if (p.length < 12) return { label: t('common.strength_medium'), level: 'medium', width: 60 };
   if (p.length >= 16) return { label: t('common.strength_strong'), level: 'strong', width: 100 };
   return { label: t('common.strength_good'), level: 'medium', width: 80 };
@@ -46,7 +46,7 @@ export default function StandaloneSetup() {
 
   // 主流程：校验 → setupStandalone → 展示恢复码弹窗
   const doSetup = async (pwd: string, confirmPwd: string) => {
-    if (pwd.length < 8) {
+    if (pwd.length < 6) {
       Taro.showToast({ title: t('standalone_setup.err_pwd_len'), icon: 'none' });
       return;
     }

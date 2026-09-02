@@ -95,8 +95,8 @@ export async function setupLocalAuth(
   password: string,
   params: KdfParams = KDF_PARAMS
 ): Promise<SetupLocalAuthResult> {
-  if (password.length < 8) {
-    throw new Error('主密码至少 8 字符');
+  if (password.length < 6) {
+    throw new Error('主密码至少 6 字符');
   }
 
   // 1. 随机 masterKey（不依赖密码，recover 时可保留）
@@ -245,8 +245,8 @@ export async function recoverLocalAuth(
   oldBlob: LocalAuthBlob,
   params: KdfParams = KDF_PARAMS
 ): Promise<RecoverLocalAuthResult> {
-  if (newPassword.length < 8) {
-    throw new Error('新主密码至少 8 字符');
+  if (newPassword.length < 6) {
+    throw new Error('新主密码至少 6 字符');
   }
 
   if (oldBlob.kdfVersion !== KDF_VERSION) {

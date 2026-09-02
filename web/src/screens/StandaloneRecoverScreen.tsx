@@ -23,7 +23,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const tooWeak = newPassword.length > 0 && newPassword.length < 8;
+  const tooWeak = newPassword.length > 0 && newPassword.length < 6;
   const mismatch = confirm.length > 0 && newPassword !== confirm;
 
   async function handleSubmit() {
@@ -31,7 +31,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
       setError(t('auth.recover_code_invalid'));
       return;
     }
-    if (newPassword.length < 8) {
+    if (newPassword.length < 6) {
       setError(t('auth.too_weak'));
       return;
     }
@@ -131,7 +131,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
             disabled={
               submitting ||
               !isValidRecoveryCode(recoveryCode) ||
-              newPassword.length < 8 ||
+              newPassword.length < 6 ||
               newPassword !== confirm
             }
             className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700 disabled:opacity-50"

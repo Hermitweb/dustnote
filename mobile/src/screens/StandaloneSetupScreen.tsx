@@ -42,7 +42,7 @@ export function StandaloneSetupScreen() {
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
 
   const strength = (() => {
-    if (password.length < 8) return { level: 0, text: t('auth.strength_min8') };
+    if (password.length < 6) return { level: 0, text: t('auth.strength_min8') };
     if (password.length < 12) return { level: 1, text: t('auth.strength_weak') };
     if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password))
       return { level: 2, text: t('auth.strength_medium') };
@@ -51,7 +51,7 @@ export function StandaloneSetupScreen() {
   })();
 
   const onSubmit = async () => {
-    if (password.length < 8) {
+    if (password.length < 6) {
       Alert.alert(t('common.error'), t('auth.too_weak'));
       return;
     }

@@ -585,7 +585,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   // ========== 账户操作 ==========
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
-    if (newPassword.length < 8) throw new Error(i18n.t('auth.new_password_too_short'));
+    if (newPassword.length < 6) throw new Error(i18n.t('auth.new_password_too_short'));
     // 1. 用当前密码 unlock 验证身份 + 取回服务端 wrapped masterKey（同时刷新会话）
     let salt = get().pwSalt;
     if (!salt) {
@@ -632,7 +632,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   async changePasswordStandalone(currentPassword: string, newPassword: string): Promise<string> {
-    if (newPassword.length < 8) throw new Error(i18n.t('auth.new_password_too_short'));
+    if (newPassword.length < 6) throw new Error(i18n.t('auth.new_password_too_short'));
     const { localAuthBlob, lockoutState } = get();
     const blob = localAuthBlob ?? (await loadLocalAuthBlob());
     if (!blob) throw new Error(i18n.t('auth.not_initialized'));
@@ -663,7 +663,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   async recoverOnline(recoveryCode: string, newPassword: string): Promise<void> {
-    if (newPassword.length < 8) throw new Error(i18n.t('auth.new_password_too_short'));
+    if (newPassword.length < 6) throw new Error(i18n.t('auth.new_password_too_short'));
     // v2：先取恢复码派生所需的 rc_salt + KDF 参数（直接用服务端记录的账号参数）
     const recoveryParams = await api.get<{ rcSalt: string; kdfParams?: { algorithm: 'argon2id' | 'pbkdf2'; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/recovery-params');
     const kdfParams = recoveryParams.kdfParams ?? KDF_PARAMS_MOBILE;

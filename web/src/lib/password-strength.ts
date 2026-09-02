@@ -33,7 +33,7 @@ const COMMON_WEAK = new Set([
 
 export function evalPasswordStrength(pw: string): PasswordStrength {
   if (!pw) return 0;
-  if (pw.length < 8 || COMMON_WEAK.has(pw.toLowerCase())) return 0;
+  if (pw.length < 6 || COMMON_WEAK.has(pw.toLowerCase())) return 0;
 
   let kinds = 0;
   if (/[a-z]/.test(pw)) kinds++;

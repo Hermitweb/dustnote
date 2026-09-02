@@ -799,8 +799,8 @@ function ShareDialog({
       const wrappedShareKey = await wrapKey(masterKey, shareKey);
 
       // 有效期来自预设（1/7/30 天或永久），值固定合法，无需额外校验
-      // 客户端预校验密码长度（与服务端 CreateShareSchema 一致：min 8）
-      if (password && password.length < 8) {
+      // 客户端预校验密码长度（与服务端 CreateShareSchema 一致：min 4）
+      if (password && password.length < 4) {
         toast.error(t('editor.share_password_hint'));
         return;
       }

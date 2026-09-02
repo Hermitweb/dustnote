@@ -198,7 +198,7 @@ export default function Settings() {
       Taro.showToast({ title: t('settings.err_current_pwd'), icon: 'none' });
       return;
     }
-    if (newPwd.length < 8) {
+    if (newPwd.length < 6) {
       Taro.showToast({ title: t('settings.err_new_pwd_len'), icon: 'none' });
       return;
     }

@@ -51,7 +51,7 @@ export function UnlockScreen() {
   }
 
   async function handleRecover() {
-    if (!isValidRecoveryCode(recoveryCode) || newPassword.length < 8) return;
+    if (!isValidRecoveryCode(recoveryCode) || newPassword.length < 6) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -178,7 +178,7 @@ export function UnlockScreen() {
             )}
             <button
               type="submit"
-              disabled={!isValidRecoveryCode(recoveryCode) || newPassword.length < 8 || submitting}
+              disabled={!isValidRecoveryCode(recoveryCode) || newPassword.length < 6 || submitting}
               className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700 disabled:opacity-50"
             >
               {submitting ? '...' : t('auth.recover_btn')}

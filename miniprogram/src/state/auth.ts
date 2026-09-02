@@ -362,7 +362,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   // ========== 修改主密码 ==========
 
   async changePassword(oldPassword: string, newPassword: string): Promise<void> {
-    if (newPassword.length < 8) throw new Error('新密码至少 8 位');
+    if (newPassword.length < 6) throw new Error('新密码至少 6 位');
     const mode = useModeStore.getState().mode;
 
     // 单机模式：本地校验旧密码后，用新密码 KEK 重新包装同一把 masterKey

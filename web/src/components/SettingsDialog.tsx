@@ -238,7 +238,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   // ========== 修改主密码 ==========
   const handleChangePassword = async () => {
     setPwMsg(null);
-    if (newPw.length < 8) {
+    if (newPw.length < 6) {
       setPwMsg({ ok: false, text: t('auth.too_weak') });
       return;
     }

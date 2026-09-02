@@ -45,7 +45,7 @@ export function StandaloneRecoverScreen() {
       Alert.alert(t('common.error'), t('auth.recover_code_invalid'));
       return;
     }
-    if (newPassword.length < 8) {
+    if (newPassword.length < 6) {
       Alert.alert(t('common.error'), t('auth.too_weak'));
       return;
     }

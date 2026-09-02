@@ -12,11 +12,11 @@ export function SetupScreen() {
   const [error, setError] = useState<string | null>(null);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
 
-  const tooWeak = password.length > 0 && password.length < 8;
+  const tooWeak = password.length > 0 && password.length < 6;
   const mismatch = confirm.length > 0 && password !== confirm;
 
   async function handleSubmit() {
-    if (password.length < 8) {
+    if (password.length < 6) {
       setError(t('auth.too_weak'));
       return;
     }
@@ -107,7 +107,7 @@ export function SetupScreen() {
 
           <button
             type="submit"
-            disabled={submitting || password.length < 8 || password !== confirm}
+            disabled={submitting || password.length < 6 || password !== confirm}
             className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700 disabled:opacity-50"
           >
             {submitting ? '...' : t('auth.setup_btn')}

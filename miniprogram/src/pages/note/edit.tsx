@@ -324,9 +324,8 @@ export default function NoteEdit() {
       return;
     }
     const pwd = sharePwd.trim();
-    if (pwd && (pwd.length < 8 || pwd.length > 64)) {
-      // 与服务端 CreateShareSchema（min 8）及 web 端预校验一致；旧文案"4-64 位"
-      // 会引导用户设 4-7 位密码然后在服务端被拒
+    if (pwd && (pwd.length < 4 || pwd.length > 64)) {
+      // 与服务端 CreateShareSchema（min 4）及 web 端预校验一致
       Taro.showToast({ title: t('editor.pwd_length'), icon: 'none' });
       return;
     }
