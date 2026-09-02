@@ -105,3 +105,6 @@ _apk-audit/
 .opencode/
 .mimosa/
 ISSUE_*.md
+.deploy/
+miniprogram/.swc/
+.server-data/
