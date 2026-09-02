@@ -26,6 +26,7 @@ import {
   LOCAL_LOCKOUT_DURATION_MS,
   type LocalAuthBlob,
   type LocalLockoutState,
+  type KdfParams,
 } from '@dustnote/shared';
 import type { StoreState } from '../store';
 import type { AuthState } from '../store-types';
@@ -53,6 +54,8 @@ export interface AuthSlice {
   accessToken: string | null;
   userId: string | null;
   serverSalt: string | null;
+  /** 服务端记录的账号 KDF 参数（argon2id 老账号 / pbkdf2 新账号），派生必须用它 */
+  accountKdfParams: KdfParams | null;
   masterKey: Uint8Array | null;
   wrappedMasterKey: Ciphertext | null;
   localAuthBlob: LocalAuthBlob | null;
@@ -81,6 +84,7 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
   accessToken: null,
   userId: null,
   serverSalt: null,
+  accountKdfParams: null,
   masterKey: null,
   wrappedMasterKey: null,
   localAuthBlob: null,
@@ -172,11 +176,12 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
         deviceKnown: boolean;
         pwSalt: string | null;
         totpEnabled: boolean;
+        kdfParams?: KdfParams;
       }>('/auth/status');
       if (!r.initialized) {
-        set({ authState: 'uninitialized', serverError: null, serverSalt: null, totpEnabled: false } as Partial<StoreState>);
+        set({ authState: 'uninitialized', serverError: null, serverSalt: null, totpEnabled: false, accountKdfParams: null } as Partial<StoreState>);
       } else {
-        set({ authState: 'needs_unlock', serverError: null, serverSalt: r.pwSalt, totpEnabled: !!r.totpEnabled } as Partial<StoreState>);
+        set({ authState: 'needs_unlock', serverError: null, serverSalt: r.pwSalt, totpEnabled: !!r.totpEnabled, accountKdfParams: r.kdfParams ?? null } as Partial<StoreState>);
       }
     } catch (err) {
       set({
@@ -227,16 +232,21 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
 
   async unlock(password: string, totpCode?: string): Promise<void> {
     let salt = get().serverSalt;
+    let kdfParams = get().accountKdfParams;
     if (!salt) {
       const status = await api().get<{
         initialized: boolean;
         pwSalt: string | null;
+        kdfParams?: KdfParams;
       }>('/auth/status');
       salt = status.pwSalt;
+      if (status.kdfParams) kdfParams = status.kdfParams;
       if (!salt) throw new Error('系统未初始化');
     }
 
-    const pw = await deriveSecretsInWorker(password, fromBase64(salt));
+    // 派生必须用服务端记录的账号 KDF 参数——Argon2id 老账号用新默认
+    // PBKDF2 派生会得到不匹配的 authKey(401),且恢复码也救不回
+    const pw = await deriveSecretsInWorker(password, fromBase64(salt), kdfParams ?? undefined);
     const body: { authKey: string; deviceName: string; totpCode?: string } = {
       authKey: toBase64(pw.authKey),
       deviceName: 'Web 浏览器',
