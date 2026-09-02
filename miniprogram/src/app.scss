@@ -207,7 +207,10 @@ page {
   background: var(--bg-sunken);
   border: 1rpx solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 20rpx 24rpx;
+  /* 固定高度 + 同值行高：小程序原生 Input 不设高度时文字会垂直错位 */
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 24rpx;
   font-size: 28rpx;
   margin-bottom: 16rpx;
   width: 100%;

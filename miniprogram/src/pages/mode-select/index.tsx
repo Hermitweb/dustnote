@@ -209,9 +209,9 @@ export default function ModeSelect() {
         }}
         onClick={chooseStandalone}
       >
-        <View className="row between">
+        <View className="row" style={{ justifyContent: 'center' }}>
           <Text className="text-lg fw-bold">{t('mode_select.standalone')}</Text>
-          <Text className="text-mint">{cryptoAvailable ? '›' : '🔒'}</Text>
+          <Text className="text-mint" style={{ marginLeft: '8rpx' }}>{cryptoAvailable ? '›' : '🔒'}</Text>
         </View>
         <Text className="hint mt-s" style={{ display: 'block' }}>
           {t('mode_select.standalone_desc')}
@@ -228,9 +228,9 @@ export default function ModeSelect() {
 
       {/* 联机模式入口 */}
       <View className="mint-card mt-m" style={{ width: '100%', maxWidth: '560rpx' }}>
-        <View className="row between">
+        <View className="row" style={{ justifyContent: 'center' }}>
           <Text className="text-lg fw-bold">{t('mode_select.online')}</Text>
-          <Text className="text-mint">›</Text>
+          <Text className="text-mint" style={{ marginLeft: '8rpx' }}>›</Text>
         </View>
         <Text className="hint mt-s" style={{ display: 'block' }}>
           {t('mode_select.online_desc')}
@@ -250,17 +250,17 @@ export default function ModeSelect() {
             {testResult.message}
           </Text>
         )}
-        <View className="row gap-s mt-m">
+        <View className="row mt-m" style={{ justifyContent: 'center', gap: '16rpx' }}>
           <View
             className="mint-btn mint-btn-outline mint-btn-sm"
-            style={{ opacity: testing ? 0.5 : 1 }}
+            style={{ opacity: testing ? 0.5 : 1, minWidth: '200rpx', boxSizing: 'border-box' }}
             onClick={onTestConnection}
           >
             {testing ? t('mode_select.testing') : t('mode_select.test_connection')}
           </View>
           <View
             className="mint-btn mint-btn-sm"
-            style={{ opacity: testing ? 0.5 : 1 }}
+            style={{ opacity: testing ? 0.5 : 1, minWidth: '200rpx', boxSizing: 'border-box' }}
             onClick={chooseOnline}
           >
             {t('mode_select.enter_online')}
