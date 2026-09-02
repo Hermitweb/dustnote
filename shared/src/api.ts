@@ -90,7 +90,10 @@ export class ApiClient {
     const url = `${this.opts.baseUrl}${path}`;
     const headers = this.headers(init?.headers as Record<string, string> | undefined);
 
-    const controller = this.opts.timeoutMs ? new AbortController() : null;
+    // 微信小程序运行时没有 AbortController（其 fetch=Taro.request 也不支持
+    // signal）；超时由 taro-fetch 自身 timeout 兜底，这里仅在有该全局时启用
+    const controller =
+      this.opts.timeoutMs && typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), this.opts.timeoutMs) : null;
     try {
       // 二进制请求体（FormData/Blob/ArrayBuffer）：仅默认 fetch 支持，走原生通路
