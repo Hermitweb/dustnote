@@ -8,7 +8,7 @@ import { initReactI18next } from 'react-i18next';
 const resources = {
   'zh-CN': {
     translation: {
-      app: { name: '尘心笔记', tagline: '端到端加密 · 跨端同步', skip_to_content: '跳转到主要内容', github_repo: 'GitHub 项目主页' },
+      app: { name: '尘渊笔记', tagline: '端到端加密 · 跨端同步', skip_to_content: '跳转到主要内容', github_repo: 'GitHub 项目主页' },
       env: {
         http_notice:
           '当前经 HTTP 访问，部分浏览器功能受限（离线缓存、读剪贴板、语音输入）。笔记加密与同步不受影响，配置 HTTPS 可获得完整体验',
@@ -62,7 +62,7 @@ const resources = {
         favorites: '收藏',
         trash: '回收站',
         folders: '文件夹',
-        unfiled_migrated: '已把 {{count}} 条未分类笔记移入「关于尘心笔记」',
+        unfiled_migrated: '已把 {{count}} 条未分类笔记移入默认文件夹',
         select_folder_first: '请先在左侧选择一个文件夹，再创建笔记',
         tags: '标签',
         add_folder: '+ 新建文件夹',
@@ -257,7 +257,7 @@ const resources = {
         uptodate: '✓ 已是最新版本',
         retry: '重试',
         check_update: '🔍 检查更新',
-        about_line: 'DustNote · 尘心笔记',
+        about_line: 'DustNote · 尘渊笔记',
         tech_stack: 'E2EE · SQLite · 跨端同步',
         lang_zh: '中文',
         lang_en: 'English',

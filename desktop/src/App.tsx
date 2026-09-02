@@ -86,7 +86,7 @@ export function App() {
       // 注册托盘 tooltip 更新能力
       registerTrayApi();
 
-      // 设置窗口标题（跟随语言：中文「尘心笔记」/ 英文「DustNote」，
+      // 设置窗口标题（跟随语言：中文「尘渊笔记」/ 英文「DustNote」，
       // tauri.conf.json 的静态 title 仅为启动初帧兜底）
       void import('@tauri-apps/api/window')
         .then(async ({ Window }) => {

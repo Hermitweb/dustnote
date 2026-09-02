@@ -57,7 +57,7 @@ function App() {
   const sidebarHidden = useStore((s) => s.sidebarHidden);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
 
-  // 应用名跟随语言：中文「尘心笔记」/ 英文「DustNote」（浏览器标签标题）
+  // 应用名跟随语言：中文「尘渊笔记」/ 英文「DustNote」（浏览器标签标题）
   useEffect(() => {
     document.title = t('app.name');
   }, [t, i18n.language]);

@@ -1,6 +1,6 @@
 /**
  * 首次使用初始化（与 web 端 data-slice.ensureDefaultContent 语义一致，幂等）：
- * 1. 无任何文件夹时创建默认文件夹「关于尘心笔记」+ 引导笔记
+ * 1. 无任何文件夹时创建默认文件夹「关于尘渊笔记」+ 引导笔记
  * 2. 历史未分类笔记（folderId=null 且未删除）迁入默认文件夹
  *    ——「未分类」已从产品移除，笔记必须归属文件夹
  */
@@ -8,14 +8,14 @@
 import type { DataRepository } from '@dustnote/shared';
 import { packEnvelope } from './envelope';
 
-export const DEFAULT_FOLDER_NAME = '关于尘心笔记';
-const INTRO_CONTENT = `## 欢迎使用尘心笔记
+export const DEFAULT_FOLDER_NAME = '关于尘渊笔记';
+const INTRO_CONTENT = `## 欢迎使用尘渊笔记
 
-尘心笔记是一款**极简、安全**的跨端个人笔记系统。
+尘渊笔记是一款**极简、安全**的跨端个人笔记系统。
 
 - **端到端加密**：笔记在本地加密后才同步，服务器也看不到内容
 - **多端同步**：Web / Windows / 安卓 / 小程序全端覆盖
-- **双向链接**：[[关于尘心笔记]] 语法引用其他笔记
+- **双向链接**：[[关于尘渊笔记]] 语法引用其他笔记
 - **离线可用**：断网也能正常记录，联网后自动同步
 
 ### 快速上手

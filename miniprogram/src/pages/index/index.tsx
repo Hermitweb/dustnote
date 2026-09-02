@@ -29,7 +29,7 @@ import {
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo } from '../../lib/get-repo';
 import { ensureDefaultContent } from '../../lib/default-content';
-import { noteAad } from '@dustnote/shared';
+import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders } from '@dustnote/shared';
 import { t, useLanguage } from '../../lib/i18n';
 
 interface Note {
@@ -64,6 +64,8 @@ export default function Index() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [unlockPwd, setUnlockPwd] = useState('');
+  const [showTotp, setShowTotp] = useState(false);
+  const [totpCode, setTotpCode] = useState('');
   const [unlocking, setUnlocking] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -402,12 +404,16 @@ export default function Index() {
       }
       setUnlocking(true);
       try {
-        await unlock(unlockPwd);
+        await unlock(unlockPwd, showTotp ? totpCode : undefined);
       } catch (err) {
-        Taro.showToast({
-          title: err instanceof Error ? err.message : t('common.unlock_failed'),
-          icon: 'none',
-        });
+        const msg = err instanceof Error ? err.message : '';
+        // 开启了两步验证的账号：解锁页追加 6 位验证码输入
+        if (msg.includes('totp_required') || msg.includes('两步验证码')) {
+          setShowTotp(true);
+          Taro.showToast({ title: t('unlock.err_totp'), icon: 'none' });
+        } else {
+          Taro.showToast({ title: msg || t('common.unlock_failed'), icon: 'none' });
+        }
       } finally {
         setUnlocking(false);
       }
@@ -424,6 +430,14 @@ export default function Index() {
           value={unlockPwd}
           onInput={(e: any) => setUnlockPwd((e.detail as { value: string }).value)}
         />
+        {showTotp && (
+          <Input
+            className="mint-input mt-s"
+            placeholder={t('unlock.totp_placeholder')}
+            value={totpCode}
+            onInput={(e: any) => setTotpCode((e.detail as { value: string }).value)}
+          />
+        )}
         <View
           className="mint-btn mint-btn-block mt-s"
           style={{ opacity: unlocking ? 0.5 : 1 }}
@@ -646,6 +660,61 @@ export default function Index() {
               </Text>
             )}
           </View>
+        </View>
+      )}
+
+      {!selecting && (
+        <View
+          className="fab-tpl"
+          onClick={async () => {
+            if (!masterKey) {
+              Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
+              return;
+            }
+            try {
+              // 选模板
+              const tplRes = await Taro.showActionSheet({
+                itemList: PRESET_TEMPLATES.map((tp) => `${tp.icon} ${tp.name}`),
+              });
+              const tpl = PRESET_TEMPLATES[tplRes.tapIndex];
+              if (!tpl) return;
+              // 选目标文件夹（与 FAB 新建一致的必选逻辑）
+              let folderId: string | null = selectedFolderId;
+              const folderList = folders as Folder[];
+              if (folderId == null || !folderList.some((f) => f.id === folderId)) {
+                if (folderList.length === 0) {
+                  await ensureDefaultContent();
+                  const fresh = (await getRepo().loadAll()).folders as Folder[];
+                  if (fresh.length === 0) {
+                    Taro.showToast({ title: t('index.need_folder'), icon: 'none' });
+                    return;
+                  }
+                  folderId = fresh[0]!.id;
+                } else {
+                  const res = await Taro.showActionSheet({
+                    itemList: folderList.map((f) => f.name),
+                  });
+                  folderId = folderList[res.tapIndex]!.id;
+                }
+              }
+              const content = fillTemplatePlaceholders(tpl.content);
+              const doc: NotePlaintext = { title: tpl.name, content, tags: [] };
+              const { json: cipherJson } = await encryptNote(masterKey, doc);
+              const id = await getRepo().createNote({
+                ciphertext: cipherJson,
+                keyVersion: 1,
+                isPinned: false,
+                isFavorite: false,
+                folderId,
+              });
+              Taro.navigateTo({ url: `/pages/note/edit?id=${id}` });
+            } catch (e: any) {
+              if (e?.errMsg?.includes?.('cancel')) return;
+              Taro.showToast({ title: t('common.create_failed'), icon: 'none' });
+            }
+          }}
+        >
+          <Text>📄</Text>
         </View>
       )}
 

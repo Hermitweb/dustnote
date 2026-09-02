@@ -33,7 +33,7 @@ const zhCN = {
     none: '无',
   },
   app: {
-    name: '尘心笔记',
+    name: '尘渊笔记',
     loading: '加载中…',
     checking_auth: '正在检查鉴权状态…',
     new_note: '新笔记',

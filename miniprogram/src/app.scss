@@ -487,8 +487,7 @@ page {
   justify-content: center;
   box-shadow: var(--shadow-fab);
   font-size: 52rpx;
-  font-weight: 300;
-  line-height: 1;
+  font-weight: 300;  line-height: 1;
   z-index: 20;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -496,6 +495,27 @@ page {
   background: linear-gradient(135deg, #3d9068, #2e6e4e);
   transform: scale(0.92);
   box-shadow: 0 4rpx 12rpx rgba(79, 183, 131, 0.25);
+}
+/* 模板新建入口：FAB 上方的小圆钮 */
+.fab-tpl {
+  position: fixed;
+  right: 56rpx;
+  bottom: 216rpx;
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 50%;
+  background: var(--card, #fff);
+  border: 1rpx solid var(--border);
+  color: var(--fg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.12);
+  font-size: 34rpx;
+  z-index: 20;
+}
+.fab-tpl:active {
+  transform: scale(0.92);
 }
 
 /* ========== 设置页 ========== */

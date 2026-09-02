@@ -96,8 +96,14 @@ export class ApiClient {
       this.opts.timeoutMs && typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), this.opts.timeoutMs) : null;
     try {
-      // 二进制请求体（FormData/Blob/ArrayBuffer）：仅默认 fetch 支持，走原生通路
-      if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer) {
+      // 二进制请求体（FormData/Blob/ArrayBuffer）：仅默认 fetch 支持，走原生通路。
+      // 微信小程序没有 FormData/Blob 全局——typeof 守卫防 ReferenceError，
+      // 小程序的请求体都是 JSON 字符串，不会走这个分支
+      const hasBinaryType =
+        (typeof FormData !== 'undefined' && body instanceof FormData) ||
+        (typeof Blob !== 'undefined' && body instanceof Blob) ||
+        body instanceof ArrayBuffer;
+      if (hasBinaryType) {
         delete headers['Content-Type'];
         const res = await fetch(url, {
           ...init,

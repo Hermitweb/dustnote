@@ -2,7 +2,7 @@
   "name": "dustnote",
   "version": "2.5.25",
   "private": true,
-  "description": "DustNote · 尘心笔记 - 极简跨端个人笔记系统",
+  "description": "DustNote · 尘渊笔记 - 极简跨端个人笔记系统",
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0 <25.0.0",

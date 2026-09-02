@@ -12,6 +12,9 @@ import { useLaunch } from '@tarojs/taro';
 import { AuthProvider } from './state/auth';
 import { useThemeStore, applyTheme } from './state/theme';
 import ConflictDialog from './components/ConflictDialog';
+import { useModeStore } from './lib/mode-store';
+import { useAuthStore } from './state/auth';
+import { flushOfflineQueue } from './lib/offline-queue';
 import './app.scss';
 
 function App({ children }: { children?: ReactNode }) {
@@ -36,6 +39,43 @@ function App({ children }: { children?: ReactNode }) {
     });
 
     applyTheme(theme);
+
+    // 自动锁屏：切后台超过设定分钟数后，回前台时锁定（0 = 关闭）
+    let hiddenAt = 0;
+    Taro.onAppHide?.(() => {
+      hiddenAt = Date.now();
+    });
+    Taro.onAppShow?.(() => {
+      if (!hiddenAt) return;
+      const min = Number(Taro.getStorageSync('dustnote_autolock_min') || 0);
+      const { mode: m, initialized } = useModeStore.getState();
+      const { authState, lock } = useAuthStore.getState();
+      if (
+        min > 0 &&
+        m === 'online' &&
+        initialized &&
+        authState === 'unlocked' &&
+        Date.now() - hiddenAt >= min * 60_000
+      ) {
+        try {
+          lock();
+          Taro.showToast({ title: '已自动锁定', icon: 'none' });
+        } catch {
+          /* 忽略 */
+        }
+      }
+      hiddenAt = 0;
+    });
+
+    // 启动时重放离线队列（联机且已解锁时才有意义；编辑页只入队不主动
+    // flush 的残留——冷启动补一轮，避免离线改动滞留到下次保存才同步）
+    setTimeout(() => {
+      const { mode } = useModeStore.getState();
+      const { authState } = useAuthStore.getState();
+      if (mode === 'online' && authState === 'unlocked') {
+        void flushOfflineQueue().catch(() => undefined);
+      }
+    }, 3000);
 
     // 微信小程序更新检测
     // 当微信客户端检测到新版本的小程序时，提示用户重启

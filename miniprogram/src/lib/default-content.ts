@@ -1,16 +1,16 @@
 /**
  * 首次使用初始化（与 web/mobile 端 ensureDefaultContent 语义一致，幂等）：
- * 无任何文件夹时创建默认文件夹「关于尘心笔记」+ 引导笔记，并迁移未分类笔记。
+ * 无任何文件夹时创建默认文件夹「关于尘渊笔记」+ 引导笔记，并迁移未分类笔记。
  */
 
 import { encryptNote } from '@dustnote/client-core';
 import { useAuthStore } from '../state/auth';
 import { getRepo } from './get-repo';
 
-export const DEFAULT_FOLDER_NAME = '关于尘心笔记';
-const INTRO_CONTENT = `## 欢迎使用尘心笔记
+export const DEFAULT_FOLDER_NAME = '关于尘渊笔记';
+const INTRO_CONTENT = `## 欢迎使用尘渊笔记
 
-尘心笔记是一款**极简、安全**的跨端个人笔记系统。
+尘渊笔记是一款**极简、安全**的跨端个人笔记系统。
 
 - **端到端加密**：笔记在本地加密后才同步，服务器也看不到内容
 - **多端同步**：Web / Windows / 安卓 / 小程序全端覆盖

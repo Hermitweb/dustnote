@@ -14,11 +14,28 @@ import { useThemeStore, type Theme } from '../../state/theme';
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo, resetRepoCache } from '../../lib/get-repo';
 import { clearStandaloneMasterKey } from '../../lib/standalone-session';
+import { setup2fa, enable2fa, disable2fa, get2faStatus } from '../../lib/totp-client';
 import { t, setLanguage, useLanguage, type Language } from '../../lib/i18n';
 
+/** 微信 showModal 的 editable 输入框运行时可用，但 Taro 类型定义未跟上 */
+interface EditableModalResult {
+  confirm: boolean;
+  content?: string;
+}
+const showEditableModal = (opts: {
+  title: string;
+  content?: string;
+  placeholderText?: string;
+  confirmText?: string;
+  confirmColor?: string;
+}): Promise<EditableModalResult> =>
+  (Taro.showModal as unknown as (o: Record<string, unknown>) => Promise<EditableModalResult>)({
+    ...opts,
+    editable: true,
+  });
+
 /** 服务端设备列表项（GET /devices 返回结构） */
-interface DeviceItem {
-  id: string;
+interface DeviceItem {  id: string;
   name: string;
   platform: string;
   isCurrent: boolean;
@@ -314,6 +331,85 @@ export default function Settings() {
     Taro.reLaunch({ url: '/pages/mode-select/index' });
   };
 
+  /** 修改服务器地址（联机模式）：showModal editable 输入，保存后立即生效 */
+  const onChangeServerUrl = async () => {
+    if (mode !== 'online') return;
+    const current = useModeStore.getState().serverUrl ?? '';
+    const modal = await showEditableModal({
+      title: t('settings.server_url_title'),
+      content: current,
+      placeholderText: 'http://154.217.234.125:8080',
+      confirmText: t('common.confirm'),
+    });
+    if (!modal.confirm) return;
+    const next = (modal.content ?? '').trim().replace(/\/+$/, '');
+    if (!next || !/^https?:\/\//i.test(next)) {
+      Taro.showToast({ title: t('mode_select.err_server_prefix'), icon: 'none' });
+      return;
+    }
+    useModeStore.getState().setServerUrl(next);
+    Taro.showToast({ title: t('settings.server_url_saved'), icon: 'success' });
+  };
+
+  /** 自动锁屏：选择后台 N 分钟后锁定（0 = 关闭） */
+  const AUTOLOCK_OPTIONS = ['0', '1', '5', '10', '30'];
+  const onAutolock = async () => {
+    const labels = AUTOLOCK_OPTIONS.map((m) =>
+      m === '0' ? t('settings.autolock_off') : t('settings.autolock_minutes', { n: m }),
+    );
+    const r = await Taro.showActionSheet({ itemList: labels });
+    const min = AUTOLOCK_OPTIONS[r.tapIndex] ?? '0';
+    Taro.setStorageSync('dustnote_autolock_min', Number(min));
+    Taro.showToast({ title: t('settings.autolock_saved'), icon: 'success' });
+  };
+
+  /** 两步验证（TOTP）：未开启 → 展示密钥并输入验证码开启；已开启 → 输码关闭 */
+  const [totpBusy, setTotpBusy] = useState(false);
+  const onTotp = async () => {
+    if (totpBusy) return;
+    setTotpBusy(true);
+    try {
+      const status = await get2faStatus();
+      if (!status.enabled) {
+        const setup = await setup2fa();
+        const codeModal = await showEditableModal({
+          title: t('settings.totp_setup_title'),
+          content: `${t('settings.totp_secret')}: ${setup.secret}`,
+          placeholderText: t('unlock.totp_placeholder'),
+          confirmText: t('common.confirm'),
+        });
+        if (!codeModal.confirm) return;
+        const code = (codeModal.content ?? '').trim();
+        if (!code) return;
+        const en = await enable2fa(code);
+        Taro.showToast({
+          title: en.enabled ? t('settings.totp_enabled') : t('common.unlock_failed'),
+          icon: en.enabled ? 'success' : 'none',
+        });
+      } else {
+        const modal = await showEditableModal({
+          title: t('settings.totp_disable_title'),
+          content: t('settings.totp_disable_hint'),
+          placeholderText: t('unlock.totp_placeholder'),
+          confirmText: t('common.confirm'),
+          confirmColor: '#E07B6C',
+        });
+        if (!modal.confirm) return;
+        const code = (modal.content ?? '').trim();
+        if (!code) return;
+        const dis = await disable2fa(code);
+        Taro.showToast({
+          title: dis.enabled ? t('common.unlock_failed') : t('settings.totp_disabled'),
+          icon: dis.enabled ? 'none' : 'success',
+        });
+      }
+    } catch (err) {
+      Taro.showToast({ title: (err as Error).message || t('common.error'), icon: 'none' });
+    } finally {
+      setTotpBusy(false);
+    }
+  };
+
   return (
     <View className="page">
       <View className="topbar">
@@ -351,6 +447,33 @@ export default function Settings() {
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
+        {mode === 'online' && (
+          <View className="settings-row" onClick={onChangeServerUrl}>
+            <View className="settings-row-label">
+              <Text>{t('settings.server_url_title')}</Text>
+            </View>
+            <Text className="settings-row-value">›</Text>
+          </View>
+        )}
+        <View className="settings-row" onClick={onAutolock}>
+          <View className="settings-row-label">
+            <Text>{t('settings.autolock_title')}</Text>
+          </View>
+          <Text className="settings-row-value">
+            {(() => {
+              const m = String(Taro.getStorageSync('dustnote_autolock_min') || '0');
+              return m === '0' ? t('settings.autolock_off') : t('settings.autolock_minutes', { n: m });
+            })()} ›
+          </Text>
+        </View>
+        {mode === 'online' && (
+          <View className="settings-row" onClick={onTotp}>
+            <View className="settings-row-label">
+              <Text>{t('settings.totp_title')}</Text>
+            </View>
+            <Text className="settings-row-value">›</Text>
+          </View>
+        )}
         <View className="settings-row" onClick={onExport}>
           <View className="settings-row-label">
             <Text>{t('settings.export_backup')}</Text>
