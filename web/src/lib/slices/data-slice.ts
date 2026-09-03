@@ -323,8 +323,28 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const newPlain = new Map(get().notesPlain); newPlain.set(id, merged);
     set({ notes: newNotes, notesPlain: newPlain } as Partial<StoreState>);
 
+    // 三方合并上下文:base=改动前明文(公共祖先),local=本次编辑结果——
+    // 离线重放撞 409 时 SyncEngine 据此做字段级合并(此前无人填充,
+    // 离线编辑被静默丢弃)
+    const metadataOf = (p: NotePlaintext | undefined, meta: { isPinned: boolean; isFavorite: boolean }) => ({
+      id,
+      plaintext: p ?? { title: '', content: '', tags: [] },
+      isPinned: meta.isPinned,
+      isFavorite: meta.isFavorite,
+      deletedAt: null,
+      folderId: note.folderId,
+      clientUpdatedAt: new Date().toISOString(),
+    });
     const ok = await runOrEnqueue(
-      { method: 'PATCH', path: `/notes/${id}`, body, noteId: id },
+      {
+        method: 'PATCH', path: `/notes/${id}`, body, noteId: id,
+        conflictCtx: {
+          noteId: id,
+          baseVersion: note.version,
+          base: metadataOf(current, { isPinned: note.isPinned, isFavorite: note.isFavorite }),
+          local: metadataOf(merged, { isPinned: patch.isPinned ?? note.isPinned, isFavorite: patch.isFavorite ?? note.isFavorite }),
+        },
+      },
       async () => {
         try {
           const r = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, body);

@@ -234,6 +234,9 @@ export class RemoteRepository implements DataRepository {
       }
     }
     for (const note of payload.notes) {
+      // 跳过回收站笔记(与 mobile importBackup 一致):备份里的软删笔记
+      // 不应在新环境重建为正常笔记
+      if (note.deletedAt) continue;
       try {
         await this.createNote({
           ciphertext: note.ciphertext,

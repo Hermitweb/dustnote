@@ -156,13 +156,15 @@ function AppInner() {
   const authStateRef = useRef(authState);
   authStateRef.current = authState;
 
-  // 后台自动锁定：App 切到后台/inactive 时立即清空内存中的 masterKey
-  // 防止内存抓取 / Recent Apps 预览泄露密钥；下次回前台需重新解锁
+  // 后台自动锁定：App 完全退到后台时清空内存中的 masterKey，防止内存抓取 /
+  // Recent Apps 预览泄露密钥；下次回前台需重新解锁。
+  // iOS 的 'inactive'（多任务滑入/控制中心/系统分享面板/权限弹窗）不再立即
+  // 锁定——审计发现这些瞬态会打断正常操作（如系统分享面板触发 inactive
+  // 把已解锁用户踢回解锁页）；仅 'background' 锁定
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
-      // 'inactive' iOS 切多任务/控制中心；'background' 完全退到后台
-      // Android 通常直接 inactive -> background；仅 'active' 时表示回到前台
-      if (nextAppState === 'inactive' || nextAppState === 'background') {
+      // Android 通常直接 inactive -> background；仅 'background' 表示完全退到后台
+      if (nextAppState === 'background') {
         if (authStateRef.current === 'unlocked') {
           lock();
         }

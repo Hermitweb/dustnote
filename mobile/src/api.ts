@@ -101,8 +101,11 @@ export async function refreshAccessTokenSilently(): Promise<boolean> {
       setAccessToken(r.accessToken);
       if (r.refreshToken) await setRefreshToken(r.refreshToken);
       return true;
-    } catch {
-      // refresh 失败（过期/吊销）：清掉失效的 refresh token,上层引导重新登录
+    } catch (err) {
+      // 分类处理:仅服务端判定过期/吊销(401/403)才清 refresh token;
+      // 网络抖动/超时保留 token,避免一次断网把用户踢回密码登录
+      const status = (err as { status?: number })?.status;
+      if (status !== 401 && status !== 403) return false;
       await setRefreshToken(null);
       return false;
     } finally {

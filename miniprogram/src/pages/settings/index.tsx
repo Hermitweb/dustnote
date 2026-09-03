@@ -344,7 +344,7 @@ export default function Settings() {
     const modal = await showEditableModal({
       title: t('settings.server_url_title'),
       content: current,
-      placeholderText: 'http://154.217.234.125:8080',
+      placeholderText: 'http(s)://your-server:port',
       confirmText: t('common.confirm'),
     });
     if (!modal.confirm) return;

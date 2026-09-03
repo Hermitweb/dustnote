@@ -309,8 +309,22 @@ export function NoteEditScreen() {
   const saveRef = useRef(save);
   saveRef.current = save;
 
+  // dirty 守卫：与 base 明文（上次保存/加载）比对，无变化不触发保存——
+  // 修复「打开笔记 1.5s 后必触发一次无变更 PATCH」（白白推进 version、
+  // 在服务端产生多余历史快照）
   useEffect(() => {
-    const timer = setTimeout(() => void saveRef.current(), 1500);
+    const timer = setTimeout(() => {
+      const base = basePlainRef.current;
+      if (!base) return;
+      if (
+        base.title === title &&
+        base.content === content &&
+        JSON.stringify(base.tags) === JSON.stringify(tags)
+      ) {
+        return;
+      }
+      void saveRef.current();
+    }, 1500);
     return () => clearTimeout(timer);
   }, [title, content, tags]);
 

@@ -153,6 +153,11 @@ export function registerUpdaterApi(): void {
     },
     downloadUpdates: async () => {
       if (!cachedInstallerUrl) return false;
+      // fail-closed:服务端自托管清单必带 sha256——缺失说明清单异常,
+      // 无校验执行安装包不可接受(此前空 hash 静默跳过校验)
+      if (!cachedInstallerSha256) {
+        throw new Error('安装包缺少校验值，已取消更新（请稍后重试或手动下载）');
+      }
       // 白名单由前端下发：GitHub Releases 前缀 + 用户配置的服务器 origin
       //（manifest 与安装包都来自该服务器，产物已切自托管下载）
       const { serverUrl } = useModeStore.getState();
