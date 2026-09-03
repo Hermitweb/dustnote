@@ -10,6 +10,7 @@ import { copyText } from '../lib/clipboard';
 import { canReadClipboard } from '../lib/env';
 import { sanitizeHtml } from '../lib/sanitize-html';
 import { restoreNoteImages } from '../lib/image-store';
+import type { NotePlaintext } from '../lib/store-types';
 import { wikilinkExtension, extractWikilinks, buildBacklinkIndex } from '../lib/wikilinks';
 import { filterSlashCommands, resolveSlashCommand, type SlashCommand } from '../lib/slash-commands';
 import { storeImage } from '../lib/image-store';
@@ -19,6 +20,20 @@ const WysiwygEditor = lazy(() => import('./WysiwygEditor').then((m) => ({ defaul
 
 // 注册 wikilink extension（[[笔记标题]] 语法）
 marked.use({ extensions: [wikilinkExtension] });
+
+/**
+ * 反链索引用的 per-note wikilinks 缓存:以明文对象为键(WeakMap),
+ * 每次自动保存只有被编辑笔记的对象新建,其余笔记直接命中缓存,
+ * 避免击键/保存触发全库重跑 extractWikilinks(审计 P2-3)。
+ */
+const wikilinksCache = new WeakMap<NotePlaintext, string[]>();
+function cachedWikilinks(p: NotePlaintext): string[] {
+  const hit = wikilinksCache.get(p);
+  if (hit) return hit;
+  const links = extractWikilinks(p.content);
+  wikilinksCache.set(p, links);
+  return links;
+}
 import {
   isImageFile,
   fileToImageDataUrl,
@@ -51,14 +66,16 @@ export function Editor() {
   const notesPlain = useStore((s) => s.notesPlain);
   const selectNote = useStore((s) => s.selectNote);
 
-  // 反向链接索引：当前笔记标题被哪些笔记引用
+  // 反向链接索引:per-note 结果用 WeakMap 缓存(以明文对象为键)——
+  // 每次自动保存只有当前笔记对象新建,其余笔记直接命中缓存,
+  // 避免击键/保存触发全库重跑 extractWikilinks(审计 P2-3)
   const backlinks = useMemo(() => {
     if (!plain?.title) return [];
     const index = buildBacklinkIndex(
       new Map(
         Array.from(notesPlain.entries()).map(([id, p]) => [
           id,
-          { id, title: p.title, links: extractWikilinks(p.content) },
+          { id, title: p.title, links: cachedWikilinks(p) },
         ])
       )
     );
@@ -86,22 +103,26 @@ export function Editor() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 预览/分屏渲染前还原 dustnote-img:// 引用(image-store 异步读 IndexedDB);
-  // 竞态用 cancelled 标志丢弃过期结果
+  // 竞态用 cancelled 标志丢弃过期结果;输入防抖 300ms(审计 P2-3:
+  // 每击键全量 marked.parse+DOMPurify 在长笔记下卡顿可感)
   useEffect(() => {
     if (mode !== 'preview' && mode !== 'split') {
       setPreviewSource('');
       return;
     }
     let cancelled = false;
-    void restoreNoteImages(content)
-      .then((restored) => {
-        if (!cancelled) setPreviewSource(restored);
-      })
-      .catch(() => {
-        if (!cancelled) setPreviewSource(content);
-      });
+    const timer = setTimeout(() => {
+      void restoreNoteImages(content)
+        .then((restored) => {
+          if (!cancelled) setPreviewSource(restored);
+        })
+        .catch(() => {
+          if (!cancelled) setPreviewSource(content);
+        });
+    }, 300);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [content, mode]);
 

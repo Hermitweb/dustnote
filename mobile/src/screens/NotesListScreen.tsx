@@ -10,7 +10,7 @@
  * 不再直接调用 api.get/post，避免单机模式下因无服务端而崩溃
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,11 +23,12 @@ import {
   ScrollView,
   Modal,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
 import { useTranslation } from 'react-i18next';
-import { noteAad, type NoteRow, type Folder } from '@dustnote/shared';
+import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders, type NoteRow, type Folder } from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
@@ -64,6 +65,37 @@ export function NotesListScreen() {
   const [folderFilter, setFolderFilter] = useState<string>('all'); // 'all' | folderId
   const [folders, setFolders] = useState<Folder[]>([]);
   // 批量操作：长按笔记进入多选，底部操作栏支持全选/移动/删除
+  const lastFolderRestoredRef = useRef(false);
+  const LAST_FOLDER_KEY = 'dustnote_last_folder';
+  // 从模板新建:长按 FAB → 选模板 → 选文件夹 → 创建
+  const [tplPickVisible, setTplPickVisible] = useState(false);
+  const [folderPickVisible, setFolderPickVisible] = useState(false);
+  const [pendingTpl, setPendingTpl] = useState<(typeof PRESET_TEMPLATES)[number] | null>(null);
+
+  /** 从模板创建笔记(目标文件夹由调用方给定) */
+  const createFromTemplate = async (
+    tpl: (typeof PRESET_TEMPLATES)[number],
+    folderId: string,
+  ): Promise<void> => {
+    if (!masterKey) return;
+    const doc: NotePlaintext = {
+      title: tpl.name,
+      content: fillTemplatePlaceholders(tpl.content),
+      tags: [],
+    };
+    const ciphertext = await packEnvelope(masterKey, doc);
+    const newId = await repo.createNote({
+      ciphertext,
+      keyVersion: 1,
+      isPinned: false,
+      isFavorite: false,
+      folderId,
+    });
+    void AsyncStorage.setItem(LAST_FOLDER_KEY, folderId);
+    navigation.navigate('NoteEdit', { noteId: newId });
+  };
+
+  // 从模板新建:长按 FAB → 选模板 → 选文件夹 → 创建
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [moveModalVisible, setMoveModalVisible] = useState(false);
@@ -109,6 +141,16 @@ export function NotesListScreen() {
       }
       setNotes(withPlain);
       setFolders(snapshot.folders ?? []);
+      // 记住上次文件夹:首次加载时若用户未主动选择,恢复上次新建笔记
+      // 归属的文件夹(动线优化「少点一下」;仅当该文件夹仍存在)
+      if (!lastFolderRestoredRef.current) {
+        lastFolderRestoredRef.current = true;
+        void AsyncStorage.getItem(LAST_FOLDER_KEY).then((v) => {
+          if (v && (snapshot.folders ?? []).some((f) => f.id === v)) {
+            setFolderFilter(v);
+          }
+        });
+      }
       // 网络已恢复（loadAll 成功）：重放离线队列中的未同步修改
       if (mode === 'online') {
         void flushOfflineQueue();
@@ -403,9 +445,11 @@ export function NotesListScreen() {
               ⭐ {tab === 'fav' ? t('notes.view_all') : t('notes.favorites')}
             </Text>
           </TouchableOpacity>
-          {/* 新建按钮 */}
+          {/* 新建按钮:短按空白笔记;长按从模板新建(动线优化「少点一下」) */}
           <TouchableOpacity
             style={styles.fab}
+            delayLongPress={400}
+            onLongPress={() => setTplPickVisible(true)}
             onPress={async () => {
           if (!masterKey) return;
           // 笔记必须归属文件夹：「全部」视图未选中文件夹时不创建
@@ -428,6 +472,7 @@ export function NotesListScreen() {
             });
             // 创建后直接进入编辑器（与 Web 端行为一致）；否则只刷列表、
             // 用户面对一篇没有打开的空笔记（真机实测反馈）
+            void AsyncStorage.setItem('dustnote_last_folder', targetFolderId);
             navigation.navigate('NoteEdit', { noteId: newId });
           } catch (err) {
             // 联机模式网络不可用：入队待同步（离线队列简化版）
@@ -521,6 +566,78 @@ export function NotesListScreen() {
             <TouchableOpacity
               style={styles.modalCancel}
               onPress={() => setMoveModalVisible(false)}
+            >
+              <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 模板选择弹层(长按 FAB 触发) */}
+      <Modal
+        visible={tplPickVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTplPickVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>{t('notes.template_pick_title')}</Text>
+            <ScrollView style={styles.modalList}>
+              {PRESET_TEMPLATES.map((tp) => (
+                <TouchableOpacity
+                  key={tp.id}
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setPendingTpl(tp);
+                    setTplPickVisible(false);
+                    setFolderPickVisible(true);
+                  }}
+                >
+                  <Text style={styles.modalItemText}>
+                    {tp.icon} {tp.name}
+                    {tp.description ? ` — ${tp.description}` : ''}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalCancel}
+              onPress={() => setTplPickVisible(false)}
+            >
+              <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 模板目标文件夹选择弹层 */}
+      <Modal
+        visible={folderPickVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFolderPickVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>{t('notes.pick_folder')}</Text>
+            <ScrollView style={styles.modalList}>
+              {folders.map((f) => (
+                <TouchableOpacity
+                  key={f.id}
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setFolderPickVisible(false);
+                    if (pendingTpl) void createFromTemplate(pendingTpl, f.id);
+                  }}
+                >
+                  <Text style={styles.modalItemText}>📁 {f.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalCancel}
+              onPress={() => setFolderPickVisible(false)}
             >
               <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
