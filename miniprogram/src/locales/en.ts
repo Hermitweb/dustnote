@@ -140,6 +140,7 @@ const en: typeof zhCN = {
     theme_light: 'Light',
     theme_dark: 'Dark',
     theme_auto: 'Follow system',
+    theme_weapp_hint: 'Theme follows system dark mode on WeChat',
     theme_switched: 'Switched: {{theme}}',
     language: '🌐 Language',
     language_switched: 'Language switched',

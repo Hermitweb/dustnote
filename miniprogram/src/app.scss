@@ -100,9 +100,6 @@ page {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }
-  html[data-mode="dark"] .topbar {
-    background: rgba(30, 41, 59, 0.82);
-  }
 }
 .topbar-title {
   font-size: 32rpx;
@@ -843,16 +840,15 @@ page {
   line-height: 1.8;
 }
 
-/* ========== 暗色主题（仅 H5 生效） ========== */
-html[data-mode="dark"],
-html[data-mode="dark"] page,
-html[data-mode="dark"] body {
+/* ========== 暗色主题（weapp:跟随系统深色） ========== */
+@media (prefers-color-scheme: dark) {
+  page {
   --bg: #0b1120;
   --bg-elevated: #151d2e;
   --bg-sunken: #060b16;
   --fg: #e8edf4;
   --fg-secondary: #a8b5c8;
-  --fg-muted: #68748a;
+  --fg-muted: #9AA7B5;
   --border: #263040;
   --border-strong: #354558;
   --primary: #5fbc93;
@@ -866,17 +862,9 @@ html[data-mode="dark"] body {
   --shadow-md: 0 4rpx 6rpx rgba(0, 0, 0, 0.3), 0 8rpx 24rpx rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 10rpx 15rpx rgba(0, 0, 0, 0.3), 0 16rpx 48rpx rgba(0, 0, 0, 0.4);
   --shadow-fab: 0 8rpx 24rpx rgba(95, 188, 147, 0.25);
+  }
 }
-html[data-mode="dark"] .hero .mint-btn-block {
-  background: #3d9068;
-  box-shadow: 0 4rpx 20rpx rgba(61, 144, 104, 0.4);
-}
-html[data-mode="dark"] .mint-btn-danger {
-  background: #3d1820;
-}
-html[data-mode="dark"] .fab {
-  background: linear-gradient(135deg, #4fb783, #3d9068);
-}
+
 
 /* ========== 主页搜索框 ========== */
 .search-box {

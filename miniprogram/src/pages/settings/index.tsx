@@ -66,6 +66,11 @@ export default function Settings() {
   }, [lang]);
 
   const onThemeChange = async () => {
+    // weapp 端主题由系统深色模式驱动(WXSS @media),手动切换暂不生效
+    if (process.env.TARO_ENV === 'weapp') {
+      Taro.showToast({ title: t('settings.theme_weapp_hint'), icon: 'none' });
+      return;
+    }
     try {
       const res = await Taro.showActionSheet({
         itemList: [t('settings.theme_light'), t('settings.theme_dark'), t('settings.theme_auto')],

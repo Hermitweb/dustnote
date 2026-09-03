@@ -82,6 +82,7 @@ export function NoteEditScreen() {
   /** 解密是否失败；失败时禁止自动保存，避免覆盖原始密文 */
   const [decryptFailed, setDecryptFailed] = useState(false);
   // 模板选择 Modal
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   // 历史版本 Modal
   const [showHistory, setShowHistory] = useState(false);
@@ -702,24 +703,7 @@ export function NoteEditScreen() {
               </Text>
             </TouchableOpacity>
           )}
-          {/* 移动到文件夹（单机/联机均可用） */}
-          {!decryptFailed && (
-            <TouchableOpacity onPress={() => void onLoadFolders()} disabled={saving}>
-              <Text style={styles.toolbarBtn}>{t('editor.move')}</Text>
-            </TouchableOpacity>
-          )}
-          {/* 历史版本（联机模式才可用） */}
-          {mode === 'online' && !decryptFailed && (
-            <TouchableOpacity onPress={() => void onLoadHistory()} disabled={saving}>
-              <Text style={styles.toolbarBtn}>{t('editor.history')}</Text>
-            </TouchableOpacity>
-          )}
-          {mode === 'online' && !decryptFailed && (
-            <TouchableOpacity onPress={() => void onShare()} disabled={saving}>
-              <Text style={styles.toolbarBtn}>{t('editor.share')}</Text>
-            </TouchableOpacity>
-          )}
-          {/* 收藏/置顶（单机/联机均可用） */}
+          {/* 收藏/置顶(高频,保留在工具栏) */}
           {!decryptFailed && (
             <TouchableOpacity onPress={() => void togglePin()} disabled={saving}>
               <Text style={[styles.toolbarBtn, note?.isPinned && { color: colors.mint600 }]}>
@@ -734,8 +718,9 @@ export function NoteEditScreen() {
               </Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={onDelete}>
-            <Text style={[styles.toolbarBtn, { color: colors.danger }]}>{t('editor.delete')}</Text>
+          {/* 低频操作(移动/历史/分享/删除)收进「…」更多菜单(小屏防拥挤) */}
+          <TouchableOpacity onPress={() => setShowMoreMenu(true)}>
+            <Text style={styles.toolbarBtn}>…</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -815,6 +800,32 @@ export function NoteEditScreen() {
       </ScrollView>
 
       {/* ========== 模板选择 Modal ========== */}
+      {/* 「…」更多菜单(低频操作:移动/历史/分享/删除) */}
+      <Modal visible={showMoreMenu} transparent animationType="fade" onRequestClose={() => setShowMoreMenu(false)}>
+        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setShowMoreMenu(false)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.menuSheet, { paddingVertical: 8 }]}>
+            {!decryptFailed && (
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMoreMenu(false); void onLoadFolders(); }}>
+                <Text style={styles.menuItemText}>📁 {t('editor.move')}</Text>
+              </TouchableOpacity>
+            )}
+            {mode === 'online' && !decryptFailed && (
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMoreMenu(false); void onLoadHistory(); }}>
+                <Text style={styles.menuItemText}>🕘 {t('editor.history')}</Text>
+              </TouchableOpacity>
+            )}
+            {mode === 'online' && !decryptFailed && (
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMoreMenu(false); void onShare(); }}>
+                <Text style={styles.menuItemText}>🔗 {t('editor.share')}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMoreMenu(false); onDelete(); }}>
+              <Text style={[styles.menuItemText, { color: colors.danger }]}>🗑 {t('editor.delete')}</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       <Modal visible={showTemplates} animationType="slide" transparent={false}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
@@ -965,7 +976,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderBottomColor: c.border,
       borderBottomWidth: 1,
     },
-    toolbarBtn: { fontSize: 20, padding: 8, color: c.fg },
+    toolbarBtn: { fontSize: 20, padding: 12, minHeight: 44, minWidth: 44, textAlign: 'center', color: c.fg },
     toolbarStatus: { fontSize: 12, color: c.muted },
     scroll: { flex: 1 },
     backlinksCard: {
@@ -1080,5 +1091,15 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     templateDesc: { fontSize: 12, color: c.muted },
     restoreBtn: { fontSize: 13, color: c.mint600, fontWeight: '600' },
     restoreBtnWrap: { padding: 8 },
+    // 「…」更多菜单
+    menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    menuSheet: {
+      backgroundColor: c.card,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      paddingVertical: 8,
+    },
+    menuItem: { paddingVertical: 14, paddingHorizontal: 24 },
+    menuItemText: { fontSize: 16, color: c.fg },
   });
 }

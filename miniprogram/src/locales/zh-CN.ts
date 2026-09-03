@@ -142,6 +142,7 @@ const zhCN = {
     theme_light: '浅色',
     theme_dark: '暗色',
     theme_auto: '跟随系统',
+    theme_weapp_hint: '小程序端主题跟随系统深色模式',
     theme_switched: '已切换：{{theme}}',
     language: '🌐 语言',
     language_switched: '语言已切换',
