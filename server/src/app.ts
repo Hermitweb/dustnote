@@ -192,6 +192,18 @@ export function createApp(): Application {
       message: { error: 'too_many_auth_attempts', message: '尝试次数过多，请 15 分钟后再试' },
     })
   );
+  // 敏感响应禁止缓存(审计 L7):auth 会话/公开分享内容/导出数据不允许
+  // 落入任何中间层或浏览器磁盘缓存
+  app.use('/api/v1', (req, res, next) => {
+    if (
+      req.path.startsWith('/auth') ||
+      req.path.startsWith('/share/public') ||
+      req.path.startsWith('/export')
+    ) {
+      res.setHeader('Cache-Control', 'no-store');
+    }
+    next();
+  });
   app.use('/api/v1', authRouter);
   app.use('/api/v1', notesRouter);
   app.use('/api/v1', foldersRouter);

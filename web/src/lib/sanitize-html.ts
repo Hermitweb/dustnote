@@ -69,8 +69,10 @@ const config = {
   ALLOWED_ATTR,
   ALLOW_DATA_ATTR: false,
   FORBID_TAGS: ['style', 'iframe', 'object', 'embed', 'link', 'meta', 'base', 'form'],
+  // data-URI 白名单不含 svg+xml:SVG 可内联 script,作为 img src 时虽不执行
+  // 脚本,但保守剔除(审计 L4)
   ALLOWED_URI_REGEXP:
-    /^(?:(?:https?|mailto|tel):|data:image\/(?:png|jpeg|gif|webp|svg\+xml)|\/|#)/i,
+    /^(?:(?:https?|mailto|tel):|data:image\/(?:png|jpeg|gif|webp)|\/|#)/i,
 };
 
 // 外链统一断开 opener（防 tabnabbing）；任务列表复选框强制只读

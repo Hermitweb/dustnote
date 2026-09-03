@@ -328,6 +328,7 @@ jobs:
           fi
           set -o pipefail && ./gradlew "$GRADLE_TASK" --stacktrace 2>&1 | tee build-output.log
           echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
+          echo "signed=$([ -n "$DUSTNOTE_STORE_FILE" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - name: Verify APK exists
         working-directory: mobile/android
         if: always()
@@ -372,7 +373,9 @@ jobs:
           echo "✓ All critical native modules autolinked"
       - uses: actions/upload-artifact@v5
         with:
-          name: android-apk
+          # artifact 名区分签名形态:release(正式) / debug(降级)。create-release
+          # 据此决定复制为正式资产还是标记 debug-signed(防 404 静默链)
+          name: android-apk-${{ steps.build-apk.outputs.signed }}
           path: mobile/android/${{ steps.build-apk.outputs.apk_path }}
           if-no-files-found: error
 
@@ -530,8 +533,16 @@ jobs:
           fi
 
           # 重命名 Android APK → DustNote_<version>_android.apk
-          if [ -f artifacts/android-apk/app-release.apk ]; then
-            cp artifacts/android-apk/app-release.apk "release-assets/DustNote_${DUSTNOTE_VERSION}_android.apk"
+          # release 签名 APK 在 android-apk-release;debug 降级在 android-apk-debug
+          # (降级时产物名标记 debug-signed,避免静默发布不可升级的 debug 包)
+          if [ -f artifacts/android-apk-release/app-release.apk ]; then
+            cp artifacts/android-apk-release/app-release.apk "release-assets/DustNote_${DUSTNOTE_VERSION}_android.apk"
+            echo "✓ Android APK (release-signed) found"
+          elif [ -f artifacts/android-apk-debug/app-debug.apk ]; then
+            cp artifacts/android-apk-debug/app-debug.apk "release-assets/DustNote_${DUSTNOTE_VERSION}_android-debug-signed.apk"
+            echo "::warning::Android APK is DEBUG-SIGNED (keystore secret missing) — asset renamed with -debug-signed suffix"
+          else
+            echo "::error::No Android APK artifact found (neither release nor debug)"
           fi
 
           # ---- Windows NSIS 传统安装包（许可页 + 路径选择 + WebView2 检测 + 卸载程序）----

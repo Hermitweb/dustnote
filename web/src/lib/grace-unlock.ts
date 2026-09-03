@@ -16,7 +16,8 @@
 import type { Ciphertext } from '@dustnote/shared';
 
 const PREF_KEY = 'dustnote_grace_unlock_min';
-const DEFAULT_DESKTOP_MIN = 30;
+// 默认 5 分钟(审计 M5:30 分钟的免密窗口过长;既有用户显式设置的偏好值优先)
+const DEFAULT_DESKTOP_MIN = 5;
 
 interface GraceCache {
   masterKey: Uint8Array;

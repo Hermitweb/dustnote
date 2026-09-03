@@ -352,11 +352,9 @@ async function handlePublicShareAccess(
   }
 }
 
-publicSharesRouter.get(
-  '/share/public/:token',
-  (req, res) => void handlePublicShareAccess(req, res)
-);
 publicSharesRouter.post(
   '/share/public/:token',
   (req, res) => void handlePublicShareAccess(req, res)
 );
+// GET 通道已移除:query 中的分享密码会落入 nginx access log(审计 L1);
+// 全部客户端(web/小程序)均已使用 POST body
