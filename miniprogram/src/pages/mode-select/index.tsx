@@ -97,7 +97,8 @@ export default function ModeSelect() {
   const modeInitialized = useModeStore((s) => s.initialized);
   const currentMode = useModeStore((s) => s.mode);
 
-  const [serverUrl, setServerUrlInput] = useState('');
+  // 回填已保存的联机地址：从设置/切换模式再次进入时无需重填
+  const [serverUrl, setServerUrlInput] = useState(useModeStore.getState().serverUrl ?? '');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const lang = useLanguage();

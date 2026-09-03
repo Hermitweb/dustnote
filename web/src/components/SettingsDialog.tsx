@@ -127,8 +127,24 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [apiBase, setApiBase] = useState(getConfig().apiBase);
   const [apiSaved, setApiSaved] = useState(false);
   useEffect(() => {
-    void loadConfig().then((c) => setApiBase(c.apiBase));
-  }, []);
+    void loadConfig().then((c) => {
+      // 已联机时回填当前实际连接的服务器地址：优先模式存储里记录的地址，
+      // 其次 http(s) 同源地址（web 由服务器直接托管）；Tauri 桌面端的
+      // tauri:// origin 不是合法 API 地址，排除后仅用 mode-store 值
+      if (appMode === 'online') {
+        const su = (useModeStore.getState().serverUrl ?? '').replace(/\/+$/, '');
+        const origin = /^https?:\/\//i.test(window.location.origin)
+          ? window.location.origin.replace(/\/+$/, '')
+          : '';
+        const effective = su || origin;
+        if (effective) {
+          setApiBase(effective);
+          return;
+        }
+      }
+      setApiBase(c.apiBase);
+    });
+  }, [appMode]);
 
   // a11y：Esc 关闭对话框（与点击遮罩一致）
   useEffect(() => {

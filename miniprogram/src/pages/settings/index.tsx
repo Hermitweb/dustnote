@@ -57,6 +57,7 @@ export default function Settings() {
   const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
   const mode = useModeStore((s) => s.mode);
+  const serverUrl = useModeStore((s) => s.serverUrl);
   const resetMode = useModeStore((s) => s.resetMode);
   const lang = useLanguage();
 
@@ -463,7 +464,9 @@ export default function Settings() {
             <View className="settings-row-label">
               <Text>{t('settings.server_url_title')}</Text>
             </View>
-            <Text className="settings-row-value">›</Text>
+            <Text className="settings-row-value">
+              {serverUrl ? serverUrl.replace(/^https?:\/\//i, '') : '›'}
+            </Text>
           </View>
         )}
         <View className="settings-row" onClick={onAutolock}>

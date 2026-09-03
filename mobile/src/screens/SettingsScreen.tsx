@@ -83,6 +83,7 @@ export function SettingsScreen() {
 
   // 模式相关
   const appMode = useModeStore((s) => s.mode);
+  const currentServerUrl = useModeStore((s) => s.serverUrl);
   const setAppMode = useModeStore((s) => s.setMode);
   const setServerUrl = useModeStore((s) => s.setServerUrl);
   const initialize = useModeStore((s) => s.initialize);
@@ -924,11 +925,19 @@ export function SettingsScreen() {
           }
           colors={colors}
         />
+        {appMode === 'online' && (
+          <Row
+            label={t('mode_select.server_url')}
+            detail={currentServerUrl ?? '-'}
+            colors={colors}
+          />
+        )}
         <Row
           label={t('settings.switch_mode')}
           onPress={() => {
             setSwitchTarget(appMode === 'standalone' ? 'online' : 'standalone');
-            setSwitchServerUrl('');
+            // 已联机时回填当前地址，避免用户重填
+            setSwitchServerUrl(useModeStore.getState().serverUrl ?? '');
             setShowSwitchMode(true);
           }}
           colors={colors}

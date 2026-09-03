@@ -41,7 +41,8 @@ export function ModeSelectScreen() {
   const initialize = useModeStore((s) => s.initialize);
 
   const [selected, setSelected] = useState<AppMode | null>(null);
-  const [serverUrl, setServerUrlInput] = useState('');
+  // 回填已保存的联机地址：从设置/切换模式再次进入时无需重填
+  const [serverUrl, setServerUrlInput] = useState(useModeStore.getState().serverUrl ?? '');
   const [testing, setTesting] = useState(false);
 
   const onSelectStandalone = () => {
