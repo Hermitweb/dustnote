@@ -9,6 +9,7 @@ import {
   PRESET_TEMPLATES,
   fillTemplatePlaceholders,
   noteAad,
+  ApiException,
 } from '@dustnote/shared';
 import {
   encryptNote,
@@ -102,6 +103,12 @@ export interface DataSlice {
   deleteTemplate: (id: string) => Promise<void>;
 }
 
+/**
+ * loadAll 并发单飞:解锁 effect 双跑(StrictMode)/WS 防抖重入时避免
+ * 双份全量拉取+全库解密。
+ */
+let loadAllInFlight: Promise<void> | null = null;
+
 export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set, get) => ({
   notes: new Map(),
   notesPlain: new Map(),
@@ -114,98 +121,110 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
   searchFocusToken: 0,
 
   async loadAll(): Promise<void> {
-    const { mode, repository } = get();
+    // 单飞:并发调用(StrictMode 双跑/WS 重入)共享同一次全量拉取+解密
+    if (loadAllInFlight) return loadAllInFlight;
+    loadAllInFlight = (async () => {
+      const { mode, repository } = get();
 
-    if (mode === 'standalone' && repository) {
-      const snapshot = await repository.loadAll();
-      const notesMap = new Map<string, NoteRow>(snapshot.notes.map((n: NoteRow) => [n.id, n]));
-      set({ notes: notesMap, folders: snapshot.folders } as Partial<StoreState>);
-      if (snapshot.preferences) {
-        const merged = { ...get().preferences, ...snapshot.preferences };
-        set({ preferences: merged } as Partial<StoreState>);
-        if (snapshot.preferences.language) {
-          localStorage.setItem(LANGUAGE_STORAGE_KEY, snapshot.preferences.language);
-          void i18n.changeLanguage(snapshot.preferences.language);
-        }
-      }
-      const masterKey = get().masterKey;
-      if (masterKey) {
-        const plain = new Map<string, NotePlaintext>();
-        for (const n of snapshot.notes) {
-          try {
-            const envelope = parseEnvelope(n.ciphertext);
-            const pt = await decryptNote(masterKey, envelope, noteAad(n.id, get().userId ?? ''));
-            plain.set(n.id, pt);
-          } catch {
-            plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
+      if (mode === 'standalone' && repository) {
+        const snapshot = await repository.loadAll();
+        const notesMap = new Map<string, NoteRow>(snapshot.notes.map((n: NoteRow) => [n.id, n]));
+        set({ notes: notesMap, folders: snapshot.folders } as Partial<StoreState>);
+        if (snapshot.preferences) {
+          const merged = { ...get().preferences, ...snapshot.preferences };
+          set({ preferences: merged } as Partial<StoreState>);
+          if (snapshot.preferences.language) {
+            localStorage.setItem(LANGUAGE_STORAGE_KEY, snapshot.preferences.language);
+            void i18n.changeLanguage(snapshot.preferences.language);
           }
         }
-        set({ notesPlain: plain } as Partial<StoreState>);
+        const masterKey = get().masterKey;
+        if (masterKey) {
+          const plain = new Map<string, NotePlaintext>();
+          for (const n of snapshot.notes) {
+            try {
+              const envelope = parseEnvelope(n.ciphertext);
+              const pt = await decryptNote(masterKey, envelope, noteAad(n.id, get().userId ?? ''));
+              plain.set(n.id, pt);
+            } catch {
+              plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
+            }
+          }
+          // 锁定中止:masterKey 已清零(自动锁屏/pagehide)则丢弃解密结果,
+          // 避免锁定态下整库明文重新驻留内存
+          if (!get().masterKey) return;
+          set({ notesPlain: plain } as Partial<StoreState>);
+        }
+        set({ templates: PRESET_TEMPLATES } as Partial<StoreState>);
+        return;
       }
-      set({ templates: PRESET_TEMPLATES } as Partial<StoreState>);
-      return;
-    }
 
-    try {
-      const localKey = (await deriveLocalKey(get().masterKey)) ?? undefined;
-      const [cachedNotes, cachedFolders] = await Promise.all([
-        loadCachedNotes(localKey),
-        loadCachedFolders(),
-      ]);
-      if (cachedNotes.notes.size > 0 || cachedFolders.length > 0) {
+      try {
+        const localKey = (await deriveLocalKey(get().masterKey)) ?? undefined;
+        const [cachedNotes, cachedFolders] = await Promise.all([
+          loadCachedNotes(localKey),
+          loadCachedFolders(),
+        ]);
+        if (cachedNotes.notes.size > 0 || cachedFolders.length > 0) {
+          set({
+            notes: cachedNotes.notes,
+            notesPlain: cachedNotes.plain,
+            folders: cachedFolders,
+          } as Partial<StoreState>);
+        }
+      } catch {
+        /* cache read failed, continue to network */
+      }
+
+      try {
+        const a = api();
+        const [notesRes, foldersRes, templatesRes] = await Promise.all([
+          a.get<{ notes: NoteRow[] }>('/notes?includeDeleted=1'),
+          a.get<{ folders: Folder[] }>('/folders'),
+          a.get<{ templates: Template[] }>('/templates'),
+        ]);
         set({
-          notes: cachedNotes.notes,
-          notesPlain: cachedNotes.plain,
-          folders: cachedFolders,
+          notes: new Map(notesRes.notes.map((n: NoteRow) => [n.id, n])),
+          folders: foldersRes.folders,
+          // 服务端 templates 表可能未 seed 预设（返回空数组）——必须与预设合并,
+          // 空数组 ?? 兜底不生效（?? 只认 null/undefined）,曾致联机模式模板空白
+          templates: [...PRESET_TEMPLATES, ...(templatesRes.templates ?? [])],
         } as Partial<StoreState>);
-      }
-    } catch {
-      /* cache read failed, continue to network */
-    }
 
-    try {
-      const a = api();
-      const [notesRes, foldersRes, templatesRes] = await Promise.all([
-        a.get<{ notes: NoteRow[] }>('/notes?includeDeleted=1'),
-        a.get<{ folders: Folder[] }>('/folders'),
-        a.get<{ templates: Template[] }>('/templates'),
-      ]);
-      set({
-        notes: new Map(notesRes.notes.map((n: NoteRow) => [n.id, n])),
-        folders: foldersRes.folders,
-        // 服务端 templates 表可能未 seed 预设（返回空数组）——必须与预设合并,
-        // 空数组 ?? 兜底不生效（?? 只认 null/undefined）,曾致联机模式模板空白
-        templates: [...PRESET_TEMPLATES, ...(templatesRes.templates ?? [])],
-      } as Partial<StoreState>);
+        const masterKey = get().masterKey;
+        if (masterKey) {
+          const plain = new Map<string, NotePlaintext>();
+          for (const n of notesRes.notes) {
+            try {
+              const envelope = parseEnvelope(n.ciphertext);
+              const pt = await decryptNote(masterKey, envelope, noteAad(n.id, get().userId ?? ''));
+              plain.set(n.id, pt);
+            } catch {
+              plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
+            }
+          }
+          // 锁定中止:同上,防止锁后明文重新驻留
+          if (!get().masterKey) return;
+          set({ notesPlain: plain } as Partial<StoreState>);
 
-      const masterKey = get().masterKey;
-      if (masterKey) {
-        const plain = new Map<string, NotePlaintext>();
-        for (const n of notesRes.notes) {
           try {
-            const envelope = parseEnvelope(n.ciphertext);
-            const pt = await decryptNote(masterKey, envelope, noteAad(n.id, get().userId ?? ''));
-            plain.set(n.id, pt);
+            await cacheNotesLocal(get().notes, plain, () => get().masterKey);
+            await cacheFolders(foldersRes.folders);
           } catch {
-            plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
+            /* cache write failed, not critical */
           }
         }
-        set({ notesPlain: plain } as Partial<StoreState>);
-
-        try {
-          await cacheNotesLocal(get().notes, plain, () => get().masterKey);
-          await cacheFolders(foldersRes.folders);
-        } catch {
-          /* cache write failed, not critical */
+      } catch (err) {
+        if (get().notes.size === 0) throw err;
+        if (isTransientNetworkError(err)) {
+          set({ isOnline: false } as Partial<StoreState>);
         }
+        set({ templates: PRESET_TEMPLATES } as Partial<StoreState>);
       }
-    } catch (err) {
-      if (get().notes.size === 0) throw err;
-      if (isTransientNetworkError(err)) {
-        set({ isOnline: false } as Partial<StoreState>);
-      }
-      set({ templates: PRESET_TEMPLATES } as Partial<StoreState>);
-    }
+    })().finally(() => {
+      loadAllInFlight = null;
+    });
+    return loadAllInFlight;
   },
 
   async createNote(folderId: string | null = null): Promise<string> {
@@ -307,9 +326,22 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const ok = await runOrEnqueue(
       { method: 'PATCH', path: `/notes/${id}`, body, noteId: id },
       async () => {
-        const r = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, body);
-        const nn = new Map(get().notes); const updated = nn.get(id);
-        if (updated) { nn.set(id, { ...updated, version: r.version, serverUpdatedAt: r.serverUpdatedAt }); set({ notes: nn } as Partial<StoreState>); }
+        try {
+          const r = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, body);
+          const nn = new Map(get().notes); const updated = nn.get(id);
+          if (updated) { nn.set(id, { ...updated, version: r.version, serverUpdatedAt: r.serverUpdatedAt }); set({ notes: nn } as Partial<StoreState>); }
+        } catch (err: unknown) {
+          // 409(version_mismatch):乐观锁撞车。此前不回写本地 version,
+          // 后续每次保存都 409,该笔记保存链路实质瘫痪。这里拉取服务端
+          // 最新 version,用「本地密文 + 服务端最新 version」重试一次
+          // (本地编辑是用户最新意图,内容不被服务端覆盖);仍 409 则抛出
+          if (!(err instanceof ApiException) || err.err.status !== 409) throw err;
+          const fresh = await api().get<{ version: number }>(`/notes/${id}`);
+          const retryBody = { ...body, version: fresh.version };
+          const r2 = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, retryBody);
+          const nn = new Map(get().notes); const updated = nn.get(id);
+          if (updated) { nn.set(id, { ...updated, version: r2.version, serverUpdatedAt: r2.serverUpdatedAt }); set({ notes: nn } as Partial<StoreState>); }
+        }
       },
       () => get().refreshPendingCount()
     );

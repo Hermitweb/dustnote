@@ -107,6 +107,8 @@ export default function Settings() {
     try {
       // 清空业务数据 + 鉴权数据 + 模式状态
       await getRepo().clearBusinessData();
+      // 先锁(清零 masterKey/token)再清存储,防陈旧鉴权穿透到新模式
+      lock();
       clearStandaloneMasterKey();
       resetRepoCache();
       resetMode();
@@ -325,6 +327,10 @@ export default function Settings() {
       confirmColor: '#E07B6C',
     });
     if (!confirm.confirm) return;
+    // 重置 auth store（清零 masterKey/token,authState 回 needs_unlock）:
+    // 否则陈旧的 authState/masterKey 穿透到新模式,以旧联机 key 给空库
+    // 写入初始内容后设新密码 → 内容永久无法解密
+    lock();
     clearStandaloneMasterKey();
     resetRepoCache();
     resetMode();

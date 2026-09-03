@@ -472,12 +472,23 @@ jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
+    # 任一平台构建失败即不发布(此前 desktop/mobile 失败仍发布,用户点
+    # notes 里的下载链接会 404)
     needs: [build-web, build-miniprogram, build-desktop, build-mobile, build-server-zip]
-    if: ${{ !cancelled() && needs.build-web.result == 'success' && needs.build-server-zip.result == 'success' }}
+    if: ${{ !cancelled() && needs.build-web.result == 'success' && needs.build-server-zip.result == 'success' && needs.build-desktop.result == 'success' && needs.build-miniprogram.result == 'success' && needs.build-mobile.result == 'success' }}
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v5
+      - name: Verify tag matches versions
+        run: |
+          VER="${RELEASE_TAG#v}"
+          PKG=$(node -p "require('./package.json').version")
+          TAURI=$(node -p "JSON.parse(require('fs').readFileSync('desktop/src-tauri/tauri.conf.json','utf8')).version")
+          GRADLE=$(grep -oP 'versionName "\K[0-9.]+' mobile/android/app/build.gradle)
+          [ "$VER" = "$PKG" ] || { echo "::error::tag $RELEASE_TAG != package.json $PKG"; exit 1; }
+          [ "$VER" = "$TAURI" ] || { echo "::error::tag $RELEASE_TAG != tauri.conf.json $TAURI"; exit 1; }
+          [ "$VER" = "$GRADLE" ] || { echo "::error::tag $RELEASE_TAG != build.gradle versionName $GRADLE"; exit 1; }
       - uses: actions/download-artifact@v5
         with:
           path: artifacts
