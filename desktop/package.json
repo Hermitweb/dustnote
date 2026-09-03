@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/desktop",
-  "version": "2.5.27",
+  "version": "2.5.28",
   "private": true,
   "description": "DustNote Desktop (Tauri 2)",
   "type": "module",
