@@ -533,13 +533,14 @@ jobs:
           fi
 
           # 重命名 Android APK → DustNote_<version>_android.apk
-          # release 签名 APK 在 android-apk-release;debug 降级在 android-apk-debug
+          # build-mobile 上传的产物名是 android-apk-<signed>（signed=true/false），
+          # 内部文件名 release 为 app-release.apk、debug 降级为 app-debug.apk
           # (降级时产物名标记 debug-signed,避免静默发布不可升级的 debug 包)
-          if [ -f artifacts/android-apk-release/app-release.apk ]; then
-            cp artifacts/android-apk-release/app-release.apk "release-assets/DustNote_${DUSTNOTE_VERSION}_android.apk"
+          if [ -f artifacts/android-apk-true/app-release.apk ]; then
+            cp artifacts/android-apk-true/app-release.apk "release-assets/DustNote_${DUSTNOTE_VERSION}_android.apk"
             echo "✓ Android APK (release-signed) found"
-          elif [ -f artifacts/android-apk-debug/app-debug.apk ]; then
-            cp artifacts/android-apk-debug/app-debug.apk "release-assets/DustNote_${DUSTNOTE_VERSION}_android-debug-signed.apk"
+          elif [ -f artifacts/android-apk-false/app-debug.apk ]; then
+            cp artifacts/android-apk-false/app-debug.apk "release-assets/DustNote_${DUSTNOTE_VERSION}_android-debug-signed.apk"
             echo "::warning::Android APK is DEBUG-SIGNED (keystore secret missing) — asset renamed with -debug-signed suffix"
           else
             echo "::error::No Android APK artifact found (neither release nor debug)"
