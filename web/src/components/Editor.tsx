@@ -9,6 +9,7 @@ import { getDeviceId } from '../lib/device';
 import { copyText } from '../lib/clipboard';
 import { canReadClipboard } from '../lib/env';
 import { sanitizeHtml } from '../lib/sanitize-html';
+import { restoreNoteImages } from '../lib/image-store';
 import { wikilinkExtension, extractWikilinks, buildBacklinkIndex } from '../lib/wikilinks';
 import { filterSlashCommands, resolveSlashCommand, type SlashCommand } from '../lib/slash-commands';
 import { storeImage } from '../lib/image-store';
@@ -79,7 +80,31 @@ export function Editor() {
   const [showPermDeleteConfirm, setShowPermDeleteConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imageProcessing, setImageProcessing] = useState(false);
+  // 预览/分屏渲染用内容:dustnote-img:// 引用还原为 data URL 后的 markdown
+  // (image-store 的图片本体在 IndexedDB,直接 marked.parse 会渲染出空图)
+  const [previewSource, setPreviewSource] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 预览/分屏渲染前还原 dustnote-img:// 引用(image-store 异步读 IndexedDB);
+  // 竞态用 cancelled 标志丢弃过期结果
+  useEffect(() => {
+    if (mode !== 'preview' && mode !== 'split') {
+      setPreviewSource('');
+      return;
+    }
+    let cancelled = false;
+    void restoreNoteImages(content)
+      .then((restored) => {
+        if (!cancelled) setPreviewSource(restored);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewSource(content);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [content, mode]);
+
   // 保存进行中守卫：防止 autoSave 防抖与 Ctrl+S 立即保存并发写同一笔记
   // （并发会触发服务端 version_mismatch 409，导致后写者丢失更新）
   const savingInFlight = useRef(false);
@@ -665,7 +690,7 @@ export function Editor() {
                 }
               }}>
                 <div className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(marked.parse(content || `*${t('editor.empty_content')}*`) as string) }} />
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(marked.parse(previewSource || content || `*${t('editor.empty_content')}*`) as string) }} />
                 {backlinks.length > 0 && (
                   <div className="mt-6 border-t border-surface-border pt-4">
                     <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-muted">

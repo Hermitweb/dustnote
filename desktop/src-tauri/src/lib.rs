@@ -78,8 +78,30 @@ async fn download_and_run_installer(
     }
     let total = resp.content_length().unwrap_or(0);
 
-    let tmp = std::env::temp_dir().join("DustNote-setup.exe");
-    let mut file = std::fs::File::create(&tmp).map_err(|e| format!("写入临时文件失败：{}", e))?;
+    // SHA-256 期望值:fail-closed——服务端自托管清单必带真实哈希,缺失视为
+    // 异常(防降级到无校验执行安装包)
+    let expected = expected_sha256
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| "安装包缺少 SHA-256 校验值，已取消更新".to_string())?;
+    let expected_hex = expected
+        .strip_prefix("sha256:")
+        .unwrap_or(&expected)
+        .to_lowercase();
+
+    // 随机临时文件名 + create_new:固定路径存在本机抢占/预置风险
+    let unique: u64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    let tmp = std::env::temp_dir().join(format!("DustNote-setup-{unique:x}.exe"));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&tmp)
+        .map_err(|e| format!("写入临时文件失败：{}", e))?;
     let mut hasher = sha2::Sha256::new();
     let mut stream = resp;
     let mut received: u64 = 0;
@@ -96,28 +118,16 @@ async fn download_and_run_installer(
     file.flush().ok();
     drop(file);
 
-    // SHA-256 校验：manifest 携带期望哈希（"sha256:<hex>"），不匹配即删除并拒绝。
-    // 空串/空白视为未提供（服务端当前 hash 为占位空串），跳过校验。
-    let expected = expected_sha256
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_string);
-    if let Some(expected) = expected {
-        let expected_hex = expected
-            .strip_prefix("sha256:")
-            .unwrap_or(&expected)
-            .to_lowercase();
-        let actual_hex = format!("{:x}", hasher.finalize());
-        if actual_hex != expected_hex {
-            let _ = std::fs::remove_file(&tmp);
-            return Err("安装包校验失败（SHA-256 不匹配），已取消更新".into());
-        }
+    // SHA-256 校验：不匹配即删除并拒绝
+    let actual_hex = format!("{:x}", hasher.finalize());
+    if actual_hex != expected_hex {
+        let _ = std::fs::remove_file(&tmp);
+        return Err("安装包校验失败（SHA-256 不匹配），已取消更新".into());
     }
 
-    // 启动 NSIS 安装向导；当前应用保持运行，用户完成向导后手动重启生效
-    std::process::Command::new(&tmp)
-        .spawn()
+    // 用系统关联程序启动安装向导（经 opener 插件,与直接 spawn 等价;
+    // 当前应用保持运行,用户完成向导后手动重启生效）
+    tauri_plugin_opener::open_path(tmp.to_string_lossy().to_string(), None::<&str>)
         .map_err(|e| format!("启动安装程序失败：{}", e))?;
 
     Ok(tmp.to_string_lossy().to_string())
