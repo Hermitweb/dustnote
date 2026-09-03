@@ -96,13 +96,6 @@ export function Sidebar() {
     });
   }, []);
 
-  const toggleAll = () => {
-    if (selectedIds.size === visibleNotes.length) {
-      setSelecting(false);
-      setSelectedIds(new Set());
-    } else setSelectedIds(new Set(visibleNotes.map((n) => n.id)));
-  };
-
   // ========== 批量操作 ==========
   const batchAction = async (action: string, targetFolderId?: string | null) => {
     const ids = Array.from(selectedIds);
@@ -808,9 +801,15 @@ export function Sidebar() {
                 {visibleNotes.length > 0 && (
                   <button
                     onClick={() => {
-                      if (selecting) exitSelect();
-                      else setSelecting(true);
-                      toggleAll();
+                      if (!selecting) {
+                        // 进入选择模式并默认全选当前列表
+                        setSelecting(true);
+                        setSelectedIds(new Set(visibleNotes.map((n) => n.id)));
+                      } else if (hasAll) {
+                        exitSelect();
+                      } else {
+                        setSelectedIds(new Set(visibleNotes.map((n) => n.id)));
+                      }
                     }}
                     className="text-xs text-mint-600 hover:text-mint-700"
                   >
