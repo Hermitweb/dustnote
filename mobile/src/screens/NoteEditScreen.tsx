@@ -55,6 +55,7 @@ import { useColors } from '../theme';
 import { SlashCommandMenu } from '../components/SlashCommandMenu';
 import { filterSlashCommands, resolveSlashCommand } from '../lib/slash-commands';
 import { toMergeable, type ConflictContext, type NoteMetadata } from '@dustnote/client-core';
+import { startVoice, stopVoice } from '../lib/voice';
 
 interface NoteEnvelope {
   v: number;
@@ -73,6 +74,9 @@ export function NoteEditScreen() {
   const [content, setContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  // 语音听写状态
+  const [listening, setListening] = useState(false);
+  const [voiceText, setVoiceText] = useState('');
   const [note, setNote] = useState<NoteRow | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   /** 解密是否失败；失败时禁止自动保存，避免覆盖原始密文 */
@@ -664,6 +668,38 @@ export function NoteEditScreen() {
           {!decryptFailed && (
             <TouchableOpacity onPress={() => setShowTemplates(true)} disabled={saving}>
               <Text style={styles.toolbarBtn}>{t('editor.templates')}</Text>
+            </TouchableOpacity>
+          )}
+          {/* 语音听写(点按开始/停止,识别结果实时追加到正文;onFinal 后由
+              dirty 守卫的 base 更新接管) */}
+          {!decryptFailed && !preview && (
+            <TouchableOpacity
+              onPress={async () => {
+                if (listening) {
+                  await stopVoice();
+                  return;
+                }
+                const ok = await startVoice({
+                  onPartial: (text) => setVoiceText(text),
+                  onFinal: (text) => {
+                    if (text) setContent((c) => (c ? `${c}\n${text}` : text));
+                    setVoiceText('');
+                  },
+                  onError: (m) => Alert.alert(t('editor.voice_error'), m),
+                  onEnd: () => setListening(false),
+                });
+                if (ok) {
+                  setListening(true);
+                  setVoiceText('');
+                } else {
+                  Alert.alert(t('editor.voice_error'), t('editor.voice_unavailable'));
+                }
+              }}
+              disabled={saving}
+            >
+              <Text style={styles.toolbarBtn}>
+                {listening ? (voiceText ? `🎙 ${voiceText.slice(-18)}` : '🎙 …') : '🎤'}
+              </Text>
             </TouchableOpacity>
           )}
           {/* 移动到文件夹（单机/联机均可用） */}

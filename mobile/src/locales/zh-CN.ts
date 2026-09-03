@@ -235,6 +235,8 @@ const zhCN = {
     share_online_only: '分享功能仅在联机模式下可用',
     share_failed: '分享失败',
     share_success: '已分享',
+    voice_error: '语音识别失败',
+    voice_unavailable: '当前设备不支持语音听写',
     confirm_delete: '确定要删除这篇笔记吗？',
     delete_failed: '删除失败',
     save_failed: '保存失败',

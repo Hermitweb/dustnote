@@ -235,6 +235,8 @@ const en = {
     share_online_only: 'Sharing is only available in online mode',
     share_failed: 'Share failed',
     share_success: 'Shared',
+    voice_error: 'Speech recognition failed',
+    voice_unavailable: 'Speech dictation not supported on this device',
     confirm_delete: 'Delete this note?',
     delete_failed: 'Failed to delete',
     save_failed: 'Save failed',
