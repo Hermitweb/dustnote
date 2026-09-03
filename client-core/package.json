@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/client-core",
-  "version": "2.5.26",
+  "version": "2.5.27",
   "private": true,
   "description": "DustNote 跨端客户端内核：加密信封 / 字段级冲突合并 / 存储无关离线队列 + 同步引擎",
   "type": "module",
