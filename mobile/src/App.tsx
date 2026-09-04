@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import './lib/i18n'; // 副作用导入：初始化 i18next + 加载 AsyncStorage 语言偏好
 import { useAuthStore } from './state/auth';
 import { useModeStore } from './lib/mode-store';
+import { applyScreenshotSetting } from './lib/screenshot';
 import { ModeSelectScreen } from './screens/ModeSelectScreen';
 import { SetupScreen } from './screens/SetupScreen';
 import { UnlockScreen } from './screens/UnlockScreen';
@@ -161,6 +162,10 @@ function AppInner() {
   // iOS 的 'inactive'（多任务滑入/控制中心/系统分享面板/权限弹窗）不再立即
   // 锁定——审计发现这些瞬态会打断正常操作（如系统分享面板触发 inactive
   // 把已解锁用户踢回解锁页）；仅 'background' 锁定
+  useEffect(() => {
+    void applyScreenshotSetting();
+  }, []);
+
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       // Android 通常直接 inactive -> background；仅 'background' 表示完全退到后台
