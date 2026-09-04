@@ -159,9 +159,16 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const desktopEnv = isTauri();
   const [autostartEnabled, setAutostartEnabled] = useState(false);
   const [autostartBusy, setAutostartBusy] = useState(false);
+  // 允许截屏(桌面端 content protection 用户开关;默认关=防截屏)
+  const [allowScreenshot, setAllowScreenshot] = useState(false);
 
   useEffect(() => {
     if (!desktopEnv) return;
+    try {
+      setAllowScreenshot(localStorage.getItem('dustnote_allow_screenshot') === '1');
+    } catch {
+      /* ignore */
+    }
     const api = getAutostartApi();
     if (!api) return;
     void withTimeout(api.isEnabled(), 5000)
@@ -776,6 +783,46 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               </div>
               <p className="mt-1 text-xs text-surface-muted">{t('settings.refresh_hint')}</p>
             </div>
+
+            {/* 桌面端：允许截屏开关（content protection 用户开关） */}
+            {desktopEnv && (
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-surface-muted">
+                  {t('settings.allow_screenshot')}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !allowScreenshot;
+                    setAllowScreenshot(next);
+                    try {
+                      localStorage.setItem('dustnote_allow_screenshot', next ? '1' : '0');
+                    } catch {
+                      /* ignore */
+                    }
+                    const api = (
+                      window as unknown as {
+                        __dustnoteSetContentProtected?: (v: boolean) => void;
+                      }
+                    ).__dustnoteSetContentProtected;
+                    api?.(next);
+                  }}
+                  className={`flex w-full items-center justify-between rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
+                    allowScreenshot
+                      ? 'border-mint-500 bg-mint-50 text-surface-fg dark:bg-mint-900/30'
+                      : 'border-surface-border text-surface-fg hover:bg-surface-bg'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span>📸</span>
+                    <span>{allowScreenshot ? t('settings.screenshot_on') : t('settings.screenshot_off')}</span>
+                  </span>
+                  <span className="text-xs text-surface-muted">
+                    {allowScreenshot ? t('settings.screenshot_on_hint') : t('settings.screenshot_off_hint')}
+                  </span>
+                </button>
+              </div>
+            )}
 
             {/* 桌面端：开机自启开关（仅 Tauri 环境显示） */}
             {desktopEnv && (

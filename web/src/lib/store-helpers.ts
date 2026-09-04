@@ -15,6 +15,7 @@ import { getDeviceId } from './device';
 import { useModeStore } from './mode-store';
 import { enqueue, type QueuedOp } from './offline-queue';
 import type { ConflictContext } from '@dustnote/client-core';
+import type { FetchFn } from '@dustnote/shared';
 
 const API_BASE = '/api/v1';
 const APP_VERSION = __APP_VERSION__;
@@ -34,6 +35,63 @@ export function setAccessTokenGetter(getter: () => string | null): void {
   _getAccessToken = getter;
 }
 
+// ---------- 401 静默刷新 ----------
+// access token 15min 过期;refresh token(30d)走 httpOnly cookie。
+// 任一 API 请求 401(且非 /auth/ 自身)→ 单飞刷新 → 换新 token 重放原请求;
+// 刷新失败(宽限期已过/被踢)→ 广播 auth-expired,界面回到解锁页。
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const { serverUrl } = useModeStore.getState();
+        const base = serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : API_BASE;
+        const res = await fetch(`${base}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        });
+        if (!res.ok) return null;
+        const data = (await res.json()) as { accessToken: string };
+        if (!data.accessToken) return null;
+        const { useStore } = await import('./store');
+        useStore.setState({ accessToken: data.accessToken });
+        return data.accessToken;
+      } catch {
+        return null;
+      } finally {
+        // 单飞窗口结束后允许下一次刷新(请求完成后清空)
+        setTimeout(() => {
+          refreshInFlight = null;
+        }, 0);
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
+const authFetch: FetchFn = async (url, init) => {
+  let res = await fetch(url, init);
+  if (res.status === 401 && !String(url).includes('/auth/')) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      const headers = new Headers(init.headers as HeadersInit | undefined);
+      headers.set('Authorization', `Bearer ${newToken}`);
+      res = await fetch(url, { ...init, headers });
+    } else {
+      try {
+        const { useStore } = await import('./store');
+        useStore.setState({ authState: 'needs_unlock' });
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return res;
+};
+
 export const api = (): ApiClient => {
   const { serverUrl } = useModeStore.getState();
   const baseUrl = serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : API_BASE;
@@ -44,6 +102,7 @@ export const api = (): ApiClient => {
     channel: 'stable',
     deviceId: getDeviceId(),
     accessToken: _getAccessToken?.() ?? undefined,
+    fetch: authFetch,
   });
 };
 

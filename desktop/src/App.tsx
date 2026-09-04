@@ -64,6 +64,20 @@ function registerTrayApi() {
     ).__dustnoteSetTrayTooltip = (tooltip: string) => {
       void invoke('set_tray_tooltip', { tooltip }).catch(() => undefined);
     };
+    (
+      window as unknown as {
+        __dustnoteSetTrayMenuLang: (lang: string) => void;
+      }
+    ).__dustnoteSetTrayMenuLang = (lang: string) => {
+      void invoke('set_tray_menu_lang', { lang }).catch(() => undefined);
+    };
+    (
+      window as unknown as {
+        __dustnoteSetContentProtected: (protected_: boolean) => void;
+      }
+    ).__dustnoteSetContentProtected = (protected_: boolean) => {
+      void invoke('set_content_protected', { protected: protected_ }).catch(() => undefined);
+    };
   });
 }
 
@@ -85,6 +99,23 @@ export function App() {
 
       // 注册托盘 tooltip 更新能力
       registerTrayApi();
+
+      // 托盘菜单跟随应用语言;截屏偏好(localStorage)恢复
+      const syncTrayLang = () => {
+        (
+          window as unknown as { __dustnoteSetTrayMenuLang?: (lang: string) => void }
+        ).__dustnoteSetTrayMenuLang?.(i18n.language);
+      };
+      syncTrayLang();
+      i18n.on('languageChanged', syncTrayLang);
+      try {
+        const allowScreenshot = localStorage.getItem('dustnote_allow_screenshot') === '1';
+        (
+          window as unknown as { __dustnoteSetContentProtected?: (v: boolean) => void }
+        ).__dustnoteSetContentProtected?.(!allowScreenshot);
+      } catch {
+        /* ignore */
+      }
 
       // 设置窗口标题（跟随语言：中文「尘渊笔记」/ 英文「DustNote」，
       // tauri.conf.json 的静态 title 仅为启动初帧兜底）

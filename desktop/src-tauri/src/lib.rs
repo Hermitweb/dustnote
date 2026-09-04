@@ -226,6 +226,36 @@ fn set_tray_tooltip(app: tauri::AppHandle, tooltip: String) -> Result<(), String
     Ok(())
 }
 
+/// 截屏开关(用户可配置,默认启动时 content_protected=true):
+/// SetWindowDisplayAffinity 使窗口内容对截屏/录屏 API 隐形(security.md §3.6)。
+/// 设置页「允许截屏」开关调用;true=恢复防护。
+#[tauri::command]
+fn set_content_protected(app: tauri::AppHandle, protected: bool) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window("main") {
+        w.set_content_protected(protected).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// 按语言重建托盘菜单(zh → 中文;其余英文)。web 端语言初始化/切换时调用。
+#[tauri::command]
+fn set_tray_menu_lang(app: tauri::AppHandle, lang: String) -> Result<(), String> {
+    let state = app.state::<TrayState>();
+    let guard = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(tray) = guard.as_ref() {
+        let zh = lang.starts_with("zh");
+        let show_label = if zh { "显示尘渊笔记" } else { "Show DustNote" };
+        let quit_label = if zh { "退出尘渊笔记" } else { "Quit DustNote" };
+        let show_i = MenuItem::with_id(&app, "show", show_label, true, None::<&str>)
+            .map_err(|e| e.to_string())?;
+        let quit_i = MenuItem::with_id(&app, "quit", quit_label, true, None::<&str>)
+            .map_err(|e| e.to_string())?;
+        let menu = Menu::with_items(&app, &[&show_i, &quit_i]).map_err(|e| e.to_string())?;
+        tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default();
@@ -310,8 +340,9 @@ pub fn run() {
             }
 
             // 系统托盘
-            let quit_i = MenuItem::with_id(app, "quit", "Quit DustNote", true, None::<&str>)?;
-            let show_i = MenuItem::with_id(app, "show", "Show DustNote", true, None::<&str>)?;
+            // 托盘菜单默认中文(web 挂载后按当前语言经 set_tray_menu_lang 校正)
+            let quit_i = MenuItem::with_id(app, "quit", "退出尘渊笔记", true, None::<&str>)?;
+            let show_i = MenuItem::with_id(app, "show", "显示尘渊笔记", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
             // 系统托盘：default_window_icon 在极少数情况下可能为 None
@@ -433,6 +464,8 @@ pub fn run() {
             show_main_window,
             save_file_dialog,
             set_tray_tooltip,
+            set_content_protected,
+            set_tray_menu_lang,
             app_version,
             app_arch,
             download_and_run_installer,
