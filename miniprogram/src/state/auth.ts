@@ -21,7 +21,11 @@ import { create } from 'zustand';
 import React from 'react';
 import Taro from '@tarojs/taro';
 import { t } from '../lib/i18n';
+import { ensureRandomReady } from '../lib/crypto-polyfill';
+import { clearPlainCache } from '../lib/plain-cache';
+import { useConflictStore } from './conflict-store';
 import {
+  type FetchFn,
   ApiClient,
   type Ciphertext,
   type KdfParams,
@@ -69,7 +73,7 @@ import {
 } from '../lib/standalone-session';
 
 // 与 package.json 同步（全端版本统一，见 release 流程）
-export const APP_VERSION = '2.5.31';
+export const APP_VERSION = '2.5.32';
 
 // 设备 ID：首次生成后持久化到本地存储
 let deviceId = '';
@@ -184,6 +188,13 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     if (k) k.fill(0);
     clearStandaloneMasterKey();
     clearPersistedToken();
+    // 锁屏清掉内存中的明文残留(解密缓存/未裁决冲突),明文不跨锁屏存活
+    try {
+      clearPlainCache();
+      useConflictStore.setState({ pendingConflicts: [] });
+    } catch {
+      /* 循环依赖保护:缺失时跳过 */
+    }
     set({
       authState: 'needs_unlock',
       masterKey: null,
@@ -201,6 +212,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   // ========== 联机模式 actions ==========
 
   async setup(password: string): Promise<string> {
+    await ensureRandomReady();
     // v2：masterKey 随机生成，与密码解耦；换密码时只换包装，不动笔记
     const masterKey = generateMasterKey();
     const recoveryCode = generateRecoveryCode();
@@ -304,6 +316,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   async setupStandalone(password: string): Promise<string> {
+    await ensureRandomReady();
     const result = await setupLocalAuth(password, KDF_PARAMS_MOBILE);
     saveLocalAuthBlobSync(result.blob);
     saveLockoutStateSync({ ...INITIAL_LOCKOUT_STATE });
@@ -349,6 +362,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   async recoverStandalone(recoveryCode: string, newPassword: string): Promise<string> {
+    await ensureRandomReady();
     const { localAuthBlob } = get();
     const blob = localAuthBlob ?? loadLocalAuthBlobSync();
     if (!blob) throw new Error('未初始化');
@@ -375,6 +389,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   // ========== 修改主密码 ==========
 
   async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+    await ensureRandomReady();
     if (newPassword.length < 6) throw new Error('新密码至少 6 位');
     const mode = useModeStore.getState().mode;
 
@@ -459,6 +474,22 @@ export function getApi(): ApiClient {
     // weapp 未配置 serverUrl：抛错让上层 UI 友好提示
     throw new Error('未配置服务器地址，请在设置中重新选择联机模式并填写服务器地址');
   }
+  // 401 恢复路径:token 过期/失效时不再死磕——锁定回解锁页并清除失效 token。
+  // 排除 /auth/ 自身(解锁密码错误本来就返回 401,属正常业务语义)。
+  const authExpiredFetch: FetchFn = async (url, init) => {
+    const res = await (process.env.TARO_ENV === 'weapp'
+      ? taroFetch(url, init)
+      : fetch(url, init));
+    if (res.status === 401 && !String(url).includes('/auth/')) {
+      try {
+        useAuthStore.getState().lock();
+        Taro.showToast({ title: t('common.login_expired'), icon: 'none' });
+      } catch {
+        /* ignore */
+      }
+    }
+    return res;
+  };
   return new ApiClient({
     baseUrl,
     clientVersion: APP_VERSION,
@@ -467,7 +498,7 @@ export function getApi(): ApiClient {
     deviceId,
     accessToken: useAuthStore.getState().accessToken ?? undefined,
     // weapp 无 fetch，必须走 Taro.request 适配器（tech-architecture.md §6）
-    fetch: process.env.TARO_ENV === 'weapp' ? taroFetch : undefined,
+    fetch: authExpiredFetch,
   });
 }
 

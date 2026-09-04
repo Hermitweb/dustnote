@@ -77,11 +77,37 @@ async function refillPool(): Promise<void> {
     const fresh = await wxFetchRandomBytes(POOL_CAPACITY);
     pool = fresh;
     poolPos = 0;
+    poolEverFilled = true;
   } catch {
     /* 保留旧池 */
   } finally {
     filling = false;
   }
+}
+
+/** 池是否至少成功填充过一次(真机上 wx 安全随机 API 可用的标志) */
+let poolEverFilled = false;
+
+/**
+ * 等待安全随机池就绪(供密钥材料生成前调用)。
+ * masterKey/盐/shareKey 属长期密钥材料,绝不允许落到时间戳+Math.random
+ * 的本地兜底——必须在池就绪后生成。超时抛错而非静默降级。
+ * (GCM IV 允许降级:随机池仅保证唯一性要求,由 randomBytes 路径处理。)
+ */
+export function ensureRandomReady(timeoutMs = 8000): Promise<void> {
+  if (poolEverFilled) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const timer = setInterval(() => {
+      if (poolEverFilled) {
+        clearInterval(timer);
+        resolve();
+      } else if (Date.now() - start > timeoutMs) {
+        clearInterval(timer);
+        reject(new Error('安全随机池未就绪(请检查网络/微信版本),已取消密钥操作'));
+      }
+    }, 100);
+  });
 }
 
 /** 同步从池中取 n 字节（单次请求不得超过池容量） */

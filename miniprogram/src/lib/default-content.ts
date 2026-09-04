@@ -4,6 +4,8 @@
  */
 
 import { encryptNote } from '@dustnote/client-core';
+import { noteAad } from '@dustnote/shared';
+import { randomUuid } from './uuid';
 import Taro from '@tarojs/taro';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from './mode-store';
@@ -76,12 +78,14 @@ async function runEnsure(): Promise<void> {
       }
     }
   }
-  const { json: cipherJson } = await encryptNote(masterKey, {
-    title: DEFAULT_FOLDER_NAME,
-    content: INTRO_CONTENT,
-    tags: [],
-  });
+  const noteId = randomUuid();
+  const { json: cipherJson } = await encryptNote(
+    masterKey,
+    { title: DEFAULT_FOLDER_NAME, content: INTRO_CONTENT, tags: [] },
+    noteAad(noteId, useAuthStore.getState().userId ?? ''),
+  );
   await repo.createNote({
+    id: noteId,
     ciphertext: cipherJson,
     keyVersion: 1,
     isPinned: false,

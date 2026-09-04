@@ -161,9 +161,10 @@ export default function NoteEdit() {
     const cur = noteRef.current;
     if (!cur || !masterKey) return;
     setSaveStatus('saving');
+    const aad = noteAad(cur.id, useAuthStore.getState().userId ?? '');
     try {
-      // 加密明文后提交
-      const { json: cipherJson } = await encryptNote(masterKey, { title, content, tags });
+      // 加密明文后提交(AAD 绑定 noteId||userId,与 web 端一致)
+      const { json: cipherJson } = await encryptNote(masterKey, { title, content, tags }, aad);
       const newVersion = await getRepo().updateNote(cur.id, {
         ciphertext: cipherJson,
         keyVersion: 1,
@@ -179,12 +180,49 @@ export default function NoteEdit() {
     } catch (err: any) {
       const status = err?.err?.status;
       if (status === 409) {
+        // 409 自愈:响应体带服务端当前密文+版本。若服务端内容与我们编辑的
+        // 基线一致(只是版本号落后,无人真改),用最新版本重放本地内容;
+        // 否则是真冲突,提示并停止(不再死锁在旧版本号上)。
+        try {
+          const current = (err?.err?.data as { current?: { version: number; ciphertext: string } })
+            ?.current;
+          if (current?.ciphertext) {
+            const env = parseEnvelope(current.ciphertext);
+            const serverPt = await decryptNote(
+              masterKey,
+              env,
+              env.payload.a === 1 ? aad : undefined,
+            );
+            const base = basePlainRef.current;
+            const serverUnchanged =
+              !!base &&
+              serverPt.title === base.title &&
+              serverPt.content === base.content &&
+              JSON.stringify(serverPt.tags ?? []) === JSON.stringify(base.tags ?? []);
+            if (serverUnchanged) {
+              const retry = await encryptNote(masterKey, { title, content, tags }, aad);
+              const newVersion = await getRepo().updateNote(cur.id, {
+                ciphertext: retry.json,
+                keyVersion: 1,
+                isPinned: cur.isPinned,
+                isFavorite: cur.isFavorite,
+                version: current.version,
+              });
+              setNote((prev) => (prev ? { ...prev, version: newVersion } : prev));
+              basePlainRef.current = { title, content, tags };
+              setSaveStatus('saved');
+              return;
+            }
+          }
+        } catch {
+          /* 自愈失败按普通冲突处理 */
+        }
         Taro.showToast({ title: t('editor.version_conflict'), icon: 'none' });
         setSaveStatus('error');
       } else if (mode === 'online' && isNetworkError(err)) {
         // 网络不可用：入队待同步（携带三方合并上下文，重放时字段级合并）
         try {
-          const { json: cipherJson } = await encryptNote(masterKey, { title, content, tags });
+          const { json: cipherJson } = await encryptNote(masterKey, { title, content, tags }, aad);
           const meta: NoteMetadata = {
             isPinned: cur.isPinned,
             isFavorite: cur.isFavorite,
@@ -357,7 +395,9 @@ export default function NoteEdit() {
       const shareUrl =
         process.env.TARO_ENV === 'h5'
           ? `${window.location.origin}/#/pages/share/index?token=${r.token}&key=${key}`
-          : `/pages/share/index?token=${r.token}&key=${key}`;
+          : // weapp:复制可直接在浏览器打开的 https 链接(与 web 端 /share/:token#key 同构,
+            // 访客无需任何配置;此前复制小程序内部路径是死链)
+            `${(useModeStore.getState().serverUrl ?? '').replace(/\/+$/, '')}/share/${r.token}#${key}`;
       await Taro.setClipboardData({ data: shareUrl });
       setShareOpen(false);
       Taro.showToast({ title: t('editor.share_link_copied'), icon: 'success' });

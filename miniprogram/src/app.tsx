@@ -56,7 +56,6 @@ function App({ children }: { children?: ReactNode }) {
       const { authState, lock } = useAuthStore.getState();
       if (
         min > 0 &&
-        m === 'online' &&
         initialized &&
         authState === 'unlocked' &&
         Date.now() - hiddenAt >= min * 60_000

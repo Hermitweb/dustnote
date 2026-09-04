@@ -72,6 +72,8 @@ export class RemoteRepository implements DataRepository {
 
   async createNote(input: CreateNoteInput): Promise<string> {
     const r = await this.getApi().post<{ id: string }>('/notes', {
+      // 客户端预生成 id:密文的 AAD 绑定 noteId||userId,必须在加密前确定
+      ...(input.id ? { id: input.id } : {}),
       ciphertext: input.ciphertext,
       keyVersion: input.keyVersion,
       isPinned: input.isPinned ?? false,
@@ -215,25 +217,32 @@ export class RemoteRepository implements DataRepository {
 
   async importBackup(payload: BackupPayload): Promise<void> {
     // 联机模式：逐条创建笔记/文件夹/标签
-    for (const folder of payload.folders) {
+    // 只跳过 409(已存在);其他错误(4xx 校验失败/5xx/网络中断)必须上抛——
+    // 否则 switchMode 清空新数据后静默吞错,导入失败伪装成功导致数据丢失
+    // (与 web/src/lib/remote-repo.ts 语义对齐)
+    const isConflict = (e: unknown): boolean => {
+      const status = (e as { err?: { status?: number } })?.err?.status;
+      return status === 409;
+    };
+    for (const folder of payload.folders ?? []) {
       try {
         await this.createFolder({
           name: folder.name,
           parentId: folder.parentId,
           icon: folder.icon,
         });
-      } catch {
-        /* 已存在则跳过 */
+      } catch (err) {
+        if (!isConflict(err)) throw err;
       }
     }
-    for (const tag of payload.tags) {
+    for (const tag of payload.tags ?? []) {
       try {
         await this.createTag(tag.name, tag.color);
-      } catch {
-        /* 已存在则跳过 */
+      } catch (err) {
+        if (!isConflict(err)) throw err;
       }
     }
-    for (const note of payload.notes) {
+    for (const note of payload.notes ?? []) {
       // 跳过回收站笔记(与 mobile importBackup 一致):备份里的软删笔记
       // 不应在新环境重建为正常笔记
       if (note.deletedAt) continue;
@@ -245,8 +254,8 @@ export class RemoteRepository implements DataRepository {
           isFavorite: note.isFavorite,
           folderId: note.folderId,
         });
-      } catch {
-        /* 跳过失败项 */
+      } catch (err) {
+        if (!isConflict(err)) throw err;
       }
     }
     if (payload.preferences) {

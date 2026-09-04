@@ -31,6 +31,8 @@ import { useModeStore } from '../../lib/mode-store';
 import { getRepo } from '../../lib/get-repo';
 import { ensureDefaultContent } from '../../lib/default-content';
 import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders } from '@dustnote/shared';
+import { randomUuid } from '../../lib/uuid';
+import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
 import { t, useLanguage } from '../../lib/i18n';
 
 interface Note {
@@ -107,6 +109,17 @@ export default function Index() {
   useEffect(() => {
     if (authState === 'unlocked' && masterKey) void load();
   }, [authState, masterKey]);
+  // 离线队列重放成功后立即校正本地视图
+  useEffect(() => {
+    const handler = () => {
+      if (useAuthStore.getState().authState === 'unlocked') void load();
+    };
+    Taro.eventCenter.on('dustnote:data-changed', handler);
+    return () => {
+      Taro.eventCenter.off('dustnote:data-changed', handler);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useDidShow(() => {
     if (authState === 'unlocked' && masterKey) void load();
   });
@@ -126,6 +139,12 @@ export default function Index() {
         const plainMap: Record<string, { title: string; content: string }> = {};
         for (const n of fresh.notes) {
           if (n.deletedAt) continue;
+          // 密文未变化的笔记直接命中缓存,跳过重复解密(治页面切换反复解密)
+          const cached = getCachedPlain(n.id, n.ciphertext);
+          if (cached) {
+            plainMap[n.id] = { title: cached.title, content: cached.content };
+            continue;
+          }
           try {
             const e = parseEnvelope(n.ciphertext);
             const pt = await decryptNote(
@@ -134,6 +153,7 @@ export default function Index() {
               noteAad(n.id, useAuthStore.getState().userId ?? '')
             );
             // 保留 title + content：列表标题显示 + 全文搜索（v2.5.5 升级为标题+内容）
+            putCachedPlain(n.id, n.ciphertext, pt.title, pt.content);
             plainMap[n.id] = { title: pt.title, content: pt.content };
           } catch {
             plainMap[n.id] = { title: t('common.decrypt_failed'), content: '' };
@@ -208,12 +228,13 @@ export default function Index() {
     if (!ids.length) return;
     const repo = getRepo();
     let ok = 0;
+    let fail = 0;
     for (const id of ids) {
       try {
         await repo.updateNote(id, { [field]: val } as any);
         ok++;
       } catch {
-        /* skip */
+        fail++;
       }
     }
     const label = t(
@@ -226,7 +247,10 @@ export default function Index() {
           : 'index.batch_unfavorited',
       { count: ok }
     );
-    Taro.showToast({ title: label, icon: 'success' });
+    Taro.showToast({
+      title: fail > 0 ? `${label}（${t('index.batch_failed', { count: fail })}）` : label,
+      icon: fail > 0 ? 'none' : 'success',
+    });
     exitSelect();
     await load();
   };
@@ -243,12 +267,13 @@ export default function Index() {
     if (!r.confirm) return;
     const repo = getRepo();
     let ok = 0;
+    let fail = 0;
     for (const id of ids) {
       try {
         await repo.deleteNote(id);
         ok++;
       } catch {
-        /* skip */
+        fail++;
       }
     }
     Taro.showToast({ title: t('index.deleted_count', { count: ok }), icon: 'success' });
@@ -261,12 +286,13 @@ export default function Index() {
     if (!ids.length) return;
     const repo = getRepo();
     let ok = 0;
+    let fail = 0;
     for (const id of ids) {
       try {
         await repo.restoreNote(id);
         ok++;
       } catch {
-        /* skip */
+        fail++;
       }
     }
     Taro.showToast({ title: t('index.restored_count', { count: ok }), icon: 'success' });
@@ -286,12 +312,13 @@ export default function Index() {
     if (!r.confirm) return;
     const repo = getRepo();
     let ok = 0;
+    let fail = 0;
     for (const id of ids) {
       try {
         await repo.permanentDeleteNote(id);
         ok++;
       } catch {
-        /* skip */
+        fail++;
       }
     }
     Taro.showToast({ title: t('index.perm_deleted_count', { count: ok }), icon: 'success' });
@@ -322,6 +349,7 @@ export default function Index() {
       const fid = folderList[ti]!.id;
       const fname = folderList[ti]!.name;
       let ok = 0;
+    let fail = 0;
       for (const id of ids) {
         try {
           await repo.moveNote(id, fid);
@@ -749,8 +777,14 @@ export default function Index() {
               }
               const content = fillTemplatePlaceholders(tpl.content);
               const doc: NotePlaintext = { title: tpl.name, content, tags: [] };
-              const { json: cipherJson } = await encryptNote(masterKey, doc);
+              const noteId = randomUuid();
+              const { json: cipherJson } = await encryptNote(
+                masterKey,
+                doc,
+                noteAad(noteId, useAuthStore.getState().userId ?? ''),
+              );
               const id = await getRepo().createNote({
+                id: noteId,
                 ciphertext: cipherJson,
                 keyVersion: 1,
                 isPinned: false,
@@ -797,8 +831,14 @@ export default function Index() {
                 }
               }
               const empty: NotePlaintext = { title: t('index.new_note'), content: '', tags: [] };
-              const { json: cipherJson } = await encryptNote(masterKey, empty);
+              const noteId = randomUuid();
+              const { json: cipherJson } = await encryptNote(
+                masterKey,
+                empty,
+                noteAad(noteId, useAuthStore.getState().userId ?? ''),
+              );
               const id = await getRepo().createNote({
+                id: noteId,
                 ciphertext: cipherJson,
                 keyVersion: 1,
                 isPinned: false,

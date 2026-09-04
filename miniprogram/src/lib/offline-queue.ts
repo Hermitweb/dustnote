@@ -211,6 +211,16 @@ export async function pendingOfflineCount(): Promise<number> {
 
 /** 重放离线队列；返回是否仍有剩余条目 */
 export async function flushOfflineQueue(): Promise<boolean> {
+  const before = await queue.size();
   const summary = await engine.flush();
+  // 有成功重放:广播数据变更,让在线页面立即校正本地视图
+  // (否则 UI 停留在旧数据直到手动重进页面)
+  if (before > summary.remaining) {
+    try {
+      Taro.eventCenter.trigger('dustnote:data-changed', { replayed: before - summary.remaining });
+    } catch {
+      /* ignore */
+    }
+  }
   return summary.remaining > 0;
 }

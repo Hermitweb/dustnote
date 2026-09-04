@@ -61,6 +61,15 @@ export default function Folders() {
   React.useEffect(() => {
     void load();
   }, []);
+  // 离线队列重放成功后立即校正
+  React.useEffect(() => {
+    const handler = () => void load();
+    Taro.eventCenter.on('dustnote:data-changed', handler);
+    return () => {
+      Taro.eventCenter.off('dustnote:data-changed', handler);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useDidShow(() => {
     void load();
   });

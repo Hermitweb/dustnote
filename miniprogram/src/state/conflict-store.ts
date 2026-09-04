@@ -38,15 +38,9 @@ interface ConflictStoreState {
   dismissConflict: (noteId: string) => void;
 }
 
-const CONFLICT_KEY = 'dustnote:pending-conflicts';
-
-function persist(list: PendingConflict[]): void {
-  try {
-    Taro.setStorageSync(CONFLICT_KEY, JSON.stringify(list));
-  } catch {
-    /* 持久化失败不阻塞内存态 */
-  }
-}
+// 冲突的 local/server/merged 含笔记明文——只存内存,绝不落盘(E2EE 模型:
+// 明文不得进入可导出/备份的 storage)。未裁决冲突在应用重启后丢弃,
+// 服务端数据不受影响(冲突只是 UI 裁决态,重进页面会重新产生)。
 
 export const useConflictStore = create<ConflictStoreState>((set, get) => ({
   pendingConflicts: [],
@@ -54,7 +48,6 @@ export const useConflictStore = create<ConflictStoreState>((set, get) => ({
   enqueueConflict: (c) => {
     const next = [...get().pendingConflicts.filter((x) => x.noteId !== c.noteId), c];
     set({ pendingConflicts: next });
-    persist(next);
   },
 
   resolveConflictChoice: async (noteId, choice) => {
@@ -86,25 +79,12 @@ export const useConflictStore = create<ConflictStoreState>((set, get) => ({
 
     const next = get().pendingConflicts.filter((c) => c.noteId !== noteId);
     set({ pendingConflicts: next });
-    persist(next);
   },
 
   dismissConflict: (noteId) => {
     const next = get().pendingConflicts.filter((c) => c.noteId !== noteId);
     set({ pendingConflicts: next });
-    persist(next);
   },
 }));
 
-// 启动时从 Taro storage 恢复未裁决冲突
-try {
-  const raw = Taro.getStorageSync(CONFLICT_KEY) as string | undefined;
-  if (raw) {
-    const list = JSON.parse(raw) as PendingConflict[];
-    if (Array.isArray(list) && list.length > 0) {
-      useConflictStore.setState({ pendingConflicts: list });
-    }
-  }
-} catch {
-  /* 损坏数据忽略 */
-}
+

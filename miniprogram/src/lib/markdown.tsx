@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { View, Text } from '@tarojs/components';
+import { View, Text, Image } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 
 /** 判断链接协议是否安全（仅放行 http/https/相对路径） */
@@ -27,7 +27,7 @@ function copyLink(url: string) {
 
 // 行内语法：行内代码优先，避免 ** 或 [ 在代码里被误解析
 // 新增 wikilink: [[title]] 或 [[title|display]]
-const INLINE_RE = /(`[^`]+`)|(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|(\[\[[^\]|]+(?:\|[^\]]+)?\]\])|(\[[^\]]+\]\([^)\s]+\))/g;
+const INLINE_RE = /(`[^`]+`)|(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|(\[\[[^\]|]+(?:\|[^\]]+)?\]\])|(!\[[^\]]*\]\([^)\s]+\))|(\[[^\]]+\]\([^)\s]+\))/g;
 
 /** 渲染一行内联内容（粗体/斜体/行内代码/链接） */
 function renderInline(text: string, keyPrefix: string, onWikilink?: (title: string) => void): React.ReactNode[] {
@@ -80,8 +80,33 @@ function renderInline(text: string, keyPrefix: string, onWikilink?: (title: stri
         </Text>
       );
     } else if (m[5]) {
+      // ![alt](url) 图片:仅渲染 http(s) 外链;dustnote-img:// 等本地引用
+      // 只存在于创建设备(跨设备不同步),给出可读占位而非原始文本
+      const imgMatch = m[5].match(/!\[([^\]]*)\]\(([^)\s]+)\)/);
+      if (imgMatch) {
+        const src = imgMatch[2]!;
+        if (/^https?:\/\//i.test(src)) {
+          nodes.push(
+            <Image
+              key={key}
+              src={src}
+              mode="widthFix"
+              style={{ width: '100%', borderRadius: '8rpx', marginTop: '8rpx' }}
+            />
+          );
+        } else {
+          nodes.push(
+            <Text key={key} className="md-em">
+              {`🖼 [${imgMatch[1] || '图片'}](仅存于创建设备,此端不可见)`}
+            </Text>
+          );
+        }
+      } else {
+        nodes.push(m[5]);
+      }
+    } else if (m[6]) {
       // [text](url)
-      const linkMatch = /\[([^\]]+)\]\(([^)\s]+)\)/.exec(m[5]);
+      const linkMatch = m[6].match(/\[([^\]]+)\]\(([^)\s]+)\)/);
       if (linkMatch && isSafeUrl(linkMatch[2]!)) {
         nodes.push(
           <Text key={key} className="md-link" onClick={() => copyLink(linkMatch[2]!)}>
@@ -89,7 +114,7 @@ function renderInline(text: string, keyPrefix: string, onWikilink?: (title: stri
           </Text>
         );
       } else {
-        nodes.push(m[5]);
+        nodes.push(m[6]);
       }
     }
     last = m.index + m[0].length;
