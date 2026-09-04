@@ -49,12 +49,13 @@ DustNote v2.0.0 引入**单机/联机双模式架构**。两种模式对各端�
 
 ## 2. 桌面端
 
-> **v2.0.0 说明**：桌面端打包改用 [Velopack](https://github.com/velopack/velopack)（替代 NSIS），支持 delta 增量更新。资产命名遵循 `DustNote-<Platform>-<Version>.<ext>`。详见 [update-strategy.md §16](../.trae/documents/update-strategy.md)。
+> **v2.5 说明**：桌面端使用 Tauri 2 NSIS 安装向导（简体中文/英文跟随系统，x64 + ARM64 双架构），应用内自动更新走自建 manifest + 自托管下载（v2.5.26 起不依赖 GitHub）。资产命名遵循 `DustNote_<Version>_<arch>-setup.exe`。
 
 | 操作系统 | 最低版本     | 状态      | 包格式                                        |
 | -------- | ------------ | --------- | --------------------------------------------- |
-| Windows  | 10 (1809)    | ✅        | Setup.exe / Portable.zip（Velopack）          |
-| Windows  | 11           | ✅        | Setup.exe / Portable.zip（Velopack）          |
+| Windows  | 10 (1809)    | ✅        | x64-setup.exe / x64-portable.zip              |
+| Windows  | 11           | ✅        | x64-setup.exe / arm64-setup.exe（ARM 设备）   |
+| Windows  | ARM 笔记本   | ✅        | arm64-setup.exe（v2.5.22 起双架构发布）       |
 | macOS    | 11 (Big Sur) | ⚠️ 待硬件 | .dmg (Intel + Apple Silicon)（待 macOS 构建） |
 | macOS    | 12+          | ⚠️ 待硬件 | .dmg                                          |
 | Ubuntu   | 22.04 LTS    | ⚠️ 待硬件 | .AppImage / .deb                              |

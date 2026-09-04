@@ -1,42 +1,43 @@
 # DustNote 服务状态
 
-> 自动监控：每 1 分钟检查
-> 状态页 URL：https://status.dustnote.app
+> 最近人工核对：2026-09-04（随每次发版更新）
 
 ## 当前状态
 
-🟢 **所有系统正常运行**
+🟢 **所有系统正常运行** — 服务端 **v2.5.28**（2026-09-03 上线）
 
-最近 7 天可用率：**100.00%**
+## 线上部署（自托管）
 
-## 系统组件
+单节点部署（宝塔面板 + Docker Compose），Web / API / 下载分发同源：
 
-| 组件              | 状态    | 描述                           |
-| ----------------- | ------- | ------------------------------ |
-| Web 端            | 🟢 正常 | https://app.dustnote.app       |
-| API               | 🟢 正常 | https://api.dustnote.app       |
-| 同步（WebSocket） | 🟢 正常 | wss://api.dustnote.app/sync/ws |
-| 分享服务          | 🟢 正常 | https://dustnote.app/s/...     |
-| 静态资源 CDN      | 🟢 正常 | https://cdn.dustnote.app       |
+| 组件                     | 状态    | 地址                                            |
+| ------------------------ | ------- | ----------------------------------------------- |
+| Web 端（含 PWA）         | 🟢 正常 | `http://154.217.234.125:8080/`                  |
+| API                      | 🟢 正常 | `http://154.217.234.125:8080/api/v1/health`     |
+| 同步（WebSocket）        | 🟢 正常 | 同源 `/sync/ws`（联机模式）                     |
+| 分享服务                 | 🟢 正常 | `http://154.217.234.125:8080/s/<token>`         |
+| 更新分发（桌面/安卓）    | 🟢 正常 | `http://154.217.234.125:8080/downloads/`        |
+| 更新清单                 | 🟢 正常 | `http://154.217.234.125:8080/api/v1/update-manifest` |
+
+- 健康检查：Docker healthcheck 每 30 秒探活（`/api/v1/health`）
+- 数据备份：服务端每日自动备份 SQLite（better-sqlite3 backup API，滚动保留）
+- 发布通道：GitHub Actions 构建 → GitHub Release + 产物同步至服务器 `/opt/dustnote-downloads/`
+
+## 客户端渠道
+
+| 渠道           | 版本    | 分发方式                                       |
+| -------------- | ------- | ---------------------------------------------- |
+| Web / PWA      | 2.5.28  | 服务器直出，Service Worker 缓存                |
+| Windows x64    | 2.5.28  | 应用内更新 / GitHub Release                    |
+| Windows ARM64  | 2.5.28  | 应用内更新 / GitHub Release                    |
+| Android        | 2.5.28  | 应用内更新（manifest apk）/ GitHub Release     |
+| 微信小程序     | 2.5.28  | 微信平台（体验版/审核发布）                    |
+| iOS / macOS    | —       | 待 macOS 硬件与签名                            |
 
 ## 历史事件
 
-_尚无事件记录_
+- 2026-09-03：v2.5.28 发布当日出现一次用户侧「503 无法连接」误报，经排查为用户本地 VPN/代理链路生成，服务器侧零 5xx（详见 CHANGELOG 与诊断记录）。
 
-## 订阅通知
+## 说明
 
-订阅本页面可在故障时收到邮件 / Webhook / RSS 通知：
-
-- **邮件订阅**：https://status.dustnote.app/subscribe
-- **RSS**：https://status.dustnote.app/feed.rss
-- **Webhook**：支持 Slack / Discord / 飞书 / 钉钉
-
-## SLA 承诺
-
-- 月度可用率目标：**99.9%**
-- 计划维护：提前 7 天公告
-- 故障响应：P0 ≤ 15 分钟
-
-## 数据来源
-
-本页数据由 UptimeRobot / 自托管 Prometheus 采集，未经审核不构成对外承诺。
+本文件随发版由维护者手工更新；当前为单维护者项目，暂无对外 SLA 承诺。

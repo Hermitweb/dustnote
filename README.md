@@ -2,7 +2,7 @@
 
 > 🌿 极简 · 清新 · 跨端 · 安全——一款 E2EE 端到端加密的个人笔记系统
 
-![Status](https://img.shields.io/badge/status-v2.4.4-blue)
+![Status](https://img.shields.io/badge/status-v2.5.28-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Node](https://img.shields.io/badge/node-20%2B-blue)
 ![E2EE](https://img.shields.io/badge/encryption-AES--256--GCM-purple)
@@ -11,18 +11,21 @@
 
 ## 特性
 
-- 🔐 **端到端加密**——AES-256-GCM，服务端仅存密文，完全看不到明文
-- 🏠 **单机/联机双模式**——v2.0.0 新增：无服务器也能独立运行（单机模式），连接服务器解锁跨设备同步（联机模式）
-- 📝 **Markdown 编辑器**——左编辑右预览，所见即所得
-- 🎨 **6 套主题 × 亮暗双模式**——薄荷绿 / 月光蓝 / 日落橙等 12 套皮肤
+- 🔐 **端到端加密**——AES-256-GCM，服务端仅存密文，完全看不到明文；两步验证（TOTP）可选
+- 🏠 **单机/联机双模式**——无服务器也能独立运行（单机模式），连接服务器解锁跨设备同步（联机模式）
+- 📝 **Markdown 编辑器**——左编辑右预览 + 所见即所得（WYSIWYG）双模式
+- 🔍 **秒级全文检索**——客户端中文分词建索引（E2EE 下服务端无法检索），标题加权 + 命中高亮
+- 🎨 **多套主题 × 亮暗双模式**——薄荷绿 / 月光蓝 / 日落橙等皮肤，小程序/移动端暗色跟随系统
+- 🎙️ **语音听写**——Android 编辑页一键语音转文字，实时追加正文
+- 📄 **模板新建**——内置预设模板 + 占位符填充，从列表页一键创建
 - 📥📤 **导入导出**——支持 .txt / .md / .docx 导入；导出 Markdown / HTML / PDF / JSON 备份
-- 🔗 **分享笔记**——生成独立链接，可设密码和有效期（联机模式）；单机模式支持文件导出分享
-- 📁 **文件夹 + 标签**——自由组织笔记结构
-- ✅ **多选批量操作**——长按选择多条笔记，一键移动/置顶/收藏/删除
-- 🔄 **实时同步**——WebSocket 推送，1 秒内同步到所有在线设备（联机模式）
-- 📱 **跨平台**——Web（支持 PWA 安装） / 桌面 (Windows/macOS/Linux) / Android / iOS / 微信小程序
-- 🐳 **一键部署**——Docker Compose，5 分钟上线（自托管服务器）
-- 🔄 **自动更新**——桌面端 Velopack 增量更新；Windows 提供 MSI（默认 Program Files，支持自定义路径与静默部署）
+- 🔗 **分享笔记**——生成独立链接，可设密码（4 位起）和有效期（联机模式）；单机模式支持文件导出分享
+- 📁 **文件夹 + 标签**——自由组织笔记结构；新建笔记记住上次所在文件夹
+- ✅ **多选批量操作**——选择多条笔记，一键移动/置顶/收藏/删除，回收站批量恢复/彻底删除
+- 🔄 **实时同步**——WebSocket 推送，1 秒内同步到所有在线设备（联机模式）；离线队列 + 版本冲突三方合并
+- 📱 **跨平台**——Web（支持 PWA 安装）/ 桌面 (Windows x64+ARM64 / macOS / Linux) / Android / iOS(规划中) / 微信小程序
+- 🐳 **一键部署**——Docker Compose，5 分钟上线（自托管服务器）；每日自动备份数据库
+- 🔄 **自动更新**——应用内检查自建更新清单，从自托管服务器下载 + SHA-256 校验（fail-closed）后启动安装向导，不依赖 GitHub
 
 ## 双模式架构（v2.0.0 新增）
 
@@ -30,7 +33,7 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 
 | 能力                  | 单机模式（standalone）                                        | 联机模式（online）                 |
 | --------------------- | ------------------------------------------------------------- | ---------------------------------- |
-| 主密码 setup/unlock   | 本地 Argon2id + 比对（无 JWT）                                | 调 `/auth/setup`、`/auth/unlock`   |
+| 主密码 setup/unlock   | 本地 KDF 派生 + 比对（无 JWT）                                | 调 `/auth/setup`、`/auth/unlock`   |
 | 笔记/文件夹/标签 CRUD | LocalRepository（IndexedDB / AsyncStorage / Taro.setStorage） | RemoteRepository（API + 离线队列） |
 | 分享                  | **仅文件导出**（txt / md / html / pdf）                       | 在线分享链接 + 文件导出            |
 | 跨设备同步            | **不支持**                                                    | WebSocket + 离线队列               |
@@ -50,7 +53,7 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 | 平台               | 状态    | 构建方式                 | 分发                                       |
 | ------------------ | ------- | ------------------------ | ------------------------------------------ |
 | **Web**（PWA）     | ✅      | Vite                     | 静态文件 / Docker / PWA 安装               |
-| **桌面** (Tauri 2) | ✅      | `pnpm build:desktop`     | Windows NSIS / Linux 桌面集成包 |
+| **桌面** (Tauri 2) | ✅      | `pnpm build:desktop`     | Windows NSIS（x64 / ARM64）/ Linux 桌面集成包 / macOS |
 | **微信小程序**     | ✅      | `pnpm build:miniprogram` | 微信审核上传                               |
 | **H5 移动版**      | ✅      | `pnpm build:h5`          | 静态文件部署                               |
 | **Android**        | ✅      | `pnpm build:android`     | APK 分发                                   |
@@ -62,7 +65,7 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 
 | 安装包 | 安装体验 | 适用 |
 | --- | --- | --- |
-| `*_x64-setup.exe` | **完整安装向导**：使用许可声明、安装路径选择、WebView2 环境检测/自动安装、控制面板卸载程序（PerUser/PerMachine 可选）；**内置应用内更新**（自建 manifest 检查 + GitHub 直链下载 + SHA-256 校验后启动向导） | 推荐默认 |
+| `DustNote_<版本>_x64-setup.exe` / `_arm64-setup.exe` | **完整安装向导**：安装路径选择、单机/全机安装模式、WebView2 环境检测/自动安装、控制面板卸载程序；**内置应用内更新**（自建 manifest 检查 + 自托管服务器下载 + SHA-256 校验后启动向导）；向导语言跟随系统（简体中文/英文） | 推荐默认 |
 | `*_x64-portable.zip` | 免安装解压即用，无自动更新 | 绿色便携 |
 
 ## 快速开始
@@ -71,7 +74,7 @@ DustNote 提供两种使用模式，无需任何配置即可选择：
 
 ### 模式 A：单机使用（无需服务器）
 
-1. 下载客户端安装包（或访问 Web 端）
+1. 下载客户端安装包（[GitHub Releases](https://github.com/Hermitweb/dustnote/releases/latest)）或直接访问部署好的 Web 端
 2. 首次启动选择「🏠 单机使用」
 3. 设置主密码 + 抄写恢复码
 4. 开始使用，数据存储在本地（IndexedDB / AsyncStorage / Taro.setStorage）
@@ -203,37 +206,33 @@ dustnote/
 
 ### 笔记管理
 
-- 新建、编辑、删除、回复笔记
-- 设为收藏 ⭐ / 置顶 📌 / 移动到文件夹 📁
-- Markdown 实时预览
-- 自动保存（1.5s 防抖）
-- 版本冲突检测
-
-### 多选批量操作
-
-- 长按进入多选模式（小程序）/ 点击「选择」按钮（Web）
-- 批量移动、置顶、收藏、删除
-- 回收站批量恢复 / 彻底删除
-- 分享管理批量吊销
+- 新建、编辑、删除、恢复笔记
+- 设为收藏 ⭐ / 置顶 📌 / 移动到文件夹 📁 / 标签
+- Markdown 实时预览（防抖渲染）+ WYSIWYG 编辑
+- 全文检索（中文分词倒排索引，本地加密数据可用）
+- 自动保存（1.5s 防抖）+ 版本冲突检测与三方合并
+- 回收站（软删除 30 天）+ 笔记历史版本（联机）
 
 ### 端到端加密 (E2EE)
 
-- Argon2id 派生主密钥 (m=64MB, t=3, p=4)
-- AES-256-GCM 加密每条笔记
+- 新账号默认 PBKDF2-SHA256 100000 派生（移动端走原生 quick-crypto；Argon2id 保留兼容历史账号）
+- AES-256-GCM 加密每条笔记（AAD 绑定 + HKDF 分叉）
 - 服务端零明文，数据泄露不影响安全
-- 6 位恢复码可找回主密码
+- 10 位恢复码可重置主密码（masterKey 保留，笔记无需重加密）
+- 可选 TOTP 两步验证（防重放计数器）
 
 ### 多端同步
 
 - WebSocket 实时推送（<1s 延迟）
-- 跨设备即时同步
+- 跨设备即时同步，离线队列自动重放
 - 同账号任意平台无缝衔接
 
 ### 部署管理
 
 - Web 端内置部署管理页面（顶栏 🛠️ 按钮）
 - 配置 API 地址后下载各平台免配置文件
-- 应用内设置可随时修改服务器地址
+- 应用内设置可随时查看/修改服务器地址（已联机时自动回填当前地址）
+- 服务端每日自动备份数据库（better-sqlite3 backup API，保留最近备份）
 
 ## 构建与分发
 
@@ -251,7 +250,7 @@ pnpm docker:up          # Docker 部署
 
 | 层     | 技术                                               |
 | ------ | -------------------------------------------------- |
-| 加密   | Argon2id + AES-256-GCM (@noble/hashes, Web Crypto) |
+| 加密   | PBKDF2-SHA256 / Argon2id（兼容）+ AES-256-GCM（Web Crypto / quick-crypto / @noble） |
 | 前端   | React 18 + Vite 5 + Tailwind CSS 3 + Zustand       |
 | 桌面   | Tauri 2 (Rust)                                     |
 | 移动   | React Native 0.74                                  |
@@ -297,7 +296,7 @@ pnpm docker:up          # Docker 部署
 
 ### 更新日志
 
-- [CHANGELOG.md](./CHANGELOG.md) — v2.4.0 全端安装/卸载/部署规范化 + 品牌统一；v2.0.0 单机/联机双模式架构
+- [CHANGELOG.md](./CHANGELOG.md) — 持续更新；近期：v2.5.28 全平台设置回填服务器地址 + 批量选择修复 + 语音听写；v2.5.24 起全端 KDF 统一 PBKDF2 100000
 
 ## 开发
 

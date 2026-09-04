@@ -1,6 +1,6 @@
 # DustNote 安装与卸载指南
 
-> 版本：v2.4.4 | 更新日期：2026-08-05
+> 版本：v2.5.28 | 更新日期：2026-09-04
 
 本文档详细说明 DustNote 在各平台的安装、卸载和自动更新流程。
 
@@ -24,91 +24,53 @@
 
 ### 安装
 
-DustNote 在 Windows 上提供三种安装方式，按需选择：
+DustNote 在 Windows 上提供两种安装方式（x64 与 ARM64 各有对应安装包）：
 
-| 方式               | 安装位置                  | 管理员权限 | 适用场景                                 |
-| ------------------ | ------------------------- | ---------- | ---------------------------------------- |
-| MSI 安装包（推荐） | `Program Files\DustNote`  | 需要       | 默认系统目录、企业批量部署、需自定义路径 |
-| 一键 Setup.exe     | `%LocalAppData%\DustNote` | 不需要     | 无 UAC 权限、个人快速安装                |
-| 便携版             | 任意目录                  | 不需要     | U 盘携带、免安装                         |
+| 方式                     | 安装位置                                        | 管理员权限 | 适用场景                   |
+| ------------------------ | ----------------------------------------------- | ---------- | -------------------------- |
+| 安装向导 Setup.exe（推荐） | 向导中自选：仅当前用户（`%LocalAppData%`）或所有用户（`Program Files`） | 全机安装需要 | 日常安装，支持静默部署     |
+| 便携版                   | 任意目录                                        | 不需要     | U 盘携带、免安装           |
 
-#### 方式一：MSI 安装包（推荐，默认 Program Files）
+#### 方式一：安装向导 Setup.exe（推荐）
 
-1. 从 [GitHub Releases](https://github.com/Hermitweb/dustnote/releases) 下载 `DustNote_2.4.4_x64-setup.msi`
-2. 双击运行（会弹出 UAC 提权，因默认安装到系统目录）
-3. 安装程序自动完成以下操作：
-   - 默认安装到 `C:\Program Files\DustNote\`（系统标准目录）
+1. 从 [GitHub Releases](https://github.com/Hermitweb/dustnote/releases) 下载对应架构的安装包：
+   - `DustNote_<版本>_x64-setup.exe`（64 位 Intel/AMD）
+   - `DustNote_<版本>_arm64-setup.exe`（ARM 笔记本，如骁龙 X）
+2. 双击运行，向导语言**跟随系统**（简体中文 / 英文）
+3. 向导中可选择安装模式（仅为我 / 为所有用户）与安装路径
+4. 安装程序自动完成以下操作：
+   - 检测并自动安装 WebView2 运行时（Win11 通常已内置）
    - 创建桌面与开始菜单快捷方式
-   - 注册到「设置 → 应用 → 已安装的应用」（HKLM，可从此卸载）
-   - 注册 Velopack 自动更新服务
-
-##### 自定义安装路径
-
-> **注意**：Velopack MSI 安装包不提供图形界面的安装路径选择页面（这是 Velopack 的官方限制）。
-> 如需自定义安装目录，必须使用命令行参数 `VELOPACK_INSTALLDIR`：
-
-```powershell
-# 交互安装（双击运行）默认安装到 Program Files\DustNote，无法在 GUI 中修改路径
-# 静默安装到自定义目录（覆盖默认 Program Files\DustNote）
-msiexec /i DustNote_2.4.4_x64-setup.msi /qn VELOPACK_INSTALLDIR="D:\Apps\DustNote"
-```
-
-如需图形化选择安装路径，请改用 **一键 Setup.exe** 方式（支持 `--installto` 参数）或 **便携版**（解压到任意目录）。
+   - 注册到「设置 → 应用 → 已安装的应用」，可从此卸载
 
 ##### 静默安装（企业批量部署）
 
-```powershell
-# 静默安装（无 UI，默认 Program Files\DustNote）
-msiexec /i DustNote_2.4.4_x64-setup.msi /qn
-
-# 静默安装 + 自定义路径
-msiexec /i DustNote_2.4.4_x64-setup.msi /qn VELOPACK_INSTALLDIR="D:\Apps\DustNote"
-
-# 静默安装 + 安装日志（便于审计与问题排查）
-msiexec /i DustNote_2.4.4_x64-setup.msi /qn /L*v "C:\Logs\dustnote-install.log"
-```
-
-> `msiexec` 常用参数：
->
-> - `/i <msi>`：安装
-> - `/qn`：完全静默（无 UI）；`/qb`：仅显示进度条
-> - `/L*v <log>`：输出详细安装日志
-> - `VELOPACK_INSTALLDIR="<DIR>"`：自定义安装目录（优先级高于默认路径）
-> - `ALLUSERS=1`：强制 PerMachine 安装
-
-#### 方式二：一键 Setup.exe（无需管理员）
-
-1. 下载 `DustNote_2.4.4_x64-setup.exe`
-2. 双击运行（无需 UAC 提权）
-3. 一键安装到 `%LocalAppData%\DustNote\`，自动创建快捷方式并注册到「应用和功能」（HKCU）
+NSIS 安装包支持标准静默参数：
 
 ```powershell
-# 静默安装（无 UI）
-DustNote_2.4.4_x64-setup.exe --silent
+# 完全静默安装（默认当前用户模式）
+.\DustNote_2.5.28_x64-setup.exe /S
 
-# 静默安装到指定目录（覆盖默认 %LocalAppData%\DustNote；装 Program Files 需管理员）
-DustNote_2.4.4_x64-setup.exe --silent --installto "C:\Program Files\DustNote"
-
-# 启用安装日志
-DustNote_2.4.4_x64-setup.exe --silent --log "C:\Logs\dustnote-install.log"
+# 静默安装到自定义目录（注意：/D= 必须是最后一个参数，路径不加引号）
+.\DustNote_2.5.28_x64-setup.exe /S /D=D:\Apps\DustNote
 ```
 
-> Velopack `Setup.exe` 参数：`--silent`/`-s`、`--installto <DIR>`/`-t`、`--log <FILE>`/`-l`、`--verbose`/`-v`
+> 常用参数：`/S` 静默；`/D=<目录>` 自定义路径（必须放在最后）；全机安装需以管理员身份运行。
 
-#### 方式三：便携版
+#### 方式二：便携版
 
-1. 下载 `DustNote_2.4.4_x64-portable.zip`
+1. 下载 `DustNote_<版本>_x64-portable.zip`
 2. 解压到任意目录
-3. 双击 `dustnote-desktop.exe` 运行
+3. 双击其中的 `DustNote.exe` 运行
 4. 便携版不创建快捷方式、不注册到控制面板，适合 U 盘携带
 
 ### 卸载
 
-#### 方式一：控制面板
+#### 方式一：控制面板 / 系统设置
 
 1. 打开「设置 → 应用 → 已安装的应用」
 2. 搜索 DustNote
-3. 点击「卸载」（MSI 安装走 Windows Installer，Setup.exe 安装走 Velopack）
+3. 点击「卸载」（NSIS 安装包注册的标准卸载条目）
 
 #### 方式二：开始菜单
 
@@ -118,38 +80,23 @@ DustNote_2.4.4_x64-setup.exe --silent --log "C:\Logs\dustnote-install.log"
 #### 方式三：静默卸载
 
 ```powershell
-# MSI 静默卸载（通过产品名，适合远程管理）
-msiexec /x DustNote_2.4.4_x64-setup.msi /qn
-
-# 或通过「应用和功能」中的产品 GUID（可用 wmic/PowerShell 查询 ProductCode）
-# Get-WmiObject Win32_Product -Filter "Name='DustNote'" | Select IdentifyingNumber
-
-# Setup.exe 安装的通过 Velopack 静默卸载（移除快捷方式、文件、注册表项）
-"%LocalAppData%\DustNote\current\Update.exe" uninstall --silent
-
-# 启用卸载日志（便于审计与问题排查）
-"%LocalAppData%\DustNote\current\Update.exe" --silent --log "C:\Logs\dustnote-uninstall.log" uninstall
+# NSIS 静默卸载（运行安装目录下的卸载程序）
+"C:\Program Files\DustNote\uninstall.exe" /S
+# 或当前用户安装位置
+"%LocalAppData%\DustNote\uninstall.exe" /S
 ```
 
 ### 卸载后清理
 
-**MSI 卸载**（Windows Installer）会删除：
+卸载程序会删除：
 
-- ✅ 程序文件（`C:\Program Files\DustNote\`）
+- ✅ 程序文件（安装目录）
 - ✅ 桌面与开始菜单快捷方式
-- ✅ HKLM 注册表卸载条目
-- ✅ 自动更新服务（Update.exe）
+- ✅ 注册表卸载条目
 
-**Setup.exe 卸载**（Velopack `Update.exe uninstall`）会删除：
+需手动清理（按需）：
 
-- ✅ 程序文件（`%LocalAppData%\DustNote\`）
-- ✅ 桌面与开始菜单快捷方式
-- ✅ HKCU 注册表卸载条目
-- ✅ 自动更新服务（Update.exe 自身）
-
-两种方式均需手动清理（按需）：
-
-- 用户数据：`%AppData%\DustNote\`（IndexedDB、本地密钥）
+- 应用数据（IndexedDB、本地密钥、WebView2 缓存）：`%APPDATA%\app.dustnote.desktop\`
 - 系统托盘设置：Windows 通知中心缓存
 
 ---
@@ -333,14 +280,18 @@ docker-compose up -d
 
 ### 桌面端（Windows / Linux / macOS）
 
-DustNote 桌面端使用 [Velopack](https://velopack.io/) 实现自动更新：
+DustNote 桌面端使用**自建更新清单 + 自托管下载链**（Tauri 2，v2.5.26 起）：
 
-1. **检查更新**：设置 → 检查更新（或菜单栏 → 帮助 → 检查更新）
-2. **下载更新**：后台下载差量包（Delta update，仅下载变化部分）
-3. **应用更新**：下载完成后重启应用即可应用更新
-4. **回滚**：Velopack 自动保留上一版本，如更新失败可回滚
+1. **检查更新**：设置 → 检查更新；应用启动时也会静默检查一次
+2. **更新清单**：请求服务器 `GET /api/v1/update-manifest`（携带 X-Client-* 头），获取最新版本与产物 hash
+3. **下载更新**：从服务器 `/downloads/` 下载完整安装包（`DustNote_<版本>_x64-setup.exe`，x64 与 ARM64 双架构按本机架构自动选择）
+4. **校验执行**：SHA-256 与清单一致（fail-closed，hash 缺失/不匹配直接拒绝）后启动安装向导，完成安装即更新
 
-更新源：GitHub Releases（`https://github.com/Hermitweb/dustnote`）
+更新源完全自托管在部署服务器上，不依赖 GitHub（清单中产物文件存在才输出对应条目）。
+
+### Android
+
+设置内检查更新（或启动静默检查）→ 同一 manifest 的 `android.apk` 条目 → 下载 `DustNote_<版本>_android.apk` 安装。
 
 ### Web 端
 
