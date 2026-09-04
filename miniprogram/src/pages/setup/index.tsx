@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
+import { ThemeVars } from '../../components/ThemeVars';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
 
@@ -59,6 +60,8 @@ export default function Setup() {
   };
 
   return (
+    <>
+    <ThemeVars />
     <View className="setup-container">
       <Text className="hero-title">{t('setup.title')}</Text>
       <Text className="hero-subtitle mb-l">{t('setup.subtitle')}</Text>
@@ -98,5 +101,6 @@ export default function Setup() {
         {submitting ? t('setup.setting_up') : t('setup.create')}
       </View>
     </View>
+    </>
   );
 }

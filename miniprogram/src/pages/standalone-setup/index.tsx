@@ -18,6 +18,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Input, Image } from '@tarojs/components';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
+import { ThemeVars } from '../../components/ThemeVars';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
 
@@ -80,6 +81,8 @@ export default function StandaloneSetup() {
   };
 
   return (
+    <>
+    <ThemeVars />
     <View className="setup-container">
       <Image
         src={logoUrl}
@@ -131,5 +134,6 @@ export default function StandaloneSetup() {
         {t('standalone_setup.data_warn')}
       </Text>
     </View>
+    </>
   );
 }

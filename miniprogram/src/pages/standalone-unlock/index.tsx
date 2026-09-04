@@ -19,6 +19,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Input, Image } from '@tarojs/components';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
+import { ThemeVars } from '../../components/ThemeVars';
 import {
   isLocked,
   remainingLockoutMs,
@@ -92,6 +93,8 @@ export default function StandaloneUnlock() {
   };
 
   return (
+    <>
+    <ThemeVars />
       <View className="hero">
       <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
       <Text className="hero-title text-mint">DustNote</Text>
@@ -139,5 +142,6 @@ export default function StandaloneUnlock() {
         {t('standalone_unlock.forgot')}
       </View>
     </View>
+    </>
   );
 }

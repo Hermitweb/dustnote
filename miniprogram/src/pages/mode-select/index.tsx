@@ -14,11 +14,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Input, Image } from '@tarojs/components';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
+import { ThemeVars } from '../../components/ThemeVars';
 import { useModeStore } from '../../lib/mode-store';
 import { hasLocalAuthSync } from '../../lib/local-auth-storage';
 import { ApiClient } from '@dustnote/shared';
 import { taroFetch } from '../../lib/taro-fetch';
-import { APP_VERSION } from '../../state/auth';
+import { APP_VERSION, useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
 
 /**
@@ -178,6 +179,10 @@ export default function ModeSelect() {
       setMode('online');
       setServerUrl(trimmed);
       initialize();
+      // AuthProvider 仅在 App 挂载时跑过一次 init（那时 mode 还是 null），
+      // 这里必须手动重跑鉴权初始化，否则 authState 停留在 unknown，
+      // index 页没有 unknown 守卫会直接渲染列表页
+      void useAuthStore.getState().init();
       // 联机模式：跳转到 index 页面，由 useAuthStore.init 判断状态
       Taro.reLaunch({ url: '/pages/index/index' });
     } finally {
@@ -195,6 +200,8 @@ export default function ModeSelect() {
   }
 
   return (
+    <>
+    <ThemeVars />
     <View className="hero">
       <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
       <Text className="hero-title">{t('mode_select.welcome')}</Text>
@@ -277,5 +284,6 @@ export default function ModeSelect() {
         {t('mode_select.tip')}
       </Text>
     </View>
+    </>
   );
 }

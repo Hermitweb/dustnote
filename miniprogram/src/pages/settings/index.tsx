@@ -9,6 +9,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
+import { ThemeVars } from '../../components/ThemeVars';
 import { useAuthStore, APP_VERSION, getApi } from '../../state/auth';
 import { useThemeStore, type Theme } from '../../state/theme';
 import { useModeStore } from '../../lib/mode-store';
@@ -67,11 +68,6 @@ export default function Settings() {
   }, [lang]);
 
   const onThemeChange = async () => {
-    // weapp 端主题由系统深色模式驱动(WXSS @media),手动切换暂不生效
-    if (process.env.TARO_ENV === 'weapp') {
-      Taro.showToast({ title: t('settings.theme_weapp_hint'), icon: 'none' });
-      return;
-    }
     try {
       const res = await Taro.showActionSheet({
         itemList: [t('settings.theme_light'), t('settings.theme_dark'), t('settings.theme_auto')],
@@ -79,6 +75,7 @@ export default function Settings() {
       const map: Theme[] = ['light', 'dark', 'auto'];
       const next = map[res.tapIndex];
       setTheme(next);
+      useThemeStore.getState().refreshSystemTheme();
       Taro.showToast({
         title: t('settings.theme_switched', { theme: t(THEME_KEY[next]) }),
         icon: 'none',
@@ -423,6 +420,8 @@ export default function Settings() {
   };
 
   return (
+    <>
+      <ThemeVars />
       <View className="page">
       <View className="topbar">
         <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
@@ -698,5 +697,6 @@ export default function Settings() {
         </View>
       )}
     </View>
+    </>
   );
 }

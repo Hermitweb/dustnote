@@ -7,6 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
+import { ThemeVars } from '../../components/ThemeVars';
 import { useAuthStore, decryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
 import { noteAad } from '@dustnote/shared';
@@ -127,6 +128,8 @@ export default function Trash() {
   };
 
   return (
+    <>
+      <ThemeVars />
       <View className="page">
       <View className="topbar">
         <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
@@ -181,5 +184,6 @@ export default function Trash() {
         ))}
       </ScrollView>
     </View>
+    </>
   );
 }

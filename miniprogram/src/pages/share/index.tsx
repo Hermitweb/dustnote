@@ -9,6 +9,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
+import { ThemeVars } from '../../components/ThemeVars';
 import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
 import { getCurrentMode } from '../../lib/mode-store';
 import { t, useLanguage } from '../../lib/i18n';
@@ -158,6 +159,8 @@ export default function Share() {
   }
 
   return (
+    <>
+      <ThemeVars />
     <View className="page px-page">
       <View className="share-banner" />
       <Text className="text-xs text-muted">{t('share.banner')}</Text>
@@ -169,5 +172,6 @@ export default function Share() {
         <Text>{t('share.footer')}</Text>
       </View>
     </View>
+    </>
   );
 }

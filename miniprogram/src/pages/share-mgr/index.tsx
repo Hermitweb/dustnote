@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
+import { ThemeVars } from '../../components/ThemeVars';
 import { getApi } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
 
@@ -123,6 +124,8 @@ export default function Shares() {
   const selCount = selectedIds.size;
 
   return (
+    <>
+      <ThemeVars />
       <View className="page">
       <View className="topbar">
         {selecting ? (
@@ -232,5 +235,6 @@ export default function Shares() {
         </View>
       )}
     </View>
+    </>
   );
 }

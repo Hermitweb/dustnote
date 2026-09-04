@@ -13,6 +13,7 @@
 import React, { useState } from 'react';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
+import { ThemeVars } from '../../components/ThemeVars';
 import { getRepo } from '../../lib/get-repo';
 import { t, useLanguage } from '../../lib/i18n';
 
@@ -192,6 +193,8 @@ export default function Folders() {
     Taro.showActionSheet({
       itemList: [t('folders.menu_rename'), t('folders.menu_move'), t('folders.menu_delete')],
       itemColor: '#E07B6C',
+      // 用户取消 ActionSheet 在 weapp 走 fail 回调，静默即可
+      fail: () => undefined,
       success: (res) => {
         if (res.tapIndex === 0) {
           setRenameTarget(folder);
@@ -203,6 +206,8 @@ export default function Folders() {
   };
 
   return (
+    <>
+      <ThemeVars />
       <View className="page">
       <View className="topbar">
         <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
@@ -354,5 +359,6 @@ export default function Folders() {
         </View>
       )}
     </View>
+    </>
   );
 }

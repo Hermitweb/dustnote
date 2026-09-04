@@ -30,7 +30,11 @@ function App({ children }: { children?: ReactNode }) {
 
     // 未处理的 Promise rejection 兜底
     Taro.onUnhandledRejection((res) => {
-      console.error('[DustNote] 未捕获的异步错误:', res?.reason ?? res);
+      // 用户主动取消 ActionSheet/Modal 在部分基础库以 reject 形式抛出，属正常交互
+      const reason = res?.reason;
+      const errMsg = typeof reason === 'string' ? reason : (reason as { errMsg?: string })?.errMsg;
+      if (errMsg && /cancel/.test(errMsg)) return;
+      console.error('[DustNote] 未捕获的异步错误:', reason ?? res);
     });
 
     // 页面不存在兜底（路由配置错误或分包加载失败时触发）

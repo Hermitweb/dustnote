@@ -36,6 +36,9 @@ export default {
     navigationBarTitleText: 'DustNote',
     navigationBarTextStyle: 'black',
   },
+  // weapp 深色模式：开启后 onThemeChange 事件可用，ThemeVars(PageMeta pageStyle)
+  // 注入页面变量实现手动 light/dark 切换，auto 跟随系统
+  darkmode: true,
   // 网络请求超时配置（ms）：避免无 serverUrl 或服务端不可达时 UI 长时间无响应
   networkTimeout: {
     request: 15000,

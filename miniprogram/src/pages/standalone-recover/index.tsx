@@ -19,6 +19,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
+import { ThemeVars } from '../../components/ThemeVars';
 import { isValidRecoveryCode } from '@dustnote/shared';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
@@ -84,6 +85,8 @@ export default function StandaloneRecover() {
   };
 
   return (
+    <>
+    <ThemeVars />
     <View className="setup-container">
       <Text className="hero-logo" style={{ textAlign: 'center' }}>
         🔑
@@ -144,5 +147,6 @@ export default function StandaloneRecover() {
         {t('recover.back')}
       </View>
     </View>
+    </>
   );
 }

@@ -17,6 +17,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components';
 import logoUrl from '../../assets/logo.png';
 import Taro, { useDidShow } from '@tarojs/taro';
+import { ThemeVars } from '../../components/ThemeVars';
 import {
   getApi,
   useAuthStore,
@@ -91,6 +92,16 @@ export default function Index() {
     } else if (authState === 'needs_unlock') {
       Taro.reLaunch({ url: '/pages/standalone-unlock/index' });
     }
+  }, [modeInitialized, mode, authState]);
+
+  // 联机模式鉴权状态未就绪（unknown，如 init 未跑/网络失败）时重查，
+  // 避免直接落到列表页出现“能看列表却无法操作”的中间态
+  useEffect(() => {
+    if (!modeInitialized || mode !== 'online' || authState !== 'unknown') return;
+    const timer = setTimeout(() => {
+      void useAuthStore.getState().init();
+    }, 500);
+    return () => clearTimeout(timer);
   }, [modeInitialized, mode, authState]);
 
   useEffect(() => {
@@ -378,6 +389,16 @@ export default function Index() {
     );
   }
 
+  // 联机模式鉴权状态未就绪（unknown）：显示加载中并重查（上方 useEffect），
+  // 不落入列表页造成“可看不可操作”的中间态
+  if (mode === 'online' && authState === 'unknown') {
+    return (
+      <View className="hero">
+        <Text className="hero-subtitle">{t('common.loading')}</Text>
+      </View>
+    );
+  }
+
   // 联机模式未初始化：显示创建主密码按钮
   if (mode === 'online' && authState === 'uninitialized') {
     return (
@@ -451,6 +472,8 @@ export default function Index() {
 
   // 已解锁：显示主界面
   return (
+    <>
+    <ThemeVars />
       <View className="page">
       <View className="topbar">
         {selecting ? (
@@ -766,5 +789,6 @@ export default function Index() {
         </View>
       )}
     </View>
+    </>
   );
 }
