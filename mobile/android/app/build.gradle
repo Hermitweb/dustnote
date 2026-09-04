@@ -22,6 +22,13 @@ react {
   codegenDir.set(file("../../../node_modules/@react-native/codegen"))
   // Explicit entry file: mobile/index.js (relative to mobile/android/app/).
   entryFile.set(file("../../index.js"))
+  // 本地构建(无 CI 的 symlink 步骤)时定位 hermesc:pnpm hoisted 布局下
+  // detectOSAwareHermesCommand 的相对查找(mobile/node_modules/...)不存在,
+  // 显式给绝对路径。CI 环境路径相同,此设置同样成立。
+  def localHermesc = file("E:/works/dustnote/node_modules/react-native/sdks/hermesc/win64-bin/hermesc.exe")
+  if (localHermesc.exists()) {
+    hermesCommand.set(localHermesc.absolutePath)
+  }
 }
 
 def enableProguardInReleaseBuilds = false

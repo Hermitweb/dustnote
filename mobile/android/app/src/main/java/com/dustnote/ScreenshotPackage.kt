@@ -1,10 +1,9 @@
 package com.dustnote
 
-import android.view.WindowManager
+import android.view.View
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.uimanager.ReactShadowNode
 import com.facebook.react.uimanager.ViewManager
 
 /** 注册截屏开关模块(见 ScreenshotModule) */
@@ -14,5 +13,5 @@ class ScreenshotPackage : ReactPackage {
 
   override fun createViewManagers(
     reactContext: ReactApplicationContext
-  ): List<ViewManager<ReactShadowNode<*>, ReactShadowNode<*>>> = emptyList()
+  ): List<ViewManager<View, *>> = emptyList()
 }
