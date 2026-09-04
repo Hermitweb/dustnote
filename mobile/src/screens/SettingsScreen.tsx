@@ -13,7 +13,7 @@
  * 单机模式不显示"分享管理"（无服务端）
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,8 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  Switch,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -31,6 +33,7 @@ import type { RootStackParamList } from '../App';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
+import { getScreenshotAllowed, setScreenshotAllowed } from '../lib/screenshot';
 import { useLanguageStore, type AppLanguage } from '../lib/i18n';
 import { createRepository } from '../lib/repository';
 import { useColors, useThemeStore, type ThemeMode, THEMES, type ThemeId } from '../theme';
@@ -95,6 +98,7 @@ export function SettingsScreen() {
   const [busy, setBusy] = useState(false);
 
   // 模式切换 Modal
+  const [allowScreenshot, setAllowScreenshot] = useState(false);
   const [showSwitchMode, setShowSwitchMode] = useState(false);
   const [switchTarget, setSwitchTarget] = useState<AppMode | null>(null);
   const [switchServerUrl, setSwitchServerUrl] = useState('');
@@ -735,6 +739,11 @@ export function SettingsScreen() {
     get2faStatus().then((r) => setTotpEnabled(r.enabled)).catch(() => {});
   }, [appMode]);
 
+  // 截屏开关(Android FLAG_SECURE 可配置化):读持久化值
+  useEffect(() => {
+    getScreenshotAllowed().then(setAllowScreenshot).catch(() => {});
+  }, []);
+
   const onSetup2fa = async () => {
     setTotpBusy(true);
     try {
@@ -943,6 +952,21 @@ export function SettingsScreen() {
           colors={colors}
         />
         <Text style={styles.modeHint}>{t('settings.switch_mode_hint')}</Text>
+      </Section>
+
+      <Section title={t('settings.privacy_section')} colors={colors}>
+        {Platform.OS === 'android' && (
+          <View style={styles.switchRow}>
+            <Text style={styles.rowLabel}>{t('settings.allow_screenshot')}</Text>
+            <Switch
+              value={allowScreenshot}
+              onValueChange={(v: boolean) => {
+                setAllowScreenshot(v);
+                void setScreenshotAllowed(v);
+              }}
+            />
+          </View>
+        )}
       </Section>
 
       <Section title={t('settings.data_section')} colors={colors}>
@@ -1378,6 +1402,12 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderRadius: 8,
       borderColor: c.border,
       borderWidth: 1,
+    },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
     },
     row: {
       flexDirection: 'row',

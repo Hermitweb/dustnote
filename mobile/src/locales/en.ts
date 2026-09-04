@@ -273,6 +273,7 @@ const en = {
     preview: 'Preview',
   },
   settings: {
+    allow_screenshot: 'Allow screenshots (off = black screenshots)',
     appearance: 'Appearance',
     theme_light: '☀️ Light',
     theme_dark: '🌙 Dark',

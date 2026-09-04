@@ -273,6 +273,7 @@ const zhCN = {
     preview: '预览',
   },
   settings: {
+    allow_screenshot: '允许截屏(关闭时截图黑屏,防泄露)',
     appearance: '外观',
     theme_light: '☀️ 浅色',
     theme_dark: '🌙 深色',

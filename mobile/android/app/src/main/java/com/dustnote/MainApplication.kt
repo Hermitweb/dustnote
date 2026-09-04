@@ -18,6 +18,7 @@ class MainApplication : Application(), ReactApplication {
       object : DefaultReactNativeHost(this) {
         override fun getPackages(): List<ReactPackage> =
           PackageList(this).packages.apply {
+            add(ScreenshotPackage())
           }
 
         override fun getJSMainModuleName(): String = "index"
