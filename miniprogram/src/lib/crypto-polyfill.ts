@@ -129,3 +129,78 @@ function localFallbackBytes(n: number): Uint8Array {
 void refillPool();
 
 setSecureRandomSource(takeFromPool);
+
+// ========== TextEncoder / TextDecoder 垫片 ==========
+// 部分真机基础库（如 vivo 低版本）不提供 TextEncoder/TextDecoder，
+// 而 shared/crypto 的 UTF-8 编解码依赖它们。开发者工具模拟器有这两个
+// 全局对象，因此该问题只在真机暴露。这里补纯 JS UTF-8 实现（无废弃 API）。
+class TextEncoderShim {
+  readonly encoding = 'utf-8';
+  encode(input = ''): Uint8Array {
+    const out: number[] = [];
+    for (let i = 0; i < input.length; i++) {
+      const cp = input.codePointAt(i)!;
+      if (cp > 0xffff) i++; // 消费代理对
+      if (cp <= 0x7f) {
+        out.push(cp);
+      } else if (cp <= 0x7ff) {
+        out.push(0xc0 | (cp >> 6), 0x80 | (cp & 63));
+      } else if (cp <= 0xffff) {
+        out.push(0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63));
+      } else {
+        out.push(
+          0xf0 | (cp >> 18),
+          0x80 | ((cp >> 12) & 63),
+          0x80 | ((cp >> 6) & 63),
+          0x80 | (cp & 63),
+        );
+      }
+    }
+    return Uint8Array.from(out);
+  }
+}
+
+class TextDecoderShim {
+  decode(input?: ArrayBuffer | Uint8Array): string {
+    const b = input instanceof Uint8Array ? input : input ? new Uint8Array(input) : new Uint8Array(0);
+    let out = '';
+    let i = 0;
+    while (i < b.length) {
+      const c = b[i]!;
+      let cp: number;
+      let len: number;
+      if (c < 0x80) {
+        cp = c;
+        len = 1;
+      } else if ((c & 0xe0) === 0xc0) {
+        cp = c & 0x1f;
+        len = 2;
+      } else if ((c & 0xf0) === 0xe0) {
+        cp = c & 0x0f;
+        len = 3;
+      } else if ((c & 0xf8) === 0xf0) {
+        cp = c & 0x07;
+        len = 4;
+      } else {
+        cp = 0xfffd;
+        len = 1;
+      }
+      if (len > 1) {
+        let valid = i + len <= b.length;
+        for (let k = 1; valid && k < len; k++) {
+          const cb = b[i + k]!;
+          if ((cb & 0xc0) !== 0x80) valid = false;
+          else cp = (cp << 6) | (cb & 63);
+        }
+        if (!valid) cp = 0xfffd;
+      }
+      out += String.fromCodePoint(cp);
+      i += len;
+    }
+    return out;
+  }
+}
+
+const g = globalThis as Record<string, unknown>;
+if (typeof g.TextEncoder === 'undefined') g.TextEncoder = TextEncoderShim;
+if (typeof g.TextDecoder === 'undefined') g.TextDecoder = TextDecoderShim;
