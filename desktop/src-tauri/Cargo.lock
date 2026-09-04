@@ -893,7 +893,7 @@ checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 
 [[package]]
 name = "dustnote-desktop"
-version = "2.5.29"
+version = "2.5.30"
 dependencies = [
  "reqwest 0.12.28",
  "serde",
