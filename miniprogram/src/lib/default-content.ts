@@ -4,10 +4,15 @@
  */
 
 import { encryptNote } from '@dustnote/client-core';
+import Taro from '@tarojs/taro';
 import { useAuthStore } from '../state/auth';
+import { useModeStore } from './mode-store';
 import { getRepo } from './get-repo';
 
 export const DEFAULT_FOLDER_NAME = '关于尘渊笔记';
+/** 种子标记（按模式区分）：创建过一次初始内容后不再重生——
+ *  否则用户删光文件夹后会被误判为「首次使用」再次注入引导内容 */
+const SEED_KEY_PREFIX = 'dustnote_seeded_';
 const INTRO_CONTENT = `## 欢迎使用尘渊笔记
 
 尘渊笔记是一款**极简、安全**的跨端个人笔记系统。
@@ -42,9 +47,24 @@ export async function ensureDefaultContent(): Promise<void> {
 async function runEnsure(): Promise<void> {
   const masterKey = useAuthStore.getState().masterKey;
   if (!masterKey) return;
+  const mode = useModeStore.getState().mode;
+  const seedKey = SEED_KEY_PREFIX + (mode ?? 'x');
+  // 已播种过（即使文件夹被用户删光）不再重生
+  try {
+    if (Taro.getStorageSync(seedKey)) return;
+  } catch {
+    /* ignore */
+  }
   const repo = getRepo();
   const snapshot = await repo.loadAll();
-  if ((snapshot.folders ?? []).length > 0) return;
+  if ((snapshot.folders ?? []).length > 0) {
+    try {
+      Taro.setStorageSync(seedKey, true);
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
 
   const folderId = await repo.createFolder({ name: DEFAULT_FOLDER_NAME, parentId: null });
   for (const n of snapshot.notes) {
@@ -68,4 +88,9 @@ async function runEnsure(): Promise<void> {
     isFavorite: false,
     folderId,
   });
+  try {
+    Taro.setStorageSync(seedKey, true);
+  } catch {
+    /* ignore */
+  }
 }

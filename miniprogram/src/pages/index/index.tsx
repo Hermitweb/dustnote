@@ -646,6 +646,33 @@ export default function Index() {
                   </Text>
                 </View>
               )}
+              {!selecting && viewMode !== 'trash' && (
+                <View className="note-actions">
+                  <Text
+                    className="mint-btn mint-btn-sm mint-btn-ghost"
+                    onClick={async () => {
+                      try {
+                        const repo = getRepo();
+                        await repo.updateNote(n.id, { isFavorite: !n.isFavorite } as any);
+                        await load();
+                      } catch {
+                        Taro.showToast({ title: t('common.save_failed'), icon: 'none' });
+                      }
+                    }}
+                  >
+                    {n.isFavorite ? `⭐ ${t('index.unfavorite')}` : `☆ ${t('index.favorite')}`}
+                  </Text>
+                  <Text
+                    className="mint-btn mint-btn-sm mint-btn-ghost"
+                    onClick={() => {
+                      setSelecting(true);
+                      toggleSelect(n.id);
+                    }}
+                  >
+                    {t('common.select')}
+                  </Text>
+                </View>
+              )}
             </View>
           );
         })}

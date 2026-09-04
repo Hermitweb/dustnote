@@ -130,6 +130,21 @@ void refillPool();
 
 setSecureRandomSource(takeFromPool);
 
+// ========== crypto.getRandomValues 垫片 ==========
+// randomBytes 的第一优先路径是 crypto.getRandomValues;若运行时有 crypto
+// 对象但缺 getRandomValues(或注入顺序意外失效),在这里补上池化实现,
+// 彻底杜绝「无安全随机源」类错误。
+const gAny = globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } };
+if (!gAny.crypto || typeof gAny.crypto.getRandomValues !== 'function') {
+  const base = (gAny.crypto ?? {}) as object;
+  gAny.crypto = Object.assign({}, base, {
+    getRandomValues: (arr: Uint8Array): Uint8Array => {
+      arr.set(takeFromPool(arr.length));
+      return arr;
+    },
+  });
+}
+
 // ========== TextEncoder / TextDecoder 垫片 ==========
 // 部分真机基础库（如 vivo 低版本）不提供 TextEncoder/TextDecoder，
 // 而 shared/crypto 的 UTF-8 编解码依赖它们。开发者工具模拟器有这两个

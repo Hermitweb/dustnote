@@ -50,13 +50,13 @@ export default function Unlock() {
     <ThemeVars />
       <View className="hero">
       <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
-      <Text className="hero-title text-mint">DustNote</Text>
+      <Text className="hero-title text-mint">{t('app.name')}</Text>
       <Text className="hero-subtitle mb-l">{t('unlock.subtitle')}</Text>
 
       <Input
         className="mint-input"
         password
-        placeholder={t('common.master_password')}
+        placeholder={password ? '' : t('common.master_password')}
         value={password}
         onInput={(e) => setPassword((e.detail as { value: string }).value)}
       />
@@ -64,7 +64,7 @@ export default function Unlock() {
       {showTotp && (
         <Input
           className="mint-input"
-          placeholder={t('unlock.totp_placeholder')}
+          placeholder={totpCode ? '' : t('unlock.totp_placeholder')}
           type="number"
           maxlength={6}
           value={totpCode}

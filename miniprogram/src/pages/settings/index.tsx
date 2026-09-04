@@ -599,11 +599,36 @@ export default function Settings() {
           </View>
           <Text className="settings-row-value">MIT ›</Text>
         </View>
-        <View className="settings-row">
+        <View
+          className="settings-row"
+          onClick={() => {
+            // 体验版/开发版没有版本管理,getUpdateManager 不生效——明确反馈而非无响应
+            if (typeof Taro.getUpdateManager !== 'function') {
+              Taro.showToast({ title: t('settings.update_unavailable'), icon: 'none' });
+              return;
+            }
+            const um = Taro.getUpdateManager();
+            um.onUpdateReady(() => {
+              Taro.showModal({
+                title: t('settings.update_ready_title'),
+                content: t('settings.update_ready_content'),
+                success: (r) => {
+                  if (r.confirm) um.applyUpdate();
+                },
+              });
+            });
+            um.onUpdateFailed(() => {
+              Taro.showToast({ title: t('settings.update_failed'), icon: 'none' });
+            });
+            // Taro 类型未跟上的基础库方法:主动触发一次检查
+            (um as unknown as { checkUpdate?: () => void }).checkUpdate?.();
+            Taro.showToast({ title: t('settings.update_checking'), icon: 'none' });
+          }}
+        >
           <View className="settings-row-label">
-            <Text>{t('settings.version')}</Text>
+            <Text>{t('settings.check_update')}</Text>
           </View>
-          <Text className="settings-row-value">v{APP_VERSION}</Text>
+          <Text className="settings-row-value">v{APP_VERSION} ›</Text>
         </View>
       </View>
 
