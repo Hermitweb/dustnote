@@ -29,6 +29,9 @@ react {
   if (localHermesc.exists()) {
     hermesCommand.set(localHermesc.absolutePath)
   }
+  // 侧载 debug 包必须内嵌 JS bundle:从 debuggableVariants 移除 debug 后,
+  // debug 变体按 release 方式打包 bundle(默认走 Metro 开发服务器,离线白屏)
+  debuggableVariants.set([])
 }
 
 def enableProguardInReleaseBuilds = false
