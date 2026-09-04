@@ -23,6 +23,7 @@ import Taro from '@tarojs/taro';
 import { t } from '../lib/i18n';
 import { ensureRandomReady } from '../lib/crypto-polyfill';
 import { clearPlainCache } from '../lib/plain-cache';
+import { startSyncWs, stopSyncWs } from '../lib/sync-ws';
 import { useConflictStore } from './conflict-store';
 import {
   type FetchFn,
@@ -73,7 +74,7 @@ import {
 } from '../lib/standalone-session';
 
 // 与 package.json 同步（全端版本统一，见 release 流程）
-export const APP_VERSION = '2.5.32';
+export const APP_VERSION = '2.5.33';
 
 // 设备 ID：首次生成后持久化到本地存储
 let deviceId = '';
@@ -188,6 +189,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     if (k) k.fill(0);
     clearStandaloneMasterKey();
     clearPersistedToken();
+    stopSyncWs();
     // 锁屏清掉内存中的明文残留(解密缓存/未裁决冲突),明文不跨锁屏存活
     try {
       clearPlainCache();
@@ -207,6 +209,12 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   setAccessToken(token: string) {
     persistToken(token);
     set({ accessToken: token });
+    // 联机模式 token 就绪:启动实时同步(单机模式内部无 serverUrl 会直接返回)
+    try {
+      startSyncWs();
+    } catch {
+      /* ignore */
+    }
   },
 
   // ========== 联机模式 actions ==========
@@ -239,6 +247,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     );
 
     persistToken(r.accessToken);
+    try {
+      startSyncWs();
+    } catch {
+      /* ignore */
+    }
     set({
       accessToken: r.accessToken,
       userId: r.userId,
@@ -286,6 +299,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
 
     persistToken(r.accessToken);
+    try {
+      startSyncWs();
+    } catch {
+      /* ignore */
+    }
     set({
       accessToken: r.accessToken,
       userId: r.userId,

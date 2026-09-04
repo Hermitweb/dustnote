@@ -6,4 +6,4 @@
  */
 
 // 与 mobile/package.json 同步
-export const APP_VERSION = '2.5.30';
+export const APP_VERSION = '2.5.33';

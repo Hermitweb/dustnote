@@ -316,6 +316,52 @@ export default function Settings() {
         }
       };
       input.click();
+    } else if (process.env.TARO_ENV === 'weapp' && typeof Taro.chooseMessageFile === 'function') {
+      // weapp:从微信聊天记录选择备份 JSON 文件(先把 .json 发给任意聊天/文件传输助手)
+      Taro.chooseMessageFile({
+        count: 1,
+        type: 'file',
+        extension: ['json'],
+        success: (res) => {
+          const path = res.tempFiles?.[0]?.path;
+          if (!path) return;
+          Taro.getFileSystemManager().readFile({
+            filePath: path,
+            encoding: 'utf-8',
+            success: async (readRes) => {
+              try {
+                const data = JSON.parse(String(readRes.data));
+                if (!data || !Array.isArray(data.notes)) {
+                  Taro.showToast({ title: t('settings.invalid_backup'), icon: 'none' });
+                  return;
+                }
+                const confirm = await Taro.showModal({
+                  title: t('settings.import_confirm_title'),
+                  content: t('settings.import_backup_content', { count: data.notes.length }),
+                  confirmText: t('common.confirm'),
+                  confirmColor: '#E07B6C',
+                });
+                if (!confirm.confirm) return;
+                Taro.showLoading({ title: t('settings.importing') });
+                await getRepo().importBackup(data);
+                Taro.hideLoading();
+                Taro.showToast({
+                  title: t('settings.imported_count', { count: data.notes.length }),
+                  icon: 'success',
+                });
+              } catch (err) {
+                Taro.hideLoading();
+                const msg =
+                  (err as { err?: { message?: string } })?.err?.message ||
+                  t('settings.parse_failed');
+                Taro.showToast({ title: msg, icon: 'none', duration: 3000 });
+              }
+            },
+            fail: () => Taro.showToast({ title: t('settings.parse_failed'), icon: 'none' }),
+          });
+        },
+        fail: () => undefined,
+      });
     } else {
       Taro.showToast({ title: t('settings.import_unsupported'), icon: 'none' });
     }

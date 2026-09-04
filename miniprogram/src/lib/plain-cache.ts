@@ -11,6 +11,7 @@ interface CacheEntry {
   ciphertext: string;
   title: string;
   content: string;
+  tags?: string[];
 }
 
 const cache = new Map<string, CacheEntry>();
@@ -20,8 +21,14 @@ export function getCachedPlain(id: string, ciphertext: string): CacheEntry | und
   return hit && hit.ciphertext === ciphertext ? hit : undefined;
 }
 
-export function putCachedPlain(id: string, ciphertext: string, title: string, content: string): void {
-  cache.set(id, { ciphertext, title, content });
+export function putCachedPlain(
+  id: string,
+  ciphertext: string,
+  title: string,
+  content: string,
+  tags?: string[],
+): void {
+  cache.set(id, { ciphertext, title, content, tags });
 }
 
 export function invalidatePlain(id: string): void {

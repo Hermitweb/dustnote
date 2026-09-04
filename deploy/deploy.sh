@@ -140,8 +140,8 @@ if [[ -f .env ]]; then
   info "检测到已存在 .env，跳过生成（如需重置请删除后重跑）"
 else
   info "生成 .env 配置…"
-  VERSION="$(grep -m1 '"version"' package.json 2>/dev/null | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || echo "2.5.30")"
-  [[ -n "${VERSION}" ]] || VERSION="2.5.30"
+  VERSION="$(grep -m1 '"version"' package.json 2>/dev/null | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || echo "2.5.33")"
+  [[ -n "${VERSION}" ]] || VERSION="2.5.33"
   JWT_SECRET="$(openssl rand -hex 32 2>/dev/null || od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
 
   # 服务器 IP（默认路由源地址）：用于 WEB_ORIGIN 推导与最终访问地址输出

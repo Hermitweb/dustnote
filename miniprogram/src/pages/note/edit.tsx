@@ -157,6 +157,59 @@ export default function NoteEdit() {
     })();
   }, [id, masterKey]);
 
+  /** 编辑标签:showModal editable 输入,逗号/空格分隔 */
+  const onEditTags = () => {
+    if (!noteRef.current) return;
+    (Taro.showModal as unknown as (o: Record<string, unknown>) => Promise<{
+      confirm: boolean;
+      content?: string;
+    }>)({
+      title: t('editor.edit_tags'),
+      content: tags.join(','),
+      editable: true,
+      placeholderText: t('editor.tags_placeholder'),
+    }).then((r) => {
+      if (!r.confirm) return;
+      const next = (r.content ?? '')
+        .split(/[,，、\s]+/)
+        .map((x) => x.trim())
+        .filter(Boolean);
+      setTags(Array.from(new Set(next)).slice(0, 20));
+      void onManualSave();
+    });
+  };
+
+  /** 存为自定义模板(联机):当前内容加密为模板密文 */
+  const saveAsTemplate = async () => {
+    if (mode !== 'online') {
+      Taro.showToast({ title: t('editor.tpl_online_only'), icon: 'none' });
+      return;
+    }
+    const r = (Taro.showModal as unknown as (o: Record<string, unknown>) => Promise<{
+      confirm: boolean;
+      content?: string;
+    }>)({
+      title: t('editor.save_as_template'),
+      content: title.slice(0, 60),
+      editable: true,
+      placeholderText: t('editor.tpl_name_placeholder'),
+    });
+    const modal = await r;
+    if (!modal.confirm) return;
+    const name = (modal.content ?? '').trim() || title.slice(0, 60) || t('common.unnamed_note');
+    if (!masterKey) return;
+    const { json: cipherJson } = await encryptNote(masterKey, { title, content, tags });
+    await getApi().post('/templates', {
+      name: name.slice(0, 64),
+      description: '',
+      category: 'custom',
+      icon: '📝',
+      content: cipherJson,
+      sortOrder: 100,
+    });
+    Taro.showToast({ title: t('editor.tpl_saved'), icon: 'success' });
+  };
+
   const save = useCallback(async () => {
     const cur = noteRef.current;
     if (!cur || !masterKey) return;
@@ -614,6 +667,14 @@ export default function NoteEdit() {
               🕘
             </Text>
           )}
+          {mode === 'online' && (
+            <Text className="icon-btn" onClick={() => void saveAsTemplate()}>
+              🗂
+            </Text>
+          )}
+          <Text className="icon-btn" onClick={onEditTags}>
+            🏷
+          </Text>
           <Text className="icon-btn" onClick={onDelete}>
             🗑️
           </Text>

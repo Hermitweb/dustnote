@@ -13,7 +13,7 @@
  * 功能：多选批量操作、视图切换、文件夹筛选
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components';
 import logoUrl from '../../assets/logo.png';
 import Taro, { useDidShow } from '@tarojs/taro';
@@ -30,9 +30,10 @@ import {
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo } from '../../lib/get-repo';
 import { ensureDefaultContent } from '../../lib/default-content';
-import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders } from '@dustnote/shared';
+import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders, type Template } from '@dustnote/shared';
 import { randomUuid } from '../../lib/uuid';
 import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
+import { SearchIndex } from '../../lib/search-index';
 import { t, useLanguage } from '../../lib/i18n';
 
 interface Note {
@@ -60,8 +61,11 @@ export default function Index() {
   const mode = useModeStore((s) => s.mode);
   const modeInitialized = useModeStore((s) => s.initialized);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [plains, setPlains] = useState<Record<string, { title: string; content: string }>>({});
+  const [plains, setPlains] = useState<Record<string, { title: string; content: string; tags?: string[] }>>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const searchIndexRef = useRef(new SearchIndex());
+  const [serverTemplates, setServerTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -136,13 +140,13 @@ export default function Index() {
       setNotes(fresh.notes as Note[]);
       setFolders(fresh.folders as Folder[]);
       if (masterKey) {
-        const plainMap: Record<string, { title: string; content: string }> = {};
+        const plainMap: Record<string, { title: string; content: string; tags?: string[] }> = {};
         for (const n of fresh.notes) {
           if (n.deletedAt) continue;
           // 密文未变化的笔记直接命中缓存,跳过重复解密(治页面切换反复解密)
           const cached = getCachedPlain(n.id, n.ciphertext);
           if (cached) {
-            plainMap[n.id] = { title: cached.title, content: cached.content };
+            plainMap[n.id] = { title: cached.title, content: cached.content, tags: cached.tags };
             continue;
           }
           try {
@@ -153,13 +157,23 @@ export default function Index() {
               noteAad(n.id, useAuthStore.getState().userId ?? '')
             );
             // 保留 title + content：列表标题显示 + 全文搜索（v2.5.5 升级为标题+内容）
-            putCachedPlain(n.id, n.ciphertext, pt.title, pt.content);
-            plainMap[n.id] = { title: pt.title, content: pt.content };
+            putCachedPlain(n.id, n.ciphertext, pt.title, pt.content, pt.tags);
+            plainMap[n.id] = { title: pt.title, content: pt.content, tags: pt.tags };
           } catch {
             plainMap[n.id] = { title: t('common.decrypt_failed'), content: '' };
           }
         }
         setPlains(plainMap);
+        searchIndexRef.current.rebuild(plainMap);
+        // 联机模式:拉服务端自定义模板(内容为密文,使用时解密)
+        if (mode === 'online') {
+          try {
+            const r = await getApi().get<{ templates: Template[] }>('/templates');
+            setServerTemplates((r.templates ?? []).filter((tp) => !tp.isPreset));
+          } catch {
+            /* 模板拉取失败不阻塞主流程 */
+          }
+        }
       }
     } catch {
       Taro.showToast({ title: t('common.load_failed'), icon: 'none' });
@@ -180,11 +194,15 @@ export default function Index() {
       return !!n.deletedAt;
     })
     .filter((n) => {
-      const q = searchQuery.trim().toLowerCase();
+      if (activeTag && !(plains[n.id]?.tags ?? []).includes(activeTag)) return false;
+      const q = searchQuery.trim();
       if (!q) return true;
-      // 全文搜索：标题 + 内容（解密后的明文）
-      const p = plains[n.id];
-      return `${p?.title ?? ''}\n${p?.content ?? ''}`.toLowerCase().includes(q);
+      // 全文搜索 v2:bigram 倒排索引(标题加权),结果序即相关序
+      const hits = searchIndexRef.current.search(q);
+      if (hits.length === 0) return false;
+      const rank = new Map<string, number>();
+      hits.forEach((hit, idx) => rank.set(hit.noteId, idx));
+      return rank.has(n.id);
     })
     .sort((a, b) =>
       viewMode === 'trash'
@@ -396,6 +414,7 @@ export default function Index() {
     }
   };
 
+  const allTags = Array.from(new Set(Object.values(plains).flatMap((p) => p.tags ?? [])));
   const hasAll = visibleNotes.length > 0 && selectedIds.size === visibleNotes.length;
   const selCount = selectedIds.size;
 
@@ -552,6 +571,25 @@ export default function Index() {
         </View>
       )}
 
+      {!selecting && viewMode === 'all' && allTags.length > 0 && (
+        <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>
+          <Text
+            className={`folder-chip${activeTag === null ? ' folder-chip-active' : ''}`}
+            onClick={() => setActiveTag(null)}
+          >
+            {t('index.all_tags')}
+          </Text>
+          {allTags.map((tg) => (
+            <Text
+              key={tg}
+              className={`folder-chip${activeTag === tg ? ' folder-chip-active' : ''}`}
+              onClick={() => setActiveTag(activeTag === tg ? null : tg)}
+            >
+              #{tg}
+            </Text>
+          ))}
+        </ScrollView>
+      )}
       {!selecting && viewMode === 'all' && folders.length > 0 && (
         <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>
           <Text
@@ -750,12 +788,27 @@ export default function Index() {
               return;
             }
             try {
-              // 选模板
+              // 选模板:预设 + 服务端自定义(联机)
+              const customItems = serverTemplates.map((tp) => `🗂 ${tp.name}`);
+              const presetItems = PRESET_TEMPLATES.map((tp) => `${tp.icon} ${tp.name}`);
               const tplRes = await Taro.showActionSheet({
-                itemList: PRESET_TEMPLATES.map((tp) => `${tp.icon} ${tp.name}`),
+                itemList: [...presetItems, ...customItems],
               });
-              const tpl = PRESET_TEMPLATES[tplRes.tapIndex];
-              if (!tpl) return;
+              const pick = tplRes.tapIndex;
+              let tplName = '';
+              let content = '';
+              if (pick < PRESET_TEMPLATES.length) {
+                const tpl = PRESET_TEMPLATES[pick]!;
+                tplName = tpl.name;
+                content = fillTemplatePlaceholders(tpl.content);
+              } else {
+                const ct = serverTemplates[pick - PRESET_TEMPLATES.length]!;
+                tplName = ct.name;
+                const env = parseEnvelope(ct.content);
+                const pt = await decryptNote(masterKey, env);
+                content = pt.content;
+              }
+              if (!tplName) return;
               // 选目标文件夹（与 FAB 新建一致的必选逻辑）
               let folderId: string | null = selectedFolderId;
               const folderList = folders as Folder[];
@@ -775,8 +828,7 @@ export default function Index() {
                   folderId = folderList[res.tapIndex]!.id;
                 }
               }
-              const content = fillTemplatePlaceholders(tpl.content);
-              const doc: NotePlaintext = { title: tpl.name, content, tags: [] };
+              const doc: NotePlaintext = { title: tplName, content, tags: [] };
               const noteId = randomUuid();
               const { json: cipherJson } = await encryptNote(
                 masterKey,
