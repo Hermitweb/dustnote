@@ -3,7 +3,8 @@ const { spawnSync } = require('child_process');
 const target = process.argv[2];
 const isDev = process.argv[3] === '--watch';
 
-if (!target) {
+const ALLOWED_TARGETS = ['weapp', 'swan', 'alipay', 'tt', 'jd', 'qq', 'h5'];
+if (!target || !ALLOWED_TARGETS.includes(target)) {
   console.error('Usage: node scripts/build.js <target> [--watch]');
   console.error('Targets: weapp, swan, alipay, tt, jd, qq, h5');
   process.exit(1);
