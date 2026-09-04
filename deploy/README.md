@@ -34,7 +34,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fi
 powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.ps1 | iex"
 ```
 
-> 指定版本：追加 `--version v2.5.33`（Linux/macOS）或 `-Version v2.5.33`（Windows）；默认自动获取 GitHub 最新 Release。
+> 指定版本：追加 `--version v2.5.34`（Linux/macOS）或 `-Version v2.5.34`（Windows）；默认自动获取 GitHub 最新 Release。
 
 ## 已有仓库 / 部署包：本地一键部署
 
