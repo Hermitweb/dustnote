@@ -74,7 +74,7 @@ import {
 } from '../lib/standalone-session';
 
 // 与 package.json 同步（全端版本统一，见 release 流程）
-export const APP_VERSION = '2.5.33';
+export const APP_VERSION = '2.5.34';
 
 // 设备 ID：首次生成后持久化到本地存储
 let deviceId = '';
