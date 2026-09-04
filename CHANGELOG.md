@@ -12,6 +12,21 @@
 - 知识图谱
 - 插件系统
 
+## [2.5.29] - 2026-09-04
+
+### 修复（Windows 桌面端）
+
+- **长时间空闲后窗口空白/全透明**：WebView2 遮挡挂起（CalculateNativeWinOcclusion）
+  导致渲染恢复失败——禁用该特性与后台节流，托盘/任务栏唤醒不再出现透明占位死窗
+- **安装向导语言又变英文**：NSIS 语言显式钉 SimChinese/English，跟随系统自动选择
+- CI：create-release 与 build-mobile 的 APK 产物名对齐（android-apk-true/false），
+  修复 Release 资产静默缺失 APK
+
+### 文档
+
+- README/安装指南/兼容性矩阵/FAQ/服务状态页全面对齐当前实况：Tauri NSIS 双架构、
+  自托管更新链、PBKDF2 100000 + 10 位恢复码、真实部署状态（单节点 154.217.234.125:8080）
+
 ## [2.5.28] - 2026-09-03
 
 ### 新功能
