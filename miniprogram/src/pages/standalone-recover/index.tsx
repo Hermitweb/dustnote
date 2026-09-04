@@ -19,7 +19,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import { ThemeVars } from '../../components/ThemeVars';
+import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { isValidRecoveryCode } from '@dustnote/shared';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
@@ -84,10 +84,11 @@ export default function StandaloneRecover() {
     }
   };
 
+  const darkClass = useThemeDarkClass();
   return (
     <>
     <ThemeVars />
-    <View className="setup-container">
+    <View className={`setup-container ${darkClass}`}>
       <Text className="hero-logo" style={{ textAlign: 'center' }}>
         🔑
       </Text>

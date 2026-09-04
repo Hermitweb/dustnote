@@ -1,63 +1,49 @@
 /**
- * 页面主题变量注入（weapp）
+ * 页面主题注入(weapp)
  *
- * 小程序 WXSS 的 CSS 变量定义在 page 选择器上无法运行时切换；
- * 通过 <PageMeta pageStyle> 把整套变量注入当前页面根节点，
- * 每个页面渲染 <ThemeVars /> 即可获得与主题联动的全部变量，
- * 并同步导航栏颜色。auto 模式跟随系统（app.json darkmode: true）。
+ * 双机制:
+ * 1. <PageMeta pageStyle> 写页面字面量背景/前景色(自定义 CSS 变量在
+ *    page-style 中不级联,已实测),保证页面底色与文字颜色随主题
+ * 2. useThemeDarkClass() 返回 'theme-dark' | '',由各页根 View 拼接——
+ *    .theme-dark 类(App.scss)注入整套深色变量,组件 var() 引用全部联动
+ *
+ * 导航栏颜色同步 setNavigationBarColor;auto 模式跟随系统(onThemeChange)。
  */
 import { PageMeta } from '@tarojs/components';
 import { useEffect } from 'react';
 import Taro from '@tarojs/taro';
-import { useThemeStore } from '../state/theme';
+import { useThemeStore, currentEffectiveTheme } from '../state/theme';
 
-const LIGHT: Record<string, string> = {
-  '--bg': '#FAFCF9',
-  '--bg-elevated': '#FFFFFF',
-  '--bg-sunken': '#F1F6F2',
-  '--fg': '#1F2D26',
-  '--fg-secondary': '#5C6B63',
-  '--fg-muted': '#8B9690',
-  '--border': '#E3EBE6',
-  '--border-strong': '#C5D5CA',
-  '--primary': '#5fbc93',
-  '--primary-strong': '#4fb783',
-  '--primary-deep': '#3d9068',
-  '--primary-soft': '#E8F5EE',
-  '--primary-glow': 'rgba(79, 183, 131, 0.25)',
-  '--danger-soft': '#FEECEC',
-  '--card': '#FFFFFF',
-};
+const BG = { light: '#FAFCF9', dark: '#0b1120' } as const;
+const FG = { light: '#1F2D26', dark: '#e8edf4' } as const;
 
-const DARK: Record<string, string> = {
-  '--bg': '#0b1120',
-  '--bg-elevated': '#151d2e',
-  '--bg-sunken': '#060b16',
-  '--fg': '#e8edf4',
-  '--fg-secondary': '#a8b5c8',
-  '--fg-muted': '#68748a',
-  '--border': '#263040',
-  '--border-strong': '#354558',
-  '--primary': '#5fbc93',
-  '--primary-strong': '#5fbc93',
-  '--primary-deep': '#7fd0a8',
-  '--primary-soft': '#12231c',
-  '--primary-glow': 'rgba(95, 188, 147, 0.15)',
-  '--danger-soft': '#2d1518',
-  '--card': '#151d2e',
-};
+/** 各页根 View 拼接:手动/自动深色时返回 'theme-dark' */
+export function useThemeDarkClass(): string {
+  const theme = useThemeStore((s) => s.theme);
+  const systemDark = useThemeStore((s) => s.systemDark);
+  const refreshSystemTheme = useThemeStore((s) => s.refreshSystemTheme);
+
+  useEffect(() => {
+    refreshSystemTheme();
+    if (typeof Taro.onThemeChange === 'function') {
+      Taro.onThemeChange((res) => {
+        useThemeStore.setState({ systemDark: res.theme === 'dark' });
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const effective = currentEffectiveTheme(theme, systemDark === true);
+  return effective === 'dark' ? 'theme-dark' : '';
+}
 
 export function ThemeVars() {
   const theme = useThemeStore((s) => s.theme);
   const systemDark = useThemeStore((s) => s.systemDark);
   const refreshSystemTheme = useThemeStore((s) => s.refreshSystemTheme);
-  const effective = theme === 'auto' ? (systemDark ? 'dark' : 'light') : theme;
-  const vars = effective === 'dark' ? DARK : LIGHT;
-  const style = Object.entries(vars)
-    .map(([k, v]) => `${k}:${v}`)
-    .join(';');
+  const effective = currentEffectiveTheme(theme, systemDark === true);
 
-  // 系统深浅模式变化（darkmode: true 时微信会推送）
+  // 系统深浅模式变化(与 useThemeDarkClass 保持同一监听)
   useEffect(() => {
     refreshSystemTheme();
     if (typeof Taro.onThemeChange === 'function') {
@@ -81,5 +67,6 @@ export function ThemeVars() {
     }
   }, [effective]);
 
-  return <PageMeta pageStyle={style} />;
+  // 页面根字面量背景/前景(自定义变量不级联,见文件头)
+  return <PageMeta pageStyle={`background-color:${BG[effective]};color:${FG[effective]}`} />;
 }

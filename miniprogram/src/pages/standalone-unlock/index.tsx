@@ -19,7 +19,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Input, Image } from '@tarojs/components';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
-import { ThemeVars } from '../../components/ThemeVars';
+import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import {
   isLocked,
   remainingLockoutMs,
@@ -92,12 +92,13 @@ export default function StandaloneUnlock() {
     }
   };
 
+  const darkClass = useThemeDarkClass();
   return (
     <>
     <ThemeVars />
-      <View className="hero">
+      <View className={`hero ${darkClass}`}>
       <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
-      <Text className="hero-title text-mint">DustNote</Text>
+      <Text className="hero-title text-mint">{t('app.name')}</Text>
       <Text className="hero-subtitle mb-l">{t('standalone_unlock.subtitle')}</Text>
 
       {locked && (

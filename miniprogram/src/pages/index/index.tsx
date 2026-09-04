@@ -17,7 +17,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components';
 import logoUrl from '../../assets/logo.png';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { ThemeVars } from '../../components/ThemeVars';
+import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import {
   getApi,
   useAuthStore,
@@ -518,10 +518,11 @@ export default function Index() {
   }
 
   // 已解锁：显示主界面
+  const darkClass = useThemeDarkClass();
   return (
     <>
     <ThemeVars />
-      <View className="page">
+      <View className={`page ${darkClass}`}>
       <View className="topbar">
         {selecting ? (
           <>

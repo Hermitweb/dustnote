@@ -13,7 +13,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Input, Textarea, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import { ThemeVars } from '../../components/ThemeVars';
+import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { startVoice, stopVoice } from '../../lib/voice';
 import { encryptString, randomBytes, toBase64Url, wrapKey, noteAad } from '@dustnote/shared';
 import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '../../state/auth';
@@ -652,10 +652,11 @@ ${text}` : text));
     }
   })();
 
+  const darkClass = useThemeDarkClass();
   return (
     <>
     <ThemeVars />
-      <View className="page">
+      <View className={`page ${darkClass}`}>
       <View className="topbar">
         <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
           ←

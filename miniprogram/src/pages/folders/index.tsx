@@ -13,7 +13,7 @@
 import React, { useState } from 'react';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { ThemeVars } from '../../components/ThemeVars';
+import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { getRepo } from '../../lib/get-repo';
 import { t, useLanguage } from '../../lib/i18n';
 
@@ -214,10 +214,11 @@ export default function Folders() {
     });
   };
 
+  const darkClass = useThemeDarkClass();
   return (
     <>
       <ThemeVars />
-      <View className="page">
+      <View className={`page ${darkClass}`}>
       <View className="topbar">
         <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
           ←

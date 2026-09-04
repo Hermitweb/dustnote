@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { ThemeVars } from '../../components/ThemeVars';
+import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { getApi } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
 
@@ -123,10 +123,11 @@ export default function Shares() {
     selectedIds.size === shares.filter((s) => !s.revoked && !isExpired(s.expiresAt)).length;
   const selCount = selectedIds.size;
 
+  const darkClass = useThemeDarkClass();
   return (
     <>
       <ThemeVars />
-      <View className="page">
+      <View className={`page ${darkClass}`}>
       <View className="topbar">
         {selecting ? (
           <>

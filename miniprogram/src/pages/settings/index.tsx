@@ -9,7 +9,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import { ThemeVars } from '../../components/ThemeVars';
+import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore, APP_VERSION, getApi } from '../../state/auth';
 import { useThemeStore, type Theme } from '../../state/theme';
 import { useModeStore } from '../../lib/mode-store';
@@ -465,10 +465,11 @@ export default function Settings() {
     }
   };
 
+  const darkClass = useThemeDarkClass();
   return (
     <>
       <ThemeVars />
-      <View className="page">
+      <View className={`page ${darkClass}`}>
       <View className="topbar">
         <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
           ←

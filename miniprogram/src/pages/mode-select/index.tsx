@@ -14,7 +14,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Input, Image } from '@tarojs/components';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
-import { ThemeVars } from '../../components/ThemeVars';
+import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useModeStore } from '../../lib/mode-store';
 import { hasLocalAuthSync } from '../../lib/local-auth-storage';
 import { ApiClient } from '@dustnote/shared';
@@ -199,10 +199,11 @@ export default function ModeSelect() {
     );
   }
 
+  const darkClass = useThemeDarkClass();
   return (
     <>
     <ThemeVars />
-    <View className="hero">
+    <View className={`hero ${darkClass}`}>
       <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
       <Text className="hero-title">{t('mode_select.welcome')}</Text>
       <Text className="hero-subtitle">{t('mode_select.subtitle')}</Text>

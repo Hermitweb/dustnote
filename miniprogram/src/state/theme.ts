@@ -55,7 +55,10 @@ export function applyTheme(theme: Theme): void {
   }
 }
 
-export function currentEffectiveTheme(theme: Theme): 'light' | 'dark' {
+export function currentEffectiveTheme(theme: Theme, systemDarkOverride?: boolean): 'light' | 'dark' {
+  if (theme === 'auto' && typeof systemDarkOverride === 'boolean') {
+    return systemDarkOverride ? 'dark' : 'light';
+  }
   return resolveEffective(theme);
 }
 

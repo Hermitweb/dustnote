@@ -6,7 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Input, Image } from '@tarojs/components';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
-import { ThemeVars } from '../../components/ThemeVars';
+import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
 
@@ -45,10 +45,11 @@ export default function Unlock() {
     }
   };
 
+  const darkClass = useThemeDarkClass();
   return (
     <>
     <ThemeVars />
-      <View className="hero">
+      <View className={`hero ${darkClass}`}>
       <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
       <Text className="hero-title text-mint">{t('app.name')}</Text>
       <Text className="hero-subtitle mb-l">{t('unlock.subtitle')}</Text>

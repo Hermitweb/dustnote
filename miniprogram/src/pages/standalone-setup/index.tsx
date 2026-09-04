@@ -18,7 +18,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Input, Image } from '@tarojs/components';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
-import { ThemeVars } from '../../components/ThemeVars';
+import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
 
@@ -80,10 +80,11 @@ export default function StandaloneSetup() {
     }
   };
 
+  const darkClass = useThemeDarkClass();
   return (
     <>
     <ThemeVars />
-    <View className="setup-container">
+    <View className={`setup-container ${darkClass}`}>
       <Image
         src={logoUrl}
         className="hero-logo"

@@ -9,7 +9,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import { ThemeVars } from '../../components/ThemeVars';
+import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
 import { getCurrentMode } from '../../lib/mode-store';
 import { t, useLanguage } from '../../lib/i18n';
@@ -158,10 +158,11 @@ export default function Share() {
     return <View className="loading">{t('common.loading')}</View>;
   }
 
+  const darkClass = useThemeDarkClass();
   return (
     <>
       <ThemeVars />
-    <View className="page px-page">
+    <View className={`page px-page ${darkClass}`}>
       <View className="share-banner" />
       <Text className="text-xs text-muted">{t('share.banner')}</Text>
       <Text className="text-lg fw-bold mt-m mb-l">{title}</Text>
