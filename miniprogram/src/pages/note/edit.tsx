@@ -77,6 +77,7 @@ export default function NoteEdit() {
   const [tags, setTags] = useState<string[]>([]);
   const [listening, setListening] = useState(false);
   const [voiceText, setVoiceText] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
   const [note, setNote] = useState<NoteData | null>(null);
   const noteRef = useRef(note);
   noteRef.current = note;
@@ -667,47 +668,14 @@ ${text}` : text));
           >
             {preview ? t('editor.edit') : t('editor.preview')}
           </Text>
-          <Text
-            className={`icon-btn${note?.isPinned ? ' icon-btn-active' : ''}`}
-            onClick={togglePinned}
-          >
-            📌
-          </Text>
-          <Text
-            className={`icon-btn${note?.isFavorite ? ' icon-btn-active' : ''}`}
-            onClick={toggleFavorite}
-          >
-            ⭐
-          </Text>
-          <Text className="icon-btn" onClick={onMoveFolder}>
-            📁
-          </Text>
-          {mode === 'online' && (
-            <Text className="icon-btn" onClick={openShare}>
-              🔗
-            </Text>
-          )}
-          {mode === 'online' && (
-            <Text className="icon-btn" onClick={() => void openHistory()}>
-              🕘
-            </Text>
-          )}
-          {mode === 'online' && (
-            <Text className="icon-btn" onClick={() => void saveAsTemplate()}>
-              🗂
-            </Text>
-          )}
           <Text className="icon-btn" onClick={toggleVoice}>
             {listening ? voiceText ? `🎙${voiceText.slice(-6)}` : '🎙' : '🎤'}
           </Text>
-          <Text className="icon-btn" onClick={onEditTags}>
-            🏷
-          </Text>
-          <Text className="icon-btn" onClick={onDelete}>
-            🗑️
-          </Text>
           <Text className="mint-btn mint-btn-sm" onClick={onManualSave}>
             {t('editor.save')}
+          </Text>
+          <Text className="icon-btn" onClick={() => setMenuOpen(true)}>
+            ⋯
           </Text>
         </View>
       </View>
@@ -857,6 +825,43 @@ ${text}` : text));
                 {t('common.close')}
               </View>
             </View>
+          </View>
+        </View>
+      )}
+
+      {menuOpen && (
+        <View className="menu-overlay" onClick={() => setMenuOpen(false)}>
+          <View className="menu-sheet" onClick={(e) => e.stopPropagation()}>
+            <Text className="menu-item" onClick={() => { setMenuOpen(false); void togglePinned(); }}>
+              📌 {note?.isPinned ? t('editor.unpin') : t('editor.pin')}
+            </Text>
+            <Text className="menu-item" onClick={() => { setMenuOpen(false); void toggleFavorite(); }}>
+              {note?.isFavorite ? `⭐ ${t('editor.unfavorite')}` : `⭐ ${t('editor.favorite')}`}
+            </Text>
+            <Text className="menu-item" onClick={() => { setMenuOpen(false); onEditTags(); }}>
+              🏷 {t('editor.edit_tags')}
+            </Text>
+            <Text className="menu-item" onClick={() => { setMenuOpen(false); void onMoveFolder(); }}>
+              📁 {t('editor.move')}
+            </Text>
+            {mode === 'online' && (
+              <Text className="menu-item" onClick={() => { setMenuOpen(false); void openHistory(); }}>
+                🕘 {t('editor.history')}
+              </Text>
+            )}
+            {mode === 'online' && (
+              <Text className="menu-item" onClick={() => { setMenuOpen(false); openShare(); }}>
+                🔗 {t('editor.share')}
+              </Text>
+            )}
+            {mode === 'online' && (
+              <Text className="menu-item" onClick={() => { setMenuOpen(false); void saveAsTemplate(); }}>
+                🗂 {t('editor.save_as_template')}
+              </Text>
+            )}
+            <Text className="menu-item menu-item-danger" onClick={() => { setMenuOpen(false); onDelete(); }}>
+              🗑️ {t('common.delete')}
+            </Text>
           </View>
         </View>
       )}

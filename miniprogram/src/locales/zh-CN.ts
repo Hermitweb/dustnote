@@ -89,6 +89,13 @@ const zhCN = {
   },
   editor: {
     edit_tags: '编辑标签',
+    pin: '置顶',
+    unpin: '取消置顶',
+    favorite: '收藏',
+    unfavorite: '取消收藏',
+    move: '移动到文件夹',
+    history: '历史版本',
+    share: '分享',
     tags_placeholder: '多个标签用逗号分隔',
     save_as_template: '存为模板',
     tpl_name_placeholder: '模板名称',

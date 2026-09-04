@@ -1121,3 +1121,37 @@ page {
   border-color: var(--primary);
   font-weight: 700;
 }
+
+/* ========== 编辑页 ⋯ 菜单面板 ========== */
+.menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.menu-sheet {
+  background: var(--bg-elevated);
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 16rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-lg);
+}
+
+.menu-item {
+  display: block;
+  padding: 22rpx 16rpx;
+  font-size: 30rpx;
+  color: var(--fg);
+  border-bottom: 1rpx solid var(--border);
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item-danger {
+  color: var(--danger);
+}

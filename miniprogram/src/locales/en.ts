@@ -86,6 +86,13 @@ const en: typeof zhCN = {
   },
   editor: {
     edit_tags: 'Edit tags',
+    pin: 'Pin',
+    unpin: 'Unpin',
+    favorite: 'Favorite',
+    unfavorite: 'Unfavorite',
+    move: 'Move to folder',
+    history: 'History',
+    share: 'Share',
     tags_placeholder: 'Separate tags with commas',
     save_as_template: 'Save as template',
     tpl_name_placeholder: 'Template name',
