@@ -14,6 +14,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Input, Textarea, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { ThemeVars } from '../../components/ThemeVars';
+import { startVoice, stopVoice } from '../../lib/voice';
 import { encryptString, randomBytes, toBase64Url, wrapKey, noteAad } from '@dustnote/shared';
 import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
@@ -74,6 +75,8 @@ export default function NoteEdit() {
   const [content, setContent] = useState('');
   // 保留原始 tags，保存时一起加密回去
   const [tags, setTags] = useState<string[]>([]);
+  const [listening, setListening] = useState(false);
+  const [voiceText, setVoiceText] = useState('');
   const [note, setNote] = useState<NoteData | null>(null);
   const noteRef = useRef(note);
   noteRef.current = note;
@@ -156,6 +159,28 @@ export default function NoteEdit() {
       }
     })();
   }, [id, masterKey]);
+
+  /** 语音听写:开始/停止;最终结果追加到正文 */
+  const toggleVoice = () => {
+    if (listening) {
+      stopVoice();
+      return;
+    }
+    const ok = startVoice({
+      onPartial: (text) => setVoiceText(text),
+      onFinal: (text) => {
+        if (text) setContent((c) => (c ? `${c}
+${text}` : text));
+        setVoiceText('');
+      },
+      onError: (msg) => Taro.showToast({ title: msg, icon: 'none', duration: 3000 }),
+      onEnd: () => {
+        setListening(false);
+        setVoiceText('');
+      },
+    });
+    if (ok) setListening(true);
+  };
 
   /** 编辑标签:showModal editable 输入,逗号/空格分隔 */
   const onEditTags = () => {
@@ -672,6 +697,9 @@ export default function NoteEdit() {
               🗂
             </Text>
           )}
+          <Text className="icon-btn" onClick={toggleVoice}>
+            {listening ? voiceText ? `🎙${voiceText.slice(-6)}` : '🎙' : '🎤'}
+          </Text>
           <Text className="icon-btn" onClick={onEditTags}>
             🏷
           </Text>
