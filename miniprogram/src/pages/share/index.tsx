@@ -39,6 +39,7 @@ export default function Share() {
   const [content, setContent] = useState<string | null>(null);
   const [needsPassword, setNeedsPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const darkClass = useThemeDarkClass();
   const lang = useLanguage();
 
   // 语言切换后同步原生导航栏标题
@@ -158,7 +159,6 @@ export default function Share() {
     return <View className="loading">{t('common.loading')}</View>;
   }
 
-  const darkClass = useThemeDarkClass();
   return (
     <>
       <ThemeVars />

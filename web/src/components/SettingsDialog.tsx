@@ -14,6 +14,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { getDeviceId } from '../lib/device';
 import { useModeStore } from '../lib/mode-store';
 import type { AppMode } from '@dustnote/shared';
+import { authedFetch } from '../lib/store-helpers';
 
 /** 构造绝对 API 基址（Tauri 桌面端必须用绝对地址，详见 SharesManager 注释） */
 function settingsApiBase(): string {
@@ -183,7 +184,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     setDevicesError(null);
     try {
       const token = useStore.getState().accessToken;
-      const r = await fetch(`${settingsApiBase()}/devices`, {
+      const r = await authedFetch(`${settingsApiBase()}/devices`, {
         headers: {
           'X-Client-Version': __APP_VERSION__,
           'X-Client-Platform': 'web',
@@ -209,7 +210,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const kickDevice = async (id: string) => {
     try {
       const token = useStore.getState().accessToken;
-      const r = await fetch(`${settingsApiBase()}/devices/${id}`, {
+      const r = await authedFetch(`${settingsApiBase()}/devices/${id}`, {
         method: 'DELETE',
         headers: {
           'X-Client-Version': __APP_VERSION__,
@@ -232,7 +233,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     setDeleteBusy(true);
     try {
       const token = useStore.getState().accessToken;
-      const r = await fetch(`${settingsApiBase()}/account`, {
+      const r = await authedFetch(`${settingsApiBase()}/account`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -805,7 +806,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                         __dustnoteSetContentProtected?: (v: boolean) => void;
                       }
                     ).__dustnoteSetContentProtected;
-                    api?.(next);
+                    // 语义:set_content_protected(true)=防护开启=禁止截屏
+                    api?.(!next);
                   }}
                   className={`flex w-full items-center justify-between rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                     allowScreenshot

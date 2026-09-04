@@ -196,12 +196,30 @@ ${text}` : text));
       placeholderText: t('editor.tags_placeholder'),
     }).then((r) => {
       if (!r.confirm) return;
-      const next = (r.content ?? '')
+      const next = Array.from(new Set((r.content ?? '')
         .split(/[,，、\s]+/)
         .map((x) => x.trim())
-        .filter(Boolean);
-      setTags(Array.from(new Set(next)).slice(0, 20));
-      void onManualSave();
+        .filter(Boolean))).slice(0, 20);
+      setTags(next);
+      // 直接用最新值保存(setTags 后闭包仍是旧值)
+      void (async () => {
+        try {
+          const cur = noteRef.current;
+          if (!cur || !masterKey) return;
+          const a = noteAad(cur.id, useAuthStore.getState().userId ?? '');
+          const { json: cipherJson } = await encryptNote(masterKey, { title, content, tags: next }, a);
+          const newVersion = await getRepo().updateNote(cur.id, {
+            ciphertext: cipherJson,
+            keyVersion: 1,
+            isPinned: cur.isPinned,
+            isFavorite: cur.isFavorite,
+          });
+          setNote((prev) => (prev ? { ...prev, version: newVersion } : prev));
+          basePlainRef.current = { title, content, tags: next };
+        } catch {
+          Taro.showToast({ title: t('common.save_failed'), icon: 'none' });
+        }
+      })();
     });
   };
 
@@ -211,6 +229,15 @@ ${text}` : text));
       Taro.showToast({ title: t('editor.tpl_online_only'), icon: 'none' });
       return;
     }
+    try {
+      await doSaveAsTemplate();
+    } catch (err: any) {
+      const msg = err?.err?.message || err?.message || t('common.unknown_error');
+      Taro.showToast({ title: t('editor.share_failed_msg', { msg }), icon: 'none', duration: 3000 });
+    }
+  };
+
+  const doSaveAsTemplate = async () => {
     const r = (Taro.showModal as unknown as (o: Record<string, unknown>) => Promise<{
       confirm: boolean;
       content?: string;

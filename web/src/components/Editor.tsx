@@ -42,6 +42,7 @@ import {
 } from '../lib/image-paste';
 import { VoiceInputButton } from './VoiceInputButton';
 import { ConfirmDialog } from './ConfirmDialog';
+import { authedFetch, shareBase } from '../lib/store-helpers';
 
 /** 构造绝对 API 基址（Tauri 桌面端必须用绝对地址，详见 store.ts 注释） */
 function shareApiBase(): string {
@@ -851,7 +852,7 @@ function ShareDialog({
         return;
       }
 
-      const r = await fetch(`${shareApiBase()}/shares`, {
+      const r = await authedFetch(`${shareApiBase()}/shares`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -875,7 +876,7 @@ function ShareDialog({
         return;
       }
       // 密钥放 fragment：浏览器不会把 `#` 之后的内容发给服务端
-      setShareUrl(`${location.origin}/share/${data.token}#${toBase64Url(shareKey)}`);
+      setShareUrl(`${shareBase()}/share/${data.token}#${toBase64Url(shareKey)}`);
     } finally {
       setSubmitting(false);
     }

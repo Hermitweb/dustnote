@@ -865,6 +865,33 @@ page {
   }
 }
 
+/* 手动浅色(系统深色时反制 @media 深色变量) */
+.theme-light {
+  --bg: #FAFCF9;
+  --bg-elevated: #FFFFFF;
+  --bg-sunken: #F1F6F2;
+  --fg: #1F2D26;
+  --fg-secondary: #5C6B63;
+  --fg-muted: #8B9690;
+  --border: #E3EBE6;
+  --border-strong: #C5D5CA;
+  --primary: #5fbc93;
+  --primary-strong: #4fb783;
+  --primary-deep: #3d9068;
+  --primary-soft: #E8F5EE;
+  --primary-glow: rgba(79, 183, 131, 0.25);
+  --danger-soft: #FEECEC;
+  --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.03);
+  --shadow-sm: 0 1rpx 3rpx rgba(0, 0, 0, 0.05), 0 1rpx 2rpx rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4rpx 6rpx rgba(0, 0, 0, 0.04), 0 2rpx 4rpx rgba(0, 0, 0, 0.03), 0 8rpx 24rpx rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10rpx 15rpx rgba(0, 0, 0, 0.05), 0 4rpx 6rpx rgba(0, 0, 0, 0.03), 0 16rpx 48rpx rgba(0, 0, 0, 0.06);
+  --shadow-fab: 0 8rpx 24rpx rgba(79, 183, 131, 0.35);
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
 /* 手动深色(theme-dark 根类,ThemeVars/useThemeDarkClass 注入):
    覆盖 @media 仅跟系统的局限,实现 light/dark 手动切换 */
 .theme-dark {
@@ -1182,4 +1209,24 @@ page {
 
 .menu-item-danger {
   color: var(--danger);
+}
+
+.menu-title {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--fg-muted);
+  padding: 8rpx 0 16rpx;
+}
+
+.menu-scroll {
+  max-height: 50vh;
+}
+
+.menu-item-cancel {
+  margin-top: 12rpx;
+  text-align: center;
+  color: var(--fg-muted);
+  border-top: 1rpx solid var(--border);
+  border-bottom: none;
 }

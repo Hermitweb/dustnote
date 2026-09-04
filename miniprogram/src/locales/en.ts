@@ -81,6 +81,8 @@ const en: typeof zhCN = {
     batch_unpinned: 'Unpinned {{count}} note(s)',
     favorite: '☆ Favorite',
     all_tags: 'All tags',
+    pick_template: 'Pick a template',
+    pick_folder: 'Pick a folder',
     batch_failed: '{{count}} failed',
     unfavorite: '⭐ Unfavorite',
     batch_favorited: 'Favorited {{count}} note(s)',

@@ -18,6 +18,11 @@ class ScreenshotModule(private val ctx: ReactApplicationContext) :
 
   @ReactMethod
   fun setAllowed(allowed: Boolean) {
+    // 持久化到 SharedPreferences:MainActivity onCreate 恢复
+    ctx.getSharedPreferences(PREFS, 0)
+      .edit()
+      .putBoolean(KEY_ALLOWED, allowed)
+      .apply()
     val activity = currentActivity ?: return
     activity.runOnUiThread {
       if (allowed) {
@@ -26,5 +31,10 @@ class ScreenshotModule(private val ctx: ReactApplicationContext) :
         activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
       }
     }
+  }
+
+  companion object {
+    private const val PREFS = "dustnote_prefs"
+    private const val KEY_ALLOWED = "allow_screenshot"
   }
 }

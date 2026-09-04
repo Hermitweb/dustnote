@@ -25,25 +25,29 @@ export async function startVoice(h: VoiceHandlers): Promise<boolean> {
   try {
     handlers = h;
     Voice.destroy();
-    // 库类型定义的 setter/方法重载混用导致严格回调签名报错——运行时行为
-    // 以 README 为准,此处放宽回调参数
-    const V = Voice as unknown as Record<string, (fn: (e: never) => void) => void>;
-    V.onSpeechResults(((e: { value?: string[] }) => {
+    // 回调注册必须用「赋值」:@react-native-voice/voice 的 onSpeechXxx 是
+    // setter(只有 set 存取器),当方法调用会 TypeError(审计 H1)
+    Voice.onSpeechResults = (e: { value?: string[] }) => {
+      // 最终结果:写入正文(此前误映射 onPartial 导致文本永不落正文,审计 H2)
       const text = e.value?.join(' ') ?? '';
-      handlers?.onPartial(text);
-    }) as never);
-    V.onSpeechPartialResults(((e: { value?: string[] }) => {
-      const text = e.value?.join(' ') ?? '';
-      handlers?.onPartial(text);
-    }) as never);
-    V.onSpeechEnd(() => {
+      if (text) handlers?.onFinal(text);
       active = false;
       handlers?.onEnd();
-    });
-    V.onSpeechError(((e: { message?: string }) => {
+    };
+    Voice.onSpeechPartialResults = (e: { value?: string[] }) => {
+      const text = e.value?.join(' ') ?? '';
+      handlers?.onPartial(text);
+    };
+    Voice.onSpeechEnd = () => {
       active = false;
-      handlers?.onError(e?.message ?? '语音识别失败');
-    }) as never);
+      handlers?.onEnd();
+    };
+    Voice.onSpeechError = (e: { message?: string; error?: { code?: string; message?: string } }) => {
+      active = false;
+      handlers?.onError(e?.message || e?.error?.message || e?.error?.code || '语音识别失败');
+      // 错误路径不保证再发 END:确保监听态复位(审计 M3)
+      handlers?.onEnd();
+    };
     await Voice.start('zh-CN');
     active = true;
     return true;

@@ -84,6 +84,8 @@ const zhCN = {
     batch_unpinned: '已取消置顶 {{count}} 条',
     favorite: '☆ 收藏',
     all_tags: '全部标签',
+    pick_template: '选择模板',
+    pick_folder: '选择文件夹',
     batch_failed: '{{count}} 条失败',
     unfavorite: '⭐ 取消收藏',
     batch_favorited: '已收藏 {{count}} 条',

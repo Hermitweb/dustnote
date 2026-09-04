@@ -101,6 +101,7 @@ export default function ModeSelect() {
   // 回填已保存的联机地址：从设置/切换模式再次进入时无需重填
   const [serverUrl, setServerUrlInput] = useState(useModeStore.getState().serverUrl ?? '');
   const [testing, setTesting] = useState(false);
+  const darkClass = useThemeDarkClass();
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const lang = useLanguage();
 
@@ -199,7 +200,6 @@ export default function ModeSelect() {
     );
   }
 
-  const darkClass = useThemeDarkClass();
   return (
     <>
     <ThemeVars />

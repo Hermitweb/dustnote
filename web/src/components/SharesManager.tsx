@@ -11,6 +11,7 @@ import { getDeviceId } from '../lib/device';
 import { copyText } from '../lib/clipboard';
 import { toast } from '../lib/toast';
 import { ConfirmDialog } from './ConfirmDialog';
+import { authedFetch, shareBase } from '../lib/store-helpers';
 
 /**
  * 构造绝对 API 基址。
@@ -90,7 +91,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
         return;
       }
       const token = useStore.getState().accessToken;
-      const r = await fetch(`${apiBase()}/shares`, {
+      const r = await authedFetch(`${apiBase()}/shares`, {
         headers: {
           'X-Client-Version': __APP_VERSION__,
           'X-Client-Platform': 'web',
@@ -129,7 +130,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
   const revoke = async (id: string) => {
     try {
       const token = useStore.getState().accessToken;
-      const r = await fetch(`${apiBase()}/shares/${id}`, {
+      const r = await authedFetch(`${apiBase()}/shares/${id}`, {
         method: 'DELETE',
         headers: {
           'X-Client-Version': __APP_VERSION__,
@@ -152,7 +153,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
     let ok = 0;
     for (const id of ids) {
       try {
-        await fetch(`${apiBase()}/shares/${id}`, {
+        await authedFetch(`${apiBase()}/shares/${id}`, {
           method: 'DELETE',
           headers: {
             'X-Client-Version': __APP_VERSION__,
@@ -179,7 +180,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
     let shareKey: Uint8Array | null = null;
     try {
       shareKey = await unwrapKey(masterKey, s.wrappedShareKey);
-      return `${location.origin}/share/${s.token}#${toBase64Url(shareKey)}`;
+      return `${shareBase()}/share/${s.token}#${toBase64Url(shareKey)}`;
     } catch {
       return null;
     } finally {
@@ -319,7 +320,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                   </div>
                   {/* 密钥藏在 fragment 里，这里只作示意——务必用「复制链接」拿完整地址 */}
                   <div className="mb-2 truncate font-mono text-xs text-surface-muted">
-                    {location.origin}/share/{s.token}
+                    {shareBase()}/share/{s.token}
                     <span className="opacity-60">#&lt;{t('shares.link_hint_placeholder')}&gt;</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-surface-muted">

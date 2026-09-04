@@ -56,29 +56,27 @@ function registerDesktopApis() {
   });
 }
 
-/** 注册托盘 tooltip 更新能力（roadmap M4「托盘显示已同步 N 条」） */
+/** 注册托盘/截屏能力(同步静态 import:启动恢复与语言首调必须立即可用) */
 function registerTrayApi() {
-  void import('@tauri-apps/api/core').then(({ invoke }) => {
-    (
-      window as unknown as { __dustnoteSetTrayTooltip: (tooltip: string) => void }
-    ).__dustnoteSetTrayTooltip = (tooltip: string) => {
-      void invoke('set_tray_tooltip', { tooltip }).catch(() => undefined);
-    };
-    (
-      window as unknown as {
-        __dustnoteSetTrayMenuLang: (lang: string) => void;
-      }
-    ).__dustnoteSetTrayMenuLang = (lang: string) => {
-      void invoke('set_tray_menu_lang', { lang }).catch(() => undefined);
-    };
-    (
-      window as unknown as {
-        __dustnoteSetContentProtected: (protected_: boolean) => void;
-      }
-    ).__dustnoteSetContentProtected = (protected_: boolean) => {
-      void invoke('set_content_protected', { protected: protected_ }).catch(() => undefined);
-    };
-  });
+  const invoke = async <T,>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
+    const { invoke: invokeCore } = await import('@tauri-apps/api/core');
+    return invokeCore<T>(cmd, args);
+  };
+  (
+    window as unknown as { __dustnoteSetTrayTooltip: (tooltip: string) => void }
+  ).__dustnoteSetTrayTooltip = (tooltip: string) => {
+    void invoke('set_tray_tooltip', { tooltip }).catch(() => undefined);
+  };
+  (
+    window as unknown as { __dustnoteSetTrayMenuLang: (lang: string) => void }
+  ).__dustnoteSetTrayMenuLang = (lang: string) => {
+    void invoke('set_tray_menu_lang', { lang }).catch(() => undefined);
+  };
+  (
+    window as unknown as { __dustnoteSetContentProtected: (protected_: boolean) => void }
+  ).__dustnoteSetContentProtected = (protected_: boolean) => {
+    void invoke('set_content_protected', { protected: protected_ }).catch(() => undefined);
+  };
 }
 
 export function App() {

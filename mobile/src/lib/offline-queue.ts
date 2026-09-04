@@ -140,7 +140,11 @@ async function handleConflict(op: QueuedOp, serverData: unknown): Promise<void> 
   let serverPlain: { title: string; content: string; tags: string[] };
   try {
     const envelope = parseEnvelope(serverRow.ciphertext);
-    serverPlain = await decryptNote(masterKey, envelope, noteAad(serverRow.id, userId ?? ''));
+    serverPlain = await decryptNote(
+        masterKey,
+        envelope,
+        envelope.payload.a === 1 ? noteAad(serverRow.id, userId ?? '') : undefined,
+      );
   } catch {
     return;
   }

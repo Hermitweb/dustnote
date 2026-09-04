@@ -16,6 +16,7 @@ import { getDeviceId } from '../lib/device';
 import { useModeStore } from '../lib/mode-store';
 import { sanitizeHtml } from '../lib/sanitize-html';
 import { ConfirmDialog } from './ConfirmDialog';
+import { authedFetch } from '../lib/store-helpers';
 
 /** 拼接绝对 API 地址（桌面端 webview origin 非服务器，必须用 serverUrl） */
 function apiBase(): string {
@@ -51,7 +52,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
     setError(null);
     try {
       const { accessToken } = useStore.getState();
-      const r = await fetch(`${apiBase()}/notes/${noteId}/versions`, {
+      const r = await authedFetch(`${apiBase()}/notes/${noteId}/versions`, {
         headers: {
           'X-Client-Platform': 'web',
           'X-Client-Version': __APP_VERSION__,
@@ -94,7 +95,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
         const { accessToken, masterKey } = useStore.getState();
         if (!masterKey) throw new Error('not_unlocked');
 
-        const r = await fetch(`${apiBase()}/notes/${noteId}/versions/${versionId}`, {
+        const r = await authedFetch(`${apiBase()}/notes/${noteId}/versions/${versionId}`, {
           headers: {
             'X-Client-Platform': 'web',
             'X-Client-Version': __APP_VERSION__,
@@ -147,7 +148,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
     setSuccess(null);
     try {
       const { accessToken } = useStore.getState();
-      const r = await fetch(`${apiBase()}/notes/${noteId}/versions/${selectedId}/restore`, {
+      const r = await authedFetch(`${apiBase()}/notes/${noteId}/versions/${selectedId}/restore`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

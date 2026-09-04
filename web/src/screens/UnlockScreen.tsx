@@ -15,6 +15,8 @@ export function UnlockScreen() {
   const [recoveryCode, setRecoveryCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showTotp, setShowTotp] = useState(false);
+  const [totpCode, setTotpCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [graceAvailable, setGraceAvailable] = useState(false);
   const [graceSec, setGraceSec] = useState(0);
@@ -42,9 +44,16 @@ export function UnlockScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      await unlock(password);
+      await unlock(password, showTotp ? totpCode : undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'unknown');
+      const msg = err instanceof Error ? err.message : 'unknown';
+      // 开启了两步验证的账号:服务端 401 totp_required → 追加验证码输入
+      if (msg.includes('totp_required') || msg.includes('两步验证')) {
+        setShowTotp(true);
+        setError(null);
+      } else {
+        setError(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -100,6 +109,22 @@ export function UnlockScreen() {
                 ⚡ {t('auth.grace_unlock')}（{Math.floor(graceSec / 60)}:
                 {String(graceSec % 60).padStart(2, '0')}）
               </button>
+            )}
+            {showTotp && (
+              <div className="mb-4">
+                <label className="mb-1 block text-xs font-medium text-surface-fg">
+                  {t('auth.totp_code')}
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.trim())}
+                  placeholder="123456"
+                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm tracking-widest text-surface-fg focus:border-mint-500 focus:outline-none"
+                />
+              </div>
             )}
             <div>
               <label className="mb-1 block text-xs font-medium text-surface-fg">

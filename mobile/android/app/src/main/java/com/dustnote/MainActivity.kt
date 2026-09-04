@@ -15,7 +15,14 @@ class MainActivity : ReactActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    // security.md §3.6：屏蔽截屏/录屏（FLAG_SECURE），防止笔记内容被屏幕录制泄露
-    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    // security.md §3.6：默认屏蔽截屏/录屏（FLAG_SECURE）；
+    // 用户在设置页开启「允许截屏」后由 ScreenshotModule 持久化，此处按值恢复
+    val allowed = getSharedPreferences("dustnote_prefs", 0)
+      .getBoolean("allow_screenshot", false)
+    if (allowed) {
+      window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    } else {
+      window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
   }
 }

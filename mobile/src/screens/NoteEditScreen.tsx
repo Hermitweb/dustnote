@@ -76,6 +76,13 @@ export function NoteEditScreen() {
   const [saving, setSaving] = useState(false);
   // 语音听写状态
   const [listening, setListening] = useState(false);
+  // 听写中卸载页面:结束识别会话,防全局回调指向已卸载组件(审计 M3)
+  useEffect(
+    () => () => {
+      void stopVoice();
+    },
+    [],
+  );
   const [voiceText, setVoiceText] = useState('');
   const [note, setNote] = useState<NoteRow | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -260,6 +267,52 @@ export function NoteEditScreen() {
       // 网络恢复：顺手重放离线队列中的未同步修改
       if (mode === 'online') void flushOfflineQueue();
     } catch (err) {
+      // 409 自愈:服务端 409 响应带 current(密文+版本)。基线未变(仅版本落后)
+      // 则用最新版本重放本地内容;真冲突才提示(修 1.5s 循环弹窗+版本卡死)
+      const apiErr = err as { err?: { status?: number; data?: { current?: { version?: number; ciphertext?: string } } } };
+      const curRow = apiErr?.err?.data?.current;
+      const curCipher = curRow?.ciphertext;
+      const curVersion = curRow?.version;
+      if (mode === 'online' && apiErr?.err?.status === 409 && typeof curCipher === 'string') {
+        try {
+          const oEnv = JSON.parse(curCipher) as NoteEnvelope;
+          const aadUserId = useAuthStore.getState().userId ?? '';
+          const oJson = await decryptString(
+            masterKey as Uint8Array,
+            oEnv.payload,
+            oEnv.payload.a === 1 ? noteAad(noteId, aadUserId) : undefined
+          );
+          const oPt = JSON.parse(oJson) as { title: string; content: string; tags?: string[] };
+          const base = basePlainRef.current;
+          const serverUnchanged =
+            !!base &&
+            oPt.title === base.title &&
+            oPt.content === base.content &&
+            JSON.stringify(oPt.tags ?? []) === JSON.stringify(base.tags ?? []);
+          if (serverUnchanged && typeof curVersion === 'number') {
+            const json = JSON.stringify({ title, content, tags });
+            const payload = await encryptString(masterKey, json, 1);
+            const env: NoteEnvelope = { v: 1, payload };
+            const nextVersion = await repo.updateNote(noteId, {
+              ciphertext: JSON.stringify(env),
+              keyVersion: 1,
+              isPinned: !!note.isPinned,
+              isFavorite: !!note.isFavorite,
+              version: curVersion,
+            });
+            setNote({ ...note, version: nextVersion });
+            basePlainRef.current = { title, content, tags };
+            setSaving(false);
+            if (mode === 'online') void flushOfflineQueue();
+            return;
+          }
+        } catch {
+          /* 自愈失败按普通冲突处理 */
+        }
+        Alert.alert(t('editor.save_failed'), t('editor.version_conflict'));
+        setSaving(false);
+        return;
+      }
       // 联机模式网络不可用：入队待同步，不再直接弹错误（v2.4.4 离线队列简化版）
       if (mode === 'online' && isNetworkError(err)) {
         try {
@@ -530,7 +583,7 @@ export function NoteEditScreen() {
                     Authorization: `Bearer ${token}`,
                     ...ch,
                   },
-                  body: JSON.stringify({ version: note?.version ?? 1 }),
+                  body: JSON.stringify({ version: note?.version ?? 1, clientUpdatedAt: new Date().toISOString() }),
                 }
               );
               if (!restoreR.ok) throw new Error(`HTTP ${restoreR.status}`);

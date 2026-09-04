@@ -15,7 +15,6 @@ import { getDeviceId } from './device';
 import { useModeStore } from './mode-store';
 import { enqueue, type QueuedOp } from './offline-queue';
 import type { ConflictContext } from '@dustnote/client-core';
-import type { FetchFn } from '@dustnote/shared';
 
 const API_BASE = '/api/v1';
 const APP_VERSION = __APP_VERSION__;
@@ -72,12 +71,12 @@ async function refreshAccessToken(): Promise<string | null> {
   return refreshInFlight;
 }
 
-const authFetch: FetchFn = async (url, init) => {
+const authFetch: typeof fetch = async (url, init?) => {
   let res = await fetch(url, init);
   if (res.status === 401 && !String(url).includes('/auth/')) {
     const newToken = await refreshAccessToken();
     if (newToken) {
-      const headers = new Headers(init.headers as HeadersInit | undefined);
+      const headers = new Headers((init ?? {}).headers as HeadersInit | undefined);
       headers.set('Authorization', `Bearer ${newToken}`);
       res = await fetch(url, { ...init, headers });
     } else {
@@ -91,6 +90,15 @@ const authFetch: FetchFn = async (url, init) => {
   }
   return res;
 };
+
+/** 分享页基址:桌面端 tauri origin 不可公开访问,必须用服务器地址 */
+export function shareBase(): string {
+  const { serverUrl } = useModeStore.getState();
+  return serverUrl ? serverUrl.replace(/\/+$/, '') : window.location.origin;
+}
+
+/** 带静默刷新的 fetch:401 → /auth/refresh → 重放(供组件直连 API 使用) */
+export const authedFetch: typeof fetch = authFetch;
 
 export const api = (): ApiClient => {
   const { serverUrl } = useModeStore.getState();

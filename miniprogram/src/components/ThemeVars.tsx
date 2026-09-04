@@ -17,7 +17,20 @@ import { useThemeStore, currentEffectiveTheme } from '../state/theme';
 const BG = { light: '#FAFCF9', dark: '#0b1120' } as const;
 const FG = { light: '#1F2D26', dark: '#e8edf4' } as const;
 
-/** 各页根 View 拼接:手动/自动深色时返回 'theme-dark' */
+let sysListenerBound = false;
+
+function bindSystemThemeListener(): void {
+  if (sysListenerBound) return;
+  sysListenerBound = true;
+  if (typeof Taro.onThemeChange === 'function') {
+    Taro.onThemeChange((res) => {
+      useThemeStore.setState({ systemDark: res.theme === 'dark' });
+    });
+  }
+}
+
+
+/** 各页根 View 拼接:手动深色→theme-dark;手动浅色+系统深色→theme-light;auto→'' */
 export function useThemeDarkClass(): string {
   const theme = useThemeStore((s) => s.theme);
   const systemDark = useThemeStore((s) => s.systemDark);
@@ -25,16 +38,16 @@ export function useThemeDarkClass(): string {
 
   useEffect(() => {
     refreshSystemTheme();
-    if (typeof Taro.onThemeChange === 'function') {
-      Taro.onThemeChange((res) => {
-        useThemeStore.setState({ systemDark: res.theme === 'dark' });
-      });
-    }
+    bindSystemThemeListener();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const effective = currentEffectiveTheme(theme, systemDark === true);
-  return effective === 'dark' ? 'theme-dark' : '';
+  if (theme === 'dark') return 'theme-dark';
+  if (theme === 'light') {
+    // 手动浅色:仅当系统为深色时需要反制类
+    return currentEffectiveTheme('light', systemDark === true) === 'light' && systemDark ? 'theme-light' : '';
+  }
+  return '';
 }
 
 export function ThemeVars() {
@@ -43,14 +56,10 @@ export function ThemeVars() {
   const refreshSystemTheme = useThemeStore((s) => s.refreshSystemTheme);
   const effective = currentEffectiveTheme(theme, systemDark === true);
 
-  // 系统深浅模式变化(与 useThemeDarkClass 保持同一监听)
+  // 系统深浅模式变化(全局单次注册)
   useEffect(() => {
     refreshSystemTheme();
-    if (typeof Taro.onThemeChange === 'function') {
-      Taro.onThemeChange((res) => {
-        useThemeStore.setState({ systemDark: res.theme === 'dark' });
-      });
-    }
+    bindSystemThemeListener();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

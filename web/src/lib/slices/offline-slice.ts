@@ -94,8 +94,15 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
               await remove(op.id);
               hadConflict = true;
             } else if (status >= 400 && status < 500) {
-              await remove(op.id);
-              hadConflict = true;
+              // 401/403 = 鉴权问题(刷新失败/被踢):保留待解锁后重放,不丢数据
+              if (status === 401 || status === 403) {
+                await bumpRetries(op.id);
+                const delayMs = await getRetryDelayForOp(op.id);
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
+              } else {
+                await remove(op.id);
+                hadConflict = true;
+              }
             } else {
               await bumpRetries(op.id);
               const delayMs = await getRetryDelayForOp(op.id);

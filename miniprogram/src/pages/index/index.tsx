@@ -33,6 +33,7 @@ import { ensureDefaultContent } from '../../lib/default-content';
 import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders, type Template } from '@dustnote/shared';
 import { randomUuid } from '../../lib/uuid';
 import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
+import { PickSheet, type PickItem } from '../../components/PickSheet';
 import { SearchIndex } from '../../lib/search-index';
 import { t, useLanguage } from '../../lib/i18n';
 
@@ -65,6 +66,8 @@ export default function Index() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const searchIndexRef = useRef(new SearchIndex());
+  const [pickSheet, setPickSheet] = useState<Parameters<typeof PickSheet>[0] | null>(null);
+  const darkClass = useThemeDarkClass();
   const [serverTemplates, setServerTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
@@ -142,7 +145,8 @@ export default function Index() {
       if (masterKey) {
         const plainMap: Record<string, { title: string; content: string; tags?: string[] }> = {};
         for (const n of fresh.notes) {
-          if (n.deletedAt) continue;
+          // 回收站笔记也纳入明文表(trash tab 标题显示 + 搜索可用);
+          // 可见性由 visibleNotes 的 viewMode 过滤控制
           // 密文未变化的笔记直接命中缓存,跳过重复解密(治页面切换反复解密)
           const cached = getCachedPlain(n.id, n.ciphertext);
           if (cached) {
@@ -183,6 +187,14 @@ export default function Index() {
   };
 
   // ---------- 多选 ----------
+  // 搜索排名(每次渲染最多算一次,避免逐笔记重复检索)
+  const searchRank = (() => {
+    const q = searchQuery.trim();
+    const rank = new Map<string, number>();
+    if (!q) return rank;
+    searchIndexRef.current.search(q).forEach((hit, idx) => rank.set(hit.noteId, idx));
+    return rank;
+  })();
   const visibleNotes = notes
     .filter((n) => {
       if (viewMode === 'all') {
@@ -195,14 +207,7 @@ export default function Index() {
     })
     .filter((n) => {
       if (activeTag && !(plains[n.id]?.tags ?? []).includes(activeTag)) return false;
-      const q = searchQuery.trim();
-      if (!q) return true;
-      // 全文搜索 v2:bigram 倒排索引(标题加权),结果序即相关序
-      const hits = searchIndexRef.current.search(q);
-      if (hits.length === 0) return false;
-      const rank = new Map<string, number>();
-      hits.forEach((hit, idx) => rank.set(hit.noteId, idx));
-      return rank.has(n.id);
+      return searchRank.has(n.id);
     })
     .sort((a, b) =>
       viewMode === 'trash'
@@ -240,6 +245,17 @@ export default function Index() {
       setSelectedIds(new Set());
     } else setSelectedIds(new Set(visibleNotes.map((x) => x.id)));
   }, [selectedIds.size, visibleNotes]);
+
+  const pickFolderFromList = (folderList: Folder[]): Promise<string | null> =>
+    new Promise((resolve) => {
+      setPickSheet({
+        title: t('index.pick_folder'),
+        items: folderList.map((f) => ({ key: f.id, label: `📁 ${f.name}` })),
+        onPick: (key) => resolve(key),
+        onClose: () => resolve(null),
+        cancelText: t('common.cancel'),
+      });
+    });
 
   const batchPatch = async (field: 'isPinned' | 'isFavorite', val: boolean) => {
     const ids = Array.from(selectedIds);
@@ -355,17 +371,9 @@ export default function Index() {
         Taro.showToast({ title: t('index.need_folder'), icon: 'none' });
         return;
       }
-      const itemList = folderList.map((f) => f.name);
-      let ti: number;
-      try {
-        const res = await Taro.showActionSheet({ itemList });
-        ti = res.tapIndex;
-      } catch (e: any) {
-        if (e?.errMsg?.includes?.('cancel')) return;
-        throw e;
-      }
-      const fid = folderList[ti]!.id;
-      const fname = folderList[ti]!.name;
+      const fid = await pickFolderFromList(folderList);
+      if (!fid) return;
+      const fname = folderList.find((f) => f.id === fid)!.name;
       let ok = 0;
     let fail = 0;
       for (const id of ids) {
@@ -518,7 +526,7 @@ export default function Index() {
   }
 
   // 已解锁：显示主界面
-  const darkClass = useThemeDarkClass();
+
   return (
     <>
     <ThemeVars />
@@ -790,20 +798,27 @@ export default function Index() {
             }
             try {
               // 选模板:预设 + 服务端自定义(联机)
-              const customItems = serverTemplates.map((tp) => `🗂 ${tp.name}`);
-              const presetItems = PRESET_TEMPLATES.map((tp) => `${tp.icon} ${tp.name}`);
-              const tplRes = await Taro.showActionSheet({
-                itemList: [...presetItems, ...customItems],
+              const customItems = serverTemplates.map((tp) => ({ key: `c:${tp.id}`, label: `🗂 ${tp.name}` }));
+              const presetItems = PRESET_TEMPLATES.map((tp, i) => ({ key: `p:${i}`, label: `${tp.icon} ${tp.name}` }));
+              const pick = await new Promise<string | null>((resolve) => {
+                setPickSheet({
+                  title: t('index.pick_template'),
+                  items: [...presetItems, ...customItems],
+                  onPick: (key) => resolve(key),
+                  onClose: () => resolve(null),
+                  cancelText: t('common.cancel'),
+                });
               });
-              const pick = tplRes.tapIndex;
+              setPickSheet(null);
+              if (!pick) return;
               let tplName = '';
               let content = '';
-              if (pick < PRESET_TEMPLATES.length) {
-                const tpl = PRESET_TEMPLATES[pick]!;
+              if (pick.startsWith('p:')) {
+                const tpl = PRESET_TEMPLATES[Number(pick.slice(2))]!;
                 tplName = tpl.name;
                 content = fillTemplatePlaceholders(tpl.content);
               } else {
-                const ct = serverTemplates[pick - PRESET_TEMPLATES.length]!;
+                const ct = serverTemplates.find((tp) => `c:${tp.id}` === pick)!;
                 tplName = ct.name;
                 const env = parseEnvelope(ct.content);
                 const pt = await decryptNote(masterKey, env);
@@ -823,10 +838,8 @@ export default function Index() {
                   }
                   folderId = fresh[0]!.id;
                 } else {
-                  const res = await Taro.showActionSheet({
-                    itemList: folderList.map((f) => f.name),
-                  });
-                  folderId = folderList[res.tapIndex]!.id;
+                  folderId = await pickFolderFromList(folderList);
+                  if (!folderId) return;
                 }
               }
               const doc: NotePlaintext = { title: tplName, content, tags: [] };
@@ -877,10 +890,8 @@ export default function Index() {
                   }
                   folderId = fresh[0]!.id;
                 } else {
-                  const res = await Taro.showActionSheet({
-                    itemList: folderList.map((f) => f.name),
-                  });
-                  folderId = folderList[res.tapIndex]!.id;
+                  folderId = await pickFolderFromList(folderList);
+                  if (!folderId) return;
                 }
               }
               const empty: NotePlaintext = { title: t('index.new_note'), content: '', tags: [] };
