@@ -25,9 +25,13 @@ react {
   // 本地构建(无 CI 的 symlink 步骤)时定位 hermesc:pnpm hoisted 布局下
   // detectOSAwareHermesCommand 的相对查找(mobile/node_modules/...)不存在,
   // 显式给绝对路径。CI 环境路径相同,此设置同样成立。
-  def localHermesc = file("E:/works/dustnote/node_modules/react-native/sdks/hermesc/win64-bin/hermesc.exe")
-  if (localHermesc.exists()) {
-    hermesCommand.set(localHermesc.absolutePath)
+  // 仅 Windows 本机构建生效(CI Linux 上 file() 解析盘符路径会抛错)
+  if (org.apache.tools.ant.taskdefs.condition.Os.isFamily(
+      org.apache.tools.ant.taskdefs.condition.Os.FAMILY_WINDOWS)) {
+    def localHermesc = file("E:/works/dustnote/node_modules/react-native/sdks/hermesc/win64-bin/hermesc.exe")
+    if (localHermesc.exists()) {
+      hermesCommand.set(localHermesc.absolutePath)
+    }
   }
   // 侧载 debug 包必须内嵌 JS bundle:从 debuggableVariants 移除 debug 后,
   // debug 变体按 release 方式打包 bundle(默认走 Metro 开发服务器,离线白屏)
