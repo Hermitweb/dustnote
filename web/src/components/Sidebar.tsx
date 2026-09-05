@@ -439,9 +439,10 @@ export function Sidebar() {
   const isTrash = viewMode === 'trash';
   const selCount = selectedIds.size;
   const hasAll = visibleNotes.length > 0 && selectedIds.size === visibleNotes.length;
-  // 底部笔记列表区仅在「收藏 / 回收站 / 选中标签 / 搜索」时显示；
-  // 默认（全部）不再平铺，笔记已在文件夹树下归类显示。
-  const showNoteList = isTrash || viewMode === 'favorites' || !!normalizedQuery;
+  // 底部笔记列表区：收藏 / 回收站 / 搜索 / 选中文件夹时显示——
+  // 选中文件夹给出笔记列表与「选择」批量入口（默认全部视图仍只显示文件夹树）
+  const showNoteList =
+    isTrash || viewMode === 'favorites' || !!normalizedQuery || (viewMode === 'all' && selectedFolderId !== null);
   // 渐进加载：初始 50 条，滚动到底部时追加 50 条（替代硬截断）
   const [visibleCount, setVisibleCount] = useState(50);
   const loadMoreRef = useRef<HTMLDivElement>(null);
