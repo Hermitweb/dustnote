@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useStore } from './lib/store';
 import type { ThemeId, Mode } from './lib/store';
 import { useModeStore } from './lib/mode-store';
+import { isTauri } from './lib/platform';
 import { applyTheme, watchSystemTheme, applyTypography, THEMES } from './lib/theme';
 import { useUpdateCheck } from './lib/use-update-check';
 import { ForceUpdateOverlay } from './components/ForceUpdateOverlay';
@@ -261,7 +262,14 @@ function App() {
 
   // 首次启动：模式选择
   if (!modeInitialized) {
-    return <Suspense fallback={null}><ModeSelectDialog /></Suspense>;
+    // Web 端(应用由服务器直接托管):首次访问默认联机模式+同源地址,
+    // 免去每台新机器重复选择模式/填写地址;单机模式可在 设置→切换模式 选择
+    if (!isTauri()) {
+      useModeStore.getState().setMode('online');
+      useModeStore.getState().initialize();
+    } else {
+      return <Suspense fallback={null}><ModeSelectDialog /></Suspense>;
+    }
   }
 
   // 认证流程
