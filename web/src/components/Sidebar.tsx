@@ -785,7 +785,13 @@ export function Sidebar() {
                     ? `${t('sidebar.matched')} (${visibleNotes.length})`
                     : isTrash
                       ? `${t('sidebar.trash')} (${visibleNotes.length})`
-                      : `${t('sidebar.favorites')} (${visibleNotes.length})`}
+                      : viewMode === 'favorites'
+                        ? `${t('sidebar.favorites')} (${visibleNotes.length})`
+                        : (() => {
+                            // 全部视图+选中文件夹：显示文件夹名，不再误标「收藏」
+                            const f = folders.find((x) => x.id === selectedFolderId);
+                            return `${f ? `${f.icon ?? '📁'} ${f.name}` : t('sidebar.notes')} (${visibleNotes.length})`;
+                          })()}
                 </span>
                 {!isTrash && visibleNotes.length > 0 && (
                   <select

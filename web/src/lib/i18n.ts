@@ -639,7 +639,8 @@ const resources = {
         favorited: '已收藏',
         unfavorited: '未收藏',
         merged_hint: '合并会保留两边的改动，冲突字段优先采用你的编辑',
-      },
+      },      notes: '笔记',
+
     },
     tray: {
       pending_sync: '{{app}} · 待同步 {{count}} 条',
@@ -706,6 +707,7 @@ const resources = {
         title: 'Sidebar',
         all: 'All Notes',
         favorites: 'Favorites',
+      notes: 'Notes',
         trash: 'Trash',
         folders: 'Folders',
         unfiled_migrated: 'Moved {{count}} unfiled notes into "About DustNote"',
