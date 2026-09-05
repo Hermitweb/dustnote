@@ -20,12 +20,11 @@ export function Sidebar() {
   const notes = useStore((s) => s.notes);
   const notesPlain = useStore((s) => s.notesPlain);
   const selectedFolderId = useStore((s) => s.selectedFolderId);
+  const selectFolder = useStore((s) => s.selectFolder);
   const selectedNoteId = useStore((s) => s.selectedNoteId);
   const viewMode = useStore((s) => s.viewMode);
   const isOnline = useStore((s) => s.isOnline);
   const pendingCount = useStore((s) => s.pendingCount);
-
-  const selectFolder = useStore((s) => s.selectFolder);
   const createFolder = useStore((s) => s.createFolder);
   const createNote = useStore((s) => s.createNote);
   const deleteFolder = useStore((s) => s.deleteFolder);
@@ -62,6 +61,8 @@ export function Sidebar() {
   const [permDeleteNoteId, setPermDeleteNoteId] = useState<string | null>(null);
   // 笔记列表排序：updated（置顶+更新时间，默认）/ title / words
   const [sortKey, setSortKey] = useState<'updated' | 'title' | 'words'>('updated');
+  // 批量模式强制展开笔记列表(从文件夹头「选择」进入)
+  const [forceShowList, setForceShowList] = useState(false);
   // 搜索：E2EE 下服务端无法检索密文，必须在客户端对解密后的 notesPlain 做匹配。
   // 大小写不敏感、子串匹配 title/content/tags。空字符串 = 不过滤。
   const [searchQuery, setSearchQuery] = useState('');
@@ -442,7 +443,12 @@ export function Sidebar() {
   // 底部笔记列表区：收藏 / 回收站 / 搜索 / 选中文件夹时显示——
   // 选中文件夹给出笔记列表与「选择」批量入口（默认全部视图仍只显示文件夹树）
   const showNoteList =
-    isTrash || viewMode === 'favorites' || !!normalizedQuery || (viewMode === 'all' && selectedFolderId !== null);
+    isTrash ||
+    viewMode === 'favorites' ||
+    !!normalizedQuery ||
+    selecting ||
+    forceShowList ||
+    (viewMode === 'all' && selectedFolderId !== null);
   // 渐进加载：初始 50 条，滚动到底部时追加 50 条（替代硬截断）
   const [visibleCount, setVisibleCount] = useState(50);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -576,17 +582,30 @@ export function Sidebar() {
             <div className="mt-4">
               <div className="mb-1 flex items-center justify-between px-2 text-xs font-semibold text-surface-muted">
                 <span>{t('sidebar.folders')}</span>
-                <button
-                  onClick={() => {
-                    setNewFolderName('');
-                    setNewSubParent(null);
-                    setShowNewFolder(true);
-                  }}
-                  className="text-mint-600 hover:text-mint-700"
-                  title={t('sidebar.add_folder')}
-                >
-                  ＋
-                </button>
+                <span className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      selectFolder(null);
+                      setSelecting(true);
+                      setForceShowList(true);
+                    }}
+                    className="text-mint-600 hover:text-mint-700"
+                    title={t('sidebar.select_folder_tip')}
+                  >
+                    {t('sidebar.select')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setNewFolderName('');
+                      setNewSubParent(null);
+                      setShowNewFolder(true);
+                    }}
+                    className="text-mint-600 hover:text-mint-700"
+                    title={t('sidebar.add_folder')}
+                  >
+                    ＋
+                  </button>
+                </span>
               </div>
 
               {/* 新建顶层文件夹输入框 */}
