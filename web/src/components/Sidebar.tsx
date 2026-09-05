@@ -468,14 +468,11 @@ export function Sidebar() {
   const hasAll = visibleNotes.length > 0 && selectedIds.size === visibleNotes.length;
   // 底部笔记列表区：收藏 / 回收站 / 搜索 / 选中文件夹时显示——
   // 选中文件夹给出笔记列表与「选择」批量入口（默认全部视图仍只显示文件夹树）
-  const showNoteList =
-    (isTrash ||
-      viewMode === 'favorites' ||
-      !!normalizedQuery ||
-      forceShowList ||
-      (viewMode === 'all' && selectedFolderId !== null)) &&
-    // 批量模式下「全部」视图的勾选框直接落在文件夹树的笔记上,平铺列表隐藏
-    !(viewMode === 'all' && selecting);
+  // 平铺列表:回收站/收藏/搜索结果/批量强制展开时显示;
+  // 「全部」视图永远只显示文件夹树(勾选框在批量模式下落在树内笔记上),不并存
+  const showNoteList = isTrash || viewMode === 'favorites' || !!normalizedQuery || forceShowList;
+  // 文件夹树:仅「全部」视图且非搜索/批量展开时显示
+  const showFolderTree = viewMode === 'all' && !normalizedQuery && !forceShowList;
   // 渐进加载：初始 50 条，滚动到底部时追加 50 条（替代硬截断）
   const [visibleCount, setVisibleCount] = useState(50);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -605,7 +602,7 @@ export function Sidebar() {
 
           {/* 文件夹树仅在「全部笔记」视图显示（收藏/回收站/搜索时只显示对应列表，
               用户反馈：收藏视图不要显示多余文件夹） */}
-          {viewMode === 'all' && (
+          {showFolderTree && (
             <div className="mt-4">
               <div className="mb-1 flex items-center justify-between px-2 text-xs font-semibold text-surface-muted">
                 <span>{t('sidebar.folders')}</span>
