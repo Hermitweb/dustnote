@@ -274,9 +274,34 @@ export function Sidebar() {
     e.stopPropagation();
     setCtxMenu({ x: e.clientX, y: e.clientY, target });
   };
-  // 笔记叶子（内联在文件夹树下）：点击打开编辑器
+  // 笔记叶子（内联在文件夹树下）：点击打开编辑器；批量模式下显示勾选框
   const renderNoteLeaf = (n: NoteRow, indent: string) => {
     const plain = notesPlain.get(n.id);
+    const checked = selecting && selectedIds.has(n.id);
+    if (selecting) {
+      return (
+        <div
+          key={n.id}
+          className={`flex w-full items-center gap-1.5 rounded py-1.5 pr-2 text-left text-sm ${indent} ${
+            checked ? 'bg-mint-50 dark:bg-mint-900/20' : 'hover:bg-surface-bg'
+          }`}
+        >
+          <button
+            onClick={() => toggleSelect(n.id)}
+            className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border text-[10px] font-bold ${
+              checked
+                ? 'border-mint-600 bg-mint-600 text-white'
+                : 'border-surface-border text-transparent hover:border-mint-400'
+            }`}
+          >
+            ✓
+          </button>
+          <span className="text-xs">📄</span>
+          {n.isPinned && <span className="text-xs">📌</span>}
+          <span className="truncate text-surface-fg">{plain?.title ?? '...'}</span>
+        </div>
+      );
+    }
     return (
       <button
         key={n.id}
@@ -585,9 +610,9 @@ export function Sidebar() {
                 <span className="flex items-center gap-2">
                   <button
                     onClick={() => {
-                      selectFolder(null);
                       setSelecting(true);
                       setForceShowList(true);
+                      setSelectedIds(new Set());
                     }}
                     className="text-mint-600 hover:text-mint-700"
                     title={t('sidebar.select_folder_tip')}
