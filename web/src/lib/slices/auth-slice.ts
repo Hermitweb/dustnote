@@ -257,9 +257,21 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
       userId: string;
       deviceId: string;
       wrappedMasterKey: Ciphertext;
+      refreshToken?: string;
     }>('/auth/unlock', body);
 
     const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
+
+    // 桌面端(Tauri)跨源不携带 cookie:持久化 refresh token 供 X-Refresh-Token
+    // 刷新通道使用(web 同源走 cookie 通道,不落 localStorage)
+    const isTauriEnv = !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+    if (r.refreshToken && isTauriEnv) {
+      try {
+        localStorage.setItem('dustnote_refresh', r.refreshToken);
+      } catch {
+        /* ignore */
+      }
+    }
 
     set({
       accessToken: r.accessToken,

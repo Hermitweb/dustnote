@@ -46,15 +46,33 @@ async function refreshAccessToken(): Promise<string | null> {
       try {
         const { serverUrl } = useModeStore.getState();
         const base = serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : API_BASE;
+        // 桌面端(Tauri)跨源 SameSite=strict 拦 cookie → 走 X-Refresh-Token
+        // header 通道(unlock 响应体自管轮换,同 mobile);web 走 cookie 通道
+        const stored = (() => {
+          try {
+            return localStorage.getItem('dustnote_refresh');
+          } catch {
+            return null;
+          }
+        })();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (stored) headers['X-Refresh-Token'] = stored;
         const res = await fetch(`${base}/auth/refresh`, {
           method: 'POST',
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: '{}',
         });
         if (!res.ok) return null;
-        const data = (await res.json()) as { accessToken: string };
+        const data = (await res.json()) as { accessToken: string; refreshToken?: string };
         if (!data.accessToken) return null;
+        if (data.refreshToken && stored) {
+          try {
+            localStorage.setItem('dustnote_refresh', data.refreshToken);
+          } catch {
+            /* ignore */
+          }
+        }
         const { useStore } = await import('./store');
         useStore.setState({ accessToken: data.accessToken });
         return data.accessToken;

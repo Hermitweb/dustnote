@@ -9,7 +9,7 @@
 
 use std::sync::Mutex;
 use tauri::{
-    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
+    menu::{Menu, MenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager, WindowEvent,
 };
@@ -282,37 +282,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            // 原生菜单栏（原生壳层统一英文：安装包与系统菜单不随应用内容语言本地化；
-            // 窗口标题/托盘 tooltip 由前端按语言动态覆盖，见 App.tsx）
-            let new_note_i = MenuItem::with_id(app, "file_new_note", "New Note", true, Some("CommandOrControl+N"))?;
-            let file_quit_i = MenuItem::with_id(app, "file_quit", "Quit DustNote", true, Some("CommandOrControl+Q"))?;
-            let file_menu = Submenu::with_items(app, "File", true, &[&new_note_i, &file_quit_i])?;
-
-            let undo_i = PredefinedMenuItem::undo(app, Some("Undo"))?;
-            let redo_i = PredefinedMenuItem::redo(app, Some("Redo"))?;
-            let cut_i = PredefinedMenuItem::cut(app, Some("Cut"))?;
-            let copy_i = PredefinedMenuItem::copy(app, Some("Copy"))?;
-            let paste_i = PredefinedMenuItem::paste(app, Some("Paste"))?;
-            let select_all_i = PredefinedMenuItem::select_all(app, Some("Select All"))?;
-            let edit_menu = Submenu::with_items(app, "Edit", true, &[
-                &undo_i, &redo_i, &cut_i, &copy_i, &paste_i, &select_all_i
-            ])?;
-
-            let zoom_in_i = MenuItem::with_id(app, "view_zoom_in", "Zoom In", true, Some("CommandOrControl+="))?;
-            let zoom_out_i = MenuItem::with_id(app, "view_zoom_out", "Zoom Out", true, Some("CommandOrControl+-"))?;
-            let zoom_reset_i = MenuItem::with_id(app, "view_zoom_reset", "Reset Zoom", true, Some("CommandOrControl+0"))?;
-            let fullscreen_i = MenuItem::with_id(app, "view_toggle_fullscreen", "Fullscreen", true, Some("F11"))?;
-            let sidebar_i = MenuItem::with_id(app, "view_toggle_sidebar", "Sidebar", true, Some("CommandOrControl+B"))?;
-            let view_menu = Submenu::with_items(app, "View", true, &[
-                &zoom_in_i, &zoom_out_i, &zoom_reset_i, &fullscreen_i, &sidebar_i
-            ])?;
-
-            let about_i = MenuItem::with_id(app, "help_about", "About DustNote", true, None::<&str>)?;
-            let check_update_i = MenuItem::with_id(app, "help_check_update", "Check for Updates", true, None::<&str>)?;
-            let help_menu = Submenu::with_items(app, "Help", true, &[&about_i, &check_update_i])?;
-
-            let main_menu = Menu::with_items(app, &[&file_menu, &edit_menu, &view_menu, &help_menu])?;
-            app.set_menu(main_menu)?;
+            // 不设原生菜单栏（用户要求去掉 File/Edit/View/Help 行）：
+            // 退出走托盘右键/窗口关闭；新建笔记走界面按钮
 
             // 禁用 webview 右键菜单：三重防御
             //   1. Rust eval 注入 document 级 contextmenu preventDefault（此处，SPA 永久生效）
