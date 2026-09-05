@@ -81,6 +81,7 @@ export function Sidebar() {
 
   const exitSelect = useCallback(() => {
     setSelecting(false);
+    setForceShowList(false);
     setSelectedIds(new Set());
   }, []);
 
@@ -471,7 +472,6 @@ export function Sidebar() {
     isTrash ||
     viewMode === 'favorites' ||
     !!normalizedQuery ||
-    selecting ||
     forceShowList ||
     (viewMode === 'all' && selectedFolderId !== null);
   // 渐进加载：初始 50 条，滚动到底部时追加 50 条（替代硬截断）
@@ -611,7 +611,8 @@ export function Sidebar() {
                   <button
                     onClick={() => {
                       setSelecting(true);
-                      setForceShowList(true);
+                      // 自动展开所有文件夹,确保树内笔记可勾选
+                      setFolderExpanded(new Set(folders.map((f) => f.id)));
                       setSelectedIds(new Set());
                     }}
                     className="text-mint-600 hover:text-mint-700"
