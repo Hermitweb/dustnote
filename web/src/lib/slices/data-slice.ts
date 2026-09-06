@@ -231,13 +231,21 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const masterKey = get().masterKey;
     if (!masterKey) throw new Error('未解锁');
 
+    // 幽灵笔记根治:调用方(命令面板/快捷键/快速记事)未指定文件夹时
+    // 回退到第一个文件夹,避免产生 folderId=null 的「无归属」笔记
+    let effectiveFolderId = folderId;
+    if (effectiveFolderId == null) {
+      const first = [...get().folders.values()].find((f) => !f.parentId) ?? [...get().folders.values()][0];
+      effectiveFolderId = first ? first.id : null;
+    }
+
     const noteId = randomUuid();
     const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
     const { json: cipherJson } = await encryptNote(masterKey, empty, noteAad(noteId, get().userId ?? ''));
 
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
-      const id = await repository.createNote({ id: noteId, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, folderId });
+      const id = await repository.createNote({ id: noteId, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, folderId: effectiveFolderId });
       const now = new Date().toISOString();
       const note: NoteRow = { id, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, deletedAt: null, version: 1, clientUpdatedAt: now, serverUpdatedAt: now, folderId };
       const newNotes = new Map(get().notes); newNotes.set(id, note);
@@ -246,7 +254,7 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
       return id;
     }
 
-    const r = await api().post<{ id: string; serverUpdatedAt: string; version: number }>('/notes', { id: noteId, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, clientUpdatedAt: new Date().toISOString(), folderId });
+    const r = await api().post<{ id: string; serverUpdatedAt: string; version: number }>('/notes', { id: noteId, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, clientUpdatedAt: new Date().toISOString(), folderId: effectiveFolderId });
     const note: NoteRow = { id: r.id, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, deletedAt: null, version: r.version, clientUpdatedAt: new Date().toISOString(), serverUpdatedAt: r.serverUpdatedAt, folderId };
     const newNotes = new Map(get().notes); newNotes.set(note.id, note);
     const newPlain = new Map(get().notesPlain); newPlain.set(note.id, empty);

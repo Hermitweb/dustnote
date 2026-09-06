@@ -88,6 +88,7 @@ export function Editor() {
   const [mode, setMode] = useState<'edit' | 'preview' | 'split' | 'wysiwyg'>('split');
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  // 右键菜单「分享」:监听全局事件打开当前笔记的分享对话框
   // 斜杠命令状态
   const [showSlash, setShowSlash] = useState(false);
   const [slashQuery, setSlashQuery] = useState('');
@@ -407,7 +408,17 @@ export function Editor() {
       }
     };
     window.addEventListener('editor:save-now', saveNow);
-    return () => window.removeEventListener('editor:save-now', saveNow);
+    const onShareCurrent = (e: Event) => {
+      const detail = (e as CustomEvent<{ id?: string }>).detail;
+      if (!detail?.id || detail.id !== note?.id) return;
+      setShowShare(true);
+    };
+    window.addEventListener('app:share-current', onShareCurrent);
+    const offShare = () => window.removeEventListener('app:share-current', onShareCurrent);
+    return () => {
+      window.removeEventListener('editor:save-now', saveNow);
+      offShare();
+    };
   }, [note, plain, title, content, updateNote]);
 
   if (!note || !plain) {

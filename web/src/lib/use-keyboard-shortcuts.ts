@@ -38,10 +38,10 @@ function buildShortcuts(authState: AuthState): ShortcutDef[] {
 
   return [
     {
+      // web 端 Ctrl+N 覆盖浏览器「新建窗口」:笔记应用内更常用
       key: 'ctrl+n',
-      desktopOnly: true,
       action: () => {
-        void useStore.getState().createNote();
+        window.dispatchEvent(new CustomEvent('app:new-note'));
       },
     },
     {
@@ -52,10 +52,25 @@ function buildShortcuts(authState: AuthState): ShortcutDef[] {
       },
     },
     {
+      // web 端 Ctrl+S 覆盖浏览器「保存页面」:对笔记应用更合理
       key: 'ctrl+s',
-      desktopOnly: true,
       action: () => {
         window.dispatchEvent(new CustomEvent('editor:save-now'));
+      },
+    },
+    {
+      // Delete:把当前选中笔记移入回收站(输入框内不触发)
+      key: 'delete',
+      action: () => {
+        void (async () => {
+          const st = useStore.getState();
+          const id = st.selectedNoteId;
+          if (!id) return;
+          const note = st.notes.get(id);
+          if (!note || note.deletedAt) return;
+          if (!window.confirm('确定将该笔记移入回收站?')) return;
+          await st.deleteNote(id);
+        })();
       },
     },
     {

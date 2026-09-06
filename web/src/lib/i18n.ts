@@ -80,6 +80,11 @@ const resources = {
         ctx: {
           new_file: '新增文件',
           new_folder: '新增子文件夹',
+        share: '分享',
+        favorite: '收藏',
+        unfavorite: '取消收藏',
+        pin: '置顶',
+        unpin: '取消置顶',
           rename: '重命名',
           move: '移动',
           delete: '删除',
@@ -728,6 +733,11 @@ const resources = {
         ctx: {
           new_file: 'New note',
           new_folder: 'New subfolder',
+          share: 'Share',
+          favorite: 'Favorite',
+          unfavorite: 'Unfavorite',
+          pin: 'Pin',
+          unpin: 'Unpin',
           rename: 'Rename',
           move: 'Move',
           delete: 'Delete',

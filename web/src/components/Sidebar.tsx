@@ -1248,6 +1248,36 @@ export function Sidebar() {
             {ctxMenu.target.type === 'note' && (
               <>
                 <MenuItem
+                  label={notes.get(ctxMenu.target.id)?.isFavorite ? t('sidebar.ctx.unfavorite') : t('sidebar.ctx.favorite')}
+                  onClick={() => {
+                    const cur = notes.get(ctxMenu.target.id);
+                    if (!cur) return;
+                    void updateNote(cur.id, { isFavorite: !cur.isFavorite });
+                    closeCtxMenu();
+                  }}
+                />
+                <MenuItem
+                  label={notes.get(ctxMenu.target.id)?.isPinned ? t('sidebar.ctx.unpin') : t('sidebar.ctx.pin')}
+                  onClick={() => {
+                    const cur = notes.get(ctxMenu.target.id);
+                    if (!cur) return;
+                    void updateNote(cur.id, { isPinned: !cur.isPinned });
+                    closeCtxMenu();
+                  }}
+                />
+                {isOnline && (
+                  <MenuItem
+                    label={t('sidebar.ctx.share')}
+                    onClick={() => {
+                      selectNote(ctxMenu.target.id);
+                      closeCtxMenu();
+                      window.dispatchEvent(
+                        new CustomEvent('app:share-current', { detail: { id: ctxMenu.target.id } })
+                      );
+                    }}
+                  />
+                )}
+                <MenuItem
                   label={t('sidebar.ctx.rename')}
                   onClick={() => {
                     setRenameTarget(ctxMenu.target);
