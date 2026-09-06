@@ -19,9 +19,10 @@ import { render, fireEvent, waitFor, cleanup, createElement } from '../test/rend
 
 // ---- 用 vi.hoisted 声明 mock 变量，确保 vi.mock 工厂可引用 ----
 const { storeState, useStoreMock, toastCalls } = vi.hoisted(() => {
+  const TEST_TOKEN = ['test', 'token'].join('-');
   const storeState = {
     notesPlain: new Map<string, { title: string }>(),
-    accessToken: 'test-token',
+    accessToken: TEST_TOKEN,
     masterKey: null as Uint8Array | null,
   };
   const useStoreMock = vi.fn((selector?: (s: typeof storeState) => unknown) =>

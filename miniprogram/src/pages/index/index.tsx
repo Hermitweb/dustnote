@@ -30,7 +30,7 @@ import {
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo } from '../../lib/get-repo';
 import { ensureDefaultContent } from '../../lib/default-content';
-import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders, type Template } from '@dustnote/shared';
+import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders, encryptString, randomBytes, wrapKey, toBase64Url, type Template } from '@dustnote/shared';
 import { randomUuid } from '../../lib/uuid';
 import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
 import { PickSheet, type PickItem } from '../../components/PickSheet';
@@ -287,6 +287,48 @@ export default function Index() {
     });
     exitSelect();
     await load();
+  };
+
+  // 行内分享：直接创建分享并复制链接（无密码/永久，进阶选项在编辑页分享弹窗）
+  const shareFromList = async (n: Note) => {
+    const mk = useAuthStore.getState().masterKey;
+    if (!mk) {
+      Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
+      return;
+    }
+    if (mode !== 'online') {
+      Taro.showToast({ title: t('editor.share_online_only'), icon: 'none' });
+      return;
+    }
+    try {
+      const shareKey = randomBytes(32);
+      const pt = plains[n.id] ?? { title: '', content: '' };
+      const ciphertext = await encryptString(shareKey, JSON.stringify({ title: pt.title, content: pt.content }));
+      const wrappedShareKey = await wrapKey(mk, shareKey);
+      const r = await getApi().post<{ token: string }>('/shares', {
+        noteId: n.id,
+        ciphertext,
+        wrappedShareKey,
+      });
+      const key = toBase64Url(shareKey);
+      // 与编辑页 doCreateShare 同构：weapp 复制浏览器可开的 https 链接
+      const shareUrl = `${(useModeStore.getState().serverUrl ?? '').replace(/\/+$/, '')}/share/${r.token}#${key}`;
+      await Taro.setClipboardData({ data: shareUrl });
+      Taro.showToast({ title: t('editor.share_link_copied'), icon: 'success' });
+    } catch (err: any) {
+      const msg = err?.err?.message || err?.message || t('common.unknown_error');
+      Taro.showToast({ title: t('editor.share_failed_msg', { msg }), icon: 'none', duration: 3000 });
+    }
+  };
+
+  // 行内置顶切换
+  const pinSingle = async (n: Note) => {
+    try {
+      await getRepo().updateNote(n.id, { isPinned: !n.isPinned } as any);
+      await load();
+    } catch {
+      Taro.showToast({ title: t('common.save_failed'), icon: 'none' });
+    }
   };
 
   const batchDelete = async () => {
@@ -725,6 +767,12 @@ export default function Index() {
                 <View className="note-actions">
                   <Text
                     className="mint-btn mint-btn-sm mint-btn-ghost"
+                    onClick={() => void pinSingle(n)}
+                  >
+                    {n.isPinned ? `📌 ${t('index.unpin')}` : `📌 ${t('index.pin')}`}
+                  </Text>
+                  <Text
+                    className="mint-btn mint-btn-sm mint-btn-ghost"
                     onClick={async () => {
                       try {
                         const repo = getRepo();
@@ -737,6 +785,14 @@ export default function Index() {
                   >
                     {n.isFavorite ? `⭐ ${t('index.unfavorite')}` : `☆ ${t('index.favorite')}`}
                   </Text>
+                  {mode === 'online' && (
+                    <Text
+                      className="mint-btn mint-btn-sm mint-btn-ghost"
+                      onClick={() => void shareFromList(n)}
+                    >
+                      🔗 {t('index.share')}
+                    </Text>
+                  )}
                   <Text
                     className="mint-btn mint-btn-sm mint-btn-ghost"
                     onClick={() => {

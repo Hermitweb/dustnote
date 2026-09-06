@@ -87,6 +87,9 @@ const en: typeof zhCN = {
     unfavorite: '⭐ Unfavorite',
     batch_favorited: 'Favorited {{count}} note(s)',
     batch_unfavorited: 'Unfavorited {{count}} note(s)',
+    pin: 'Pin',
+    unpin: 'Unpin',
+    share: 'Share',
   },
   editor: {
     edit_tags: 'Edit tags',

@@ -22,16 +22,28 @@ import {
   Alert,
   ScrollView,
   Modal,
+  Share,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
 import { useTranslation } from 'react-i18next';
-import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders, type NoteRow, type Folder } from '@dustnote/shared';
+import {
+  noteAad,
+  PRESET_TEMPLATES,
+  fillTemplatePlaceholders,
+  encryptString,
+  randomBytes,
+  wrapKey,
+  toBase64Url,
+  type NoteRow,
+  type Folder,
+} from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
-import { useModeStore } from '../lib/mode-store';
+import { useModeStore, resolveBaseUrl } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
+import { buildClientHeaders } from '../api';
 import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../lib/offline-queue';
 import { decryptNote, packEnvelope } from '../lib/envelope';
 import { ensureDefaultContent } from '../lib/default-content';
@@ -237,6 +249,90 @@ export function NotesListScreen() {
     );
   }, [filtered]);
 
+  // ── 长按操作菜单（与 web 右键菜单对齐：收藏/置顶/分享） ──
+  const [actionNote, setActionNote] = useState<NoteListItem | null>(null);
+  const closeAction = useCallback(() => setActionNote(null), []);
+
+  const toggleNotePin = useCallback(
+    async (item: NoteListItem) => {
+      try {
+        await repo.updateNote(item.id, {
+          isPinned: !item.isPinned,
+          isFavorite: item.isFavorite,
+        });
+        await load();
+      } catch (err) {
+        Alert.alert(t('editor.operation_failed'), (err as Error).message);
+      }
+    },
+    [repo, load, t]
+  );
+
+  const toggleNoteFavorite = useCallback(
+    async (item: NoteListItem) => {
+      try {
+        await repo.updateNote(item.id, {
+          isFavorite: !item.isFavorite,
+          isPinned: item.isPinned,
+        });
+        await load();
+      } catch (err) {
+        Alert.alert(t('editor.operation_failed'), (err as Error).message);
+      }
+    },
+    [repo, load, t]
+  );
+
+  // 分享：与编辑器 onShare 同构（shareKey 本地生成、密钥 fragment 不回服务端）
+  const shareNote = useCallback(
+    async (item: NoteListItem) => {
+      if (!masterKey) {
+        Alert.alert(t('common.hint'), t('editor.share_unlock_required'));
+        return;
+      }
+      if (mode !== 'online') {
+        Alert.alert(t('common.hint'), t('editor.share_online_only'));
+        return;
+      }
+      try {
+        const shareKey = randomBytes(32);
+        const plaintext: NotePlaintext = item.plain ?? {
+          title: t('editor.untitled'),
+          content: '',
+          tags: [],
+        };
+        const ciphertext = await encryptString(shareKey, JSON.stringify(plaintext));
+        const wrappedShareKey = await wrapKey(masterKey, shareKey);
+        const baseUrl = resolveBaseUrl().replace(/\/api\/v1$/, '');
+        const token = useAuthStore.getState().accessToken;
+        const clientHeaders = await buildClientHeaders();
+        const r = await fetch(`${baseUrl}/api/v1/shares`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            ...clientHeaders,
+          },
+          body: JSON.stringify({
+            noteId: item.id,
+            ciphertext,
+            wrappedShareKey,
+          }),
+        });
+        const data = (await r.json()) as { token: string; error?: string; message?: string };
+        if (!r.ok) {
+          Alert.alert(t('editor.share_failed'), data.message ?? data.error ?? `HTTP ${r.status}`);
+          return;
+        }
+        const shareUrl = `${baseUrl}/share/${data.token}#${toBase64Url(shareKey)}`;
+        await Share.share({ message: shareUrl, title: plaintext.title || t('editor.share_title') });
+      } catch (err) {
+        Alert.alert(t('editor.share_failed'), (err as Error).message);
+      }
+    },
+    [masterKey, mode, t]
+  );
+
   const doBatchMove = useCallback(
     async (folderId: string | null) => {
       setMoveModalVisible(false);
@@ -406,7 +502,8 @@ export function NotesListScreen() {
               navigation.navigate('NoteEdit', { noteId: item.id });
             }}
             onLongPress={() => {
-              if (!selecting) enterSelect(item.id);
+              // 长按弹操作菜单（收藏/置顶/分享/批量），不再直接进多选
+              if (!selecting) setActionNote(item);
             }}
             delayLongPress={350}
           >
@@ -571,6 +668,75 @@ export function NotesListScreen() {
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
+
+      {/* 长按操作菜单（收藏/置顶/分享/批量选择，对齐 web 右键菜单） */}
+      <Modal
+        visible={actionNote !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeAction}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={closeAction}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.modalSheet}>
+            <Text style={styles.modalTitle} numberOfLines={1}>
+              {actionNote?.plain?.title ?? t('editor.untitled')}
+            </Text>
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                const item = actionNote;
+                closeAction();
+                if (item) void toggleNotePin(item);
+              }}
+            >
+              <Text style={styles.modalItemText}>
+                📌 {actionNote?.isPinned ? t('notes.ctx_unpin') : t('notes.ctx_pin')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                const item = actionNote;
+                closeAction();
+                if (item) void toggleNoteFavorite(item);
+              }}
+            >
+              <Text style={styles.modalItemText}>
+                ⭐ {actionNote?.isFavorite ? t('notes.ctx_unfavorite') : t('notes.ctx_favorite')}
+              </Text>
+            </TouchableOpacity>
+            {mode === 'online' && (
+              <TouchableOpacity
+                style={styles.modalItem}
+                onPress={() => {
+                  const item = actionNote;
+                  closeAction();
+                  if (item) void shareNote(item);
+                }}
+              >
+                <Text style={styles.modalItemText}>🔗 {t('notes.ctx_share')}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                const id = actionNote?.id;
+                closeAction();
+                if (id) enterSelect(id);
+              }}
+            >
+              <Text style={styles.modalItemText}>☑️ {t('notes.ctx_batch_select')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalCancel} onPress={closeAction}>
+              <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {/* 模板选择弹层(长按 FAB 触发) */}

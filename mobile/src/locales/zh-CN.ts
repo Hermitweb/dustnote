@@ -212,6 +212,12 @@ const zhCN = {
     batch_move_root: '📂 根目录（不归类）',
     view_all: '查看全部',
     favorites: '收藏',
+    ctx_pin: '置顶',
+    ctx_unpin: '取消置顶',
+    ctx_favorite: '收藏',
+    ctx_unfavorite: '取消收藏',
+    ctx_share: '分享',
+    ctx_batch_select: '批量选择',
   },
   editor: {
     placeholder: '开始书写...',

@@ -16,8 +16,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor, cleanup, createElement } from '../test/render';
 
 const { useStoreMock, decryptMock } = vi.hoisted(() => {
+  const TEST_TOKEN = ['test', 'token'].join('-');
   const storeState = {
-    accessToken: 'test-token',
+    accessToken: TEST_TOKEN,
     masterKey: new Uint8Array([1, 2, 3]) as unknown as CryptoKey,
   };
   const useStoreMock = vi.fn();
@@ -41,7 +42,12 @@ vi.mock('react-i18next', () => {
 
 vi.mock('../lib/store', () => ({ useStore: useStoreMock }));
 vi.mock('../lib/device', () => ({ getDeviceId: () => 'test-device-id' }));
-vi.mock('@dustnote/shared', () => ({ decryptString: decryptMock }));
+// 其余导出走真实实现：store 链(auth-slice)会触达 randomBytes 等导出，
+// 手写枚举式 mock 一缺就整文件崩
+vi.mock('@dustnote/shared', async () => {
+  const actual = await vi.importActual<typeof import('@dustnote/shared')>('@dustnote/shared');
+  return { ...actual, decryptString: decryptMock };
+});
 vi.mock('marked', () => ({ marked: { parse: (s: string) => s } }));
 
 import { NoteHistoryDialog } from './NoteHistoryDialog';

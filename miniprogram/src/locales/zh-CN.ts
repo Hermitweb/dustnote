@@ -90,6 +90,9 @@ const zhCN = {
     unfavorite: '⭐ 取消收藏',
     batch_favorited: '已收藏 {{count}} 条',
     batch_unfavorited: '已取消收藏 {{count}} 条',
+    pin: '置顶',
+    unpin: '取消置顶',
+    share: '分享',
   },
   editor: {
     edit_tags: '编辑标签',

@@ -212,6 +212,12 @@ const en = {
     batch_move_root: '📂 Root (unfiled)',
     view_all: 'View all',
     favorites: 'Favorites',
+    ctx_pin: 'Pin to top',
+    ctx_unpin: 'Unpin',
+    ctx_favorite: 'Favorite',
+    ctx_unfavorite: 'Unfavorite',
+    ctx_share: 'Share',
+    ctx_batch_select: 'Select multiple',
   },
   editor: {
     placeholder: 'Start writing...',
