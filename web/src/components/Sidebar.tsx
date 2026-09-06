@@ -280,23 +280,24 @@ export function Sidebar() {
     const plain = notesPlain.get(n.id);
     const checked = selecting && selectedIds.has(n.id);
     if (selecting) {
+      // 整行任意位置点击 = 切换勾选(不只勾选框)
       return (
         <div
           key={n.id}
-          className={`flex w-full items-center gap-1.5 rounded py-1.5 pr-2 text-left text-sm ${indent} ${
+          onClick={() => toggleSelect(n.id)}
+          className={`flex w-full cursor-pointer items-center gap-1.5 rounded py-1.5 pr-2 text-left text-sm ${indent} ${
             checked ? 'bg-mint-50 dark:bg-mint-900/20' : 'hover:bg-surface-bg'
           }`}
         >
-          <button
-            onClick={() => toggleSelect(n.id)}
+          <span
             className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border text-[10px] font-bold ${
               checked
                 ? 'border-mint-600 bg-mint-600 text-white'
-                : 'border-surface-border text-transparent hover:border-mint-400'
+                : 'border-surface-border text-transparent'
             }`}
           >
             ✓
-          </button>
+          </span>
           <span className="text-xs">📄</span>
           {n.isPinned && <span className="text-xs">📌</span>}
           <span className="truncate text-surface-fg">{plain?.title ?? '...'}</span>
@@ -610,8 +611,6 @@ export function Sidebar() {
                   <button
                     onClick={() => {
                       setSelecting(true);
-                      // 自动展开所有文件夹,确保树内笔记可勾选
-                      setFolderExpanded(new Set(folders.map((f) => f.id)));
                       setSelectedIds(new Set());
                     }}
                     className="text-mint-600 hover:text-mint-700"
@@ -1020,6 +1019,20 @@ export function Sidebar() {
               {t('sidebar.selected_count', { count: selCount })}
             </div>
             <div className="flex flex-wrap gap-1">
+              <BatchBtn
+                label={
+                  visibleNotes.length > 0 && visibleNotes.every((n) => selectedIds.has(n.id))
+                    ? t('sidebar.deselect_all')
+                    : t('sidebar.select_all')
+                }
+                onClick={() => {
+                  const allSelected =
+                    visibleNotes.length > 0 && visibleNotes.every((n) => selectedIds.has(n.id));
+                  setSelectedIds(
+                    new Set(allSelected ? [] : visibleNotes.map((n) => n.id))
+                  );
+                }}
+              />
               {viewMode !== 'trash' && (
                 <>
                   <BatchBtn
