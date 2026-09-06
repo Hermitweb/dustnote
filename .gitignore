@@ -108,3 +108,4 @@ ISSUE_*.md
 .deploy/
 miniprogram/.swc/
 .server-data/
+.mp-debug-out.txt
