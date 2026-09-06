@@ -126,6 +126,18 @@ async function fetchManifest(): Promise<{
   }
 }
 
+/** 从 URL 提取 origin 前缀（origin + '/'），仅接受 http/https；解析失败返回空串 */
+function originPrefix(u: string | null | undefined): string {
+  if (!u) return '';
+  try {
+    const parsed = new URL(u);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    return `${parsed.origin}/`;
+  } catch {
+    return '';
+  }
+}
+
 /** 把 Velopack 更新 API 挂到 window 上，供复用的 web 组件访问 */
 export function registerUpdaterApi(): void {
   if (!isTauri()) return;
@@ -158,16 +170,19 @@ export function registerUpdaterApi(): void {
       if (!cachedInstallerSha256) {
         throw new Error('安装包缺少校验值，已取消更新（请稍后重试或手动下载）');
       }
-      // 白名单由前端下发：GitHub Releases 前缀 + 用户配置的服务器 origin
-      //（manifest 与安装包都来自该服务器，产物已切自托管下载）
+      // 白名单按 URL origin 归一化（字符串前缀匹配会被端口书写差异
+      // 坑到：serverUrl 带 :443、manifest 不带，同一来源判为不同）。
+      // 允许 GitHub Releases 前缀 + 服务器 origin + manifest 产物自身
+      // origin（manifest 来自用户配置的服务器，其声明的下载地址同属
+      // 一个信任域——反代/CDN 域名与 serverUrl 不同也照常放行）
       const { serverUrl } = useModeStore.getState();
-      const origin = serverUrl?.replace(/\/+$/, '') ?? '';
       await invoke<string>('download_and_run_installer', {
         url: cachedInstallerUrl,
         expectedSha256: cachedInstallerSha256,
         allowedPrefixes: [
           'https://github.com/Hermitweb/dustnote/releases/download/',
-          origin ? `${origin}/` : '',
+          originPrefix(serverUrl),
+          originPrefix(cachedInstallerUrl),
         ].filter(Boolean),
       });
       return true;
