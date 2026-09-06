@@ -54,7 +54,18 @@ interface Folder {
 }
 type ViewMode = 'all' | 'favorite' | 'trash';
 
+/** ThemeVars 必须在所有渲染分支(含锁定/加载早退分支)都挂载，
+ * 否则导航栏颜色无人设置，darkmode 原生行为会让页头与应用主题脱钩 */
 export default function Index() {
+  return (
+    <>
+      <ThemeVars />
+      <IndexBody />
+    </>
+  );
+}
+
+function IndexBody() {
   const authState = useAuthInit();
   const lock = useAuthStore((s) => s.lock);
   const unlock = useAuthStore((s) => s.unlock);
@@ -188,11 +199,13 @@ export default function Index() {
 
   // ---------- 多选 ----------
   // 搜索排名(每次渲染最多算一次,避免逐笔记重复检索)
+  const searchQueryTrimmed = searchQuery.trim();
   const searchRank = (() => {
-    const q = searchQuery.trim();
     const rank = new Map<string, number>();
-    if (!q) return rank;
-    searchIndexRef.current.search(q).forEach((hit, idx) => rank.set(hit.noteId, idx));
+    if (!searchQueryTrimmed) return rank;
+    searchIndexRef.current
+      .search(searchQueryTrimmed)
+      .forEach((hit, idx) => rank.set(hit.noteId, idx));
     return rank;
   })();
   const visibleNotes = notes
@@ -207,6 +220,8 @@ export default function Index() {
     })
     .filter((n) => {
       if (activeTag && !(plains[n.id]?.tags ?? []).includes(activeTag)) return false;
+      // 无搜索词时放行全部(2.5.34 搜索重构丢失此守卫导致列表恒空)
+      if (!searchQueryTrimmed) return true;
       return searchRank.has(n.id);
     })
     .sort((a, b) =>
@@ -571,7 +586,6 @@ export default function Index() {
 
   return (
     <>
-    <ThemeVars />
       <View className={`page ${darkClass}`}>
       <View className="topbar">
         {selecting ? (

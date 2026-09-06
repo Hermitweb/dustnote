@@ -31,14 +31,18 @@ export default {
     },
   },
   window: {
-    backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#fff',
+    backgroundTextStyle: '@bgTxtStyle',
+    navigationBarBackgroundColor: '@navBgColor',
     navigationBarTitleText: 'DustNote',
-    navigationBarTextStyle: 'black',
+    navigationBarTextStyle: '@navTxtStyle',
+    backgroundColor: '@bgColor',
   },
   // weapp 深色模式：开启后 onThemeChange 事件可用，ThemeVars(PageMeta pageStyle)
-  // 注入页面变量实现手动 light/dark 切换，auto 跟随系统
+  // 注入页面变量实现手动 light/dark 切换，auto 跟随系统。
+  // themeLocation 提供 darkmode 原生导航栏/窗口的成对配色——缺了它微信会用
+  // 自己的默认色切导航栏，与页面内容主题脱钩（页头颜色反转 bug 根因）
   darkmode: true,
+  themeLocation: 'theme.json',
   // 语音听写：微信同声传译插件(需在小程序管理后台添加后可用)
   plugins: {
     WechatSI: {
