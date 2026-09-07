@@ -764,9 +764,7 @@ ${text}` : text));
     <ThemeVars />
       <View className={`page ${darkClass}`}>
       <View className="topbar">
-        <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
-          ←
-        </Text>
+        {/* 返回用原生导航栏左上角箭头（useUnload 会冲刷未保存修改）；此处只留保存状态 */}
         <Text className="save-indicator">{statusText}</Text>
         <View className="topbar-actions">
           <Text
