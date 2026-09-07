@@ -16,7 +16,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, Input, Image } from '@tarojs/components';
+import { View, Text, Image } from '@tarojs/components';
+import { FInput } from '../../components/FInput';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
@@ -115,7 +116,7 @@ export default function StandaloneUnlock() {
         </View>
       )}
 
-      <Input
+      <FInput
         className="mint-input"
         password
         placeholder={t('common.master_password')}

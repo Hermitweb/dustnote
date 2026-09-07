@@ -3,7 +3,8 @@
  * 接入 E2EE：调用 store.unlock 完成密码校验 + masterKey 重新派生
  */
 import React, { useEffect, useState } from 'react';
-import { View, Text, Input, Image } from '@tarojs/components';
+import { View, Text, Image } from '@tarojs/components';
+import { FInput } from '../../components/FInput';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
@@ -54,18 +55,18 @@ export default function Unlock() {
       <Text className="hero-title text-mint">{t('app.name')}</Text>
       <Text className="hero-subtitle mb-l">{t('unlock.subtitle')}</Text>
 
-      <Input
+      <FInput
         className="mint-input"
         password
-        placeholder={password ? '' : t('common.master_password')}
+        placeholder={t('common.master_password')}
         value={password}
         onInput={(e) => setPassword((e.detail as { value: string }).value)}
       />
 
       {showTotp && (
-        <Input
+        <FInput
           className="mint-input"
-          placeholder={totpCode ? '' : t('unlock.totp_placeholder')}
+          placeholder={t('unlock.totp_placeholder')}
           type="number"
           maxlength={6}
           value={totpCode}

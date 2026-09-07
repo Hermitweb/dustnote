@@ -7,7 +7,8 @@
  *   - weapp：宿主机局域网 IP（需在开发者工具勾选「不校验合法域名」）
  */
 import React, { useState, useEffect } from 'react';
-import { View, Text, Input } from '@tarojs/components';
+import { View, Text } from '@tarojs/components';
+import { FInput } from '../../components/FInput';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
@@ -132,7 +133,7 @@ export default function Share() {
     return (
       <View className="hero">
         <Text className="hero-title">{t('share.need_pwd')}</Text>
-        <Input
+        <FInput
           className="mint-input"
           password
           placeholder={t('share.pwd_placeholder')}

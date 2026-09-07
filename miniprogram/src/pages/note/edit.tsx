@@ -11,7 +11,8 @@
  * - 分享功能仅联机模式可用（单机模式隐藏分享按钮）
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, Input, Textarea, ScrollView } from '@tarojs/components';
+import { View, Text, ScrollView } from '@tarojs/components';
+import { FInput, FTextarea } from '../../components/FInput';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { startVoice, stopVoice } from '../../lib/voice';
@@ -710,7 +711,7 @@ ${text}` : text));
       </View>
 
       <View className="editor-body">
-        <Input
+        <FInput
           className="mint-input-title"
           value={title}
           onInput={(e) => setTitle((e.detail as { value: string }).value)}
@@ -737,7 +738,7 @@ ${text}` : text));
           </ScrollView>
         ) : (
           <>
-          <Textarea
+          <FTextarea
             className="mint-textarea flex-1"
             value={content}
             onInput={(e) => {
@@ -784,7 +785,7 @@ ${text}` : text));
         <View className="modal-mask" onClick={() => !sharing && setShareOpen(false)}>
           <View className="modal-card" onClick={(e) => e.stopPropagation()}>
             <Text className="modal-title">{t('editor.share_title')}</Text>
-            <Input
+            <FInput
               className="mint-input"
               password
               placeholder={t('editor.share_pwd_placeholder')}

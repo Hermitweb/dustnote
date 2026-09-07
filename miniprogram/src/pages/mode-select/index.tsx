@@ -11,7 +11,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, Input, Image } from '@tarojs/components';
+import { View, Text, Image } from '@tarojs/components';
+import { FInput } from '../../components/FInput';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
@@ -244,9 +245,9 @@ export default function ModeSelect() {
         <Text className="hint mt-s" style={{ display: 'block' }}>
           {t('mode_select.online_desc')}
         </Text>
-        <Input
+        <FInput
           className="mint-input mt-m"
-          placeholder={serverUrl ? '' : 'http://192.168.x.x:3210'}
+          placeholder={'http://192.168.x.x:3210'}
           value={serverUrl}
           onInput={(e) => {
             const v = (e.detail as { value: string }).value;

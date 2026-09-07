@@ -15,7 +15,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, Input, Image } from '@tarojs/components';
+import { View, Text, Image } from '@tarojs/components';
+import { FInput } from '../../components/FInput';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
@@ -93,14 +94,14 @@ export default function StandaloneSetup() {
       <Text className="hero-title text-center">{t('standalone_setup.title')}</Text>
       <Text className="hero-subtitle mb-l text-center">{t('standalone_setup.subtitle')}</Text>
 
-      <Input
+      <FInput
         className="mint-input"
         password
         placeholder={t('standalone_setup.pwd_placeholder')}
         value={password}
         onInput={(e) => setPassword((e.detail as { value: string }).value)}
       />
-      <Input
+      <FInput
         className="mint-input"
         password
         placeholder={t('standalone_setup.confirm_placeholder')}

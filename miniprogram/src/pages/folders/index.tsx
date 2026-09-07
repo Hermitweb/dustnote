@@ -12,6 +12,7 @@
  */
 import React, { useState } from 'react';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
+import { FInput } from '../../components/FInput';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { getRepo } from '../../lib/get-repo';
@@ -267,7 +268,7 @@ export default function Folders() {
         <>
           <View className="settings-group">
             <View className="folder-input-row">
-              <Input
+              <FInput
                 className="folder-input"
                 placeholder={t('folders.input_placeholder')}
                 value={newName}

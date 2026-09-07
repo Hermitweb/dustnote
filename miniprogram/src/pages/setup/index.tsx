@@ -3,7 +3,8 @@
  * 接入 E2EE：调用 store.setup 完成 masterKey 派生与包装
  */
 import React, { useEffect, useState } from 'react';
-import { View, Text, Input } from '@tarojs/components';
+import { View, Text } from '@tarojs/components';
+import { FInput } from '../../components/FInput';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore } from '../../state/auth';
@@ -67,14 +68,14 @@ export default function Setup() {
       <Text className="hero-title">{t('setup.title')}</Text>
       <Text className="hero-subtitle mb-l">{t('setup.subtitle')}</Text>
 
-      <Input
+      <FInput
         className="mint-input"
         password
         placeholder={t('setup.pwd_placeholder')}
         value={password}
         onInput={(e) => setPassword((e.detail as { value: string }).value)}
       />
-      <Input
+      <FInput
         className="mint-input"
         password
         placeholder={t('setup.confirm_placeholder')}

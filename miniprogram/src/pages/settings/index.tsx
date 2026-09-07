@@ -7,7 +7,8 @@
  * - 导入导出 / 分享管理 / 修改密码 —— 占位提示「该功能即将上线」
  */
 import React, { useEffect, useState } from 'react';
-import { View, Text, Input, ScrollView } from '@tarojs/components';
+import { View, Text, ScrollView } from '@tarojs/components';
+import { FInput } from '../../components/FInput';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore, APP_VERSION, getApi } from '../../state/auth';
@@ -693,21 +694,21 @@ export default function Settings() {
         <View className="modal-mask" onClick={() => !changing && setPwdOpen(false)}>
           <View className="modal-card" onClick={(e) => e.stopPropagation()}>
             <Text className="modal-title">{t('settings.pwd_title')}</Text>
-            <Input
+            <FInput
               className="mint-input"
               password
               placeholder={t('settings.pwd_current_placeholder')}
               value={oldPwd}
               onInput={(e) => setOldPwd((e.detail as { value: string }).value)}
             />
-            <Input
+            <FInput
               className="mint-input"
               password
               placeholder={t('settings.pwd_new_placeholder')}
               value={newPwd}
               onInput={(e) => setNewPwd((e.detail as { value: string }).value)}
             />
-            <Input
+            <FInput
               className="mint-input"
               password
               placeholder={t('settings.pwd_confirm_placeholder')}

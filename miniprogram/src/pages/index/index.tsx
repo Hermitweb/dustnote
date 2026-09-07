@@ -14,7 +14,8 @@
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, Input, Image } from '@tarojs/components';
+import { View, Text, ScrollView, Image } from '@tarojs/components';
+import { FInput } from '../../components/FInput';
 import logoUrl from '../../assets/logo.png';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
@@ -100,8 +101,6 @@ function IndexBody() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [unlockPwd, setUnlockPwd] = useState('');
-  // Taro 受控 Input 的原生 placeholder 在聚焦且未输入时不消失，需逻辑层条件渲染
-  const [pwdFocused, setPwdFocused] = useState(false);
   const [showTotp, setShowTotp] = useState(false);
   const [totpCode, setTotpCode] = useState('');
   const [unlocking, setUnlocking] = useState(false);
@@ -573,17 +572,15 @@ function IndexBody() {
         <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
         <Text className="hero-title">{t('app.name')}</Text>
         <Text className="hero-subtitle mb-l">{t('index.unlock_subtitle')}</Text>
-        <Input
+        <FInput
           className="mint-input"
           password
-          placeholder={pwdFocused ? '' : t('common.master_password')}
+          placeholder={t('common.master_password')}
           value={unlockPwd}
-          onFocus={() => setPwdFocused(true)}
-          onBlur={() => setPwdFocused(false)}
           onInput={(e: any) => setUnlockPwd((e.detail as { value: string }).value)}
         />
         {showTotp && (
-          <Input
+          <FInput
             className="mint-input mt-s"
             placeholder={t('unlock.totp_placeholder')}
             value={totpCode}
@@ -641,7 +638,7 @@ function IndexBody() {
 
       {!selecting && (
         <View className="search-box">
-          <Input
+          <FInput
             className="search-input"
             placeholder={t('index.search_placeholder')}
             value={searchQuery}

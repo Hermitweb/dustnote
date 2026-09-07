@@ -17,7 +17,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, Input } from '@tarojs/components';
+import { View, Text } from '@tarojs/components';
+import { FInput } from '../../components/FInput';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { isValidRecoveryCode } from '@dustnote/shared';
@@ -95,21 +96,21 @@ export default function StandaloneRecover() {
       <Text className="hero-title text-center">{t('recover.title')}</Text>
       <Text className="hero-subtitle mb-l text-center">{t('recover.subtitle')}</Text>
 
-      <Input
+      <FInput
         className="mint-input"
         placeholder={t('recover.code_placeholder')}
         value={recoveryCode}
         maxlength={16}
         onInput={(e) => setRecoveryCode((e.detail as { value: string }).value)}
       />
-      <Input
+      <FInput
         className="mint-input"
         password
         placeholder={t('recover.pwd_placeholder')}
         value={newPassword}
         onInput={(e) => setNewPassword((e.detail as { value: string }).value)}
       />
-      <Input
+      <FInput
         className="mint-input"
         password
         placeholder={t('recover.confirm_placeholder')}
