@@ -37,9 +37,8 @@ export default function Folders() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(false);
-  // 创建参数：父级 + 顶层分支
+  // 创建参数：父级（顶层分支已废弃——与 web/mobile 对齐，创建不传分支）
   const [parentSel, setParentSel] = useState<string | null>(null);
-  const [branchSel, setBranchSel] = useState<'work' | 'personal'>('work');
   // 移动模式：movingId 非空时列表变为「选择目标父级」
   const [movingId, setMovingId] = useState<string | null>(null);
   // 重命名弹层（页面内实现：weapp 的 showModal editable 在 H5 端不可用）
@@ -113,8 +112,8 @@ export default function Folders() {
       const id = await getRepo().createFolder({
         name,
         parentId: parentSel,
-        // 顶层必选分支；子文件夹由数据层继承父分支
-        branch: parentSel ? null : branchSel,
+        // 分支概念已从创建流程移除：子文件夹由服务端继承父分支，顶层为 null
+        branch: parent ? (parent.branch ?? null) : null,
       });
       setFolders((prev) => [
         ...prev,
@@ -125,7 +124,7 @@ export default function Folders() {
           icon: null,
           createdAt: new Date().toISOString(),
           depth: parent ? (parent.depth ?? 1) + 1 : 1,
-          branch: parent ? (parent.branch ?? null) : branchSel,
+          branch: parent ? (parent.branch ?? null) : null,
         },
       ]);
       setNewName('');
@@ -297,24 +296,6 @@ export default function Folders() {
                 </Text>
               ))}
             </View>
-
-            {/* 顶层创建时选择分支（子文件夹继承父分支） */}
-            {parentSel === null && (
-              <View className="folder-chip-row">
-                <Text
-                  className={`folder-chip${branchSel === 'work' ? ' folder-chip-active' : ''}`}
-                  onClick={() => setBranchSel('work')}
-                >
-                  {t('folders.branch_work')}
-                </Text>
-                <Text
-                  className={`folder-chip${branchSel === 'personal' ? ' folder-chip-active' : ''}`}
-                  onClick={() => setBranchSel('personal')}
-                >
-                  {t('folders.branch_personal')}
-                </Text>
-              </View>
-            )}
           </View>
 
           <ScrollView scrollY className="flex-1">
