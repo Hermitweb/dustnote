@@ -279,6 +279,7 @@ const en: typeof zhCN = {
     menu_delete: '🗑️ Delete',
     move_to: 'Move "{{name}}" to:',
     move_children_note: '(has subfolders — top level only)',
+    create_in: 'Create in',
     top_level: '📁 Top level',
     cancel_move: 'Cancel move',
     input_placeholder: 'New folder name…',

@@ -276,6 +276,7 @@ const zhCN = {
     menu_delete: '🗑️ 删除',
     move_to: '移动「{{name}}」到：',
     move_children_note: '（含子文件夹，仅可移到顶层）',
+    create_in: '创建位置',
     top_level: '📁 顶层',
     cancel_move: '取消移动',
     input_placeholder: '新建文件夹名称…',

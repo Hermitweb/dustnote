@@ -94,6 +94,35 @@ export default function Folders() {
   /** 可作为父级的一级文件夹 */
   const parentCandidates = folders.filter((f) => (f.depth ?? 1) < MAX_DEPTH);
 
+  // 树形列表：已展开的文件夹 id 集合（默认收起，只显示顶层——对齐安卓端）
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  /** 目录树行序：顶层按原序，已展开的父级后紧跟其子级 */
+  const treeRows: Folder[] = [];
+  {
+    const byParent = new Map<string | null, Folder[]>();
+    for (const f of folders) {
+      const pid = (f.parentId ?? null) as string | null;
+      const list = byParent.get(pid);
+      if (list) list.push(f);
+      else byParent.set(pid, [f]);
+    }
+    const walk = (pid: string | null) => {
+      for (const f of byParent.get(pid) ?? []) {
+        treeRows.push(f);
+        if (expanded.has(f.id)) walk(f.id);
+      }
+    };
+    walk(null);
+  }
+
   /** 正在移动的文件夹（含子文件夹时只能移到顶层） */
   const moving = movingId ? findFolder(movingId) : undefined;
   const movingHasChildren = moving ? folders.some((f) => f.parentId === moving.id) : false;
@@ -198,26 +227,6 @@ export default function Folders() {
     }
   };
 
-  const openMenu = (folder: Folder) => {
-    // Taro 把 showActionSheet 归入 promisify 集合：即使传 fail 回调也会返回
-    // Promise，取消时 reject——必须 await+catch，否则产生未处理拒绝上报
-    void (async () => {
-      try {
-        const res = await Taro.showActionSheet({
-          itemList: [t('folders.menu_rename'), t('folders.menu_move'), t('folders.menu_delete')],
-          itemColor: '#E07B6C',
-        });
-        if (res.tapIndex === 0) {
-          setRenameTarget(folder);
-          setRenameText(folder.name);
-        } else if (res.tapIndex === 1) setMovingId(folder.id);
-        else if (res.tapIndex === 2) void handleDelete(folder);
-      } catch {
-        /* 用户取消 */
-      }
-    })();
-  };
-
   const darkClass = useThemeDarkClass();
   return (
     <>
@@ -284,6 +293,7 @@ export default function Folders() {
             </View>
 
             {/* 创建位置：父级 chips（一级文件夹；二级不可再嵌套） */}
+            <Text className="folder-create-label">{t('folders.create_in')}</Text>
             <View className="folder-chip-row">
               <Text
                 className={`folder-chip${parentSel === null ? ' folder-chip-active' : ''}`}
@@ -297,7 +307,7 @@ export default function Folders() {
                   className={`folder-chip${parentSel === f.id ? ' folder-chip-active' : ''}`}
                   onClick={() => setParentSel(f.id)}
                 >
-                  {BRANCH_ICON[f.branch ?? 'work'] ?? '📁'} {f.name}
+                  📁 {f.name}
                 </Text>
               ))}
             </View>
@@ -311,17 +321,58 @@ export default function Folders() {
                 <Text className="empty-state-text">{t('folders.empty')}</Text>
               </View>
             )}
-            {folders.map((f) => (
-              <View key={f.id} className="settings-row folder-row" onClick={() => openMenu(f)}>
-                <View className="settings-row-label">
-                  <Text style={{ paddingLeft: ((f.depth ?? 1) - 1) * 16 }}>
-                    {BRANCH_ICON[f.branch ?? 'work'] ?? '📁'} {f.name}
-                    {(f.depth ?? 1) > 1 ? t('folders.sub_suffix') : ''}
-                  </Text>
+            {/* 目录树：顶层 + 已展开层的子文件夹；行内 ➕/✏️/📁/🗑️（对齐安卓端） */}
+            {treeRows.map((f) => {
+              const children = folders.filter((x) => x.parentId === f.id);
+              const hasChildren = children.length > 0;
+              const isExpanded = expanded.has(f.id);
+              return (
+                <View
+                  key={f.id}
+                  className="settings-row folder-row"
+                  style={{ paddingLeft: ((f.depth ?? 1) - 1) * 24 }}
+                >
+                  <View
+                    className="folder-row-main"
+                    onClick={() => hasChildren && toggleExpanded(f.id)}
+                  >
+                    {hasChildren ? <Text className="folder-caret">{isExpanded ? '▼' : '▶'}</Text> : null}
+                    <Text className="folder-row-name">
+                      📁 {f.name}
+                      {hasChildren ? ` (${children.length})` : ''}
+                    </Text>
+                  </View>
+                  <View className="folder-row-actions">
+                    {(f.depth ?? 1) < MAX_DEPTH && (
+                      <Text
+                        className="folder-row-btn"
+                        onClick={() => {
+                          setParentSel(f.id);
+                          setNewName('');
+                        }}
+                      >
+                        ➕
+                      </Text>
+                    )}
+                    <Text
+                      className="folder-row-btn"
+                      onClick={() => {
+                        setRenameTarget(f);
+                        setRenameText(f.name);
+                      }}
+                    >
+                      ✏️
+                    </Text>
+                    <Text className="folder-row-btn" onClick={() => setMovingId(f.id)}>
+                      📁
+                    </Text>
+                    <Text className="folder-row-btn" onClick={() => void handleDelete(f)}>
+                      🗑️
+                    </Text>
+                  </View>
                 </View>
-                <Text className="settings-row-value text-muted">⋯</Text>
-              </View>
-            ))}
+              );
+            })}
           </ScrollView>
         </>
       )}

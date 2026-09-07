@@ -56,17 +56,22 @@ interface Folder {
   parentId?: string | null;
 }
 
-/** 筛选片展示用：文件夹根路径（父/子），同名子文件夹靠路径区分 */
-function folderPathOf(f: Folder, all: Folder[]): string {
-  const parts: string[] = [];
+/** 面包屑：当前选中文件夹的祖先链（含自身，根在前）——对齐安卓端路径式下钻 */
+function folderCrumbsOf(selected: string | null, all: Folder[]): Folder[] {
+  const chain: Folder[] = [];
   const seen = new Set<string>();
-  let cur: Folder | undefined = f;
+  let cur = selected ? all.find((f) => f.id === selected) : undefined;
   while (cur && !seen.has(cur.id)) {
     seen.add(cur.id);
-    parts.unshift(cur.name);
-    cur = all.find((x) => x.id === cur!.parentId);
+    chain.unshift(cur);
+    cur = cur.parentId ? all.find((f) => f.id === cur!.parentId) : undefined;
   }
-  return parts.join('/');
+  return chain;
+}
+
+/** 当前层的子文件夹（点击下钻进入该层） */
+function subFoldersOf(selected: string | null, all: Folder[]): Folder[] {
+  return all.filter((f) => (f.parentId ?? null) === selected);
 }
 type ViewMode = 'all' | 'favorite' | 'trash';
 
@@ -100,6 +105,17 @@ function IndexBody() {
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
+  /** 选择文件夹并持久化（对齐安卓端：重启后恢复上次筛选） */
+  const selectFolder = (id: string | null) => {
+    setSelectedFolderId(id);
+    try {
+      if (id) Taro.setStorageSync('dustnote_last_folder', id);
+      else Taro.removeStorageSync('dustnote_last_folder');
+    } catch {
+      /* ignore */
+    }
+  };
   const [unlockPwd, setUnlockPwd] = useState('');
   const [showTotp, setShowTotp] = useState(false);
   const [totpCode, setTotpCode] = useState('');
@@ -169,6 +185,15 @@ function IndexBody() {
       const fresh = (snapshot.folders ?? []).length === 0 ? await repo.loadAll() : snapshot;
       setNotes(fresh.notes as Note[]);
       setFolders(fresh.folders as Folder[]);
+      // 恢复上次选中的文件夹筛选（不存在时保持「全部」）
+      try {
+        const last = Taro.getStorageSync('dustnote_last_folder') || null;
+        if (last && (fresh.folders as Folder[]).some((f) => f.id === last)) {
+          setSelectedFolderId(last as string);
+        }
+      } catch {
+        /* ignore */
+      }
       if (masterKey) {
         const plainMap: Record<string, { title: string; content: string; tags?: string[] }> = {};
         for (const n of fresh.notes) {
@@ -678,17 +703,28 @@ function IndexBody() {
           <View className="folder-tabs-inner">
             <Text
               className={`folder-chip${selectedFolderId === null ? ' folder-chip-active' : ''}`}
-              onClick={() => setSelectedFolderId(null)}
+              onClick={() => selectFolder(null)}
             >
               {t('index.tab_all')}
             </Text>
-            {folders.map((f) => (
+            {folderCrumbsOf(selectedFolderId, folders as Folder[]).map((c) => (
               <Text
-                key={f.id}
-                className={`folder-chip${selectedFolderId === f.id ? ' folder-chip-active' : ''}`}
-                onClick={() => setSelectedFolderId(f.id)}
+                key={c.id}
+                className={`folder-chip${selectedFolderId === c.id ? ' folder-chip-active' : ''}`}
+                onClick={() => selectFolder(c.id)}
               >
-                {folderPathOf(f, folders)}
+                ▸ {c.name}
+              </Text>
+            ))}
+          </View>
+        </ScrollView>
+      )}
+      {!selecting && viewMode === 'all' && subFoldersOf(selectedFolderId, folders as Folder[]).length > 0 && (
+        <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>
+          <View className="folder-tabs-inner">
+            {subFoldersOf(selectedFolderId, folders as Folder[]).map((f) => (
+              <Text key={f.id} className="folder-chip" onClick={() => selectFolder(f.id)}>
+                📁 {f.name}
               </Text>
             ))}
           </View>
