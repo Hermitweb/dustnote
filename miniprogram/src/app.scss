@@ -100,6 +100,11 @@ page {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }
+  /* 注意：开发者工具/真机 webview 渲染模式同样命中 @supports，
+     白色玻璃在深色模式变成白条——.theme-dark 下换暗色玻璃 */
+  .theme-dark .topbar {
+    background: rgba(11, 17, 32, 0.85);
+  }
 }
 .topbar-title {
   font-size: 32rpx;
