@@ -62,14 +62,17 @@ function scheduleReconnect(): void {
 function bindTask(t: Taro.SocketTask): void {
   t.onOpen(() => {
     reconnectAttempts = 0;
-    void flushOfflineQueue().finally(() => {
-      try {
-        t.send({ data: JSON.stringify({ type: 'subscribe', channels: ['notes', 'shares'] }) });
-      } catch {
-        /* ignore */
-      }
-      scheduleReload();
-    });
+    // 离线队列重放失败（如服务器暂不可达）不能变成未处理拒绝，静默留给下次
+    void flushOfflineQueue()
+      .catch(() => undefined)
+      .finally(() => {
+        try {
+          t.send({ data: JSON.stringify({ type: 'subscribe', channels: ['notes', 'shares'] }) });
+        } catch {
+          /* ignore */
+        }
+        scheduleReload();
+      });
   });
 
   t.onMessage((res) => {

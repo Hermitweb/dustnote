@@ -283,8 +283,8 @@ ${text}` : text));
       setNote((prev) => (prev ? { ...prev, version: newVersion } : prev));
       basePlainRef.current = { title, content, tags };
       setSaveStatus('saved');
-      // 网络恢复：顺手重放离线队列中的未同步修改
-      if (mode === 'online') void flushOfflineQueue();
+      // 网络恢复：顺手重放离线队列中的未同步修改（失败静默，队列仍在）
+      if (mode === 'online') void flushOfflineQueue().catch(() => undefined);
     } catch (err: any) {
       const status = err?.err?.status;
       if (status === 409) {
