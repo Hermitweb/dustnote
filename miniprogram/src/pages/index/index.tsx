@@ -872,7 +872,7 @@ function IndexBody() {
                       }
                     }}
                   >
-                    {n.isFavorite ? `⭐ ${t('index.unfavorite')}` : `☆ ${t('index.favorite')}`}
+                    {n.isFavorite ? t('index.unfavorite') : t('index.favorite')}
                   </Text>
                   {mode === 'online' && (
                     <Text
