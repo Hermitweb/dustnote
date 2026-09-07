@@ -100,6 +100,8 @@ function IndexBody() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [unlockPwd, setUnlockPwd] = useState('');
+  // Taro 受控 Input 的原生 placeholder 在聚焦且未输入时不消失，需逻辑层条件渲染
+  const [pwdFocused, setPwdFocused] = useState(false);
   const [showTotp, setShowTotp] = useState(false);
   const [totpCode, setTotpCode] = useState('');
   const [unlocking, setUnlocking] = useState(false);
@@ -569,13 +571,15 @@ function IndexBody() {
     return (
       <View className="hero">
         <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
-        <Text className="hero-title">DustNote</Text>
+        <Text className="hero-title">{t('app.name')}</Text>
         <Text className="hero-subtitle mb-l">{t('index.unlock_subtitle')}</Text>
         <Input
           className="mint-input"
           password
-          placeholder={t('common.master_password')}
+          placeholder={pwdFocused ? '' : t('common.master_password')}
           value={unlockPwd}
+          onFocus={() => setPwdFocused(true)}
+          onBlur={() => setPwdFocused(false)}
           onInput={(e: any) => setUnlockPwd((e.detail as { value: string }).value)}
         />
         {showTotp && (
@@ -619,7 +623,7 @@ function IndexBody() {
           </>
         ) : (
           <>
-            <Text className="topbar-title">DustNote</Text>
+            <Text className="topbar-title">{t('app.name')}</Text>
             <View className="topbar-actions">
               <Text
                 className="icon-btn"
