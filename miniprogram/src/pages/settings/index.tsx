@@ -17,6 +17,7 @@ import { getRepo, resetRepoCache } from '../../lib/get-repo';
 import { clearStandaloneMasterKey } from '../../lib/standalone-session';
 import { setup2fa, enable2fa, disable2fa, get2faStatus } from '../../lib/totp-client';
 import { t, setLanguage, useLanguage, type Language } from '../../lib/i18n';
+import { parseServerDate } from '../../lib/date-parse';
 
 /** 微信 showModal 的 editable 输入框运行时可用，但 Taro 类型定义未跟上 */
 interface EditableModalResult {
@@ -745,7 +746,7 @@ export default function Settings() {
                         {d.isCurrent ? t('settings.current_tag') : ''}
                       </Text>
                       <Text className="device-item-meta">
-                        {d.platform} · {new Date(d.lastActiveAt).toLocaleString()}
+                        {d.platform} · {parseServerDate(d.lastActiveAt).toLocaleString()}
                       </Text>
                     </View>
                     {!d.isCurrent && (

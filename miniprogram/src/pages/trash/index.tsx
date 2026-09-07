@@ -12,6 +12,7 @@ import { useAuthStore, decryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
 import { noteAad } from '@dustnote/shared';
 import { t, useLanguage } from '../../lib/i18n';
+import { parseServerDate } from '../../lib/date-parse';
 
 interface Note {
   id: string;
@@ -175,7 +176,7 @@ export default function Trash() {
               </View>
               <Text className="note-title">{titles[n.id] || t('common.unnamed_note')}</Text>
             </View>
-            <Text className="note-meta">{new Date(n.serverUpdatedAt).toLocaleString('zh-CN')}</Text>
+            <Text className="note-meta">{parseServerDate(n.serverUpdatedAt).toLocaleString('zh-CN')}</Text>
             <View className="note-actions">
               <Text
                 className="mint-btn mint-btn-sm mint-btn-ghost"

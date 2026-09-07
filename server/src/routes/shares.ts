@@ -97,8 +97,8 @@ sharesRouter.post('/shares', async (req, res) => {
     db.transaction(() => {
       db.prepare(
         `
-        INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key, password_hash, expires_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key, password_hash, expires_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       `
       ).run(
         id,

@@ -36,6 +36,7 @@ import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
 import { PickSheet, type PickItem } from '../../components/PickSheet';
 import { SearchIndex } from '../../lib/search-index';
 import { t, useLanguage } from '../../lib/i18n';
+import { parseServerDate } from '../../lib/date-parse';
 
 interface Note {
   id: string;
@@ -638,40 +639,44 @@ function IndexBody() {
 
       {!selecting && viewMode === 'all' && allTags.length > 0 && (
         <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>
-          <Text
-            className={`folder-chip${activeTag === null ? ' folder-chip-active' : ''}`}
-            onClick={() => setActiveTag(null)}
-          >
-            {t('index.all_tags')}
-          </Text>
-          {allTags.map((tg) => (
+          <View className="folder-tabs-inner">
             <Text
-              key={tg}
-              className={`folder-chip${activeTag === tg ? ' folder-chip-active' : ''}`}
-              onClick={() => setActiveTag(activeTag === tg ? null : tg)}
+              className={`folder-chip${activeTag === null ? ' folder-chip-active' : ''}`}
+              onClick={() => setActiveTag(null)}
             >
-              #{tg}
+              {t('index.all_tags')}
             </Text>
-          ))}
+            {allTags.map((tg) => (
+              <Text
+                key={tg}
+                className={`folder-chip${activeTag === tg ? ' folder-chip-active' : ''}`}
+                onClick={() => setActiveTag(activeTag === tg ? null : tg)}
+              >
+                #{tg}
+              </Text>
+            ))}
+          </View>
         </ScrollView>
       )}
       {!selecting && viewMode === 'all' && folders.length > 0 && (
         <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>
-          <Text
-            className={`folder-chip${selectedFolderId === null ? ' folder-chip-active' : ''}`}
-            onClick={() => setSelectedFolderId(null)}
-          >
-            {t('index.tab_all')}
-          </Text>
-          {folders.map((f) => (
+          <View className="folder-tabs-inner">
             <Text
-              key={f.id}
-              className={`folder-chip${selectedFolderId === f.id ? ' folder-chip-active' : ''}`}
-              onClick={() => setSelectedFolderId(f.id)}
+              className={`folder-chip${selectedFolderId === null ? ' folder-chip-active' : ''}`}
+              onClick={() => setSelectedFolderId(null)}
             >
-              {f.name}
+              {t('index.tab_all')}
             </Text>
-          ))}
+            {folders.map((f) => (
+              <Text
+                key={f.id}
+                className={`folder-chip${selectedFolderId === f.id ? ' folder-chip-active' : ''}`}
+                onClick={() => setSelectedFolderId(f.id)}
+              >
+                {f.name}
+              </Text>
+            ))}
+          </View>
         </ScrollView>
       )}
 
@@ -759,7 +764,7 @@ function IndexBody() {
                 </Text>
               </View>
               <Text className="note-meta">
-                {new Date(n.serverUpdatedAt).toLocaleString('zh-CN')}
+                {parseServerDate(n.serverUpdatedAt).toLocaleString('zh-CN')}
               </Text>
               {!selecting && viewMode === 'trash' && (
                 <View className="note-actions">
@@ -989,6 +994,10 @@ function IndexBody() {
           <Text>+</Text>
         </View>
       )}
+
+      {/* pickFolderFromList / 模板选择的半屏弹层。此前从未挂载：setPickSheet 后
+          Promise 永不 resolve，新建/模板/批量移动等依赖选文件夹的入口全部无响应 */}
+      {pickSheet && <PickSheet {...pickSheet} />}
     </View>
     </>
   );

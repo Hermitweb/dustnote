@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { getApi } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
+import { parseServerDate } from '../../lib/date-parse';
 
 interface ShareItem {
   id: string;
@@ -21,7 +22,7 @@ interface ShareItem {
 }
 
 function isExpired(e: string | null): boolean {
-  return e ? new Date(e).getTime() < Date.now() : false;
+  return e ? parseServerDate(e).getTime() < Date.now() : false;
 }
 
 export default function Shares() {
@@ -193,7 +194,7 @@ export default function Shares() {
                   }}
                 >
                   {/* 标题已不再存服务端（E2EE 分享），这里按创建时间标识 */}
-                  {new Date(s.createdAt).toLocaleString('zh-CN')}
+                  {parseServerDate(s.createdAt).toLocaleString('zh-CN')}
                 </Text>
                 {!selecting && canAct && (
                   <View className="share-actions">
@@ -215,7 +216,7 @@ export default function Shares() {
                 )}
               </View>
               <Text className="share-meta">
-                {new Date(s.createdAt).toLocaleString('zh-CN')}
+                {parseServerDate(s.createdAt).toLocaleString('zh-CN')}
                 {t('share_mgr.views', { count: s.viewCount })}
                 {s.hasPassword ? t('share_mgr.encrypted') : t('share_mgr.public')}
               </Text>

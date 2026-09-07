@@ -454,4 +454,31 @@ export const migrations: Migration[] = [
       `);
     },
   },
+  {
+    id: 15,
+    name: 'normalize-legacy-timestamps',
+    up: (db) => {
+      // 建表 DEFAULT (datetime('now')) 产出的「YYYY-MM-DD HH:MM:SS」(空格分隔,
+      // 本身即 UTC)与写路径 strftime('%Y-%m-%dT%H:%M:%fZ') 的 ISO 格式并存,危害:
+      // ① 客户端 new Date() 解析空格格式在 iOS/JSC 得到 Invalid Date;
+      // ② 增量同步游标 server_updated_at 靠字符串比较,' '(0x20) < 'T'(0x54),
+      //    空格格式整日排序劣后于 ISO,混存会漏同步。
+      // 统一规范为带 Z 的 UTC ISO,语义不变;GLOB 限定恰好 19 位空格格式,幂等。
+      const LEGACY_TS_GLOB =
+        '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]';
+      db.prepare(
+        `UPDATE notes SET server_updated_at = replace(server_updated_at, ' ', 'T') || 'Z'
+         WHERE server_updated_at GLOB ?`
+      ).run(LEGACY_TS_GLOB);
+      db.prepare(
+        `UPDATE shares SET created_at = replace(created_at, ' ', 'T') || 'Z'
+         WHERE created_at GLOB ?`
+      ).run(LEGACY_TS_GLOB);
+      db.prepare(
+        `UPDATE devices SET last_active_at = replace(last_active_at, ' ', 'T') || 'Z'
+         WHERE last_active_at GLOB ?`
+      ).run(LEGACY_TS_GLOB);
+      db.prepare(`UPDATE meta SET value = '15' WHERE key = 'schema_version'`).run();
+    },
+  },
 ];

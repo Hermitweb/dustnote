@@ -25,6 +25,12 @@ function readInitialTheme(): Theme {
 
 function systemTheme(): 'light' | 'dark' {
   try {
+    // getAppBaseInfo 是 getSystemInfoSync 弃用后的替代（theme 字段等价）；
+    // 旧基础库无此 API 时回退 getSystemInfoSync
+    const getBase = Taro.getAppBaseInfo as unknown as (() => { theme?: string }) | undefined;
+    if (typeof getBase === 'function') {
+      return getBase().theme === 'dark' ? 'dark' : 'light';
+    }
     const info = Taro.getSystemInfoSync();
     return (info as { theme?: string }).theme === 'dark' ? 'dark' : 'light';
   } catch {

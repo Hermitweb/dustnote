@@ -750,12 +750,16 @@ page {
 }
 
 /* ========== 文件夹筛选条 ========== */
+/* webview 渲染模式的 scroll-view 不支持 padding/flex 布局（控制台告警），
+   横向滚动布局与内边距全部下沉到内层 .folder-tabs-inner */
 .folder-tabs {
-  display: flex;
-  flex-direction: row;
   white-space: nowrap;
   background: var(--bg-elevated);
   border-bottom: 1rpx solid var(--border);
+}
+.folder-tabs-inner {
+  display: inline-flex;
+  flex-direction: row;
   padding: 14rpx 20rpx;
   gap: 12rpx;
 }

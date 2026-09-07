@@ -20,6 +20,7 @@ import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '.
 import { getRepo } from '../../lib/get-repo';
 import { useModeStore } from '../../lib/mode-store';
 import { t, useLanguage } from '../../lib/i18n';
+import { parseServerDate } from '../../lib/date-parse';
 import Markdown from '../../lib/markdown';
 import { filterSlashCommands, resolveSlashCommand } from '../../lib/slash-commands';
 import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../../lib/offline-queue';
@@ -585,7 +586,7 @@ ${text}` : text));
       title: t('editor.restore_title'),
       content: t('editor.restore_content', {
         version: v.version,
-        time: new Date(v.createdAt).toLocaleString(),
+        time: parseServerDate(v.createdAt).toLocaleString(),
       }),
       confirmText: t('common.restore'),
     });
@@ -835,7 +836,7 @@ ${text}` : text));
                     <View className="device-item-info">
                       <Text className="device-item-name">v{v.version}</Text>
                       <Text className="device-item-meta">
-                        {new Date(v.createdAt).toLocaleString()}
+                        {parseServerDate(v.createdAt).toLocaleString()}
                       </Text>
                     </View>
                     <Text className="mint-btn mint-btn-sm" onClick={() => void onRestoreVersion(v)}>

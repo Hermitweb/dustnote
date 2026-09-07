@@ -323,8 +323,8 @@ authRouter.post(
       );
 
       db.prepare(
-        `INSERT INTO devices (id, user_id, name, platform, fingerprint)
-       VALUES (?, ?, ?, ?, ?)`
+        `INSERT INTO devices (id, user_id, name, platform, fingerprint, last_active_at)
+       VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
       ).run(deviceId, userId, d.deviceName, client.platform || 'web', deviceId);
 
       db.prepare('INSERT INTO preferences (user_id) VALUES (?)').run(userId);

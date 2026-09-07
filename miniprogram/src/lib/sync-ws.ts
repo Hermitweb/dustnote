@@ -114,11 +114,13 @@ export function startSyncWs(): void {
       fail: () => scheduleReconnect(),
     }) as unknown as Taro.SocketTask | Promise<Taro.SocketTask>;
     if (ret && typeof (ret as Promise<unknown>).then === 'function') {
-      // Promise 形态:异步拿 task
-      void (ret as Promise<Taro.SocketTask>).then((sock) => {
-        task = sock;
-        if (task) bindTask(task);
-      });
+      // Promise 形态:异步拿 task;拒绝时也要走重连(fail 回调不保证触发)
+      void (ret as Promise<Taro.SocketTask>)
+        .then((sock) => {
+          task = sock;
+          if (task) bindTask(task);
+        })
+        .catch(() => scheduleReconnect());
       return;
     }
     t = ret as Taro.SocketTask;

@@ -189,6 +189,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     if (k) k.fill(0);
     clearStandaloneMasterKey();
     clearPersistedToken();
+    clearPersistedRefreshToken();
     stopSyncWs();
     // 锁屏清掉内存中的明文残留(解密缓存/未裁决冲突),明文不跨锁屏存活
     try {
@@ -232,7 +233,12 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const wrappedPw = await wrapKey(pw.kek, masterKey);
     const wrappedRc = await wrapKey(rc.kek, masterKey);
 
-    const r = await getApi().post<{ accessToken: string; userId: string; deviceId: string }>(
+    const r = await getApi().post<{
+      accessToken: string;
+      userId: string;
+      deviceId: string;
+      refreshToken: string;
+    }>(
       '/auth/setup',
       {
         // 主密码不出客户端，服务端只拿到 authKey 和密文
@@ -247,6 +253,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     );
 
     persistToken(r.accessToken);
+    if (r.refreshToken) persistRefreshToken(r.refreshToken);
     try {
       startSyncWs();
     } catch {
@@ -292,6 +299,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       accessToken: string;
       userId: string;
       deviceId: string;
+      refreshToken: string;
       wrappedMasterKey: Ciphertext;
     }>('/auth/unlock', body);
 
@@ -299,6 +307,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
 
     persistToken(r.accessToken);
+    if (r.refreshToken) persistRefreshToken(r.refreshToken);
     try {
       startSyncWs();
     } catch {
@@ -492,18 +501,30 @@ export function getApi(): ApiClient {
     // weapp 未配置 serverUrl：抛错让上层 UI 友好提示
     throw new Error('未配置服务器地址，请在设置中重新选择联机模式并填写服务器地址');
   }
-  // 401 恢复路径:token 过期/失效时不再死磕——锁定回解锁页并清除失效 token。
+  // 401 恢复路径：先用 refresh token 静默续签（单飞），成功则换新 token 重放
+  // 原请求；刷新失败（宽限期已过/设备被吊销/无 refresh token）才锁定回解锁页。
   // 排除 /auth/ 自身(解锁密码错误本来就返回 401,属正常业务语义)。
   const authExpiredFetch: FetchFn = async (url, init) => {
-    const res = await (process.env.TARO_ENV === 'weapp'
+    let res = await (process.env.TARO_ENV === 'weapp'
       ? taroFetch(url, init)
       : fetch(url, init));
     if (res.status === 401 && !String(url).includes('/auth/')) {
-      try {
-        useAuthStore.getState().lock();
-        Taro.showToast({ title: t('common.login_expired'), icon: 'none' });
-      } catch {
-        /* ignore */
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        const replayInit = {
+          ...init,
+          headers: { ...init.headers, Authorization: 'Bearer ' + newToken },
+        };
+        res = await (process.env.TARO_ENV === 'weapp'
+          ? taroFetch(url, replayInit)
+          : fetch(url, replayInit));
+      } else {
+        try {
+          useAuthStore.getState().lock();
+          Taro.showToast({ title: t('common.login_expired'), icon: 'none' });
+        } catch {
+          /* ignore */
+        }
       }
     }
     return res;
@@ -544,6 +565,86 @@ function clearPersistedToken(): void {
   } catch {
     /* ignore */
   }
+}
+
+const REFRESH_KEY = 'dustnote_refresh';
+
+function persistRefreshToken(token: string): void {
+  try {
+    Taro.setStorageSync(REFRESH_KEY, token);
+  } catch {
+    /* ignore */
+  }
+}
+
+function readPersistedRefreshToken(): string | null {
+  try {
+    return Taro.getStorageSync(REFRESH_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+function clearPersistedRefreshToken(): void {
+  try {
+    Taro.removeStorageSync(REFRESH_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * 静默续签 access token（单飞，防并发 401 风暴重复刷新）
+ *
+ * 服务端 /auth/refresh 走 X-Refresh-Token header 通道（同 mobile/desktop），
+ * 响应体自管轮换 refresh token。成功后更新 store 并重启同步 WS；
+ * 失败返回 null，由调用方走锁定回解锁页的兜底路径。
+ */
+let refreshInFlight: Promise<string | null> | null = null;
+
+function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    try {
+      const stored = readPersistedRefreshToken();
+      if (!stored) return null;
+      const { serverUrl } = useModeStore.getState();
+      if (!serverUrl) return null;
+      const base = serverUrl.replace(/\/+$/, '') + '/api/v1';
+      const res = await (process.env.TARO_ENV === 'weapp'
+        ? taroFetch(base + '/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Refresh-Token': stored },
+            body: '{}',
+          })
+        : fetch(base + '/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Refresh-Token': stored },
+            body: '{}',
+          }));
+      if (!res.ok) return null;
+      const text = await res.text();
+      const data = JSON.parse(text) as { accessToken?: string; refreshToken?: string };
+      if (!data.accessToken) return null;
+      persistToken(data.accessToken);
+      if (data.refreshToken) persistRefreshToken(data.refreshToken);
+      useAuthStore.setState({ accessToken: data.accessToken });
+      try {
+        startSyncWs();
+      } catch {
+        /* ignore */
+      }
+      return data.accessToken;
+    } catch {
+      return null;
+    } finally {
+      // 单飞窗口结束后允许下一次刷新
+      setTimeout(() => {
+        refreshInFlight = null;
+      }, 0);
+    }
+  })();
+  return refreshInFlight;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
