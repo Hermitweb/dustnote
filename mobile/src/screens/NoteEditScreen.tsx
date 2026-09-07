@@ -26,6 +26,7 @@ import {
   ActivityIndicator,
   FlatList,
 } from 'react-native';
+import { FTextInput } from '../components/FTextInput';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
@@ -805,7 +806,7 @@ export function NoteEditScreen() {
           </>
         ) : (
           <>
-            <TextInput
+            <FTextInput
               style={styles.title}
               value={title}
               onChangeText={setTitle}
@@ -813,7 +814,7 @@ export function NoteEditScreen() {
               placeholderTextColor={colors.muted}
               editable={!decryptFailed}
             />
-            <TextInput
+            <FTextInput
               style={styles.content}
               value={content}
               onChangeText={(val) => {

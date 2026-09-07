@@ -208,3 +208,9 @@ html[data-platform='desktop'] {
   clip: auto;
   white-space: normal;
 }
+
+/* 输入框聚焦时隐藏占位提示（对齐小程序端 FInput 行为标准） */
+input:focus::placeholder,
+textarea:focus::placeholder {
+  color: transparent;
+}

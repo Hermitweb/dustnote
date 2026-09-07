@@ -25,6 +25,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { FTextInput } from '../components/FTextInput';
 import logoImage from '../assets/logo.png';
 import { useTranslation } from 'react-i18next';
 import { useModeStore } from '../lib/mode-store';
@@ -162,7 +163,7 @@ export function ModeSelectScreen() {
       {selected === 'online' && (
         <View style={styles.serverSection}>
           <Text style={styles.serverLabel}>{t('mode_select.server_url')}</Text>
-          <TextInput
+          <FTextInput
             style={styles.serverInput}
             placeholder={t('mode_select.server_url_placeholder')}
             value={serverUrl}

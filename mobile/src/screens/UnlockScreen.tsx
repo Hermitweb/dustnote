@@ -9,6 +9,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
+import { FTextInput } from '../components/FTextInput';
 import logoImage from '../assets/logo.png';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
@@ -85,7 +86,7 @@ export function UnlockScreen() {
       <Text style={styles.title}>{t('auth.unlock_title')}</Text>
       <Text style={styles.subtitle}>{t('auth.unlock_subtitle')}</Text>
 
-      <TextInput
+      <FTextInput
         style={styles.input}
         placeholder={t('auth.unlock_password')}
         secureTextEntry
@@ -99,7 +100,7 @@ export function UnlockScreen() {
       />
 
       {showTotp && (
-        <TextInput
+        <FTextInput
           style={styles.input}
           placeholder={t('auth.totp_code_placeholder')}
           keyboardType="number-pad"

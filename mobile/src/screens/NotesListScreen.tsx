@@ -24,6 +24,7 @@ import {
   Modal,
   Share,
 } from 'react-native';
+import { FTextInput } from '../components/FTextInput';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -409,7 +410,7 @@ export function NotesListScreen() {
           },
         ]}
       >
-        <TextInput
+        <FTextInput
           style={styles.searchInput}
           placeholder={t('notes.search_placeholder')}
           value={search}

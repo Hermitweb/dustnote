@@ -16,6 +16,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
+import { FTextInput } from '../components/FTextInput';
 import logoImage from '../assets/logo.png';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
@@ -117,7 +118,7 @@ export function StandaloneUnlockScreen() {
           : t('auth.unlock_subtitle_standalone')}
       </Text>
 
-      <TextInput
+      <FTextInput
         style={[styles.input, isLocked && { opacity: 0.5 }]}
         placeholder={t('auth.unlock_password')}
         secureTextEntry

@@ -27,6 +27,7 @@ import {
   Switch,
   Platform,
 } from 'react-native';
+import { FTextInput } from '../components/FTextInput';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
@@ -1135,7 +1136,7 @@ export function SettingsScreen() {
             </TouchableOpacity>
           </View>
           <Text style={styles.modalHint}>{t('settings.import_hint')}</Text>
-          <TextInput
+          <FTextInput
             style={styles.modalInput}
             multiline
             textAlignVertical="top"
@@ -1220,7 +1221,7 @@ export function SettingsScreen() {
             </TouchableOpacity>
           </View>
           {switchTarget === 'online' && (
-            <TextInput
+            <FTextInput
               style={styles.modalInput}
               placeholder={t('settings.switch_server_placeholder')}
               value={switchServerUrl}
@@ -1259,7 +1260,7 @@ export function SettingsScreen() {
               ? t('settings.change_password_hint_online')
               : t('settings.change_password_hint_standalone')}
           </Text>
-          <TextInput
+          <FTextInput
             style={styles.pwInput}
             placeholder={t('settings.change_pw_current_placeholder')}
             secureTextEntry
@@ -1267,7 +1268,7 @@ export function SettingsScreen() {
             onChangeText={setPwCurrent}
             placeholderTextColor={colors.muted}
           />
-          <TextInput
+          <FTextInput
             style={styles.pwInput}
             placeholder={t('settings.change_pw_new_placeholder')}
             secureTextEntry
@@ -1275,7 +1276,7 @@ export function SettingsScreen() {
             onChangeText={setPwNew}
             placeholderTextColor={colors.muted}
           />
-          <TextInput
+          <FTextInput
             style={styles.pwInput}
             placeholder={t('settings.change_pw_confirm_placeholder')}
             secureTextEntry
@@ -1315,7 +1316,7 @@ export function SettingsScreen() {
                 </Text>
               </View>
               <Text style={[styles.modalHint, { marginBottom: 4 }]}>{t('settings.totp_manual_hint')}</Text>
-              <TextInput
+              <FTextInput
                 style={styles.pwInput}
                 placeholder={t('settings.totp_code_placeholder')}
                 keyboardType="number-pad"

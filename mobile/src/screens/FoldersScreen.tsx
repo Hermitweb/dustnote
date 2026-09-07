@@ -29,6 +29,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
+import { FTextInput } from '../components/FTextInput';
 import { useTranslation } from 'react-i18next';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
@@ -254,7 +255,7 @@ export function FoldersScreen() {
     <View style={styles.container}>
       {/* 新建栏：名称 + 父级 + 分支 */}
       <View style={styles.createBar}>
-        <TextInput
+        <FTextInput
           style={styles.input}
           placeholder={t('folders.name_placeholder')}
           placeholderTextColor={colors.muted}
@@ -389,7 +390,7 @@ export function FoldersScreen() {
                 <Text style={{ fontSize: 18, color: colors.muted }}>✕</Text>
               </TouchableOpacity>
             </View>
-            <TextInput
+            <FTextInput
               style={styles.input}
               value={renameText}
               onChangeText={setRenameText}
@@ -459,7 +460,7 @@ export function FoldersScreen() {
                 <Text style={{ fontSize: 18, color: colors.muted }}>✕</Text>
               </TouchableOpacity>
             </View>
-            <TextInput
+            <FTextInput
               style={styles.input}
               value={createName}
               onChangeText={setCreateName}

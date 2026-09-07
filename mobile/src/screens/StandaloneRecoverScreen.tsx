@@ -23,6 +23,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { FTextInput } from '../components/FTextInput';
 import { isValidRecoveryCode } from '@dustnote/shared';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/auth';
@@ -95,7 +96,7 @@ export function StandaloneRecoverScreen() {
       <Text style={styles.title}>{t('auth.recover_title')}</Text>
       <Text style={styles.subtitle}>{t('auth.recover_screen_subtitle')}</Text>
 
-      <TextInput
+      <FTextInput
         style={styles.input}
         placeholder={t('auth.recover_code_placeholder')}
         autoCapitalize="characters"
@@ -104,7 +105,7 @@ export function StandaloneRecoverScreen() {
         onChangeText={setRecoveryCode}
         placeholderTextColor={colors.muted}
       />
-      <TextInput
+      <FTextInput
         style={styles.input}
         placeholder={t('auth.new_password_placeholder')}
         secureTextEntry
@@ -112,7 +113,7 @@ export function StandaloneRecoverScreen() {
         onChangeText={setNewPassword}
         placeholderTextColor={colors.muted}
       />
-      <TextInput
+      <FTextInput
         style={styles.input}
         placeholder={t('auth.confirm_new_password_placeholder')}
         secureTextEntry
