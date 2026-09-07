@@ -68,7 +68,8 @@ export default function StandaloneRecover() {
       // 通过 auth store action：校验恢复码 + 解封 masterKey + 重新包装 + 持久化 + 更新 authState
       const newRecoveryCode = await recoverStandalone(recoveryCode, newPassword);
       Taro.hideLoading();
-      // 弹窗显示新恢复码
+      // 弹窗显示新恢复码；同时自动复制（对齐安卓端复制按钮）
+      void Taro.setClipboardData({ data: newRecoveryCode });
       Taro.showModal({
         title: t('recover.success_title'),
         content: t('recover.success_content', { code: newRecoveryCode }),

@@ -30,6 +30,7 @@ import {
 } from '../../state/auth';
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo } from '../../lib/get-repo';
+import { enqueueOffline, isNetworkError } from '../../lib/offline-queue';
 import { ensureDefaultContent } from '../../lib/default-content';
 import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders, encryptString, randomBytes, wrapKey, toBase64Url, type Template } from '@dustnote/shared';
 import { randomUuid } from '../../lib/uuid';
@@ -102,6 +103,7 @@ function IndexBody() {
   const darkClass = useThemeDarkClass();
   const [serverTemplates, setServerTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -185,6 +187,7 @@ function IndexBody() {
       const fresh = (snapshot.folders ?? []).length === 0 ? await repo.loadAll() : snapshot;
       setNotes(fresh.notes as Note[]);
       setFolders(fresh.folders as Folder[]);
+      setLoadError(false);
       // 恢复上次选中的文件夹筛选（不存在时保持「全部」）
       try {
         const last = Taro.getStorageSync('dustnote_last_folder') || null;
@@ -233,6 +236,7 @@ function IndexBody() {
       }
     } catch {
       Taro.showToast({ title: t('common.load_failed'), icon: 'none' });
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -763,9 +767,24 @@ function IndexBody() {
         </View>
       )}
 
-      <ScrollView scrollY className="flex-1">
+      <ScrollView
+        scrollY
+        className="flex-1"
+        refresherEnabled
+        refresherTriggered={loading}
+        onRefresherRefresh={() => void load()}
+      >
         {loading && <View className="loading">{t('common.loading')}</View>}
-        {!loading && visibleNotes.length === 0 && (
+        {!loading && loadError && (
+          <View className="empty-state">
+            <Text className="empty-state-icon">⚠️</Text>
+            <Text className="empty-state-text">{t('common.load_failed')}</Text>
+            <Text className="empty-state-retry" onClick={() => void load()}>
+              {t('common.retry')}
+            </Text>
+          </View>
+        )}
+        {!loading && !loadError && visibleNotes.length === 0 && (
           <View className="empty-state">
             <Text className="empty-state-icon">
               {viewMode === 'trash' ? '🗑️' : viewMode === 'favorite' ? '⭐' : '📝'}
@@ -1002,9 +1021,11 @@ function IndexBody() {
               Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
               return;
             }
+            // try 外声明：catch 里的离线入队也需要 noteId/folderId
+            const noteId = randomUuid();
+            let folderId: string | null = selectedFolderId;
             try {
               // 笔记必须归属文件夹：选中文件夹直接用；否则 ActionSheet 必选
-              let folderId: string | null = selectedFolderId;
               const folderList = folders as Folder[];
               if (folderId == null || !folderList.some((f) => f.id === folderId)) {
                 if (folderList.length === 0) {
@@ -1021,7 +1042,6 @@ function IndexBody() {
                 }
               }
               const empty: NotePlaintext = { title: t('index.new_note'), content: '', tags: [] };
-              const noteId = randomUuid();
               const { json: cipherJson } = await encryptNote(
                 masterKey,
                 empty,
@@ -1038,6 +1058,30 @@ function IndexBody() {
               Taro.navigateTo({ url: `/pages/note/edit?id=${id}` });
             } catch (e: any) {
               if (e?.errMsg?.includes?.('cancel')) return;
+              // 网络不可用：新笔记入离线队列（对齐安卓端，弱网不丢笔记）
+              if (isNetworkError(e)) {
+                try {
+                  const empty: NotePlaintext = { title: t('index.new_note'), content: '', tags: [] };
+                  const noteId = randomUuid();
+                  const { json: cipherJson } = await encryptNote(
+                    masterKey,
+                    empty,
+                    noteAad(noteId, useAuthStore.getState().userId ?? ''),
+                  );
+                  await enqueueOffline('POST', '/notes', {
+                    ciphertext: cipherJson,
+                    keyVersion: 1,
+                    isPinned: false,
+                    isFavorite: false,
+                    folderId,
+                    clientUpdatedAt: new Date().toISOString(),
+                  });
+                  Taro.showToast({ title: t('index.offline_queued'), icon: 'none' });
+                  return;
+                } catch {
+                  /* 入队失败按普通创建失败处理 */
+                }
+              }
               Taro.showToast({ title: t('common.create_failed'), icon: 'none' });
             }
           }}

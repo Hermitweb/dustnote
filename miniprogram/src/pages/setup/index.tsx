@@ -46,6 +46,8 @@ export default function Setup() {
     try {
       // store.setup 内部完成：派生 masterKey、wrap、上传 wrappedMasterKey
       const recoveryCode = await setup(password);
+      // 恢复码是唯一自救凭据：展示弹窗的同时自动复制（对齐安卓端复制按钮）
+      void Taro.setClipboardData({ data: recoveryCode });
       Taro.showModal({
         title: t('setup.recovery_title'),
         content: t('setup.recovery_content', { code: recoveryCode }),

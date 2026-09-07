@@ -11,6 +11,8 @@ export default {
     'pages/standalone-setup/index',
     'pages/standalone-unlock/index',
     'pages/standalone-recover/index',
+    // 联机模式：恢复码找回密码（忘密码自救通道）
+    'pages/online-recover/index',
   ],
   // 分包：非首屏的管理/分享类页面按业务域拆分，减小主包体积、加快首屏启动
   subPackages: [

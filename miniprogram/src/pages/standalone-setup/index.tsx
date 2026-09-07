@@ -64,7 +64,8 @@ export default function StandaloneSetup() {
       const recoveryCode = await setupStandalone(pwd);
       Taro.hideLoading();
 
-      // 弹窗显示恢复码（用户必须保存）
+      // 弹窗显示恢复码（用户必须保存）；同时自动复制，系统会弹「已复制」提示
+      void Taro.setClipboardData({ data: recoveryCode });
       Taro.showModal({
         title: t('standalone_setup.recovery_title'),
         content: t('standalone_setup.recovery_content', { code: recoveryCode }),

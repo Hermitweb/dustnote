@@ -49,6 +49,7 @@ import {
   INITIAL_LOCKOUT_STATE,
   LOCAL_LOCKOUT_DURATION_MS,
   KDF_PARAMS_MOBILE,
+  KDF_VERSION,
   type LocalAuthBlob,
   type LocalLockoutState,
 } from '@dustnote/shared';
@@ -136,8 +137,11 @@ interface AuthStoreState {
   /** 单机模式：获取剩余锁定时间（ms） */
   getRemainingLockoutMs: () => number;
 
-  /** 修改主密码（standalone 本地重包装 / online rewrap），masterKey 不变，已有笔记可继续解密 */
-  changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
+  /** 修改主密码（standalone 本地重包装 / online rewrap），masterKey 不变，已有笔记可继续解密。
+   *  standalone 返回新恢复码（旧恢复码随之失效，调用方须展示）；online 返回 null */
+  changePassword: (oldPassword: string, newPassword: string) => Promise<string | null>;
+  /** 联机模式：恢复码找回密码（忘密码唯一自救通道，对齐安卓端 recoverOnline） */
+  recoverOnline: (recoveryCode: string, newPassword: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthStoreState>((set, get) => ({
@@ -415,39 +419,32 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
   // ========== 修改主密码 ==========
 
-  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+  async changePassword(oldPassword: string, newPassword: string): Promise<string | null> {
     await ensureRandomReady();
     if (newPassword.length < 6) throw new Error('新密码至少 6 位');
     const mode = useModeStore.getState().mode;
 
-    // 单机模式：本地校验旧密码后，用新密码 KEK 重新包装同一把 masterKey
+    // 单机模式：本地校验旧密码后，用同一把 masterKey + 新密码重建完整 blob
+    // （新恢复码随之生成，旧恢复码失效——对齐安卓端 changePasswordStandalone）
     if (mode === 'standalone') {
-      const { localAuthBlob } = get();
+      const { localAuthBlob, lockoutState } = get();
       const blob = localAuthBlob ?? loadLocalAuthBlobSync();
       if (!blob) throw new Error('未初始化');
+      if (isLocked(lockoutState)) {
+        throw new Error(`账号已锁定，请 ${Math.ceil(remainingLockoutMs(lockoutState) / 1000)} 秒后重试`);
+      }
       const verify = await unlockLocalAuth(oldPassword, blob, KDF_PARAMS_MOBILE);
       if (!verify.success || !verify.masterKey) throw new Error('当前密码错误');
-      // §17.4.1：优先使用 blob 记录的实际 KDF 参数
-      const usedParams = blob.kdfParams ?? KDF_PARAMS_MOBILE;
-      const newPwSalt = randomBytes(16);
-      const { kek, authKey } = await deriveSecrets(newPassword, newPwSalt, usedParams);
-      const passwordWrappedMasterKey = await wrapKey(kek, verify.masterKey);
-      const newBlob: LocalAuthBlob = {
-        ...blob,
-        pwSalt: toBase64(newPwSalt),
-        passwordHash: toBase64(authKey),
-        passwordWrappedMasterKey: JSON.stringify(passwordWrappedMasterKey),
-        createdAt: new Date().toISOString(),
-      };
-      saveLocalAuthBlobSync(newBlob);
+      const newAuth = await buildLocalAuthBlobForMasterKey(verify.masterKey, newPassword);
+      saveLocalAuthBlobSync(newAuth.blob);
       saveLockoutStateSync({ ...INITIAL_LOCKOUT_STATE });
       setStandaloneMasterKey(verify.masterKey);
       set({
-        localAuthBlob: newBlob,
+        localAuthBlob: newAuth.blob,
         masterKey: verify.masterKey,
         lockoutState: { ...INITIAL_LOCKOUT_STATE },
       });
-      return;
+      return newAuth.recoveryCode;
     }
 
     // 联机模式：rewrap（已解锁时 masterKey 在内存中，服务端只收到新包装的密文）
@@ -473,6 +470,69 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       },
     });
     set({ pwSalt: toBase64(newPwSalt) });
+    // 联机模式无新恢复码概念（恢复包装未变）
+    return null;
+  },
+
+  async recoverOnline(recoveryCode: string, newPassword: string): Promise<void> {
+    await ensureRandomReady();
+    if (newPassword.length < 6) throw new Error('新密码至少 6 位');
+    // v2：先取恢复码派生所需的 rc_salt + 账号 KDF 参数（直接用服务端记录的参数）
+    const recoveryParams = await getApi().get<{
+      rcSalt: string;
+      kdfParams?: KdfParams;
+    }>('/auth/recovery-params');
+    const kdfParams = recoveryParams.kdfParams ?? KDF_PARAMS_MOBILE;
+    const rc = await deriveSecrets(
+      normalizeRecoveryCode(recoveryCode),
+      fromBase64(recoveryParams.rcSalt),
+      kdfParams
+    );
+
+    const r = await getApi().post<{
+      accessToken: string;
+      userId: string;
+      deviceId: string;
+      refreshToken?: string;
+      wrappedMasterKey: Ciphertext;
+    }>('/auth/recover', {
+      recoveryAuthKey: toBase64(rc.authKey),
+      deviceName: '小程序',
+    });
+
+    // 解封出来的是原来那把 masterKey：历史笔记照常能解开
+    const masterKey = await unwrapKey(rc.kek, r.wrappedMasterKey);
+
+    // 拿回 masterKey 后立刻用新密码重新包装（masterKey 不变；
+    // 派生沿用账号 KDF 参数，避免 rewrap 后跨端锁死）
+    const newPwSalt = randomBytes(16);
+    const pw = await deriveSecrets(newPassword, newPwSalt, kdfParams);
+    const wrappedPw = await wrapKey(pw.kek, masterKey);
+
+    // 先落 token（rewrap 是鉴权接口），再重包装
+    persistToken(r.accessToken);
+    if (r.refreshToken) persistRefreshToken(r.refreshToken);
+    set({ accessToken: r.accessToken });
+    await getApi().post('/auth/rewrap', {
+      password: {
+        authKey: toBase64(pw.authKey),
+        salt: toBase64(newPwSalt),
+        wrappedMasterKey: wrappedPw,
+      },
+    });
+
+    set({
+      authState: 'unlocked',
+      accessToken: r.accessToken,
+      masterKey,
+      pwSalt: toBase64(newPwSalt),
+      userId: r.userId,
+    });
+    try {
+      startSyncWs();
+    } catch {
+      /* ignore */
+    }
   },
 }));
 
@@ -542,6 +602,36 @@ export function getApi(): ApiClient {
 }
 
 const TOKEN_KEY = 'dustnote_access_token';
+
+/** 用既有 masterKey + 新密码重建本地鉴权 blob（对齐安卓端同名助手）：
+ * 新恢复码随之生成、旧恢复码失效；kdfParams 沿用单机端当前默认 */
+async function buildLocalAuthBlobForMasterKey(
+  masterKey: Uint8Array,
+  password: string
+): Promise<{ blob: LocalAuthBlob; recoveryCode: string }> {
+  const pwSalt = randomBytes(16);
+  const rcSalt = randomBytes(16);
+
+  const pw = await deriveSecrets(password, pwSalt, KDF_PARAMS_MOBILE);
+  const passwordWrappedMasterKey = await wrapKey(pw.kek, masterKey);
+
+  const recoveryCode = generateRecoveryCode();
+  const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), rcSalt, KDF_PARAMS_MOBILE);
+  const wrappedMasterKey = await wrapKey(rc.kek, masterKey);
+
+  const blob: LocalAuthBlob = {
+    pwSalt: toBase64(pwSalt),
+    rcSalt: toBase64(rcSalt),
+    passwordHash: toBase64(pw.authKey),
+    passwordWrappedMasterKey: JSON.stringify(passwordWrappedMasterKey),
+    wrappedMasterKey: JSON.stringify(wrappedMasterKey),
+    recoveryHash: toBase64(rc.authKey),
+    kdfVersion: KDF_VERSION,
+    kdfParams: { ...KDF_PARAMS_MOBILE },
+    createdAt: new Date().toISOString(),
+  };
+  return { blob, recoveryCode };
+}
 
 function persistToken(token: string): void {
   try {

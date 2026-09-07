@@ -88,6 +88,14 @@ export default function Unlock() {
       >
         {t('unlock.create_hint')}
       </View>
+
+      {/* 忘记密码：恢复码找回（对齐安卓端入口） */}
+      <View
+        className="hint-mint"
+        onClick={() => Taro.navigateTo({ url: '/pages/online-recover/index' })}
+      >
+        {t('recover.forgot')}
+      </View>
     </View>
     </>
   );

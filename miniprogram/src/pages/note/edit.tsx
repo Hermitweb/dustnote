@@ -16,7 +16,8 @@ import { FInput, FTextarea } from '../../components/FInput';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { startVoice, stopVoice } from '../../lib/voice';
-import { encryptString, randomBytes, toBase64Url, wrapKey, noteAad } from '@dustnote/shared';
+import { encryptString, randomBytes, toBase64Url, wrapKey, noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders } from '@dustnote/shared';
+import { PickSheet } from '../../components/PickSheet';
 import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
 import { useModeStore } from '../../lib/mode-store';
@@ -80,6 +81,8 @@ export default function NoteEdit() {
   const [listening, setListening] = useState(false);
   const [voiceText, setVoiceText] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  // 应用模板选择弹层（对齐安卓端工具栏模板按钮）
+  const [tplPick, setTplPick] = useState<Parameters<typeof PickSheet>[0] | null>(null);
   const [note, setNote] = useState<NoteData | null>(null);
   const noteRef = useRef(note);
   noteRef.current = note;
@@ -103,6 +106,8 @@ export default function NoteEdit() {
 
   // 用于追踪是否已初始化加载，避免初始 load 触发自动保存
   const loadedRef = useRef(false);
+  // 解密失败置位：期间禁止任何保存路径，避免「解密失败」标题+空正文覆盖原密文
+  const decryptFailedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 最近一次成功同步的明文（作为 409 三方合并的 base）；加载/保存成功后更新
@@ -130,6 +135,7 @@ export default function NoteEdit() {
           setTitle(pt.title);
           setContent(pt.content);
           setTags(pt.tags);
+          decryptFailedRef.current = false;
           // 记录 base 明文（三方合并的公共祖先）
           basePlainRef.current = { title: pt.title, content: pt.content, tags: pt.tags };
           // 反向链接：解密全部笔记一次，找出引用了本标题的（与 web 端语义一致）
@@ -153,6 +159,8 @@ export default function NoteEdit() {
           }
           setBacklinks(bl);
         } catch {
+          // 解密失败（密钥不匹配/信封损坏）：标记后禁止保存，防止空明文覆盖原密文
+          decryptFailedRef.current = true;
           setTitle(t('common.decrypt_failed'));
           setContent('');
         }
@@ -225,6 +233,24 @@ ${text}` : text));
     });
   };
 
+  /** 应用模板到当前笔记（预设模板，插入正文末尾——对齐安卓端工具栏模板按钮） */
+  const openApplyTemplate = () => {
+    setTplPick({
+      title: t('editor.apply_template'),
+      items: PRESET_TEMPLATES.map((tp, i) => ({ key: String(i), label: `${tp.icon} ${tp.name}` })),
+      onPick: (key) => {
+        setTplPick(null);
+        const tpl = PRESET_TEMPLATES[Number(key)];
+        if (!tpl) return;
+        const filled = fillTemplatePlaceholders(tpl.content);
+        setContent((prev: string) => (prev.trim() ? `${prev}\n\n${filled}` : filled));
+        setSaveStatus('unsaved');
+      },
+      onClose: () => setTplPick(null),
+      cancelText: t('common.cancel'),
+    });
+  };
+
   /** 存为自定义模板(联机):当前内容加密为模板密文 */
   const saveAsTemplate = async () => {
     if (mode !== 'online') {
@@ -268,6 +294,11 @@ ${text}` : text));
   const save = useCallback(async () => {
     const cur = noteRef.current;
     if (!cur || !masterKey) return;
+    // 解密失败态禁止保存：当前 title/content 不是真实明文，写入会永久覆盖原密文
+    if (decryptFailedRef.current) {
+      setSaveStatus('error');
+      return;
+    }
     setSaveStatus('saving');
     const aad = noteAad(cur.id, useAuthStore.getState().userId ?? '');
     try {
@@ -380,6 +411,17 @@ ${text}` : text));
   // 自动保存：title / content 变化且加载完成后，1500ms 防抖触发
   useEffect(() => {
     if (!loadedRef.current || !noteRef.current) return;
+    // dirty 守卫：与 base 明文完全一致（含打开后未改动）不触发保存，
+    // 避免打开笔记 1.5s 后必有一次冗余 PATCH（version+1 + 多余历史快照）
+    const base = basePlainRef.current;
+    if (
+      base &&
+      base.title === title &&
+      base.content === content &&
+      JSON.stringify(base.tags ?? []) === JSON.stringify(tags ?? [])
+    ) {
+      return;
+    }
     setSaveStatus('unsaved');
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
@@ -389,6 +431,12 @@ ${text}` : text));
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [title, content, tags]);
+
+  // 离开页面时冲刷防抖窗口内的未保存修改（对齐安卓端 unmount flush）
+  Taro.useUnload(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    void saveRef.current?.();
+  });
 
   const onManualSave = async () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -578,6 +626,35 @@ ${text}` : text));
       setHistoryOpen(false);
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  /** 预览历史版本内容（恢复前可确认，对齐安卓端 onPreviewVersion） */
+  const onPreviewVersion = async (v: NoteVersionMeta) => {
+    try {
+      if (!masterKey) throw new Error(t('editor.not_unlocked'));
+      const r = await getApi().get<{ ciphertext: string }>(`/notes/${id}/versions/${v.id}`);
+      const env = parseEnvelope(r.ciphertext);
+      const aad = noteAad(id ?? '', useAuthStore.getState().userId ?? '');
+      const json = await decryptNote(masterKey, env, env.payload.a === 1 ? aad : undefined);
+      const excerpt =
+        json.content.trim().length > 0
+          ? json.content.length > 600
+            ? `${json.content.slice(0, 600)}…`
+            : json.content
+          : t('editor.no_content');
+      const confirm = await Taro.showModal({
+        title: `v${v.version} · ${json.title || t('common.unnamed_note')}`,
+        content: excerpt,
+        confirmText: t('common.restore'),
+        cancelText: t('common.cancel'),
+      });
+      if (confirm.confirm) await onRestoreVersion(v);
+    } catch (err) {
+      Taro.showToast({
+        title: err instanceof Error ? err.message : t('common.operation_failed'),
+        icon: 'none',
+      });
     }
   };
 
@@ -834,7 +911,10 @@ ${text}` : text));
               <ScrollView scrollY style={{ maxHeight: '600rpx' }}>
                 {versions.map((v) => (
                   <View key={v.id} className="device-item">
-                    <View className="device-item-info">
+                    <View
+                      className="device-item-info"
+                      onClick={() => void onPreviewVersion(v)}
+                    >
                       <Text className="device-item-name">v{v.version}</Text>
                       <Text className="device-item-meta">
                         {parseServerDate(v.createdAt).toLocaleString()}
@@ -874,6 +954,9 @@ ${text}` : text));
             <Text className="menu-item" onClick={() => { setMenuOpen(false); void onMoveFolder(); }}>
               📁 {t('editor.move')}
             </Text>
+            <Text className="menu-item" onClick={() => { setMenuOpen(false); openApplyTemplate(); }}>
+              📋 {t('editor.apply_template')}
+            </Text>
             {mode === 'online' && (
               <Text className="menu-item" onClick={() => { setMenuOpen(false); void openHistory(); }}>
                 🕘 {t('editor.history')}
@@ -895,6 +978,7 @@ ${text}` : text));
           </View>
         </View>
       )}
+      {tplPick && <PickSheet {...tplPick} />}
     </View>
     </>
   );

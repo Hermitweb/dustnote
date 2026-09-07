@@ -6,7 +6,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
-import { getApi } from '../../state/auth';
+import { getApi, useAuthStore, decryptNote, parseEnvelope } from '../../state/auth';
+import { unwrapKey, toBase64Url, noteAad, type Ciphertext } from '@dustnote/shared';
+import { getRepo } from '../../lib/get-repo';
+import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
+import { useModeStore } from '../../lib/mode-store';
 import { t, useLanguage } from '../../lib/i18n';
 import { parseServerDate } from '../../lib/date-parse';
 
@@ -14,6 +18,7 @@ interface ShareItem {
   id: string;
   noteId: string;
   token: string;
+  wrappedShareKey: Ciphertext;
   hasPassword: boolean;
   expiresAt: string | null;
   viewCount: number;
@@ -25,12 +30,31 @@ function isExpired(e: string | null): boolean {
   return e ? parseServerDate(e).getTime() < Date.now() : false;
 }
 
+/** 复制访客可直开的分享链接：本地解封 shareKey，key 走 URL hash 不经过服务端 */
+const copyShareLink = async (s: ShareItem): Promise<void> => {
+  try {
+    const mk = useAuthStore.getState().masterKey;
+    if (!mk) return;
+    const shareKey = await unwrapKey(mk, s.wrappedShareKey);
+    const key = toBase64Url(shareKey);
+    const shareUrl =
+      process.env.TARO_ENV === 'h5'
+        ? `${window.location.origin}/#/pages/share/index?token=${s.token}&key=${key}`
+        : `${(useModeStore.getState().serverUrl ?? '').replace(/\/+$/, '')}/share/${s.token}#${key}`;
+    await Taro.setClipboardData({ data: shareUrl });
+    Taro.showToast({ title: t('share_mgr.link_copied'), icon: 'success' });
+  } catch {
+    Taro.showToast({ title: t('common.operation_failed'), icon: 'none' });
+  }
+};
+
 export default function Shares() {
   const [shares, setShares] = useState<ShareItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchBusy, setBatchBusy] = useState(false);
+  const [titles, setTitles] = useState<Record<string, string>>({});
   const lang = useLanguage();
 
   // 语言切换后同步原生导航栏标题
@@ -43,6 +67,42 @@ export default function Shares() {
     try {
       const r = await getApi().get<{ shares: ShareItem[] }>('/shares');
       setShares(r.shares);
+      // 标题映射：明文缓存优先，未命中解密（E2EE 下服务端无标题，对齐安卓端）
+      try {
+        const mk = useAuthStore.getState().masterKey;
+        if (mk) {
+          const aadUserId = useAuthStore.getState().userId ?? '';
+          const snapshot = await getRepo().loadAll();
+          const map: Record<string, string> = {};
+          for (const n of snapshot.notes as Array<{
+            id: string;
+            ciphertext: string;
+            deletedAt?: string | null;
+          }>) {
+            if (n.deletedAt) continue;
+            const cached = getCachedPlain(n.id, n.ciphertext);
+            if (cached) {
+              map[n.id] = cached.title;
+              continue;
+            }
+            try {
+              const env = parseEnvelope(n.ciphertext);
+              const pt = await decryptNote(
+                mk,
+                env,
+                env.payload.a === 1 ? noteAad(n.id, aadUserId) : undefined
+              );
+              map[n.id] = pt.title;
+              putCachedPlain(n.id, n.ciphertext, pt.title, pt.content, pt.tags);
+            } catch {
+              /* 单条解密失败跳过 */
+            }
+          }
+          setTitles(map);
+        }
+      } catch {
+        /* 标题加载失败不阻塞列表 */
+      }
     } catch (err: any) {
       Taro.showToast({
         title: t('share_mgr.load_failed', {
@@ -155,7 +215,13 @@ export default function Shares() {
         )}
       </View>
 
-      <ScrollView scrollY className="flex-1">
+      <ScrollView
+        scrollY
+        className="flex-1"
+        refresherEnabled
+        refresherTriggered={loading}
+        onRefresherRefresh={() => void load()}
+      >
         {loading && <View className="loading">{t('common.loading')}</View>}
         {!loading && shares.length === 0 && (
           <View className="empty-state">
@@ -193,11 +259,16 @@ export default function Shares() {
                     if (!selecting && canAct) enterSelect(s.id);
                   }}
                 >
-                  {/* 标题已不再存服务端（E2EE 分享），这里按创建时间标识 */}
-                  {parseServerDate(s.createdAt).toLocaleString('zh-CN')}
+                  {titles[s.noteId] || t('share_mgr.no_title')}
                 </Text>
                 {!selecting && canAct && (
                   <View className="share-actions">
+                    <Text
+                      className="mint-btn mint-btn-sm mint-btn-ghost"
+                      onClick={() => void copyShareLink(s)}
+                    >
+                      {t('share_mgr.copy_link')}
+                    </Text>
                     <Text
                       className="mint-btn mint-btn-sm mint-btn-danger"
                       onClick={async () => {
@@ -219,6 +290,13 @@ export default function Shares() {
                 {parseServerDate(s.createdAt).toLocaleString('zh-CN')}
                 {t('share_mgr.views', { count: s.viewCount })}
                 {s.hasPassword ? t('share_mgr.encrypted') : t('share_mgr.public')}
+                {s.revoked
+                  ? ''
+                  : s.expiresAt
+                    ? t('share_mgr.expires_at', {
+                        time: parseServerDate(s.expiresAt).toLocaleString('zh-CN'),
+                      })
+                    : t('share_mgr.never_expires')}
               </Text>
               <Text className="share-meta">{t('share_mgr.status_label', { status })}</Text>
             </View>

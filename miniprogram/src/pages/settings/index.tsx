@@ -232,17 +232,28 @@ export default function Settings() {
     }
     setChanging(true);
     try {
-      await changePassword(oldPwd, newPwd);
+      const newRecoveryCode = await changePassword(oldPwd, newPwd);
       setPwdOpen(false);
       setOldPwd('');
       setNewPwd('');
       setConfirmPwd('');
-      Taro.showModal({
-        title: t('settings.pwd_success_title'),
-        content: t('settings.pwd_success_content'),
-        showCancel: false,
-        confirmText: t('common.ok'),
-      });
+      if (newRecoveryCode) {
+        // 单机模式：改密轮换了恢复码（旧码失效），必须让用户保存新码（对齐安卓端）
+        void Taro.setClipboardData({ data: newRecoveryCode });
+        Taro.showModal({
+          title: t('settings.pwd_changed_standalone_title'),
+          content: t('settings.pwd_changed_standalone_content', { code: newRecoveryCode }),
+          showCancel: false,
+          confirmText: t('common.ok'),
+        });
+      } else {
+        Taro.showModal({
+          title: t('settings.pwd_success_title'),
+          content: t('settings.pwd_success_content'),
+          showCancel: false,
+          confirmText: t('common.ok'),
+        });
+      }
     } catch (err) {
       Taro.showToast({
         title: err instanceof Error ? err.message : t('settings.pwd_failed'),

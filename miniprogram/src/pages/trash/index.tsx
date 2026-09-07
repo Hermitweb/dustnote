@@ -159,7 +159,13 @@ export default function Trash() {
         </Text>
       </View>
 
-      <ScrollView scrollY className="flex-1">
+      <ScrollView
+        scrollY
+        className="flex-1"
+        refresherEnabled
+        refresherTriggered={loading}
+        onRefresherRefresh={() => void load()}
+      >
         {loading && <View className="loading">{t('common.loading')}</View>}
         {!loading && notes.length === 0 && (
           <View className="empty-state">
