@@ -413,10 +413,14 @@ export default function Settings() {
     const labels = AUTOLOCK_OPTIONS.map((m) =>
       m === '0' ? t('settings.autolock_off') : t('settings.autolock_minutes', { n: m }),
     );
-    const r = await Taro.showActionSheet({ itemList: labels });
-    const min = AUTOLOCK_OPTIONS[r.tapIndex] ?? '0';
-    Taro.setStorageSync('dustnote_autolock_min', Number(min));
-    Taro.showToast({ title: t('settings.autolock_saved'), icon: 'success' });
+    try {
+      const r = await Taro.showActionSheet({ itemList: labels });
+      const min = AUTOLOCK_OPTIONS[r.tapIndex] ?? '0';
+      Taro.setStorageSync('dustnote_autolock_min', Number(min));
+      Taro.showToast({ title: t('settings.autolock_saved'), icon: 'success' });
+    } catch {
+      /* 用户取消 showActionSheet 也会 reject，静默 */
+    }
   };
 
   /** 两步验证（TOTP）：未开启 → 展示密钥并输入验证码开启；已开启 → 输码关闭 */
