@@ -297,6 +297,7 @@ const en: typeof zhCN = {
     move_to: 'Move "{{name}}" to:',
     move_children_note: '(has subfolders — top level only)',
     create_in: 'Create in',
+    create_in_toast: 'Create in: {{name}} — type a name and tap Add',
     top_level: '📁 Top level',
     cancel_move: 'Cancel move',
     input_placeholder: 'New folder name…',

@@ -96,6 +96,8 @@ export default function Folders() {
 
   // 树形列表：已展开的文件夹 id 集合（默认收起，只显示顶层——对齐安卓端）
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // 新建名称输入框的受控聚焦（➕ 行内按钮点击后弹键盘）
+  const [nameFocus, setNameFocus] = useState(false);
   const toggleExpanded = (id: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -145,6 +147,14 @@ export default function Folders() {
         // 分支概念已从创建流程移除：子文件夹由服务端继承父分支，顶层为 null
         branch: parent ? (parent.branch ?? null) : null,
       });
+      // 父级行保持展开，新建的子文件夹立即可见
+      if (parentSel) {
+        setExpanded((prev) => {
+          const next = new Set(prev);
+          next.add(parentSel);
+          return next;
+        });
+      }
       setFolders((prev) => [
         ...prev,
         {
@@ -277,6 +287,8 @@ export default function Folders() {
                 className="folder-input"
                 placeholder={t('folders.input_placeholder')}
                 value={newName}
+                focus={nameFocus}
+                onBlur={() => setNameFocus(false)}
                 onInput={(e: any) => setNewName((e.detail as { value: string }).value)}
                 onConfirm={() => void handleCreate()}
               />
@@ -349,8 +361,19 @@ export default function Folders() {
                       <Text
                         className="folder-row-btn"
                         onClick={() => {
+                          // 选中父级 + 展开该行 + 聚焦输入框，明确反馈「在哪建」
                           setParentSel(f.id);
+                          setExpanded((prev) => {
+                            const next = new Set(prev);
+                            next.add(f.id);
+                            return next;
+                          });
                           setNewName('');
+                          setNameFocus(true);
+                          Taro.showToast({
+                            title: t('folders.create_in_toast', { name: f.name }),
+                            icon: 'none',
+                          });
                         }}
                       >
                         ➕
