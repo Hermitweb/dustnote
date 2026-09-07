@@ -54,6 +54,13 @@ import {
   type LocalLockoutState,
 } from '@dustnote/shared';
 import { useModeStore } from '../lib/mode-store';
+import { getRepo } from '../lib/get-repo';
+import {
+  consumePendingMigration,
+  clearPendingMigration,
+  loadPendingMigration,
+  persistWrappedOldMasterKey,
+} from '../lib/migration';
 import { taroFetch } from '../lib/taro-fetch';
 import {
   loadLocalAuthBlob,
@@ -115,6 +122,8 @@ interface AuthStoreState {
   localAuthBlob: LocalAuthBlob | null;
   /** 单机模式客户端锁定状态 */
   lockoutState: LocalLockoutState;
+  /** 模式切换迁移：暂存的旧 masterKey（lock() 不清除，新模式鉴权成功后消费） */
+  pendingMasterKey: Uint8Array | null;
 
   // actions: 通用
   init: () => Promise<void>;
@@ -142,6 +151,8 @@ interface AuthStoreState {
   changePassword: (oldPassword: string, newPassword: string) => Promise<string | null>;
   /** 联机模式：恢复码找回密码（忘密码唯一自救通道，对齐安卓端 recoverOnline） */
   recoverOnline: (recoveryCode: string, newPassword: string) => Promise<void>;
+  /** 模式切换迁移：暂存旧 masterKey（lock() 不清除，新模式鉴权成功后消费） */
+  setPendingMasterKey: (key: Uint8Array | null) => void;
 }
 
 export const useAuthStore = create<AuthStoreState>((set, get) => ({
@@ -150,8 +161,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   userId: null,
   masterKey: null,
   pwSalt: null,
-  localAuthBlob: null,
-  lockoutState: { ...INITIAL_LOCKOUT_STATE },
+    localAuthBlob: null,
+    lockoutState: { ...INITIAL_LOCKOUT_STATE },
+    pendingMasterKey: null,
+
+    setPendingMasterKey: (key) => set({ pendingMasterKey: key }),
 
   // ========== 通用 actions ==========
 
@@ -270,6 +284,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       pwSalt: toBase64(pwSalt),
       authState: 'unlocked',
     });
+    void runPendingMigration();
     return recoveryCode;
   },
 
@@ -324,6 +339,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       pwSalt: salt,
       authState: 'unlocked',
     });
+    void runPendingMigration();
   },
 
   // ========== 单机模式 actions ==========
@@ -358,6 +374,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       lockoutState: { ...INITIAL_LOCKOUT_STATE },
       authState: 'unlocked',
     });
+    void runPendingMigration();
     return result.recoveryCode;
   },
 
@@ -410,6 +427,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       lockoutState: { ...INITIAL_LOCKOUT_STATE },
       authState: 'unlocked',
     });
+    void runPendingMigration();
     return result.recoveryCode;
   },
 
@@ -533,6 +551,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     } catch {
       /* ignore */
     }
+    void runPendingMigration();
   },
 }));
 
@@ -602,6 +621,42 @@ export function getApi(): ApiClient {
 }
 
 const TOKEN_KEY = 'dustnote_access_token';
+
+/** 消费待迁移数据（对齐安卓端 runPendingMigration）：新模式 setup/unlock/recover
+ *  成功后调用。导入失败把旧 masterKey 用当前 key 包装写回槽，下次解锁自动重试。 */
+async function runPendingMigration(): Promise<void> {
+  const { masterKey, pendingMasterKey } = useAuthStore.getState();
+  if (!masterKey) return;
+  const slot = loadPendingMigration();
+  if (!slot) return;
+  let oldKey = pendingMasterKey;
+  if (!oldKey && slot.wrappedOldMasterKey) {
+    try {
+      oldKey = await unwrapKey(masterKey, slot.wrappedOldMasterKey);
+    } catch {
+      oldKey = null;
+    }
+  }
+  if (!oldKey) return; // 无旧 key 无法解密备份，槽保留待重试
+  const mode = useModeStore.getState().mode;
+  try {
+    const result = await consumePendingMigration(getRepo(), masterKey, oldKey);
+    if (!result) return;
+    clearPendingMigration();
+    useAuthStore.setState({ pendingMasterKey: null });
+    Taro.showToast({
+      title: t('settings.migrated_count', { count: result.imported }),
+      icon: 'none',
+      duration: 3000,
+    });
+  } catch {
+    try {
+      await persistWrappedOldMasterKey(slot, masterKey, oldKey);
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 /** 用既有 masterKey + 新密码重建本地鉴权 blob（对齐安卓端同名助手）：
  * 新恢复码随之生成、旧恢复码失效；kdfParams 沿用单机端当前默认 */

@@ -11,10 +11,17 @@ import { View, Text, ScrollView } from '@tarojs/components';
 import { FInput } from '../../components/FInput';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
-import { useAuthStore, APP_VERSION, getApi } from '../../state/auth';
+import { useAuthStore, APP_VERSION, getApi, decryptNote, parseEnvelope, encryptNote } from '../../state/auth';
+import { noteAad } from '@dustnote/shared';
+import { randomUuid } from '../../lib/uuid';
 import { useThemeStore, type Theme } from '../../state/theme';
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo, resetRepoCache } from '../../lib/get-repo';
+import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
+import {
+  savePendingMigration,
+  loadPendingMigration,
+} from '../../lib/migration';
 import { clearStandaloneMasterKey } from '../../lib/standalone-session';
 import { setup2fa, enable2fa, disable2fa, get2faStatus } from '../../lib/totp-client';
 import { t, setLanguage, useLanguage, type Language } from '../../lib/i18n';
@@ -127,6 +134,8 @@ export default function Settings() {
   };
 
   const changePassword = useAuthStore((s) => s.changePassword);
+  const masterKey = useAuthStore((s) => s.masterKey);
+  const setPendingMasterKey = useAuthStore((s) => s.setPendingMasterKey);
 
   // ========== 设备管理（联机模式，页面内浮层） ==========
   const [devicesOpen, setDevicesOpen] = useState(false);
@@ -300,76 +309,226 @@ export default function Settings() {
     }
   };
 
+  /** 解密单条笔记（导出/标题复用），缓存优先，失败返回 null */
+  const tryDecrypt = async (id: string, ciphertext: string) => {
+    const cached = getCachedPlain(id, ciphertext);
+    if (cached) return cached;
+    const mk = useAuthStore.getState().masterKey;
+    if (!mk) return null;
+    try {
+      const env = parseEnvelope(ciphertext);
+      const aadUserId = useAuthStore.getState().userId ?? '';
+      const pt = await decryptNote(mk, env, env.payload.a === 1 ? noteAad(id, aadUserId) : undefined);
+      putCachedPlain(id, ciphertext, pt.title, pt.content, pt.tags);
+      return pt;
+    } catch {
+      return null;
+    }
+  };
+
+  /** 导出 Markdown：解密全库拼 md（与安卓端格式互认：# 标题 / > 标签： / --- 分隔） */
+  const onExportMarkdown = async () => {
+    if (!masterKey) {
+      Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
+      return;
+    }
+    try {
+      Taro.showLoading({ title: t('settings.exporting') });
+      const snapshot = await getRepo().loadAll();
+      const parts: string[] = [];
+      let ok = 0;
+      for (const note of snapshot.notes as Array<{
+        id: string;
+        ciphertext: string;
+        deletedAt?: string | null;
+      }>) {
+        if (note.deletedAt) continue;
+        const pt = await tryDecrypt(note.id, note.ciphertext);
+        if (!pt) continue;
+        const tagsLine = pt.tags?.length
+          ? '\n\n> 标签：' + pt.tags.map((tg) => '#' + tg).join(' ')
+          : '';
+        parts.push(
+          '# ' + (pt.title || t('common.unnamed_note')) + '\n\n' + pt.content + tagsLine + '\n\n---\n'
+        );
+        ok++;
+      }
+      Taro.hideLoading();
+      const md = parts.join('\n');
+      if (process.env.TARO_ENV === 'h5') {
+        // H5：UTF-8 BOM + 文件下载（Windows 记事本兼容，对齐安卓端）
+        const blob = new Blob(['\uFEFF' + md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'dustnote-notes-' + new Date().toISOString().slice(0, 10) + '.md';
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        // weapp 无文件分享能力：全文复制到剪贴板
+        await Taro.setClipboardData({ data: md });
+      }
+      Taro.showToast({ title: t('settings.export_md_done', { count: ok }), icon: 'success' });
+    } catch {
+      Taro.hideLoading();
+      Taro.showToast({ title: t('settings.export_failed'), icon: 'none' });
+    }
+  };
+
+  /** JSON 备份导入（对齐安卓端：清空业务数据后恢复，完成回解锁页重新确认身份） */
+  const importBackupJson = async (data: { notes: unknown[] }) => {
+    const confirm = await Taro.showModal({
+      title: t('settings.import_confirm_title'),
+      content: t('settings.import_backup_content', { count: data.notes.length }),
+      confirmText: t('common.confirm'),
+      confirmColor: '#E07B6C',
+    });
+    if (!confirm.confirm) return;
+    Taro.showLoading({ title: t('settings.importing') });
+    try {
+      await getRepo().clearBusinessData();
+      await getRepo().importBackup(data as never);
+      Taro.hideLoading();
+      lock();
+      const mode = useModeStore.getState().mode;
+      Taro.reLaunch({
+        url: mode === 'standalone' ? '/pages/standalone-unlock/index' : '/pages/unlock/index',
+      });
+    } catch (err) {
+      Taro.hideLoading();
+      const msg =
+        (err as { err?: { message?: string } })?.err?.message || t('settings.parse_failed');
+      Taro.showToast({ title: msg, icon: 'none', duration: 3000 });
+    }
+  };
+
+  /** Markdown/TXT 导入：按 --- 分隔拆篇（# 标题 / > 标签：，与导出格式互认） */
+  const importMarkdown = async (content: string) => {
+    const sections = content
+      .split(/\n---+\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (sections.length === 0) {
+      Taro.showToast({ title: t('settings.import_file_empty'), icon: 'none' });
+      return;
+    }
+    const confirm = await Taro.showModal({
+      title: t('settings.import_confirm_title'),
+      content: t('settings.import_file_md_detail', { count: sections.length }),
+      confirmText: t('common.confirm'),
+    });
+    if (!confirm.confirm) return;
+    Taro.showLoading({ title: t('settings.importing') });
+    try {
+      const mk = useAuthStore.getState().masterKey;
+      if (!mk) throw new Error(t('common.need_unlock'));
+      const aadUserId = useAuthStore.getState().userId ?? '';
+      let imported = 0;
+      for (const section of sections) {
+        const lines = section.split('\n');
+        let title = t('settings.imported_note_title');
+        let start = 0;
+        if (lines[0]?.startsWith('# ')) {
+          title = lines[0].slice(2).trim();
+          start = 1;
+        }
+        while (start < lines.length && lines[start].trim() === '') start++;
+        const body = lines.slice(start).join('\n').trim();
+        const tagMatch = body.match(/>\s*标签：(.+)/);
+        let tags: string[] = [];
+        let clean = body;
+        if (tagMatch) {
+          tags = tagMatch[1]
+            .split(/\s+/)
+            .map((x) => x.replace(/^#/, ''))
+            .filter(Boolean);
+          clean = body.replace(/>\s*标签：.+\n?/, '').trim();
+        }
+        const noteId = randomUuid();
+        const { json: cipherJson } = await encryptNote(
+          mk,
+          { title, content: clean, tags },
+          noteAad(noteId, aadUserId)
+        );
+        await getRepo().createNote({
+          id: noteId,
+          ciphertext: cipherJson,
+          keyVersion: 1,
+          isPinned: false,
+          isFavorite: false,
+          folderId: null,
+        });
+        imported++;
+      }
+      Taro.hideLoading();
+      Taro.showToast({
+        title: t('settings.import_md_done', { count: imported }),
+        icon: 'success',
+      });
+    } catch (err) {
+      Taro.hideLoading();
+      Taro.showToast({
+        title: err instanceof Error ? err.message : t('settings.import_failed'),
+        icon: 'none',
+        duration: 3000,
+      });
+    }
+  };
+
+  /** 按内容路由导入：JSON 备份 vs Markdown/TXT */
+  const routeImportContent = async (text: string) => {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('{') && trimmed.includes('"notes"')) {
+      const data = JSON.parse(trimmed) as { notes: unknown[] };
+      if (!Array.isArray(data.notes)) {
+        Taro.showToast({ title: t('settings.invalid_backup'), icon: 'none' });
+        return;
+      }
+      await importBackupJson(data);
+    } else {
+      await importMarkdown(text);
+    }
+  };
+
   const onImport = async () => {
     // H5 下用隐藏文件输入框，weapp 下用 Taro.chooseMessageFile
     if (process.env.TARO_ENV === 'h5') {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.json';
+      input.accept = '.json,.md,.txt';
       input.onchange = async (e: any) => {
         const file = e.target?.files?.[0];
         if (!file) return;
         try {
           const text = await file.text();
-          const data = JSON.parse(text);
-          if (!data.notes || !Array.isArray(data.notes)) {
-            Taro.showToast({ title: t('settings.invalid_backup'), icon: 'none' });
-            return;
-          }
-          Taro.showLoading({ title: t('settings.importing') });
-          await getRepo().importBackup(data);
-          Taro.hideLoading();
-          Taro.showToast({
-            title: t('settings.imported_count', { count: data.notes.length }),
-            icon: 'success',
-          });
+          await routeImportContent(text);
         } catch {
-          Taro.hideLoading();
           Taro.showToast({ title: t('settings.parse_failed'), icon: 'none' });
         }
       };
       input.click();
     } else if (process.env.TARO_ENV === 'weapp' && typeof Taro.chooseMessageFile === 'function') {
-      // weapp:从微信聊天记录选择备份 JSON 文件(先把 .json 发给任意聊天/文件传输助手)
+      // weapp:从微信聊天记录选择文件(先把 .json/.md/.txt 发给任意聊天/文件传输助手)
       Taro.chooseMessageFile({
         count: 1,
         type: 'file',
-        extension: ['json'],
+        extension: ['json', 'md', 'txt'],
         success: (res) => {
           const path = res.tempFiles?.[0]?.path;
           if (!path) return;
           Taro.getFileSystemManager().readFile({
             filePath: path,
             encoding: 'utf-8',
-            success: async (readRes) => {
-              try {
-                const data = JSON.parse(String(readRes.data));
-                if (!data || !Array.isArray(data.notes)) {
-                  Taro.showToast({ title: t('settings.invalid_backup'), icon: 'none' });
-                  return;
-                }
-                const confirm = await Taro.showModal({
-                  title: t('settings.import_confirm_title'),
-                  content: t('settings.import_backup_content', { count: data.notes.length }),
-                  confirmText: t('common.confirm'),
-                  confirmColor: '#E07B6C',
-                });
-                if (!confirm.confirm) return;
-                Taro.showLoading({ title: t('settings.importing') });
-                await getRepo().importBackup(data);
-                Taro.hideLoading();
-                Taro.showToast({
-                  title: t('settings.imported_count', { count: data.notes.length }),
-                  icon: 'success',
-                });
-              } catch (err) {
-                Taro.hideLoading();
-                const msg =
-                  (err as { err?: { message?: string } })?.err?.message ||
-                  t('settings.parse_failed');
-                Taro.showToast({ title: msg, icon: 'none', duration: 3000 });
-              }
-            },
+          success: async (readRes) => {
+            try {
+              await routeImportContent(String(readRes.data));
+            } catch (err) {
+              const msg =
+                (err as { err?: { message?: string } })?.err?.message ||
+                t('settings.parse_failed');
+              Taro.showToast({ title: msg, icon: 'none', duration: 3000 });
+            }
+          },
             fail: () => Taro.showToast({ title: t('settings.parse_failed'), icon: 'none' }),
           });
         },
@@ -380,7 +539,26 @@ export default function Settings() {
     }
   };
 
-  /** 切换模式：重置模式状态，回到模式选择页 */
+  /** 粘贴 JSON 导入（对齐安卓端 import Modal） */
+  const onPasteImport = async () => {
+    try {
+      const res = await showEditableModal({
+        title: t('settings.paste_import_title'),
+        placeholderText: '{ "notes": [...] }',
+      });
+      if (!res.confirm || !res.content) return;
+      const data = JSON.parse(res.content) as { notes: unknown[] };
+      if (!data || !Array.isArray(data.notes)) {
+        Taro.showToast({ title: t('settings.invalid_backup'), icon: 'none' });
+        return;
+      }
+      await importBackupJson(data);
+    } catch {
+      Taro.showToast({ title: t('settings.parse_failed'), icon: 'none' });
+    }
+  };
+
+  /** 切换模式：DM-7 延迟迁移（对齐安卓端）——低风险步骤先行 */
   const onSwitchMode = async () => {
     const confirm = await Taro.showModal({
       title: t('settings.switch_title'),
@@ -389,9 +567,20 @@ export default function Settings() {
       confirmColor: '#E07B6C',
     });
     if (!confirm.confirm) return;
-    // 重置 auth store（清零 masterKey/token,authState 回 needs_unlock）:
-    // 否则陈旧的 authState/masterKey 穿透到新模式,以旧联机 key 给空库
-    // 写入初始内容后设新密码 → 内容永久无法解密
+    // 1. 导出备份 + 暂存旧 masterKey + 持久化迁移槽（全部失败可回滚，不切换）
+    try {
+      Taro.showLoading({ title: t('settings.exporting') });
+      const backup = await getRepo().exportBackup();
+      savePendingMigration(backup, useAuthStore.getState().userId);
+      setPendingMasterKey(useAuthStore.getState().masterKey);
+      Taro.hideLoading();
+    } catch {
+      Taro.hideLoading();
+      Taro.showToast({ title: t('settings.export_failed'), icon: 'none' });
+      return;
+    }
+    // 2. 切换模式 + 锁定（新模式 setup/unlock 成功后 auth store 自动消费迁移槽，
+    //    用新模式 masterKey 重加密导入——否则旧密文在新 key 下全部无法解密）
     lock();
     clearStandaloneMasterKey();
     resetRepoCache();
@@ -554,6 +743,18 @@ export default function Settings() {
         <View className="settings-row" onClick={onExport}>
           <View className="settings-row-label">
             <Text>{t('settings.export_backup')}</Text>
+          </View>
+          <Text className="settings-row-value">›</Text>
+        </View>
+        <View className="settings-row" onClick={onExportMarkdown}>
+          <View className="settings-row-label">
+            <Text>{t('settings.export_md_row')}</Text>
+          </View>
+          <Text className="settings-row-value">›</Text>
+        </View>
+        <View className="settings-row" onClick={onPasteImport}>
+          <View className="settings-row-label">
+            <Text>{t('settings.paste_import_row')}</Text>
           </View>
           <Text className="settings-row-value">›</Text>
         </View>
