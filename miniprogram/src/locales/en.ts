@@ -185,6 +185,8 @@ const en: typeof zhCN = {
     server_url_title: 'Server address',
     server_url_saved: 'Server address updated',
     autolock_title: '⏱ Auto-lock',
+    biometric_row: '🔒 Fingerprint unlock',
+    biometric_on: 'Fingerprint unlock enabled',
     autolock_off: 'Off',
     autolock_minutes: 'After {{n}} min in background',
     autolock_saved: 'Auto-lock setting saved',
@@ -392,6 +394,9 @@ const en: typeof zhCN = {
     totp_placeholder: 'Two-factor code (6 digits)',
     err_totp: 'Enter the two-factor code',
     create_hint: 'No account yet? Create master password',
+    biometric_btn: 'Fingerprint unlock',
+    bio_failed: 'Fingerprint verification failed',
+    bio_fallback: 'Fingerprint cache unavailable — use master password',
   },
   standalone_unlock: {
     subtitle: 'Standalone mode · Enter master password to unlock',

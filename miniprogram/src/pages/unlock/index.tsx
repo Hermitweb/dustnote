@@ -10,19 +10,45 @@ import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
+import {
+  isBiometricEnabled,
+  isBiometricSupported,
+  promptBiometric,
+} from '../../lib/biometric';
 
 export default function Unlock() {
   const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [showTotp, setShowTotp] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [bioReady, setBioReady] = useState(false);
   const unlock = useAuthStore((s) => s.unlock);
+  const unlockWithBiometric = useAuthStore((s) => s.unlockWithBiometric);
   const lang = useLanguage();
 
   // 语言切换后同步原生导航栏标题
   useEffect(() => {
     Taro.setNavigationBarTitle({ title: t('app.name') });
   }, [lang]);
+
+  // 指纹解锁入口：设备支持且用户已启用（缓存存在校验在验证通过后进行）
+  useEffect(() => {
+    void (async () => {
+      setBioReady((await isBiometricSupported()) && isBiometricEnabled());
+    })();
+  }, []);
+
+  const onBiometric = async () => {
+    const ok = await promptBiometric();
+    if (!ok) return;
+    const restored = await unlockWithBiometric();
+    if (restored) {
+      Taro.reLaunch({ url: '/pages/index/index' });
+    } else {
+      // 缓存缺失（改密后未续写/账号数据变更）：回退密码解锁
+      Taro.showToast({ title: t('unlock.bio_fallback'), icon: 'none' });
+    }
+  };
 
   const onUnlock = async () => {
     if (!password) {
@@ -81,6 +107,12 @@ export default function Unlock() {
       >
         {submitting ? t('common.unlocking') : t('common.unlock')}
       </View>
+
+      {bioReady && !submitting && (
+        <View className="mint-btn mint-btn-ghost mint-btn-block mt-s" onClick={() => void onBiometric()}>
+          🔒 {t('unlock.biometric_btn')}
+        </View>
+      )}
 
       <View
         className="hint-mint mt-l"

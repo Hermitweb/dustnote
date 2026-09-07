@@ -187,6 +187,8 @@ const zhCN = {
     server_url_title: '服务器地址',
     server_url_saved: '服务器地址已更新',
     autolock_title: '⏱ 自动锁屏',
+    biometric_row: '🔒 指纹解锁',
+    biometric_on: '指纹解锁已开启',
     autolock_off: '已关闭',
     autolock_minutes: '后台 {{n}} 分钟后',
     autolock_saved: '自动锁屏设置已保存',
@@ -384,6 +386,9 @@ const zhCN = {
     totp_placeholder: '两步验证码（6位数字）',
     err_totp: '请输入两步验证码',
     create_hint: '还没有账号？创建主密码',
+    biometric_btn: '指纹解锁',
+    bio_failed: '指纹验证未通过',
+    bio_fallback: '指纹缓存不可用，请用主密码解锁',
   },
   standalone_unlock: {
     subtitle: '单机模式 · 输入主密码解锁',

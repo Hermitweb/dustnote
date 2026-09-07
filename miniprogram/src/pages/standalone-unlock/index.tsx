@@ -30,14 +30,39 @@ import {
 import { loadLockoutStateSync } from '../../lib/local-auth-storage';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
+import {
+  isBiometricEnabled,
+  isBiometricSupported,
+  promptBiometric,
+} from '../../lib/biometric';
 
 export default function StandaloneUnlock() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [lockout, setLockout] = useState<LocalLockoutState>(INITIAL_LOCKOUT_STATE);
   const [now, setNow] = useState(Date.now());
+  const [bioReady, setBioReady] = useState(false);
   const unlockStandalone = useAuthStore((s) => s.unlockStandalone);
+  const unlockWithBiometric = useAuthStore((s) => s.unlockWithBiometric);
   const lang = useLanguage();
+
+  // 指纹解锁入口：设备支持且用户已启用
+  useEffect(() => {
+    void (async () => {
+      setBioReady((await isBiometricSupported()) && isBiometricEnabled());
+    })();
+  }, []);
+
+  const onBiometric = async () => {
+    const ok = await promptBiometric();
+    if (!ok) return;
+    const restored = await unlockWithBiometric();
+    if (restored) {
+      Taro.reLaunch({ url: '/pages/index/index' });
+    } else {
+      Taro.showToast({ title: t('unlock.bio_fallback'), icon: 'none' });
+    }
+  };
 
   // 语言切换后同步原生导航栏标题
   useEffect(() => {
@@ -136,6 +161,15 @@ export default function StandaloneUnlock() {
             ? t('standalone_unlock.locked_btn', { min: remainingMin })
             : t('common.unlock')}
       </View>
+
+      {bioReady && !locked && !submitting && (
+        <View
+          className="mint-btn mint-btn-ghost mint-btn-block mt-s"
+          onClick={() => void onBiometric()}
+        >
+          🔒 {t('unlock.biometric_btn')}
+        </View>
+      )}
 
       <View
         className="hint-mint mt-l"

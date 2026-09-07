@@ -26,6 +26,13 @@ import { clearStandaloneMasterKey } from '../../lib/standalone-session';
 import { setup2fa, enable2fa, disable2fa, get2faStatus } from '../../lib/totp-client';
 import { t, setLanguage, useLanguage, type Language } from '../../lib/i18n';
 import { parseServerDate } from '../../lib/date-parse';
+import {
+  cacheMasterKeyForBiometric,
+  isBiometricEnabled,
+  isBiometricSupported,
+  promptBiometric,
+  setBiometricEnabled,
+} from '../../lib/biometric';
 
 /** 微信 showModal 的 editable 输入框运行时可用，但 Taro 类型定义未跟上 */
 interface EditableModalResult {
@@ -610,6 +617,37 @@ export default function Settings() {
 
   /** 自动锁屏：选择后台 N 分钟后锁定（0 = 关闭） */
   const AUTOLOCK_OPTIONS = ['0', '1', '5', '10', '30'];
+
+  // 指纹解锁（SOTER）：仅 weapp 且设备支持时显示；开启需当次指纹验证
+  const [bioSupported, setBioSupported] = useState(false);
+  const [bioOn, setBioOn] = useState(isBiometricEnabled());
+  useEffect(() => {
+    void (async () => {
+      const supported = await isBiometricSupported();
+      setBioSupported(supported);
+      if (!supported) setBioOn(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onToggleBiometric = async () => {
+    if (bioOn) {
+      setBiometricEnabled(false);
+      setBioOn(false);
+      return;
+    }
+    const ok = await promptBiometric();
+    if (!ok) {
+      Taro.showToast({ title: t('unlock.bio_failed'), icon: 'none' });
+      return;
+    }
+    setBiometricEnabled(true);
+    const mk = useAuthStore.getState().masterKey;
+    if (mk) cacheMasterKeyForBiometric(mk);
+    setBioOn(true);
+    Taro.showToast({ title: t('settings.biometric_on'), icon: 'success' });
+  };
+
   const onAutolock = async () => {
     const labels = AUTOLOCK_OPTIONS.map((m) =>
       m === '0' ? t('settings.autolock_off') : t('settings.autolock_minutes', { n: m }),
@@ -732,6 +770,14 @@ export default function Settings() {
             })()} ›
           </Text>
         </View>
+        {process.env.TARO_ENV === 'weapp' && bioSupported && (
+          <View className="settings-row" onClick={onToggleBiometric}>
+            <View className="settings-row-label">
+              <Text>{t('settings.biometric_row')}</Text>
+            </View>
+            <Text className="settings-row-value">{bioOn ? '✓' : '›'}</Text>
+          </View>
+        )}
         {mode === 'online' && (
           <View className="settings-row" onClick={onTotp}>
             <View className="settings-row-label">

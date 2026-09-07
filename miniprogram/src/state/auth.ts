@@ -24,6 +24,11 @@ import { t } from '../lib/i18n';
 import { ensureRandomReady } from '../lib/crypto-polyfill';
 import { clearPlainCache } from '../lib/plain-cache';
 import { startSyncWs, stopSyncWs } from '../lib/sync-ws';
+import {
+  cacheMasterKeyForBiometric,
+  isBiometricEnabled,
+  readCachedMasterKey,
+} from '../lib/biometric';
 import { useConflictStore } from './conflict-store';
 import {
   type FetchFn,
@@ -153,6 +158,8 @@ interface AuthStoreState {
   recoverOnline: (recoveryCode: string, newPassword: string) => Promise<void>;
   /** 模式切换迁移：暂存旧 masterKey（lock() 不清除，新模式鉴权成功后消费） */
   setPendingMasterKey: (key: Uint8Array | null) => void;
+  /** 指纹解锁：SOTER 验证由 UI 发起，这里恢复缓存的 masterKey 并进入解锁态 */
+  unlockWithBiometric: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthStoreState>((set, get) => ({
@@ -166,6 +173,28 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     pendingMasterKey: null,
 
     setPendingMasterKey: (key) => set({ pendingMasterKey: key }),
+
+    unlockWithBiometric: async () => {
+      const cached = readCachedMasterKey();
+      if (!cached) return false;
+      const mode = useModeStore.getState().mode;
+      if (mode === 'standalone') {
+        const blob = loadLocalAuthBlobSync();
+        if (!blob) return false;
+        set({ authState: 'unlocked', masterKey: cached, localAuthBlob: blob });
+        return true;
+      }
+      // 联机：恢复持久化 token（已过期由 401 静默刷新兜底）
+      const token = readPersistedToken();
+      if (!token) return false;
+      set({ authState: 'unlocked', masterKey: cached, accessToken: token });
+      try {
+        startSyncWs();
+      } catch {
+        /* ignore */
+      }
+      return true;
+    },
 
   // ========== 通用 actions ==========
 
@@ -284,6 +313,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       pwSalt: toBase64(pwSalt),
       authState: 'unlocked',
     });
+    // 指纹解锁已启用：续写缓存（保证缓存与账号当前 masterKey 一致）
+    if (isBiometricEnabled()) cacheMasterKeyForBiometric(masterKey);
     void runPendingMigration();
     return recoveryCode;
   },
@@ -339,6 +370,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       pwSalt: salt,
       authState: 'unlocked',
     });
+    if (isBiometricEnabled()) cacheMasterKeyForBiometric(masterKey);
     void runPendingMigration();
   },
 
@@ -374,6 +406,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       lockoutState: { ...INITIAL_LOCKOUT_STATE },
       authState: 'unlocked',
     });
+    if (isBiometricEnabled()) cacheMasterKeyForBiometric(result.masterKey);
     void runPendingMigration();
     return result.recoveryCode;
   },
@@ -407,6 +440,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       lockoutState: successState,
       authState: 'unlocked',
     });
+    if (isBiometricEnabled()) cacheMasterKeyForBiometric(result.masterKey);
+    void runPendingMigration();
   },
 
   async recoverStandalone(recoveryCode: string, newPassword: string): Promise<string> {
@@ -546,6 +581,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       pwSalt: toBase64(newPwSalt),
       userId: r.userId,
     });
+    if (isBiometricEnabled()) cacheMasterKeyForBiometric(masterKey);
     try {
       startSyncWs();
     } catch {
