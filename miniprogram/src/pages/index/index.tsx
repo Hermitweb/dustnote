@@ -52,6 +52,20 @@ interface Note {
 interface Folder {
   id: string;
   name: string;
+  parentId?: string | null;
+}
+
+/** 筛选片展示用：文件夹根路径（父/子），同名子文件夹靠路径区分 */
+function folderPathOf(f: Folder, all: Folder[]): string {
+  const parts: string[] = [];
+  const seen = new Set<string>();
+  let cur: Folder | undefined = f;
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id);
+    parts.unshift(cur.name);
+    cur = all.find((x) => x.id === cur!.parentId);
+  }
+  return parts.join('/');
 }
 type ViewMode = 'all' | 'favorite' | 'trash';
 
@@ -673,7 +687,7 @@ function IndexBody() {
                 className={`folder-chip${selectedFolderId === f.id ? ' folder-chip-active' : ''}`}
                 onClick={() => setSelectedFolderId(f.id)}
               >
-                {f.name}
+                {folderPathOf(f, folders)}
               </Text>
             ))}
           </View>
