@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/server",
-  "version": "2.5.37",
+  "version": "2.5.38",
   "private": true,
   "description": "DustNote 后端服务",
   "type": "module",
