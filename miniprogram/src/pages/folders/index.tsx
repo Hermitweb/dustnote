@@ -198,19 +198,23 @@ export default function Folders() {
   };
 
   const openMenu = (folder: Folder) => {
-    Taro.showActionSheet({
-      itemList: [t('folders.menu_rename'), t('folders.menu_move'), t('folders.menu_delete')],
-      itemColor: '#E07B6C',
-      // 用户取消 ActionSheet 在 weapp 走 fail 回调，静默即可
-      fail: () => undefined,
-      success: (res) => {
+    // Taro 把 showActionSheet 归入 promisify 集合：即使传 fail 回调也会返回
+    // Promise，取消时 reject——必须 await+catch，否则产生未处理拒绝上报
+    void (async () => {
+      try {
+        const res = await Taro.showActionSheet({
+          itemList: [t('folders.menu_rename'), t('folders.menu_move'), t('folders.menu_delete')],
+          itemColor: '#E07B6C',
+        });
         if (res.tapIndex === 0) {
           setRenameTarget(folder);
           setRenameText(folder.name);
         } else if (res.tapIndex === 1) setMovingId(folder.id);
         else if (res.tapIndex === 2) void handleDelete(folder);
-      },
-    });
+      } catch {
+        /* 用户取消 */
+      }
+    })();
   };
 
   const darkClass = useThemeDarkClass();
