@@ -93,8 +93,14 @@ function bindTask(t: Taro.SocketTask): void {
     }
   });
 
-  t.onClose(() => scheduleReconnect());
+  t.onClose((res: { code?: number; reason?: string }) => {
+    // 诊断日志：code/reason 区分链路失败（1006/空）与鉴权吊销（4001/1008），
+    // 服务端握手 401 表现为 code=1006 空原因
+    console.log('[WS] closed', res?.code ?? '-', res?.reason ?? '-');
+    scheduleReconnect();
+  });
   t.onError(() => {
+    console.log('[WS] error（多为链路不可达/握手失败）');
     try {
       t.close({});
     } catch {
