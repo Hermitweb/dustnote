@@ -143,9 +143,6 @@ export default function Trash() {
       <ThemeVars />
       <View className={`page ${darkClass}`}>
       <View className="topbar">
-        <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
-          ←
-        </Text>
         <Text className="topbar-title">{t('trash.title')}</Text>
         <Text className="topbar-actions">
           {notes.length > 0 && (

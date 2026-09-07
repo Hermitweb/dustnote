@@ -714,12 +714,8 @@ export default function Settings() {
     <>
       <ThemeVars />
       <View className={`page ${darkClass}`}>
-      <View className="topbar">
-        <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
-          ←
-        </Text>
+      <View className="topbar topbar-center">
         <Text className="topbar-title">{t('settings.title')}</Text>
-        <Text className="topbar-actions"></Text>
       </View>
 
       <View className="settings-group">

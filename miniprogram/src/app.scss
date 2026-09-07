@@ -106,6 +106,10 @@ page {
     background: rgba(11, 17, 32, 0.85);
   }
 }
+/* 无侧元素页头（返回统一走原生导航栏）：标题居中 */
+.topbar-center {
+  justify-content: center;
+}
 .topbar-title {
   font-size: 32rpx;
   font-weight: 700;

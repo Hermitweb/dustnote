@@ -232,12 +232,8 @@ export default function Folders() {
     <>
       <ThemeVars />
       <View className={`page ${darkClass}`}>
-      <View className="topbar">
-        <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
-          ←
-        </Text>
+      <View className="topbar topbar-center">
         <Text className="topbar-title">{moving ? t('folders.moving_title') : t('folders.title')}</Text>
-        <Text className="topbar-actions"></Text>
       </View>
 
       {/* 移动模式：选择目标父级 */}

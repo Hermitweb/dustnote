@@ -206,11 +206,7 @@ export default function Shares() {
           </>
         ) : (
           <>
-            <Text className="topbar-back" onClick={() => Taro.navigateBack()}>
-              ←
-            </Text>
             <Text className="topbar-title">{t('share_mgr.title')}</Text>
-            <View className="topbar-actions" />
           </>
         )}
       </View>
