@@ -22,6 +22,7 @@ export default function Unlock() {
   const [showTotp, setShowTotp] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bioReady, setBioReady] = useState(false);
+  const [bioEntering, setBioEntering] = useState(false);
   const unlock = useAuthStore((s) => s.unlock);
   const unlockWithBiometric = useAuthStore((s) => s.unlockWithBiometric);
   const lang = useLanguage();
@@ -39,13 +40,16 @@ export default function Unlock() {
   }, []);
 
   const onBiometric = async () => {
+    if (bioEntering) return;
     const ok = await promptBiometric();
     if (!ok) return;
+    // 验证通过立即给反馈并跳转，恢复动作在导航后完成
+    setBioEntering(true);
     const restored = await unlockWithBiometric();
     if (restored) {
       Taro.reLaunch({ url: '/pages/index/index' });
     } else {
-      // 缓存缺失（改密后未续写/账号数据变更）：回退密码解锁
+      setBioEntering(false);
       Taro.showToast({ title: t('unlock.bio_fallback'), icon: 'none' });
     }
   };
@@ -109,8 +113,12 @@ export default function Unlock() {
       </View>
 
       {bioReady && !submitting && (
-        <View className="mint-btn mint-btn-ghost mint-btn-block mt-s" onClick={() => void onBiometric()}>
-          🔒 {t('unlock.biometric_btn')}
+        <View
+          className="mint-btn mint-btn-ghost mint-btn-block mt-s"
+          style={{ opacity: bioEntering ? 0.5 : 1 }}
+          onClick={() => void onBiometric()}
+        >
+          {bioEntering ? t('common.unlocking') : `🔒 ${t('unlock.biometric_btn')}`}
         </View>
       )}
 

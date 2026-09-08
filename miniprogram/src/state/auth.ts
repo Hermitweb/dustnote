@@ -184,15 +184,18 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         set({ authState: 'unlocked', masterKey: cached, localAuthBlob: blob });
         return true;
       }
-      // 联机：恢复持久化 token（已过期由 401 静默刷新兜底）
+      // 联机：恢复持久化 token（已过期由 401 静默刷新兜底）。
+      // startSyncWs 延后一拍执行：连接初始化不阻塞指纹解锁的跳转
       const token = readPersistedToken();
       if (!token) return false;
       set({ authState: 'unlocked', masterKey: cached, accessToken: token });
-      try {
-        startSyncWs();
-      } catch {
-        /* ignore */
-      }
+      setTimeout(() => {
+        try {
+          startSyncWs();
+        } catch {
+          /* ignore */
+        }
+      }, 0);
       return true;
     },
 

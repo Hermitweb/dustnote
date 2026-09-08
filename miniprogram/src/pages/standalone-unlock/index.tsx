@@ -42,6 +42,7 @@ export default function StandaloneUnlock() {
   const [lockout, setLockout] = useState<LocalLockoutState>(INITIAL_LOCKOUT_STATE);
   const [now, setNow] = useState(Date.now());
   const [bioReady, setBioReady] = useState(false);
+  const [bioEntering, setBioEntering] = useState(false);
   const unlockStandalone = useAuthStore((s) => s.unlockStandalone);
   const unlockWithBiometric = useAuthStore((s) => s.unlockWithBiometric);
   const lang = useLanguage();
@@ -54,12 +55,15 @@ export default function StandaloneUnlock() {
   }, []);
 
   const onBiometric = async () => {
+    if (bioEntering) return;
     const ok = await promptBiometric();
     if (!ok) return;
+    setBioEntering(true);
     const restored = await unlockWithBiometric();
     if (restored) {
       Taro.reLaunch({ url: '/pages/index/index' });
     } else {
+      setBioEntering(false);
       Taro.showToast({ title: t('unlock.bio_fallback'), icon: 'none' });
     }
   };
@@ -165,9 +169,10 @@ export default function StandaloneUnlock() {
       {bioReady && !locked && !submitting && (
         <View
           className="mint-btn mint-btn-ghost mint-btn-block mt-s"
+          style={{ opacity: bioEntering ? 0.5 : 1 }}
           onClick={() => void onBiometric()}
         >
-          🔒 {t('unlock.biometric_btn')}
+          {bioEntering ? t('common.unlocking') : `🔒 ${t('unlock.biometric_btn')}`}
         </View>
       )}
 
