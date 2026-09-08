@@ -698,9 +698,7 @@ export function NoteEditScreen() {
       style={styles.container}
     >
       <View style={styles.toolbar}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.toolbarBtn}>{t('editor.back')}</Text>
-        </TouchableOpacity>
+        {/* 返回走原生导航头箭头；离开时 unmount flush 兜底未保存修改 */}
         <Text style={styles.toolbarStatus}>
           {offlineQueued
             ? t('editor.offline_queued')
