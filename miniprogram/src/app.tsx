@@ -17,9 +17,6 @@ import { useAuthStore } from './state/auth';
 import { flushOfflineQueue } from './lib/offline-queue';
 import './app.scss';
 
-// 构建标记：确认模拟器加载的是当前 dist（排查工具缓存陈旧问题用）
-console.log('[DUSTNOTE-BUNDLE] build 2026-09-07 19:55');
-
 function App({ children }: { children?: ReactNode }) {
   const theme = useThemeStore((s) => s.theme);
 
