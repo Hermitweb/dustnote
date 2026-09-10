@@ -207,6 +207,8 @@ const en: typeof zhCN = {
     imported_note_title: 'Imported note',
     import_file_empty: 'No notes found in file',
     migrated_count: 'Migrated {{count}} notes',
+    migrated_failed: 'Migrated {{count}}, {{failed}} failed - auto-retry on next unlock',
+    migration_pending: 'Pending migration found but old key missing; switch back to re-export',
     import_backup: '📥 Import backup',
     share_mgmt: '🔗 Share management',
     device_mgmt: '💻 Devices',

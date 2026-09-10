@@ -60,6 +60,7 @@ const en = {
     err_no_server: 'Online mode requires a server URL',
     err_empty_server: 'Please enter the server URL',
     err_url_format: 'URL must start with http:// or https://',
+    warn_plain_http: 'Plain HTTP over a public network can be intercepted; HTTPS is recommended. Ignore this if self-hosting on a LAN.',
     err_timeout: 'Connection timed out (10s). Check the URL and your network.',
     err_unreachable:
       'Cannot reach the server: check the URL, that the server is reachable, and that the app is allowed to access the network in system settings.',

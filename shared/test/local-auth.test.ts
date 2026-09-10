@@ -32,8 +32,8 @@ describe('local-auth: setupLocalAuth', () => {
     expect(result.recoveryCode).toMatch(RECOVERY_CODE_RE);
   });
 
-  it('rejects passwords shorter than 8 chars', async () => {
-    await expect(setupLocalAuth('short', FAST_KDF)).rejects.toThrow(/至少 8 字符/);
+  it('rejects passwords shorter than 6 chars (369771e 决策:8→6 全端一致)', async () => {
+    await expect(setupLocalAuth('short', FAST_KDF)).rejects.toThrow(/至少 6 字符/);
   });
 
   it('generates unique salts per setup', async () => {
@@ -180,11 +180,11 @@ describe('local-auth: recoverLocalAuth', () => {
     expect(unlockResult.success).toBe(false);
   });
 
-  it('rejects new passwords shorter than 8 chars', async () => {
+  it('rejects new passwords shorter than 6 chars', async () => {
     const setup = await setupLocalAuth(GOOD_PASSWORD, FAST_KDF);
     await expect(
       recoverLocalAuth(setup.recoveryCode, 'short', setup.blob, FAST_KDF)
-    ).rejects.toThrow(/至少 8 字符/);
+    ).rejects.toThrow(/至少 6 字符/);
   });
 
   it('accepts recovery code without dash (normalizeRecoveryCode)', async () => {

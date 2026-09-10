@@ -265,9 +265,21 @@ describe('auth protocol v2 round-trip', () => {
 });
 
 describe('production KDF parameters', () => {
-  it('uses OWASP-recommended parameters', () => {
-    // 上面的用例都跑弱参数，这里确保发布出去的仍是 OWASP 2024 推荐值
-    expect(KDF_PARAMS).toEqual({ algorithm: 'argon2id', m: 64 * 1024, t: 3, p: 4, dkLen: 32 });
+  it('uses the shipped cross-end KDF parameters (PBKDF2-SHA256 100k)', () => {
+    // v2.5.24 起全端统一从 Argon2id 切到 PBKDF2-SHA256 100k（产品决策,见
+    // CHANGELOG 与 engineering 记忆）：Argon2id 纯 JS 实现在低端安卓真机上
+    // 解锁需 182s（实锤事故）,PBKDF2 走各端原生实现亚秒级。低于 OWASP 当前
+    // 对 PBKDF2 的迭代数建议,属 UX 与离线爆破成本之间的**有意取舍**——
+    // 服务端另有 scrypt N=2^17 的 authKey 哈希与三层防爆破兜底。改参数前
+    // 必须同步此测试与全部端的历史账号兼容逻辑。
+    expect(KDF_PARAMS).toEqual({
+      algorithm: 'pbkdf2',
+      m: 0,
+      t: 0,
+      p: 0,
+      iterations: 100000,
+      dkLen: 32,
+    });
   });
 
   it('completes a full unlock round-trip at production strength', async () => {

@@ -34,10 +34,17 @@ export interface PendingMigration {
   backup: BackupPayload;
   wrappedOldMasterKey: Ciphertext | null;
   oldUserId: string | null;
+  /** 联机迁移的旧→新文件夹 id 映射（C1b：不持久化则失败重试会重复建文件夹） */
+  folderMap?: Record<string, string>;
 }
 
 export function savePendingMigration(backup: BackupPayload, oldUserId: string | null): void {
   const slot: PendingMigration = { backup, wrappedOldMasterKey: null, oldUserId };
+  Taro.setStorageSync(PENDING_KEY, JSON.stringify(slot));
+}
+
+/** 把（可能更新过 folderMap 的）槽写回 storage */
+function persistSlot(slot: PendingMigration): void {
   Taro.setStorageSync(PENDING_KEY, JSON.stringify(slot));
 }
 
@@ -126,8 +133,10 @@ async function importToOnline(
   oldKey: Uint8Array,
   newKey: Uint8Array
 ): Promise<{ imported: number; failed: number }> {
-  const folderMap = new Map<string, string>();
+  // folderMap 从槽恢复：失败重试时复用上次映射,不会重复建文件夹
+  const folderMap = new Map<string, string>(Object.entries(slot.folderMap ?? {}));
   for (const folder of slot.backup.folders ?? []) {
+    if (folderMap.has(folder.id)) continue;
     const parentId = folder.parentId ? (folderMap.get(folder.parentId) ?? null) : null;
     try {
       const newId = await repo.createFolder({
@@ -140,6 +149,8 @@ async function importToOnline(
       /* 单条失败不影响整体迁移 */
     }
   }
+  // 文件夹阶段完成即落盘映射：后续笔记导入失败重试时跳过文件夹阶段
+  persistSlot({ ...slot, folderMap: Object.fromEntries(folderMap) });
 
   let imported = 0;
   let failed = 0;
@@ -153,6 +164,9 @@ async function importToOnline(
     }
     try {
       await repo.createNote({
+        // 保留原 id（C1b）：服务端 POST /notes 已幂等（ON CONFLICT 收敛）,
+        // 失败重试不会产生重复笔记;同时密文若带 AAD 绑定也以原 id 为准
+        id: note.id,
         ciphertext: await reEncrypt(json, newKey),
         keyVersion: 1,
         isPinned: note.isPinned,

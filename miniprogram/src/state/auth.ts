@@ -676,11 +676,35 @@ async function runPendingMigration(): Promise<void> {
       oldKey = null;
     }
   }
-  if (!oldKey) return; // 无旧 key 无法解密备份，槽保留待重试
+  if (!oldKey) {
+    // M9 困死提示：切换模式后进程被杀,pendingMasterKey(仅内存)丢失且槽内
+    // 尚无可解封的包装 key——迁移静默不发生,必须让用户知道恢复路径
+    Taro.showToast({
+      title: t('settings.migration_pending'),
+      icon: 'none',
+      duration: 4000,
+    });
+    return;
+  }
   const mode = useModeStore.getState().mode;
   try {
     const result = await consumePendingMigration(getRepo(), masterKey, oldKey);
     if (!result) return;
+    if (result.failed > 0) {
+      // C1b：部分失败必须披露并保留槽——笔记逐条上传可能撞限流/网络抖动,
+      // 此前失败条数被静默丢弃、槽被无条件清除,失败的笔记无声丢失
+      try {
+        await persistWrappedOldMasterKey(slot, masterKey, oldKey);
+      } catch {
+        /* ignore */
+      }
+      Taro.showToast({
+        title: t('settings.migrated_failed', { count: result.imported, failed: result.failed }),
+        icon: 'none',
+        duration: 4000,
+      });
+      return;
+    }
     clearPendingMigration();
     useAuthStore.setState({ pendingMasterKey: null });
     Taro.showToast({

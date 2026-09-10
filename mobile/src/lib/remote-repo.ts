@@ -40,6 +40,9 @@ import { api } from '../api';
 
 interface NotesResponse {
   notes: NoteRow[];
+  /** H3 分页：还有更多页时服务端给出续传游标 */
+  hasMore?: boolean;
+  nextCursor?: string | null;
 }
 
 interface FoldersResponse {
@@ -91,16 +94,27 @@ export class RemoteRepository implements DataRepository {
   // ========== 批量加载 ==========
 
   async loadAll(): Promise<RepositorySnapshot> {
-    const [notesRes, foldersRes, tagsRes, meRes] = await Promise.all([
+    // 游标分页循环（H3）：服务端单页上限 500,必须拉到 hasMore=false 才算全量
+    const [firstPage, foldersRes, tagsRes, meRes] = await Promise.all([
       api.get<NotesResponse>('/notes?includeDeleted=1'),
       api.get<FoldersResponse>('/folders'),
       api.get<TagsResponse>('/tags'),
       api.get<AuthMeResponse>('/auth/me'),
     ]);
+    let allNotes = firstPage.notes;
+    let cursor: string | null = firstPage.nextCursor ?? null;
+    // 防御性上限：500 条/页 × 200 页,防服务端异常导致死循环
+    for (let page = 0; page < 200 && cursor; page++) {
+      const next = await api.get<NotesResponse>(
+        `/notes?includeDeleted=1&cursor=${encodeURIComponent(cursor)}`
+      );
+      allNotes = allNotes.concat(next.notes);
+      cursor = next.nextCursor ?? null;
+    }
     // wrappedMasterKey 由 auth-store 使用，这里仅返回笔记 / 文件夹 / 标签 / 偏好
     // 偏好单独请求（loadAll 不强制要求；为减少请求次数，留给 store 自行调用 getPreferences）
     void meRes; // 暂不在此暴露 wrappedMasterKey，由 auth-store 单独请求
-    for (const n of notesRes.notes) this.lastVersions.set(n.id, n.version);
+    for (const n of allNotes) this.lastVersions.set(n.id, n.version);
     let preferences: Preferences | null = null;
     try {
       preferences = await this.getPreferences();
@@ -108,7 +122,7 @@ export class RemoteRepository implements DataRepository {
       /* 偏好获取失败不阻塞 loadAll */
     }
     return {
-      notes: notesRes.notes,
+      notes: allNotes,
       folders: foldersRes.folders,
       tags: tagsRes.tags,
       preferences,

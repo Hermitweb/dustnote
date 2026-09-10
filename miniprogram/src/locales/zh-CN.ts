@@ -210,6 +210,8 @@ const zhCN = {
       imported_note_title: '导入的笔记',
       import_file_empty: '文件中没有可导入的笔记',
       migrated_count: '已迁移 {{count}} 条笔记',
+      migrated_failed: '已迁移 {{count}} 条,失败 {{failed}} 条——下次解锁自动重试',
+      migration_pending: '检测到未完成的模式迁移但缺少旧密钥,可切回原模式重新导出迁移',
     import_backup: '📥 导入备份',
     share_mgmt: '🔗 分享管理',
     device_mgmt: '💻 设备管理',

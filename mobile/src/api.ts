@@ -13,6 +13,7 @@
 
 import { ApiClient, type ClientChannel, type ClientPlatform } from '@dustnote/shared';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Keychain from 'react-native-keychain';
 import { DEFAULT_BASE_URL, resolveBaseUrl } from './lib/mode-store';
 import { APP_VERSION } from './lib/version';
 
@@ -35,6 +36,10 @@ export async function getDeviceId(): Promise<string> {
 let currentToken: string | null = null;
 
 const REFRESH_TOKEN_KEY = 'dustnote_refresh_token';
+// M10：refresh token 是 30 天有效的会话凭证,从 AsyncStorage（明文、可被
+// 备份提取）迁到 Keystore 加固的 Keychain。与 masterKey 缓存同一存储策略,
+// 不挂生物访问控制（刷新是静默行为,不能每次弹指纹）
+const REFRESH_KEYCHAIN_SERVICE = 'com.dustnote.refresh';
 
 export function setAccessToken(token: string | null): void {
   currentToken = token;
@@ -44,8 +49,17 @@ export function setAccessToken(token: string | null): void {
 
 /** 自管 refresh token（RN 无法依赖 HTTP-only cookie,服务端 /auth/refresh 兼容 X-Refresh-Token header） */
 export async function setRefreshToken(token: string | null): Promise<void> {
-  if (token) await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
-  else await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
+  if (token) {
+    await Keychain.setGenericPassword('refresh', token, {
+      service: REFRESH_KEYCHAIN_SERVICE,
+      accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    });
+    // 迁移完成清掉 AsyncStorage 里的旧明文副本
+    await AsyncStorage.removeItem(REFRESH_TOKEN_KEY).catch(() => undefined);
+  } else {
+    await Keychain.resetGenericPassword({ service: REFRESH_KEYCHAIN_SERVICE }).catch(() => undefined);
+    await AsyncStorage.removeItem(REFRESH_TOKEN_KEY).catch(() => undefined);
+  }
 }
 
 /**
@@ -67,7 +81,27 @@ export async function buildClientHeaders(
 }
 
 async function getRefreshToken(): Promise<string | null> {
-  return AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+  // 先读 Keychain（M10 后的正式位置）;读不到再回退 AsyncStorage 旧位置并
+  // 迁移——升级用户的首个刷新周期完成无感搬迁
+  try {
+    const creds = await Keychain.getGenericPassword({ service: REFRESH_KEYCHAIN_SERVICE });
+    if (creds && creds.password) return creds.password;
+  } catch {
+    /* Keychain 不可用（模拟器/特殊 ROM）时回退 AsyncStorage */
+  }
+  const legacy = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+  if (legacy) {
+    try {
+      await Keychain.setGenericPassword('refresh', legacy, {
+        service: REFRESH_KEYCHAIN_SERVICE,
+        accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      });
+      await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
+    } catch {
+      /* 迁移失败保留旧位置,下次再试 */
+    }
+  }
+  return legacy;
 }
 
 let refreshInFlight: Promise<boolean> | null = null;
