@@ -20,7 +20,10 @@ type Platform = 'web' | 'desktop' | 'android' | 'ios' | 'miniprogram';
 // /downloads/ 前缀直接静态伺服，客户端下载全程走自有服务器，不依赖 GitHub。
 const DOWNLOADS_DIR = process.env.DOWNLOADS_DIR ?? '/app/web-dist/downloads';
 
-const hashCache = new Map<string, string>();
+// 缓存校验指纹（mtimeMs + size）：同版本号覆盖产物后（重打 tag 重发）,
+// hash 必须重算,否则 manifest 给出「旧 hash + 新 size」的自相矛盾清单——
+// 客户端下载后校验必失败。此前只能靠重启容器清缓存,属运维暗坑。
+const hashCache = new Map<string, { mtimeMs: number; size: number; hash: string }>();
 
 /**
  * 按文件名构建 artifact。
@@ -33,15 +36,19 @@ const hashCache = new Map<string, string>();
 function artifactFor(filename: string): { url: string; hash: string; size: number } | undefined {
   const path = join(DOWNLOADS_DIR, filename);
   if (!existsSync(path)) return undefined;
-  let hash = hashCache.get(path);
-  if (!hash) {
+  const stat = statSync(path);
+  const cached = hashCache.get(path);
+  let hash: string;
+  if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+    hash = cached.hash;
+  } else {
     hash = `sha256:${createHash('sha256').update(readFileSync(path)).digest('hex')}`;
-    hashCache.set(path, hash);
+    hashCache.set(path, { mtimeMs: stat.mtimeMs, size: stat.size, hash });
   }
   return {
     url: `${config.webOrigin}/downloads/${filename}`,
     hash,
-    size: statSync(path).size,
+    size: stat.size,
   };
 }
 

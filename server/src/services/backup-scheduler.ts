@@ -10,9 +10,17 @@
  */
 import { runBackup } from '../scripts/backup.js';
 import { logger } from '../logger.js';
+import { captureException } from '../sentry.js';
 
 const INTERVAL_MS = 24 * 60 * 60 * 1000;
 const FIRST_RUN_DELAY_MS = 60 * 1000;
+
+/** 备份失败必须升级告警（审计 M2）：仅 logger.error 无人盯着就是静默丢备份。 */
+function onBackupFailure(where: string, err: unknown): void {
+  logger.error({ err, where }, `${where}备份失败——数据安全的最后一道防线失效,请立即排查`);
+  // 配置了 DSN 时进 Sentry 聚合告警;未配置时 no-op
+  captureException(err instanceof Error ? err : new Error(`backup failed (${where}): ${String(err)}`));
+}
 
 let timer: ReturnType<typeof setInterval> | null = null;
 let firstTimer: ReturnType<typeof setTimeout> | null = null;
@@ -20,12 +28,12 @@ let firstTimer: ReturnType<typeof setTimeout> | null = null;
 export function startBackupSchedule(): void {
   if (timer) return;
   firstTimer = setTimeout(() => {
-    void runBackup().catch((err) => logger.error({ err }, '启动备份失败（非致命）'));
+    void runBackup().catch((err) => onBackupFailure('启动', err));
   }, FIRST_RUN_DELAY_MS);
   if (typeof firstTimer.unref === 'function') firstTimer.unref();
 
   timer = setInterval(() => {
-    void runBackup().catch((err) => logger.error({ err }, '每日备份失败（非致命）'));
+    void runBackup().catch((err) => onBackupFailure('每日', err));
   }, INTERVAL_MS);
   if (typeof timer.unref === 'function') timer.unref();
   logger.info({ intervalHours: INTERVAL_MS / 3_600_000 }, '自动备份调度已启动');

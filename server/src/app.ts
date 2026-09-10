@@ -154,14 +154,17 @@ export function createApp(): Application {
   // 鉴权中间件
   app.use('/api/v1', authMiddleware);
 
-  // 写操作限流（§4.1）：每个用户 60 次/分钟，防脚本化写入与批量删除
+  // 写操作限流（§4.1）：每个用户每分钟最多 300 次。
+  // 60/min 的旧上限会误伤两条合法高频路径：离线队列 flush（积压一天的重放）
+  // 与模式迁移逐条导入——429 一旦被客户端当不可恢复错误丢弃就是静默丢数据。
+  // 单用户自托管模型下写接口都需有效 token,放宽容忍度仍足以拦失控客户端。
   // 匿名写请求（如分享解锁前的公开 POST）按 IP 维度计数；
   // keyGenerator 用 userId，单用户场景下即便全部请求经反代同一 IP 也能按用户精确限流。
   app.use(
     '/api/v1',
     rateLimit({
       windowMs: 60_000,
-      limit: 60,
+      limit: 300,
       standardHeaders: 'draft-7',
       legacyHeaders: false,
       keyGenerator: (req) => (req.user?.userId ?? req.ip) as string,

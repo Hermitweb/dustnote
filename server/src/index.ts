@@ -23,7 +23,7 @@ async function main(): Promise<void> {
 
   // 1. 初始化数据库 + 跑迁移
   const db = getDb();
-  runMigrations(db, migrations);
+  await runMigrations(db, migrations);
 
   // 1.5 幂等列 ensure：TOTP 防重放计数器（轻量列级 ensure,不占迁移条目；
   // 首次部署/升级自动补列,已存在则跳过）
@@ -72,7 +72,11 @@ async function main(): Promise<void> {
     shuttingDown = true;
     logger.info({ reason }, '开始优雅退出');
     try {
+      // close() 只停新连接,keep-alive 空闲连接要等 60s 才断——docker stop 的
+      // 10s SIGKILL 会抢在前面。给在途请求 5s 排水后强断剩余连接。
+      const forceTimer = setTimeout(() => httpServer.closeAllConnections?.(), 5_000);
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+      clearTimeout(forceTimer);
       stopTrashCleanup();
       stopBackupSchedule();
       await closeWss();

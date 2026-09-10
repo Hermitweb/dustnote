@@ -16,7 +16,29 @@ import { broadcastNoteChanged } from './sync-ws.js';
 
 export const TRASH_RETENTION_DAYS = 30;
 export const SHARE_RETENTION_DAYS = 30; // 分享失效后密文保留天数
+export const AUDIT_RETENTION_DAYS = 180; // 审计日志保留天数（GDPR 去标识化的替代做法：到期物理删除）
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 小时
+
+/**
+ * 修剪审计日志（M3）：unlock 失败等匿名事件可被外部无限写入，不修剪会
+ * 让库与每日备份体积慢性膨胀。与笔记清理同样用 julianday 兼容两种时间格式。
+ */
+export function pruneAuditLog(now: Date = new Date()): number {
+  const db = getDb();
+  const cutoff = new Date(now.getTime() - AUDIT_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const result = db
+    .prepare(
+      `DELETE FROM audit_log WHERE created_at IS NOT NULL AND julianday(created_at) < julianday(?)`
+    )
+    .run(cutoff);
+  if (result.changes > 0) {
+    logger.info(
+      { pruned: result.changes, cutoff, retentionDays: AUDIT_RETENTION_DAYS },
+      '审计日志定期修剪完成'
+    );
+  }
+  return result.changes;
+}
 
 /**
  * 永久删除已软删超过 TRASH_RETENTION_DAYS 天的笔记。
@@ -40,56 +62,59 @@ export function purgeExpiredTrash(now: Date = new Date()): number {
     )
     .all(cutoff) as { id: string; user_id: string }[];
 
-  if (toPurge.length === 0) return 0;
-
-  const result = db
-    .prepare(
-      `
+  let purgedNotes = 0;
+  if (toPurge.length > 0) {
+    // 注意：不能在 toPurge 为空时提前 return——下方分享清理必须每次都跑,
+    // 否则「当天没有过期笔记可清」的静默日分享清理永远不执行（隐藏 bug,
+    // 这正是 H2 清理在生产从未生效的第二重原因）
+    const result = db
+      .prepare(
+        `
     DELETE FROM notes
     WHERE deleted_at IS NOT NULL AND julianday(deleted_at) < julianday(?)
   `
-    )
-    .run(cutoff);
+      )
+      .run(cutoff);
+    purgedNotes = result.changes;
 
-  // 广播永久删除事件，让在线设备同步移除该笔记
-  for (const n of toPurge) {
-    broadcastNoteChanged(n.user_id, { id: n.id, op: 'permanent_delete' });
+    // 广播永久删除事件，让在线设备同步移除该笔记
+    for (const n of toPurge) {
+      broadcastNoteChanged(n.user_id, { id: n.id, op: 'permanent_delete' });
+    }
+
+    if (result.changes > 0) {
+      logger.info(
+        { purged: result.changes, cutoff, retentionDays: TRASH_RETENTION_DAYS },
+        '回收站自动清理：已永久删除过期笔记'
+      );
+    }
   }
 
-  if (result.changes > 0) {
-    logger.info(
-      { purged: result.changes, cutoff, retentionDays: TRASH_RETENTION_DAYS },
-      '回收站自动清理：已永久删除过期笔记'
-    );
-  }
-
-  // 过期/吊销分享的密文清除：shares 表的 ciphertext/wrapped_share_key 在
-  // 分享失效 30 天后删除，兑现「服务端最小化留存」承诺（非致命，表缺失/
-  // 局部异常不影响主流程）
+  // 过期/吊销分享的行删除：失效超过保留期的分享是死链（token 已不可访问），
+  // 整行删除即兑现「服务端最小化留存」承诺——比置 NULL 密文更彻底，且无需
+  // 破坏性的表重建（旧表 ciphertext 列是 NOT NULL，无法置空）。
+  // revoked 分享用 created_at 判定保留期（未存吊销时间戳），保证刚吊销的
+  // 分享在列表里还能看到约 30 天（非致命，表缺失/局部异常不影响主流程）
   const shareCutoff = new Date(now.getTime() - SHARE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
   try {
     const purgedShares = db
       .prepare(
-        `UPDATE shares
-         SET ciphertext = NULL, wrapped_share_key = NULL
-         WHERE (
-           (expires_at IS NOT NULL AND expires_at < ?)
-           OR revoked = 1
-         )
-         AND (ciphertext IS NOT NULL OR wrapped_share_key IS NOT NULL)`,
+        `DELETE FROM shares
+         WHERE (expires_at IS NOT NULL AND expires_at < ?)
+            OR (revoked = 1 AND julianday(created_at) < julianday(?))`
       )
-      .run(shareCutoff);
+      .run(shareCutoff, shareCutoff);
     if (purgedShares.changes > 0) {
       logger.info(
         { purged: purgedShares.changes, cutoff: shareCutoff, retentionDays: SHARE_RETENTION_DAYS },
-        '分享自动清理：已清除失效分享的密文'
+        '分享自动清理：已删除失效分享'
       );
     }
   } catch (err) {
-    logger.warn({ err }, '分享密文清理失败（非致命）');
+    logger.warn({ err }, '分享清理失败（非致命）');
   }
 
-  return result.changes;
+  return purgedNotes;
 }
 
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -107,6 +132,11 @@ export function startTrashCleanup(): void {
       purgeExpiredTrash();
     } catch (err) {
       logger.warn({ err }, '定时回收站清理失败（非致命）');
+    }
+    try {
+      pruneAuditLog();
+    } catch (err) {
+      logger.warn({ err }, '定时审计日志修剪失败（非致命）');
     }
   }, CLEANUP_INTERVAL_MS);
   // unref 让定时器不阻止进程退出（优雅关闭时由 stopTrashCleanup 清理）

@@ -748,7 +748,7 @@ authRouter.get('/auth/me', (req, res) => {
 
 // ========== 2FA / TOTP ==========
 
-import { generateTotpSecret, generateTotpUri, verifyTotp, verifyTotpWithCounter } from '../auth/totp.js';
+import { generateTotpSecret, generateTotpUri, verifyTotpWithCounter } from '../auth/totp.js';
 
 const Verify2faSchema = z.object({
   code: z.string().length(6).regex(/^\d{6}$/),
@@ -796,17 +796,21 @@ authRouter.post('/auth/2fa/enable', (req, res) => {
   const parsed = Verify2faSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'invalid_code' }); return; }
 
-  const u = getDb().prepare('SELECT totp_secret, totp_enabled FROM users WHERE id = ?').get(user.userId) as
-    | { totp_secret: string | null; totp_enabled: number }
+  const u = getDb().prepare('SELECT totp_secret, totp_enabled, totp_last_counter FROM users WHERE id = ?').get(user.userId) as
+    | { totp_secret: string | null; totp_enabled: number; totp_last_counter: number }
     | undefined;
   if (!u) { res.status(404).json({ error: 'user_not_found' }); return; }
   if (u.totp_enabled) { res.status(400).json({ error: 'already_enabled' }); return; }
   if (!u.totp_secret) { res.status(400).json({ error: 'setup_first' }); return; }
 
-  if (!verifyTotp(parsed.data.code, u.totp_secret)) {
+  // 防重放：与 unlock 路径同款 verifyTotpWithCounter,命中的窗口计数器落库,
+  // 同一验证码在 30 秒窗口内不能二次用于任何 TOTP 端点（审计 M7）
+  const vrEnable = verifyTotpWithCounter(parsed.data.code, u.totp_secret, u.totp_last_counter);
+  if (!vrEnable.ok) {
     res.status(401).json({ error: 'invalid_code' });
     return;
   }
+  getDb().prepare('UPDATE users SET totp_last_counter = ? WHERE id = ?').run(vrEnable.counter, user.userId);
 
   getDb().prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?').run(user.userId);
   getDb()
@@ -827,16 +831,19 @@ authRouter.post('/auth/2fa/disable', (req, res) => {
   const parsed = Disable2faSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'invalid_code' }); return; }
 
-  const u = getDb().prepare('SELECT totp_secret, totp_enabled FROM users WHERE id = ?').get(user.userId) as
-    | { totp_secret: string | null; totp_enabled: number }
+  const u = getDb().prepare('SELECT totp_secret, totp_enabled, totp_last_counter FROM users WHERE id = ?').get(user.userId) as
+    | { totp_secret: string | null; totp_enabled: number; totp_last_counter: number }
     | undefined;
   if (!u) { res.status(404).json({ error: 'user_not_found' }); return; }
   if (!u.totp_enabled || !u.totp_secret) { res.status(400).json({ error: 'not_enabled' }); return; }
 
-  if (!verifyTotp(parsed.data.code, u.totp_secret)) {
+  // 防重放：同 enable 端点（审计 M7）——截获的验证码不能在窗口内重放于 disable
+  const vrDisable = verifyTotpWithCounter(parsed.data.code, u.totp_secret, u.totp_last_counter);
+  if (!vrDisable.ok) {
     res.status(401).json({ error: 'invalid_code' });
     return;
   }
+  getDb().prepare('UPDATE users SET totp_last_counter = ? WHERE id = ?').run(vrDisable.counter, user.userId);
 
   getDb().prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?').run(user.userId);
   getDb()

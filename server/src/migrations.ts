@@ -481,4 +481,18 @@ export const migrations: Migration[] = [
       db.prepare(`UPDATE meta SET value = '15' WHERE key = 'schema_version'`).run();
     },
   },
+  {
+    id: 17,
+    name: 'list-query-indexes',
+    up: (db) => {
+      // GET /notes 列表排序键的部分索引 + note_tags 反向索引（审计 L8）：
+      // 数据量小的时候无感,大库下避免 temp-btree 排序与标签统计全表扫。
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_notes_list
+           ON notes(user_id, server_updated_at DESC) WHERE deleted_at IS NULL`
+      ).run();
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag_id)`).run();
+      db.prepare(`UPDATE meta SET value = '17' WHERE key = 'schema_version'`).run();
+    },
+  },
 ];

@@ -140,19 +140,22 @@ sharesRouter.post('/shares', async (req, res) => {
 sharesRouter.get('/shares', (req, res) => {
   const user = req.user as AuthUser;
   const db = getDb();
+  // ciphertext IS NOT NULL：失效超 30 天的分享行已被 trash-cleanup 整行删除,
+  // 这里是纵深防御——万一未来出现密文为空的行,跳过死链并保证下方
+  // JSON.parse(wrapped_share_key) 不会撞上 NULL
   const rows = db
     .prepare(
       `
     SELECT id, note_id, token, wrapped_share_key, password_hash IS NOT NULL AS has_password,
            expires_at, view_count, revoked, created_at
-    FROM shares WHERE user_id = ? ORDER BY created_at DESC
+    FROM shares WHERE user_id = ? AND ciphertext IS NOT NULL ORDER BY created_at DESC
   `
     )
     .all(user.userId) as {
     id: string;
     note_id: string;
     token: string;
-    wrapped_share_key: string;
+    wrapped_share_key: string | null;
     has_password: number;
     expires_at: string | null;
     view_count: number;
@@ -165,7 +168,7 @@ sharesRouter.get('/shares', (req, res) => {
       noteId: r.note_id,
       token: r.token,
       // 标题不再存服务端；主人用本地已解密的笔记按 noteId 自行显示
-      wrappedShareKey: JSON.parse(r.wrapped_share_key) as Ciphertext,
+      wrappedShareKey: (r.wrapped_share_key ? JSON.parse(r.wrapped_share_key) : null) as Ciphertext | null,
       hasPassword: !!r.has_password,
       expiresAt: r.expires_at,
       viewCount: r.view_count,
@@ -210,30 +213,18 @@ sharesRouter.delete('/shares/:id', (req, res) => {
 // ========== 公开访问（无需登录）==========
 //
 // 安全注意：
-// 1. 同时支持 GET 和 POST：GET 用于无密码场景 / 历史链接兼容；
-//    密码推荐走 POST body（避免出现在 URL / 反代访问日志 / 浏览器历史里）。
-//    服务端两种方法都接受，让旧客户端不破坏的同时让新客户端能升级。
+// 1. 仅 POST：分享密码走 body（避免出现在 URL / 反代访问日志 / 浏览器历史里）。
+//    GET 通道已随「query 密码落 nginx access log」审计项移除。
 // 2. 单分享失败计数：与账号锁定策略一致，6 次错误密码 → 该分享锁 15 分钟。
 //    防止单条分享链接被定向爆破。
-
-const PublicAccessQuerySchema = z.object({
-  password: z.string().optional(),
-});
 
 const PublicAccessBodySchema = z.object({
   password: z.string().optional(),
 });
 
-/** 读取密码：POST 优先取 body，其次回退到 query（GET 向后兼容） */
-function readPassword(req: { query: unknown; body: unknown; method: string }): string | undefined {
-  // POST：从 body 读取
-  if (req.method === 'POST') {
-    const parsed = PublicAccessBodySchema.safeParse(req.body);
-    if (parsed.success) return parsed.data.password;
-    return undefined;
-  }
-  // GET：从 query 读取（兼容旧链接 / 邮件中的预览请求）
-  const parsed = PublicAccessQuerySchema.safeParse(req.query);
+/** 读取密码：仅从 POST body 读取 */
+function readPassword(req: { body: unknown }): string | undefined {
+  const parsed = PublicAccessBodySchema.safeParse(req.body);
   if (parsed.success) return parsed.data.password;
   return undefined;
 }

@@ -17,7 +17,6 @@
   "dependencies": {
     "@dustnote/shared": "workspace:*",
     "@sentry/node": "^10.68.0",
-    "@simplewebauthn/server": "^13.3.3",
     "better-sqlite3": "^12.0.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",

@@ -43,6 +43,26 @@ beforeAll(() => {
   vi.mock('../db.js', () => ({
     getDb: () => testDb,
   }));
+  // 软删会级联吊销分享（M6）,测试 schema 补齐 shares 表
+  testDb
+    .prepare(
+      `CREATE TABLE shares (
+        id            TEXT PRIMARY KEY,
+        note_id       TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+        user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token         TEXT NOT NULL UNIQUE,
+        ciphertext    TEXT NOT NULL,
+        wrapped_share_key TEXT NOT NULL,
+        password_hash TEXT,
+        expires_at    TEXT,
+        view_count    INTEGER NOT NULL DEFAULT 0,
+        revoked       INTEGER NOT NULL DEFAULT 0,
+        failed_attempts INTEGER NOT NULL DEFAULT 0,
+        locked_until  TEXT,
+        created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+      )`
+    )
+    .run();
   // 路由会调用 broadcastNoteChanged，mock 掉避免拉起 WS
   vi.mock('../services/sync-ws.js', () => ({
     broadcastNoteChanged: () => undefined,
@@ -215,7 +235,7 @@ describe('notes data layer (queries used by notesRouter handlers)', () => {
       expect(row.version).toBe(2);
     });
 
-    it('is idempotent: already-deleted note → changes=0 (handler returns 404)', () => {
+    it('is idempotent: already-deleted note → changes=0 (handler 现按行存在返回 200 alreadyDeleted)', () => {
       testDb
         .prepare(
           `INSERT INTO notes (id, user_id, ciphertext, client_updated_at, deleted_at, version) VALUES (?, ?, ?, ?, ?, 2)`
@@ -274,6 +294,97 @@ describe('notes data layer (queries used by notesRouter handlers)', () => {
         .get('rest') as { deleted_at: string | null; version: number };
       expect(row.deleted_at).toBeNull();
       expect(row.version).toBe(2);
+    });
+  });
+
+  describe('POST /notes — 幂等重放（H4）', () => {
+    it('ON CONFLICT DO NOTHING: 同 id 二次插入 changes=0 且不抛错', () => {
+      const insertSql = `
+        INSERT INTO notes (id, user_id, ciphertext, key_version, is_pinned, is_favorite, client_updated_at, folder_id, version, server_updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        ON CONFLICT(id) DO NOTHING`;
+      const first = testDb.prepare(insertSql).run('dup-1', 'user-1', 'x', 1, 0, 0, NOW(), null);
+      expect(first.changes).toBe(1);
+      // 重放同 id（弱网响应丢失后的重试）——此前裸 INSERT 会抛 UNIQUE 约束 → 500
+      const second = testDb.prepare(insertSql).run('dup-1', 'user-1', 'y', 1, 0, 0, NOW(), null);
+      expect(second.changes).toBe(0);
+      // 行内容保持首次写入,不被重放覆盖
+      const row = testDb.prepare('SELECT ciphertext FROM notes WHERE id = ?').get('dup-1') as {
+        ciphertext: string;
+      };
+      expect(row.ciphertext).toBe('x');
+    });
+  });
+
+  describe('DELETE /notes/:id — 软删级联吊销分享（M6）', () => {
+    it('软删笔记后其活跃分享被置 revoked=1', () => {
+      testDb
+        .prepare(
+          `INSERT INTO notes (id, user_id, ciphertext, client_updated_at) VALUES (?, ?, ?, ?)`
+        )
+        .run('share-host', 'user-1', 'x', NOW());
+      testDb
+        .prepare(
+          `INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key, revoked)
+           VALUES ('s1', 'share-host', 'user-1', 'tok-1', 'ct', 'wk', 0)`
+        )
+        .run();
+      testDb
+        .prepare(
+          `INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key, revoked)
+           VALUES ('s2', 'share-host', 'user-1', 'tok-2', 'ct', 'wk', 1)`
+        )
+        .run();
+
+      // handler 的级联语义:软删 + 吊销该笔记全部活跃分享（同事务）
+      testDb.prepare(`UPDATE notes SET deleted_at = ?, version = version + 1 WHERE id = ? AND deleted_at IS NULL`).run(NOW(), 'share-host');
+      const revoked = testDb
+        .prepare('UPDATE shares SET revoked = 1 WHERE note_id = ? AND user_id = ? AND revoked = 0')
+        .run('share-host', 'user-1');
+      expect(revoked.changes).toBe(1); // 只动活跃分享
+
+      const s1 = testDb.prepare('SELECT revoked FROM shares WHERE id = ?').get('s1') as {
+        revoked: number;
+      };
+      expect(s1.revoked).toBe(1);
+    });
+  });
+
+  describe('GET /notes — 游标分页（H3）', () => {
+    it('cursor 条件不重不漏地续页（含同时间戳并列决胜）', () => {
+      // 三条同 server_updated_at + 一条更早：验证并列决胜不丢行
+      const ts = '2026-03-01T00:00:00.000Z';
+      const rows: Array<[string, string]> = [
+        ['pg-a', ts],
+        ['pg-b', ts],
+        ['pg-c', ts],
+        ['pg-old', '2026-02-01T00:00:00.000Z'],
+      ];
+      for (const [id, t] of rows) {
+        testDb
+          .prepare(
+            `INSERT INTO notes (id, user_id, ciphertext, client_updated_at, server_updated_at) VALUES (?, 'user-1', 'x', ?, ?)`
+          )
+          .run(id, NOW(), t);
+      }
+
+      const listSql = (cursorTs?: string, cursorId?: string) => {
+        const conds = ['user_id = ?', "deleted_at IS NULL"];
+        const params: unknown[] = ['user-1'];
+        if (cursorTs && cursorId) {
+          conds.push('(server_updated_at < ? OR (server_updated_at = ? AND id < ?))');
+          params.push(cursorTs, cursorTs, cursorId);
+        }
+        return testDb
+          .prepare(`SELECT * FROM notes WHERE ${conds.join(' AND ')} ORDER BY server_updated_at DESC, id DESC LIMIT 2`)
+          .all(...params) as { id: string; server_updated_at: string }[];
+      };
+
+      const page1 = listSql();
+      expect(page1.map((r) => r.id)).toEqual(['pg-c', 'pg-b']); // id 倒序决胜
+      const last1 = page1[page1.length - 1]!;
+      const page2 = listSql(last1.server_updated_at, last1.id);
+      expect(page2.map((r) => r.id)).toEqual(['pg-a', 'pg-old']);
     });
   });
 });

@@ -155,7 +155,7 @@ accountRouter.get('/account/export', (req, res) => {
       .prepare<
         unknown[],
         Record<string, unknown>[]
-      >(`SELECT id, user_id, ciphertext, key_version, is_pinned, is_favorite, deleted_at, version, folder_id, client_updated_at, server_updated_at, created_at, updated_at FROM notes WHERE user_id = ?`)
+      >(`SELECT id, user_id, ciphertext, key_version, is_pinned, is_favorite, deleted_at, version, folder_id, client_updated_at, server_updated_at FROM notes WHERE user_id = ?`)
       .all(userId);
     // 历史版本：补齐此前遗漏的 note_versions，否则导出后用户无法重建笔记历史。
     const noteVersions = db
