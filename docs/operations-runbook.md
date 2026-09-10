@@ -22,25 +22,25 @@
 
 ## 3. 监控与告警
 
-### 3.1 关键指标
+> ⚠️ **现状校准（2026-09 审计）**：本节此前描述的 Prometheus / UptimeRobot /
+> PagerDuty 栈**并未实际部署**（代码与 compose 中均不存在），属规划性内容。
+> 当前实际存在的监控面如下：
 
-| 指标             | 来源          | 阈值    | 告警 |
-| ---------------- | ------------- | ------- | ---- |
-| 服务可用率       | UptimeRobot   | < 99.9% | P0   |
-| API P95 延迟     | Prometheus    | > 1s    | P1   |
-| 5xx 错误率       | Prometheus    | > 1%    | P1   |
-| CPU 使用率       | node_exporter | > 80%   | P2   |
-| 内存使用率       | node_exporter | > 80%   | P2   |
-| 磁盘使用率       | node_exporter | > 80%   | P2   |
-| 数据库文件大小   | 自定义        | > 1GB   | P2   |
-| 登录失败率（IP） | 自定义        | > 5/min | P1   |
-| 备份成功率       | cron + log    | 失败    | P1   |
+### 3.1 实际可用的监控手段
 
-### 3.2 告警通道
+| 手段 | 说明 | 判定方法 |
+| ---- | ---- | ---- |
+| Docker healthcheck | compose 内置,30s 间隔 curl /api/v1/health | `docker inspect -f '{{.State.Health.Status}}' dustnote` |
+| 应用健康端点 | 返回 version,不泄露业务规模 | `curl http://<host>:<port>/api/v1/health` |
+| Sentry 错误聚合 | **仅在 .env 配置 SENTRY_DSN 时启用**,未配置为 no-op | Sentry 控制台 |
+| 结构化日志 | pino JSON 日志(含 40+ 字段脱敏),`docker compose logs` | grep error/warn |
+| 备份监控 | backup-scheduler 失败会 logger.error + captureException(配置 DSN 时) | `docker compose logs dustnote \| grep 备份失败` |
 
-- PagerDuty / 飞书 / 钉钉 Webhook
-- 邮件 oncall@dustnote.app
-- SMS（仅 P0）
+### 3.2 待建设的告警能力（规划）
+
+- 外部拨测(UptimeRobot 类)对 /api/v1/health 的可用率监控
+- 备份文件按日存在性巡检(脚本核对 backups 卷内当日 db-*.sqlite)
+- Prometheus /metrics 端点(当前未实现)
 
 ## 4. 常见故障处理
 
@@ -81,17 +81,30 @@
 
 ### 4.3 备份失败
 
-**症状**：cron 告警 / 备份文件缺失
+> ⚠️ **现状校准（2026-09 审计）**：备份由**服务端进程内** backup-scheduler 执行
+> （启动 60s 后一次,之后每 24h 一次,保留最近 30 份）,不走系统 cron,
+> 也**没有 backup.sh / GPG 加密**。备份文件为明文 SQLite,敏感度等同生产库。
+
+**症状**：日志出现「备份失败」关键字 / backups 卷内文件日期停滞
 
 **步骤**：
 
-1. 检查 cron 服务：`systemctl status cron`
-2. 手动执行：`bash backup.sh` 排查错误
+1. 查日志定位错误：`docker compose logs --tail=500 dustnote | grep 备份`
+2. 手动触发一次（容器内）：
+   ```bash
+   docker exec dustnote node -e "import('./dist/scripts/backup.js').then(m=>m.runBackup())"
+   ```
+   或直接调 better-sqlite3 backup API：
+   ```bash
+   docker exec -w /app/server dustnote node -e "require('better-sqlite3')('/app/server/data/dustnote.db').backup('/tmp/backup-manual.sqlite').then(()=>console.log('ok'))"
+   ```
 3. 常见原因：
-   - 磁盘满 → 清理旧备份
-   - GPG 密钥问题 → 检查 `~/.gnupg`
-   - 容器未运行 → `docker compose up -d dustnote`
-4. 修复后手动补一次备份
+   - backups 卷权限错误（SQLITE_CANTOPEN）→ `chown -R 1001:0` 备份卷（容器用户 dustnote=1001）
+   - 磁盘满 → 清理旧备份（调度自带 30 份滚动保留）
+   - 数据卷迁移后忘改权限 → 见 DEPLOY.md 跨版本升级流程
+4. 修复后核对 backups 目录出现当日 `db-*.sqlite`
+5. **恢复演练（建议每季度一次）**：取最近一份备份,在隔离环境启动容器指向该
+   文件,验证 unlock + 笔记列表可正常返回
 
 ### 4.4 同步大面积失败
 
@@ -186,16 +199,25 @@ staging 环境（独立域名）跑：
 
 ## 10. 关键脚本位置
 
+> ⚠️ **现状校准（2026-09 审计）**：`backup.sh` / `restore.sh` / `attachments/`
+> 不存在——备份走进程内 backup-scheduler,数据在命名卷内。真实布局：
+
 ```
-/opt/dustnote/
+/opt/dustnote-server-v<version>/   # 每版本一个目录(compose project 名随之)
 ├── docker-compose.yml
-├── .env
-├── backup.sh
-├── restore.sh
-├── logs/
-└── data/
-    ├── dustnote.db
-    └── attachments/
+└── .env                           # SERVER_VERSION/RECOMMENDED_CLIENT_VERSION/WEB_ORIGIN/JWT_SECRET
+命名卷（随 compose project 命名,跨版本需迁移）:
+├── <project>_dustnote-data        # → /app/server/data/dustnote.db（WAL 模式）
+└── <project>_dustnote-backups     # → /app/server/backups/db-*.sqlite（滚动 30 份）
+宿主:
+└── /opt/dustnote-downloads/       # 发版产物(exe/apk),update-manifest 动态算 sha256
+```
+
+**备份一致性提取**（容器内无 sqlite3 CLI,直接 cp 主库文件只有 4KB——数据在 WAL）：
+
+```bash
+docker exec -w /app/server dustnote node -e "require('better-sqlite3')('/app/server/data/dustnote.db').backup('/tmp/x.db').then(()=>console.log('ok'))"
+docker cp dustnote:/tmp/x.db ./backup-$(date +%F).db
 ```
 
 ## 11. 值班交接

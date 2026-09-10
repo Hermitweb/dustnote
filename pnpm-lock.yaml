@@ -421,9 +421,6 @@ importers:
       '@sentry/node':
         specifier: ^10.68.0
         version: 10.68.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))
-      '@simplewebauthn/server':
-        specifier: ^13.3.3
-        version: 13.3.3
       better-sqlite3:
         specifier: ^12.0.0
         version: 12.11.1
@@ -1800,9 +1797,6 @@ packages:
   '@hapi/topo@5.1.0':
     resolution: {integrity: sha512-foQZKJig7Ob0BMAYBfcJk8d77QtOe7Wo4ox7ff1lQYoNNAb6jwcY1ncdoy2e9wQZzvNy7ODZCYJkK8kzmcAnAg==}
 
-  '@hexagon/base64@1.1.28':
-    resolution: {integrity: sha512-lhqDEAvWixy3bZ+UOYbPwUbBkwBq5C1LAJ/xPC8Oi+lL54oyakv/npbA0aU2hgCsx/1NUd4IBvV03+aUBWxerw==}
-
   '@humanwhocodes/config-array@0.11.14':
     resolution: {integrity: sha512-3T8LkOmg45BV5FICb15QQMsyUSWrQ8AygVfC7ZG32zOalnqrilm018ZVCw0eapXux8FtA33q8PSRSstjee3jSg==}
     engines: {node: '>=10.10.0'}
@@ -2062,9 +2056,6 @@ packages:
   '@leichtgewicht/ip-codec@2.0.5':
     resolution: {integrity: sha512-Vo+PSpZG2/fmgmiNzYK9qWRh8h/CHrwD0mo1h1DzL4yzHNSfWYujGTYsWGreD000gcgmZ7K4Ys6Tx9TxtsKdDw==}
 
-  '@levischuck/tiny-cbor@0.2.11':
-    resolution: {integrity: sha512-llBRm4dT4Z89aRsm6u2oEZ8tfwL/2l6BwpZ7JcyieouniDECM5AqNgr/y08zalEIvW3RSK4upYyybDcmjXqAow==}
-
   '@mixmark-io/domino@2.2.0':
     resolution: {integrity: sha512-Y28PR25bHXUg88kCV7nivXrP2Nj2RueZ3/l/jdx6J9f8J4nsEGcgX0Qe6lt7Pa+J79+kPiJU3LguR6O/6zrLOw==}
 
@@ -2228,10 +2219,6 @@ packages:
   '@parcel/watcher@2.5.6':
     resolution: {integrity: sha512-tmmZ3lQxAe/k/+rNnXQRawJ4NjxO2hqiOLTHvWchtGZULp4RyFeh6aU4XdOYBFe2KE1oShQTv4AblOs2iOrNnQ==}
     engines: {node: '>= 10.0.0'}
-
-  '@peculiar/asn1-android@2.9.4':
-    resolution: {integrity: sha512-SYHm4SoWSI0nRCoos6jpGusIqhPH9bbGBqv7ohlZ+H6BunrDzzQPk2ePgDuEUzV82OdvbLgtW4twUDwhU9P3YQ==}
-    engines: {node: '>=14'}
 
   '@peculiar/asn1-cms@2.9.4':
     resolution: {integrity: sha512-cben7oxmQsUGZqotus7yt0srYdncOT6RNWcTQ77T2RFOXejYVYkXadrfePdRcrVpO9K95IRLKKglG2k38jKXuw==}
@@ -2707,10 +2694,6 @@ packages:
 
   '@simplewebauthn/browser@13.3.0':
     resolution: {integrity: sha512-BE/UWv6FOToAdVk0EokzkqQQDOWtNydYlY6+OrmiZ5SCNmb41VehttboTetUM3T/fr6EAFYVXjz4My2wg230rQ==}
-
-  '@simplewebauthn/server@13.3.3':
-    resolution: {integrity: sha512-LelX/lcy5cjc15A86i/aNxHhB5eU7dd20QsbP0VLAf9e38+SLlsnqCCyecx3xqfGofhmX05h1J9fKRYWxw+luA==}
-    engines: {node: '>=20.0.0'}
 
   '@sinclair/typebox@0.27.10':
     resolution: {integrity: sha512-MTBk/3jGLNB2tVxv6uLlFh1iu64iYOQ2PbdOSK3NW8JZsmlaOh2q6sdtKowBhfw8QFLmYNzTW4/oK4uATIi6ZA==}
@@ -8779,6 +8762,7 @@ packages:
 
   react-native-quick-crypto@0.7.17:
     resolution: {integrity: sha512-cJzp6oA/dM1lujt+Rwtn46Mgcs3w9F/0oQvNz1jcADc/AXktveAOUTzzKrDMxyg6YPziCYnoqMDzHBo6OLSU1g==}
+    deprecated: 'Security: secret keys are truncated at the first NUL byte, producing low-entropy derived keys. Upgrade to >=1.0.0. See GHSA-wrf3-fwx3-8jrv'
 
   react-native-safe-area-context@4.14.1:
     resolution: {integrity: sha512-+tUhT5WBl8nh5+P+chYhAjR470iCByf9z5EYdCEbPaAK3Yfzw+o8VRPnUgmPAKlSccOgQBxx3NOl/Wzckn9ujg==}
@@ -11841,8 +11825,6 @@ snapshots:
     dependencies:
       '@hapi/hoek': 9.3.0
 
-  '@hexagon/base64@1.1.28': {}
-
   '@humanwhocodes/config-array@0.11.14':
     dependencies:
       '@humanwhocodes/object-schema': 2.0.3
@@ -12219,8 +12201,6 @@ snapshots:
 
   '@leichtgewicht/ip-codec@2.0.5': {}
 
-  '@levischuck/tiny-cbor@0.2.11': {}
-
   '@mixmark-io/domino@2.2.0': {}
 
   '@napi-rs/triples@1.2.0': {}
@@ -12356,12 +12336,6 @@ snapshots:
       '@parcel/watcher-win32-ia32': 2.5.6
       '@parcel/watcher-win32-x64': 2.5.6
     optional: true
-
-  '@peculiar/asn1-android@2.9.4':
-    dependencies:
-      '@peculiar/asn1-schema': 2.9.4
-      asn1js: 3.0.10
-      tslib: 2.8.1
 
   '@peculiar/asn1-cms@2.9.4':
     dependencies:
@@ -12811,9 +12785,7 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/core'
       - '@babel/preset-env'
-      - bufferutil
       - supports-color
-      - utf-8-validate
 
   '@react-native/normalize-colors@0.74.83': {}
 
@@ -13052,17 +13024,6 @@ snapshots:
   '@sideway/pinpoint@2.0.0': {}
 
   '@simplewebauthn/browser@13.3.0': {}
-
-  '@simplewebauthn/server@13.3.3':
-    dependencies:
-      '@hexagon/base64': 1.1.28
-      '@levischuck/tiny-cbor': 0.2.11
-      '@peculiar/asn1-android': 2.9.4
-      '@peculiar/asn1-ecc': 2.9.4
-      '@peculiar/asn1-rsa': 2.9.4
-      '@peculiar/asn1-schema': 2.9.4
-      '@peculiar/asn1-x509': 2.9.4
-      '@peculiar/x509': 1.14.3
 
   '@sinclair/typebox@0.27.10': {}
 

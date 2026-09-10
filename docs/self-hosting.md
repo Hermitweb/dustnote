@@ -192,56 +192,50 @@ docker compose logs -f dustnote
 
 ## 4. 备份与恢复
 
-### 4.1 备份
+> ⚠️ **现状校准（2026-09 审计）**：本节此前的示例脚本（bash 备份脚本 + GPG）为
+> 示例性质，实际部署**不包含**这些脚本。备份由服务端进程内的
+> backup-scheduler 自动执行。
+
+### 4.1 自动备份（内置，无需配置）
+
+- 启动 60 秒后跑第一次，之后每 24 小时一次
+- SQLite Online Backup API 在线备份，不锁库
+- 写入 BACKUP_DIR 卷（compose 默认 `/app/server/backups`），命名 `db-<时间戳>.sqlite`
+- 滚动保留最近 30 份
+- 失败时 logger.error + Sentry（若配置了 DSN）
+
+手动触发一次备份：
 
 ```bash
-#!/bin/bash
-# backup.sh
-BACKUP_DIR=./backups
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-mkdir -p $BACKUP_DIR
-
-# 备份 SQLite（安全方式）
-docker exec dustnote sqlite3 /data/dustnote.db ".backup '/data/backup.db'"
-docker cp dustnote:/data/backup.db $BACKUP_DIR/db_$TIMESTAMP.db
-
-# 备份附件
-tar czf $BACKUP_DIR/attachments_$TIMESTAMP.tar.gz ./data/attachments/
-
-# 加密
-gpg --symmetric --cipher-algo AES256 \
-    --output $BACKUP_DIR/full_$TIMESTAMP.tar.gz.gpg \
-    $BACKUP_DIR/db_$TIMESTAMP.db $BACKUP_DIR/attachments_$TIMESTAMP.tar.gz
-
-# 清理临时
-rm $BACKUP_DIR/db_$TIMESTAMP.db $BACKUP_DIR/attachments_$TIMESTAMP.tar.gz
-
-# 删除 90 天前的
-find $BACKUP_DIR -name "*.gpg" -mtime +90 -delete
+docker exec -w /app/server dustnote node -e \
+  "require('better-sqlite3')('/app/server/data/dustnote.db').backup('/tmp/backup-manual.sqlite').then(()=>console.log('ok'))"
+docker cp dustnote:/tmp/backup-manual.sqlite ./backup-$(date +%F).db
 ```
 
-加入 crontab：
-
-```bash
-0 3 * * * /path/to/backup.sh
-```
+> 注意：直接 `docker cp` 主库文件不可靠——WAL 模式下数据可能还在
+> `dustnote.db-wal` 里，必须用 backup API 生成一致性快照。
+> 备份文件为明文 SQLite（含凭据哈希与分享密文），请按生产库敏感度保管。
 
 ### 4.2 恢复
 
 ```bash
-# 停止服务
+# 停止服务（优雅停，WAL checkpoint）
 docker compose down
 
-# 解密备份
-gpg --decrypt backups/full_YYYYMMDD_HHMMSS.tar.gz.gpg | tar xz
+# 用备份替换数据卷内容（卷名随 compose project 目录名，先 docker volume ls 核对）
+docker volume inspect <project>_dustnote-data   # 确认挂载点
+cp backup-YYYY-MM-DD.db /var/lib/docker/volumes/<project>_dustnote-data/_data/dustnote.db
+rm -f /var/lib/docker/volumes/<project>_dustnote-data/_data/dustnote.db-wal*
 
-# 还原
-cp db_*.db data/dustnote.db
-cp -r attachments/* data/attachments/
+# 修正属主（容器用户 dustnote=1001，否则 SQLITE_CANTOPEN）
+chown -R 1001:0 /var/lib/docker/volumes/<project>_dustnote-data/_data
 
-# 启动
+# 启动并验证
 docker compose up -d
+curl -f http://localhost:${PORT:-8080}/api/v1/health
 ```
+
+恢复后建议做一次解锁验证（密码派生凭据随备份恢复，应与备份时一致）。
 
 ## 5. 升级
 

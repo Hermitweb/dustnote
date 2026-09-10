@@ -45,6 +45,8 @@ jobs:
       - run: pnpm lint
       - name: Check i18n keys
         run: node scripts/check-i18n.mjs
+      - name: Verify SW_VERSION matches package.json
+        run: node scripts/check-sw-version.mjs
 
   typecheck:
     name: TypeScript Type Check

@@ -2,7 +2,7 @@
 
 > 本文档随 `dustnote-server-v<version>.zip` 一同发布，适用于 v2.0.0 及以上版本的自托管场景：家庭服务器 / VPS / 内网 / 离线环境。
 
-DustNote 服务端基于 **Fastify + SQLite**，单进程即可运行，无需额外数据库。部署包已包含全部依赖源码与 Docker 编排文件，可任选以下方式部署：
+DustNote 服务端基于 **Express + SQLite**，单进程即可运行，无需额外数据库。部署包已包含全部依赖源码与 Docker 编排文件，可任选以下方式部署：
 
 | 部署方式                        | 难度   | 推荐场景                     | 自动更新证书     |
 | ------------------------------- | ------ | ---------------------------- | ---------------- |
@@ -58,7 +58,7 @@ powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1 -Cn
 
 ```
 dustnote-server-v<version>/
-├── server/                  # 服务端源码（Fastify + better-sqlite3）
+├── server/                  # 服务端源码（Express + better-sqlite3）
 │   ├── src/
 │   ├── Dockerfile           # 容器构建文件
 │   ├── package.json
