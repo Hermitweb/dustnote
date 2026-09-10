@@ -126,6 +126,11 @@ export function App() {
           }
         })
         .catch(() => undefined);
+
+      // Q3：StrictMode 双挂载会把 languageChanged 注册两次,随卸载解绑
+      return () => {
+        i18n.off('languageChanged', syncTrayLang);
+      };
     } else {
       document.documentElement.dataset.platform = 'web';
     }

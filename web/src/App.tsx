@@ -72,6 +72,14 @@ function App() {
       useModeStore.getState().setMode('online');
       useModeStore.getState().setServerUrl(server.replace(/\/+$/, ''));
       useModeStore.getState().initialize();
+      return;
+    }
+    // Web 端(应用由服务器直接托管):首次访问默认联机模式+同源地址,
+    // 免去每台新机器重复选择模式/填写地址;单机模式可在 设置→切换模式 选择。
+    // （B8：此副作用曾在 render 体内执行,StrictMode 下会跑两次——挪进 effect）
+    if (!isTauri()) {
+      useModeStore.getState().setMode('online');
+      useModeStore.getState().initialize();
     }
   }, [modeInitialized]);
 
@@ -262,14 +270,20 @@ function App() {
 
   // 首次启动：模式选择
   if (!modeInitialized) {
-    // Web 端(应用由服务器直接托管):首次访问默认联机模式+同源地址,
-    // 免去每台新机器重复选择模式/填写地址;单机模式可在 设置→切换模式 选择
-    if (!isTauri()) {
-      useModeStore.getState().setMode('online');
-      useModeStore.getState().initialize();
-    } else {
+    // Web 端默认联机由上方 effect 完成,渲染加载态等待;桌面端弹模式选择
+    if (isTauri()) {
       return <Suspense fallback={null}><ModeSelectDialog /></Suspense>;
     }
+    return (
+      <div className="flex h-full items-center justify-center bg-surface-bg text-surface-muted">
+        <div className="text-center">
+          <div className="mb-2 text-3xl">
+            <Logo className="mx-auto h-10 w-10" />
+          </div>
+          <div className="text-sm">加载中...</div>
+        </div>
+      </div>
+    );
   }
 
   // 认证流程

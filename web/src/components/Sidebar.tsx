@@ -14,6 +14,9 @@ type CtxTarget =
   | { type: 'folder'; id: string; name: string; parentId: string | null; depth: number }
   | { type: 'note'; id: string; name: string; folderId: string | null };
 
+/** 「未分类」虚拟节点 id（H8）：folderId=null 的笔记的树内入口,不存在于 folders 表 */
+const UNFILED_ID = '__unfiled__';
+
 export function Sidebar() {
   const { t } = useTranslation();
   const folders = useStore((s) => s.folders);
@@ -120,6 +123,7 @@ export function Sidebar() {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
     let ok = 0;
+    let failed = 0;
     for (const id of ids) {
       try {
         if (action === 'delete') {
@@ -148,7 +152,9 @@ export function Sidebar() {
           ok++;
         }
       } catch {
-        /* skip */
+        // 失败必须计数并告知（M14）：此前静默吞掉,本地乐观更新与
+        // 服务端状态分叉,用户以为全部成功
+        failed++;
       }
     }
     exitSelect();
@@ -162,7 +168,13 @@ export function Sidebar() {
       unfav: t('sidebar.batch.unfav'),
       move: t('sidebar.batch.move'),
     };
-    toast.success(t('sidebar.batch_done', { label: labels[action], count: ok }));
+    if (failed > 0) {
+      toast.error(
+        t('sidebar.batch_done_failed', { label: labels[action], count: ok, failed })
+      );
+    } else {
+      toast.success(t('sidebar.batch_done', { label: labels[action], count: ok }));
+    }
   };
 
   // ========== 全文搜索 v2（内存倒排索引 + 中文分词） ==========
@@ -205,7 +217,7 @@ export function Sidebar() {
   // 选中文件夹时，连同其后代（L2 子文件夹）的笔记一起展示（扁平优先）。
   // 规范：一级文件夹 → 直接平铺其下笔记与二级子文件夹。
   const folderScope = useMemo(() => {
-    if (!selectedFolderId) return null;
+    if (!selectedFolderId || selectedFolderId === UNFILED_ID) return null;
     const set = new Set<string>([selectedFolderId]);
     const stack = [selectedFolderId];
     while (stack.length) {
@@ -220,6 +232,14 @@ export function Sidebar() {
     return set;
   }, [selectedFolderId, folders]);
 
+  // 「未分类」虚拟节点（H8）：folderId=null 的笔记此前在 UI 永久不可见
+  // （仅搜索可达）。树底显示一个入口,点击即列出这些无归属笔记。
+  const unfiledCount = useMemo(
+    () => Array.from(notes.values()).filter((n) => !n.deletedAt && n.folderId == null).length,
+    [notes]
+  );
+  const isUnfiledScope = selectedFolderId === UNFILED_ID;
+
   const visibleNotes = useMemo(() => {
     // 有搜索词：按相关性得分排序，并按当前视图/文件夹过滤
     if (searchResult.orderedHits) {
@@ -232,7 +252,13 @@ export function Sidebar() {
           if (viewMode === 'favorites') return !n.deletedAt && n.isFavorite;
           return !n.deletedAt;
         })
-        .filter((n) => (folderScope ? n.folderId != null && folderScope.has(n.folderId) : true))
+        .filter((n) =>
+          isUnfiledScope
+            ? n.folderId == null
+            : folderScope
+              ? n.folderId != null && folderScope.has(n.folderId)
+              : true
+        )
         .filter((n) => notesPlain.has(n.id));
     }
 
@@ -243,7 +269,13 @@ export function Sidebar() {
         if (viewMode === 'favorites') return !n.deletedAt && n.isFavorite;
         return !n.deletedAt;
       })
-      .filter((n) => (folderScope ? n.folderId != null && folderScope.has(n.folderId) : true));
+      .filter((n) =>
+        isUnfiledScope
+          ? n.folderId == null
+          : folderScope
+            ? n.folderId != null && folderScope.has(n.folderId)
+            : true
+      );
     return list.sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
       if (sortKey === 'title') {
@@ -258,7 +290,7 @@ export function Sidebar() {
       }
       return b.serverUpdatedAt.localeCompare(a.serverUpdatedAt);
     });
-  }, [notes, viewMode, notesPlain, searchResult, sortKey, folderScope]);
+  }, [notes, viewMode, notesPlain, searchResult, sortKey, folderScope, isUnfiledScope]);
 
   // ========== 文件夹层级（规范：3 层封顶） ==========
   const childFolders = (pid: string) => folders.filter((f) => f.parentId === pid);
@@ -396,16 +428,39 @@ export function Sidebar() {
     }
   };
 
+  // 文件夹删除确认（H8）：文件夹删除是最危险的无确认操作——删除后其中的
+  // 笔记失去归属,须先弹窗说明影响范围（含后代文件夹内的笔记数）
+  const [folderDeleteConfirm, setFolderDeleteConfirm] = useState<{
+    id: string;
+    name: string;
+    noteCount: number;
+  } | null>(null);
+
   const doDeleteTarget = async () => {
     if (!ctxMenu) return;
     const target = ctxMenu.target;
     closeCtxMenu();
     try {
       if (target.type === 'folder') {
-        await deleteFolder(target.id);
-      } else {
-        await deleteNote(target.id);
+        // 统计将被波及的笔记数（含全部后代文件夹）
+        const descIds = new Set<string>([target.id]);
+        let grew = true;
+        while (grew) {
+          grew = false;
+          for (const f of folders) {
+            if (f.parentId && descIds.has(f.parentId) && !descIds.has(f.id)) {
+              descIds.add(f.id);
+              grew = true;
+            }
+          }
+        }
+        const noteCount = Array.from(notes.values()).filter(
+          (n) => !n.deletedAt && n.folderId != null && descIds.has(n.folderId)
+        ).length;
+        setFolderDeleteConfirm({ id: target.id, name: target.name, noteCount });
+        return;
       }
+      await deleteNote(target.id);
       toast.success(t('sidebar.deleted'));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
@@ -471,9 +526,11 @@ export function Sidebar() {
   // 选中文件夹给出笔记列表与「选择」批量入口（默认全部视图仍只显示文件夹树）
   // 平铺列表:回收站/收藏/搜索结果/批量强制展开时显示;
   // 「全部」视图永远只显示文件夹树(勾选框在批量模式下落在树内笔记上),不并存
-  const showNoteList = isTrash || viewMode === 'favorites' || !!normalizedQuery || forceShowList;
-  // 文件夹树:仅「全部」视图且非搜索/批量展开时显示
-  const showFolderTree = viewMode === 'all' && !normalizedQuery && !forceShowList;
+  const showNoteList =
+    isTrash || viewMode === 'favorites' || !!normalizedQuery || forceShowList || isUnfiledScope;
+  // 文件夹树:仅「全部」视图且非搜索/批量展开/未分类 scope 时显示
+  const showFolderTree =
+    viewMode === 'all' && !normalizedQuery && !forceShowList && !isUnfiledScope;
   // 渐进加载：初始 50 条，滚动到底部时追加 50 条（替代硬截断）
   const [visibleCount, setVisibleCount] = useState(50);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -816,6 +873,28 @@ export function Sidebar() {
 
               {/* 未分类分组已移除：笔记必须归属文件夹（历史未分类笔记由
                   ensureDefaultContent 迁入默认文件夹） */}
+
+              {/* 「未分类」虚拟节点（H8）：folderId=null 的笔记（含删除文件夹后
+                  的归属失落笔记）在此保持可见可达,不再只靠搜索 */}
+              {showFolderTree && unfiledCount > 0 && (
+                <div>
+                  <div
+                    className={`flex items-center rounded transition-colors ${
+                      isUnfiledScope ? 'bg-mint-50 dark:bg-mint-900/30' : 'hover:bg-surface-bg'
+                    }`}
+                  >
+                    <button
+                      onClick={() => selectFolder(UNFILED_ID)}
+                      className="flex h-7 flex-1 items-center gap-1.5 overflow-hidden px-2 text-left text-sm text-surface-fg"
+                      title={t('editor.unfiled')}
+                    >
+                      <span>📝</span>
+                      <span className="truncate">{t('editor.unfiled')}</span>
+                      <span className="ml-auto text-xs text-surface-muted">{unfiledCount}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -831,7 +910,9 @@ export function Sidebar() {
                       : viewMode === 'favorites'
                         ? `${t('sidebar.favorites')} (${visibleNotes.length})`
                         : (() => {
-                            // 全部视图+选中文件夹：显示文件夹名，不再误标「收藏」
+                            // 全部视图+选中文件夹：显示文件夹名，不再误标「收藏」;
+                            // 「未分类」scope 显示对应标签
+                            if (isUnfiledScope) return `${t('editor.unfiled')} (${visibleNotes.length})`;
                             const f = folders.find((x) => x.id === selectedFolderId);
                             return `${f ? `${f.icon ?? '📁'} ${f.name}` : t('sidebar.notes')} (${visibleNotes.length})`;
                           })()}
@@ -1019,20 +1100,25 @@ export function Sidebar() {
               {t('sidebar.selected_count', { count: selCount })}
             </div>
             <div className="flex flex-wrap gap-1">
-              <BatchBtn
-                label={
-                  visibleNotes.length > 0 && visibleNotes.every((n) => selectedIds.has(n.id))
-                    ? t('sidebar.deselect_all')
-                    : t('sidebar.select_all')
-                }
-                onClick={() => {
-                  const allSelected =
-                    visibleNotes.length > 0 && visibleNotes.every((n) => selectedIds.has(n.id));
-                  setSelectedIds(
-                    new Set(allSelected ? [] : visibleNotes.map((n) => n.id))
-                  );
-                }}
-              />
+              {/* H6：树形模式（只显示文件夹树）下,visibleNotes 在未选文件夹时是
+                  全库——不可见状态下的「全选」曾可一键勾选全库再批量删除。
+                  树形模式把全选限定到当前文件夹 scope;未选文件夹时不提供全选 */}
+              {!showFolderTree || folderScope ? (
+                <BatchBtn
+                  label={
+                    visibleNotes.length > 0 && visibleNotes.every((n) => selectedIds.has(n.id))
+                      ? t('sidebar.deselect_all')
+                      : t('sidebar.select_all')
+                  }
+                  onClick={() => {
+                    const allSelected =
+                      visibleNotes.length > 0 && visibleNotes.every((n) => selectedIds.has(n.id));
+                    setSelectedIds(
+                      new Set(allSelected ? [] : visibleNotes.map((n) => n.id))
+                    );
+                  }}
+                />
+              ) : null}
               {viewMode !== 'trash' && (
                 <>
                   <BatchBtn
@@ -1086,15 +1172,8 @@ export function Sidebar() {
                 {t('sidebar.batch.move')} ({selCount})
               </h3>
               <div className="max-h-60 space-y-1 overflow-y-auto">
-                <button
-                  onClick={() => {
-                    void batchAction('move', null);
-                    setShowMoveDialog(false);
-                  }}
-                  className="block w-full rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
-                >
-                  📝 {t('editor.unfiled')}
-                </button>
+                {/* 「未分类(null)」选项已移除（H7/B2）：产品已取消未分类视图,
+                    移到 null 的笔记会从文件夹树消失,仅搜索可达——等同数据丢失 */}
                 {folders.map((f) => (
                   <button
                     key={f.id}
@@ -1116,6 +1195,29 @@ export function Sidebar() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* 文件夹删除确认弹窗（H8） */}
+        {folderDeleteConfirm && (
+          <ConfirmDialog
+            title={t('sidebar.batch.delete')}
+            message={t('sidebar.folder_delete_confirm', {
+              name: folderDeleteConfirm.name,
+              count: folderDeleteConfirm.noteCount,
+            })}
+            confirmLabel={t('common.delete')}
+            variant="danger"
+            onConfirm={() => {
+              const { id } = folderDeleteConfirm;
+              setFolderDeleteConfirm(null);
+              void deleteFolder(id)
+                .then(() => toast.success(t('sidebar.deleted')))
+                .catch((err: unknown) =>
+                  toast.error(err instanceof Error ? err.message : String(err))
+                );
+            }}
+            onCancel={() => setFolderDeleteConfirm(null)}
+          />
         )}
 
         {/* 批量删除/永久删除确认弹窗（替代原生 confirm()） */}
@@ -1358,12 +1460,8 @@ export function Sidebar() {
           >
             <h3 className="mb-3 text-sm font-semibold text-surface-fg">{t('sidebar.ctx.move')}</h3>
             <div className="max-h-64 space-y-1 overflow-y-auto">
-              <button
-                onClick={() => void doMoveTarget(null)}
-                className="block w-full rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
-              >
-                📝 {t('editor.unfiled')}
-              </button>
+              {/* 「未分类(null)」选项已移除（H7/B2）：移到 null 的笔记会从
+                  文件夹树消失,仅搜索可达——等同数据丢失 */}
               {folders
                 .filter((f) => f.id !== moveTarget.id)
                 .map((f) => (

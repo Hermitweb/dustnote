@@ -2,15 +2,22 @@
  * DustNote Service Worker
  *
  * 缓存策略：
- * - 静态资源（JS/CSS/图片/字体）：cache-first，后台更新（stale-while-revalidate）
- * - API 请求（/api/v1/）：network-first，离线时返回缓存
+ * - 静态资源（JS/CSS/图片/字体）：stale-while-revalidate
  * - 导航请求（HTML）：network-first，离线时返回缓存的 index.html
+ * - API 请求（/api/）：完全绕过 SW——不缓存（见下方说明）
  *
- * 版本更新时，通过 SW_VERSION 变更触发 skipWaiting → activate 流程，
- * 前端可通过 controllerchange 事件提示用户刷新。
+ * 为什么不缓存 API：network-first 会把 /folders（明文文件夹名与层级）、
+ * /auth/me（wrappedMasterKey）等敏感响应写进 Cache Storage，且应用没有
+ * 常态清理路径——共享电脑上任何人可从 DevTools 直接读出明文文件夹结构，
+ * 是 E2EE 隐私模型的破口（审计 H5）。离线体验由 IndexedDB 的加密缓存
+ * （db.ts）承担，SW 缓存 API 属重复且不加密。
+ *
+ * 版本更新时，SW_VERSION 变更触发 install 内的 skipWaiting → activate 流程
+ * 清理旧 static 缓存。发版时 SW_VERSION 前缀必须同步应用版本
+ * （ci.yml 的 SW 一致性步骤会把关）。
  */
 
-const SW_VERSION = 'dustnote-v2.5.34-002';
+const SW_VERSION = 'dustnote-v2.5.38-001';
 const CACHE_PREFIX = 'dustnote';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${SW_VERSION}`;
 const RUNTIME_CACHE = `${CACHE_PREFIX}-runtime`;
@@ -75,9 +82,8 @@ self.addEventListener('fetch', (event) => {
   // 同源才处理；跨域请求直接放行
   if (url.origin !== self.location.origin) return;
 
-  // --- API 请求：network-first ---
+  // --- API 请求：完全绕过 SW，不读不写任何缓存（见文件头说明）---
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(request));
     return;
   }
 

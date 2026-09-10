@@ -172,9 +172,12 @@ export function registerUpdaterApi(): void {
       }
       // 白名单按 URL origin 归一化（字符串前缀匹配会被端口书写差异
       // 坑到：serverUrl 带 :443、manifest 不带，同一来源判为不同）。
-      // 允许 GitHub Releases 前缀 + 服务器 origin + manifest 产物自身
-      // origin（manifest 来自用户配置的服务器，其声明的下载地址同属
-      // 一个信任域——反代/CDN 域名与 serverUrl 不同也照常放行）
+      // 信任模型（审计 M11 复核后的明确决策）：manifest 来自用户配置的
+      // 服务器,它同时是 hash 的信任根——服务器被攻破时白名单本就无效。
+      // 这里的防线目标是「误配置/意外重定向」而非敌意服务器,因此
+      // manifest 产物自身 origin（反代/CDN 域名,如 WEB_ORIGIN≠serverUrl
+      // 的真实部署）保持放行;originPrefix 输出带尾斜杠,
+      // `https://host.evil.com` 类前缀欺骗不成立。
       const { serverUrl } = useModeStore.getState();
       await invoke<string>('download_and_run_installer', {
         url: cachedInstallerUrl,

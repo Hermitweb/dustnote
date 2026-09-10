@@ -44,40 +44,54 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {
-        const { serverUrl } = useModeStore.getState();
-        const base = serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : API_BASE;
-        // 桌面端(Tauri)跨源 SameSite=strict 拦 cookie → 走 X-Refresh-Token
-        // header 通道(unlock 响应体自管轮换,同 mobile);web 走 cookie 通道
-        const stored = (() => {
+        // 跨标签页串行化（M12）：refresh 即轮换且服务端只存单一 hash,两 tab
+        // 并发刷新时后到者带着已作废的旧 cookie 必 401 → 被踢回解锁页。
+        // Web Locks 让等待者拿到锁后再发起刷新——此时 cookie 已被前一 tab
+        // 轮换过,后到者用新 cookie 重试即可成功。不支持的环境退化为
+        // 原有的 tab 内单飞。
+        const locks = (navigator as Navigator & { locks?: LockManager }).locks;
+        const doRefresh = async (): Promise<string | null> => {
           try {
-            return localStorage.getItem('dustnote_refresh');
+            const { serverUrl } = useModeStore.getState();
+            const base = serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : API_BASE;
+            // 桌面端(Tauri)跨源 SameSite=strict 拦 cookie → 走 X-Refresh-Token
+            // header 通道(unlock 响应体自管轮换,同 mobile);web 走 cookie 通道
+            const stored = (() => {
+              try {
+                return localStorage.getItem('dustnote_refresh');
+              } catch {
+                return null;
+              }
+            })();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (stored) headers['X-Refresh-Token'] = stored;
+            const res = await fetch(`${base}/auth/refresh`, {
+              method: 'POST',
+              credentials: 'include',
+              headers,
+              body: '{}',
+            });
+            if (!res.ok) return null;
+            const data = (await res.json()) as { accessToken: string; refreshToken?: string };
+            if (!data.accessToken) return null;
+            if (data.refreshToken && stored) {
+              try {
+                localStorage.setItem('dustnote_refresh', data.refreshToken);
+              } catch {
+                /* ignore */
+              }
+            }
+            const { useStore } = await import('./store');
+            useStore.setState({ accessToken: data.accessToken });
+            return data.accessToken;
           } catch {
             return null;
           }
-        })();
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (stored) headers['X-Refresh-Token'] = stored;
-        const res = await fetch(`${base}/auth/refresh`, {
-          method: 'POST',
-          credentials: 'include',
-          headers,
-          body: '{}',
-        });
-        if (!res.ok) return null;
-        const data = (await res.json()) as { accessToken: string; refreshToken?: string };
-        if (!data.accessToken) return null;
-        if (data.refreshToken && stored) {
-          try {
-            localStorage.setItem('dustnote_refresh', data.refreshToken);
-          } catch {
-            /* ignore */
-          }
+        };
+        if (locks?.request) {
+          return await locks.request('dustnote-refresh', doRefresh);
         }
-        const { useStore } = await import('./store');
-        useStore.setState({ accessToken: data.accessToken });
-        return data.accessToken;
-      } catch {
-        return null;
+        return await doRefresh();
       } finally {
         // 单飞窗口结束后允许下一次刷新(请求完成后清空)
         setTimeout(() => {

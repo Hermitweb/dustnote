@@ -40,10 +40,13 @@ const queue = new OfflineQueue(storage);
 /**
  * 跨标签页同步：其它标签页入队后广播通知，本标签页丢弃内存缓存，
  * 下次访问时重新从 IndexedDB 加载。
+ * 模块级单例（Q4）：此前 enqueue 每次新建 BroadcastChannel 且从不 close,
+ * 高频入队会累积大量未关闭实例。
  */
+let queueChannel: BroadcastChannel | null = null;
 if (typeof BroadcastChannel !== 'undefined') {
-  const bc = new BroadcastChannel('dustnote-queue');
-  bc.onmessage = () => queue.invalidate();
+  queueChannel = new BroadcastChannel('dustnote-queue');
+  queueChannel.onmessage = () => queue.invalidate();
 }
 
 // ========== 模块函数委托（与旧签名对齐，store.ts 无需改动） ==========
@@ -53,9 +56,10 @@ export async function enqueue(
   op: Omit<QueuedOp, 'id' | 'createdAt' | 'retries'>
 ): Promise<QueuedOp> {
   const full = await queue.enqueue(op);
-  if (typeof BroadcastChannel !== 'undefined') {
-    // 每次创建新实例是旧实现的行为；保持一致避免遗漏 listener 注册
-    new BroadcastChannel('dustnote-queue').postMessage({ type: 'enqueued' });
+  try {
+    queueChannel?.postMessage({ type: 'enqueued' });
+  } catch {
+    /* ignore */
   }
   return full;
 }

@@ -888,6 +888,12 @@ function ShareDialog({
       }
       // 密钥放 fragment：浏览器不会把 `#` 之后的内容发给服务端
       setShareUrl(`${shareBase()}/share/${data.token}#${toBase64Url(shareKey)}`);
+    } catch (err) {
+      // 网络异常要有提示（Q2）：try/finally 无 catch 时 void create() 的
+      // rejection 成为 unhandledrejection,用户点了按钮毫无反馈
+      toast.error(
+        t('editor.share_fail', { reason: err instanceof Error ? err.message : String(err) })
+      );
     } finally {
       setSubmitting(false);
     }

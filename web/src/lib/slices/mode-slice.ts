@@ -16,6 +16,30 @@ export interface ModeSlice {
   switchMode: (target: AppMode, serverUrl?: string | null) => Promise<void>;
 }
 
+/** 模式切换的跨模式清理（M13）：离线队列、联机缓存、桌面 refresh token
+ *  都属于「旧模式/旧服务器」的会话状态,必须一并清掉,否则遗留 op 会被
+ *  重放到新服务器（4xx 直接丢弃）、旧缓存先于新数据渲染、旧 RT 残留被携带。
+ *  注意只清 dustnote:notes/folders 缓存键——单机数据在 dustnote:local:* 下,不受影响。 */
+async function clearCrossModeState(): Promise<void> {
+  try {
+    const { clearCache } = await import('../db');
+    await clearCache();
+  } catch {
+    /* ignore */
+  }
+  try {
+    const { clear } = await import('../offline-queue');
+    await clear();
+  } catch {
+    /* ignore */
+  }
+  try {
+    localStorage.removeItem('dustnote_refresh');
+  } catch {
+    /* ignore */
+  }
+}
+
 export const createModeSlice: StateCreator<StoreState, [], [], ModeSlice> = (set, get) => ({
   mode: useModeStore.getState().mode,
   repository: null,
@@ -46,6 +70,7 @@ export const createModeSlice: StateCreator<StoreState, [], [], ModeSlice> = (set
       }
       // 无数据 fresh switch：直接切模式并重建鉴权流（authState 交回 checkStatus 探测）
       clearGraceUnlock();
+      await clearCrossModeState();
       useModeStore.getState().setMode(target);
       if (target === 'online') {
         useModeStore.getState().setServerUrl(serverUrl || useModeStore.getState().serverUrl);
@@ -61,6 +86,7 @@ export const createModeSlice: StateCreator<StoreState, [], [], ModeSlice> = (set
       return;
     }
     clearGraceUnlock();
+    await clearCrossModeState();
     // 已解锁分支：模式切换只切通道，不做数据自动迁移。
     // 旧实现对目标端执行 clearBusinessData/importBackup——切到联机时该端
     // 尚未注册（无 accessToken），远端操作必然网络失败并回滚，用户看到

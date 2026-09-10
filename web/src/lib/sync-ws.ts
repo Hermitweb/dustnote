@@ -105,14 +105,24 @@ export function startSyncWs(): void {
     }
   });
 
-  ws.addEventListener('close', () => {
+  // Q7：具名 handler + removeEventListener——stopSyncWs 此前只置 onclose 槽位,
+  // addEventListener 注册的 close 监听仍在,主动 stop 后仍触发一次
+  // scheduleReconnect(switchMode 瞬间可能复活指向旧 server 的连接)
+  const handleClose = (): void => {
     scheduleReconnect();
-  });
-
-  ws.addEventListener('error', () => {
+  };
+  const handleError = (): void => {
     ws?.close();
-  });
+  };
+  ws.addEventListener('close', handleClose);
+  ws.addEventListener('error', handleError);
+  wsCloseHandler = handleClose;
+  wsErrorHandler = handleError;
 }
+
+/** 当前连接的 close/error 监听（Q7:供 stopSyncWs 精确解绑） */
+let wsCloseHandler: (() => void) | null = null;
+let wsErrorHandler: (() => void) | null = null;
 
 function scheduleReconnect(): void {
   if (reconnectTimer) return;
@@ -126,6 +136,12 @@ function scheduleReconnect(): void {
 
 export function stopSyncWs(): void {
   if (ws) {
+    // Q7：解绑 addEventListener 注册的 close/error 监听,防止主动 stop 后
+    // 仍触发 scheduleReconnect（switchMode 瞬间可能复活指向旧 server 的连接）
+    if (wsCloseHandler) ws.removeEventListener('close', wsCloseHandler);
+    if (wsErrorHandler) ws.removeEventListener('error', wsErrorHandler);
+    wsCloseHandler = null;
+    wsErrorHandler = null;
     ws.onclose = null;
     ws.close();
     ws = null;

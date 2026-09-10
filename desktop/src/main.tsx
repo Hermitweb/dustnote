@@ -13,10 +13,22 @@ document.documentElement.dataset.platform = isTauri() ? 'desktop' : 'web';
 document.documentElement.dataset.env = isProduction() ? 'production' : 'development';
 
 // 桌面端：禁用浏览器/webview 默认右键菜单（生产+开发环境均禁用，让应用更像原生软件）
-// 三重防御：window + document 双监听（capture 阶段），与 Rust eval 注入的 document 级防护互补
+// 三重防御：window + document 双监听（capture 阶段），与 Rust eval 注入的 document 级防护互补。
+// 必须保留 INPUT/TEXTAREA/contentEditable 例外（M17）：capture 阶段无条件
+// preventDefault 曾把编辑器内右键剪切/复制/粘贴全部禁掉——web 版修了,桌面入口漏同步。
 if (isTauri()) {
-  window.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
-  document.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
+  const contextMenuHandler = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target &&
+      (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')
+    ) {
+      return; // 允许编辑元素的右键菜单
+    }
+    e.preventDefault();
+  };
+  window.addEventListener('contextmenu', contextMenuHandler, { capture: true });
+  document.addEventListener('contextmenu', contextMenuHandler, { capture: true });
 }
 
 // 桌面端：拦截浏览器默认快捷键（Ctrl+O 打开文件、Ctrl+P 打印）
@@ -24,7 +36,8 @@ if (isTauri()) {
   window.addEventListener(
     'keydown',
     (e) => {
-      if ((e.ctrlKey || e.metaKey) && ['o', 'p'].includes(e.key.toLowerCase())) {
+      // 防御：部分浏览器插件派发的合成事件没有 key 属性
+      if ((e.ctrlKey || e.metaKey) && ['o', 'p'].includes(e.key?.toLowerCase() ?? '')) {
         e.preventDefault();
       }
     },

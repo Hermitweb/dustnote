@@ -93,7 +93,9 @@ export class SyncEngine {
    * 串行重放离线队列。
    *
    * - 重入守卫：并发触发（online 事件 + 手动同步）只跑一次
-   * - 4xx（含 409）：调用 onConflict（若有）后移除 op，避免死循环
+   * - 409：调用 onConflict（若有）后移除 op，避免死循环
+   * - 429：写限流,可恢复——保留 + 退避后继续（与 5xx 同语义）
+   * - 其余 4xx：客户端错误,不可恢复,移除 op
    * - 5xx：bumpRetries + 指数退避后继续下一条
    * - 网络不可达（TypeError）：停止重放，保留剩余 op
    * - 未知错误：丢弃 op，避免阻塞队列
@@ -134,6 +136,13 @@ export class SyncEngine {
             }
             await this.queue.remove(op.id);
             hadConflict = true;
+          } else if (status === 429) {
+            // 429 写限流：可恢复——保留 + 退避后继续。此前落入「其余 4xx 丢弃」
+            // 分支，离线批量重放/模式迁移超过限流阈值时后半段 op 被静默永久
+            // 删除（审计 C1）。mp/mobile 共用此引擎。
+            await this.queue.bumpRetries(op.id);
+            const delay = await this.queue.getRetryDelayForOp(op.id);
+            if (delay > 0) await sleep(delay);
           } else if (status !== undefined && status >= 400 && status < 500) {
             // 其他 4xx 客户端错误：不可恢复，丢弃
             await this.queue.remove(op.id);

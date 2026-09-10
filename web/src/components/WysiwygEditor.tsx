@@ -17,6 +17,7 @@ import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { sanitizeHtml } from '../lib/sanitize-html';
 
 interface WysiwygEditorProps {
   content: string; // Markdown 内容
@@ -25,12 +26,15 @@ interface WysiwygEditorProps {
 }
 
 /**
- * Markdown → HTML:marked 与预览渲染同一引擎(与只读视图所见一致);
- * XSS 由调用点 DOMPurify 兜底。
+ * Markdown → HTML:marked 与预览渲染同一引擎(与只读视图所见一致)。
+ * 进入 TipTap 前必须过 DOMPurify 白名单（M15）：虽然 ProseMirror schema
+ * 会丢弃未知标签,但那是库的隐式行为而非本应用的显式防线——库升级或
+ * 新增原样 HTML 扩展时防线即失效,且原注释声称"调用点兜底"并不属实。
  */
 function markdownToHtml(md: string): string {
   // wikilink 扩展不在本模块注册(marked 全局单例),先转成普通链接语法
-  return marked.parse(md.replace(/\[\[([^\]]+)\]\]/g, '[$1](wikilink://$1)'), { async: false }) as string;
+  const raw = marked.parse(md.replace(/\[\[([^\]]+)\]\]/g, '[$1](wikilink://$1)'), { async: false }) as string;
+  return sanitizeHtml(raw);
 }
 
 /**

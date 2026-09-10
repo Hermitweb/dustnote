@@ -99,6 +99,12 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
                 await bumpRetries(op.id);
                 const delayMs = await getRetryDelayForOp(op.id);
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
+              } else if (status === 429) {
+                // 429 = 写限流:可恢复——保留+退避重试。此前落入「其余 4xx 丢弃」
+                // 分支,离线批量重放超限时后半段 op 被静默永久删除(审计 C1)
+                await bumpRetries(op.id);
+                const delayMs = await getRetryDelayForOp(op.id);
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
               } else {
                 await remove(op.id);
                 hadConflict = true;

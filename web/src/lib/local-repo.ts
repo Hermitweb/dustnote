@@ -166,13 +166,27 @@ export class LocalRepository implements DataRepository {
 
   async deleteFolder(id: string): Promise<void> {
     const folders = (await get<Folder[]>(KEYS.folders)) ?? [];
-    const filtered = folders.filter((f) => f.id !== id);
+    // 级联删除全部后代文件夹（H8）：此前只删自身,子文件夹成孤儿,下次
+    // loadAll 仍返回并渲染成「顶层」
+    const descIds = new Set<string>([id]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const f of folders) {
+        if (f.parentId && descIds.has(f.parentId) && !descIds.has(f.id)) {
+          descIds.add(f.id);
+          grew = true;
+        }
+      }
+    }
+    const filtered = folders.filter((f) => !descIds.has(f.id));
     await set(KEYS.folders, filtered);
-    // 将该文件夹下的笔记 folderId 置为 null
+    // 将被删文件夹（含后代）下的笔记 folderId 置为 null——配合侧栏「未分类」
+    // 虚拟节点,这些笔记仍然可见可达
     const notes = (await get<NoteRow[]>(KEYS.notes)) ?? [];
     let changed = false;
     for (const n of notes) {
-      if (n.folderId === id) {
+      if (n.folderId && descIds.has(n.folderId)) {
         n.folderId = null;
         changed = true;
       }
