@@ -28,6 +28,9 @@ export function UnlockScreen() {
   const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // 指纹通过后立即切「解锁中…」态（对齐 mp 44b4a88）：消除验证通过后
+  // 无反馈的停留观感，同时防重复点击
+  const [bioBusy, setBioBusy] = useState(false);
   const [showTotp, setShowTotp] = useState(false);
   const unlock = useAuthStore((s) => s.unlock);
   const unlockWithBiometric = useAuthStore((s) => s.unlockWithBiometric);
@@ -57,6 +60,8 @@ export function UnlockScreen() {
   };
 
   const onBiometric = async () => {
+    if (bioBusy) return;
+    setBioBusy(true);
     try {
       const { available } = await rnb.isSensorAvailable();
       if (!available) {
@@ -75,6 +80,8 @@ export function UnlockScreen() {
       }
     } catch (err) {
       Alert.alert(t('auth.unlock_failed'), (err as Error).message);
+    } finally {
+      setBioBusy(false);
     }
   };
 
@@ -123,8 +130,14 @@ export function UnlockScreen() {
       </TouchableOpacity>
 
       {hasBiometricCache && (
-        <TouchableOpacity style={styles.bioButton} onPress={onBiometric}>
-          <Text style={styles.bioButtonText}>{t('auth.unlock_biometric')}</Text>
+        <TouchableOpacity
+          style={[styles.bioButton, bioBusy && { opacity: 0.5 }]}
+          disabled={bioBusy}
+          onPress={onBiometric}
+        >
+          <Text style={styles.bioButtonText}>
+            {bioBusy ? t('auth.unlocking_short') : t('auth.unlock_biometric')}
+          </Text>
         </TouchableOpacity>
       )}
 

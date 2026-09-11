@@ -394,12 +394,12 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     }
 
     const userId = await AsyncStorage.getItem(USER_ID_KEY);
-    // access token 只有 15 分钟寿命：生物解锁时旧 token 大概率已过期。
-    // 先用自管 refresh token 静默换新（服务端 /auth/refresh 轮换 refresh token）；
-    // refresh 失败（30 天过期/设备被吊销）则回退密码解锁（v2.5.18 修复锁屏后
-    // 生物解锁报 token 已失效）。
-    const refreshed = await refreshAccessTokenSilently();
-    if (!refreshed) return false;
+    // 恢复持久化 token 后立即切解锁态（对齐 mp 44b4a88 跳转提速）：
+    // access token 15 分钟过期由 api 层 401 静默刷新自愈（v2.5.18 机制），
+    // 不再让 refresh 的网络往返阻塞指纹通过后的跳转——此前弱网/VPN 下
+    // 指纹成功后会在解锁页停留数秒。后台先刷一拍，首屏加载时大概率
+    // 已拿到新 token；刷新失败（30 天过期/设备吊销）由首个请求的 401
+    // 路径引导重新解锁。
     const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
     if (!token) return false;
 
@@ -412,6 +412,9 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       userId,
       hasBiometricCache: true,
     });
+    setTimeout(() => {
+      void refreshAccessTokenSilently().catch(() => undefined);
+    }, 0);
     void runPendingMigration();
     return true;
   },
