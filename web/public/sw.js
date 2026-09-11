@@ -17,7 +17,7 @@
  * （ci.yml 的 SW 一致性步骤会把关）。
  */
 
-const SW_VERSION = 'dustnote-v2.5.39-001';
+const SW_VERSION = 'dustnote-v2.5.40-001';
 const CACHE_PREFIX = 'dustnote';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${SW_VERSION}`;
 const RUNTIME_CACHE = `${CACHE_PREFIX}-runtime`;
