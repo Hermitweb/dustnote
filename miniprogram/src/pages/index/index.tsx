@@ -311,8 +311,16 @@ function IndexBody() {
       setPickSheet({
         title: t('index.pick_folder'),
         items: folderList.map((f) => ({ key: f.id, label: `📁 ${f.name}` })),
-        onPick: (key) => resolve(key),
-        onClose: () => resolve(null),
+        // 选定/关闭都必须清 pickSheet——此前只 resolve Promise 不清状态,
+        // 面板永远留在屏幕上且无法关闭(模板新建与 FAB 新建共用此入口)
+        onPick: (key) => {
+          setPickSheet(null);
+          resolve(key);
+        },
+        onClose: () => {
+          setPickSheet(null);
+          resolve(null);
+        },
         cancelText: t('common.cancel'),
       });
     });
