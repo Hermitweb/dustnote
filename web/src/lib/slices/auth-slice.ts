@@ -69,6 +69,12 @@ export interface AuthSlice {
   recover: (recoveryCode: string, newPassword: string) => Promise<void>;
   changePassword: (masterPassword: string, newPassword: string) => Promise<void>;
   lock: () => void;
+  /**
+   * 主动登出（技术债清理）：通知服务端清空本设备的 refresh token,清本地
+   * 凭据与缓存,回到解锁页。此前应用没有登出入口,30 天 RT 常驻本机
+   * （桌面端还在 localStorage）,共享设备上无法撤销。
+   */
+  logout: () => Promise<void>;
   hasGraceUnlock: () => boolean;
   graceUnlock: () => Promise<boolean>;
   checkStatusStandalone: () => void;
@@ -403,6 +409,35 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
       authState: 'needs_unlock',
     } as Partial<StoreState>);
     void clearPlainCache().catch(() => undefined);
+  },
+
+  async logout(): Promise<void> {
+    // 主动登出（技术债清理）：先尽力通知服务端清空本设备 RT（失败不阻塞
+    // 本地清理——本地清理由此成为可靠动作）→ 清本地凭据/缓存 → 锁屏。
+    try {
+      await api().post('/auth/logout', {});
+    } catch {
+      /* 服务端不可达也要完成本地清理 */
+    }
+    try {
+      // 桌面端 X-Refresh-Token 通道的本地副本（web 走 httpOnly cookie）
+      localStorage.removeItem('dustnote_refresh');
+    } catch {
+      /* ignore */
+    }
+    try {
+      const { clearCache } = await import('../db');
+      await clearCache();
+    } catch {
+      /* ignore */
+    }
+    try {
+      const { clear } = await import('../offline-queue');
+      await clear();
+    } catch {
+      /* ignore */
+    }
+    get().lock();
   },
 
   hasGraceUnlock(): boolean {

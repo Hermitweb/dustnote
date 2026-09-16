@@ -12,3 +12,5 @@ export * from './repository.js';
 export * from './local-auth.js';
 // v2.1.0 模板系统
 export * from './templates.js';
+// 跨端共用工具（内网地址判定等）——单一实现,避免各端语义漂移
+export * from './net-utils.js';

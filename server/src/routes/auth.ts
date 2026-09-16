@@ -725,6 +725,37 @@ authRouter.post('/auth/refresh', (req, res) => {
   res.json({ accessToken: issueAccessToken(payload.sub, payload.device), refreshToken: newRefresh });
 });
 
+/**
+ * POST /auth/logout — 主动登出（技术债清理：此前只有设备吊销,客户端没有
+ * 显式「清除本机凭据」入口,30 天 refresh token 会一直留在设备上）。
+ *
+ * 服务端侧清空当前设备的 refresh_token_hash（该 RT 立即失效,即便客户端
+ * 本地残留也无法续签）并清 cookie;客户端随后自行清理本地凭据与缓存。
+ * 需携带有效 access token（经 authMiddleware）；即便返回 401,客户端也应
+ * 继续清理本地凭据——本地清理不依赖服务端结果。
+ */
+authRouter.post('/auth/logout', (req, res) => {
+  const user = req.user as AuthUser | undefined;
+  try {
+    if (user?.userId && user.deviceId) {
+      getDb()
+        .prepare('UPDATE devices SET refresh_token_hash = NULL WHERE id = ? AND user_id = ?')
+        .run(user.deviceId, user.userId);
+      getDb()
+        .prepare(
+          'INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)'
+        )
+        .run(user.userId, user.deviceId, 'logout', ipHash(req));
+      logger.info({ userId: user.userId, deviceId: user.deviceId }, '用户已登出');
+    }
+  } catch (err) {
+    // 登出失败不应阻塞客户端清理本地凭据
+    logger.warn({ err }, '登出时清理服务端 refresh token 失败');
+  }
+  res.clearCookie('dustnote_refresh', { path: '/api/v1/auth' });
+  res.json({ ok: true });
+});
+
 // ========== POST /auth/lock ==========
 
 authRouter.post('/auth/lock', (req, res) => {

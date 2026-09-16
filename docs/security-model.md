@@ -1,0 +1,87 @@
+# DustNote 安全模型与已知取舍
+
+> 本文档记录**有意保留**的安全取舍与信任边界，供自托管者评估与后续维护者参考。
+> 漏洞报告流程见仓库根 `SECURITY.md`；部署运维见 `DEPLOY.md` 与 `operations-runbook.md`。
+
+## 1. 信任边界总览
+
+| 组件 | 能看到什么 | 看不到什么 |
+| ---- | ---------- | ---------- |
+| 服务端（自托管） | 凭据哈希（scrypt N=2^17）、密文信封、文件夹名/层级、笔记元数据（时间戳、置顶/收藏标志）、分享密文 | 笔记明文、主密码、masterKey、shareKey |
+| 客户端（web/桌面/安卓/小程序） | 全部明文（解锁后） | 其他用户的任何数据 |
+| 备份文件 | 生产库全量（含 `users.totp_secret`、`wrapped_master_key`、凭据哈希） | 笔记明文（本身是密文） |
+
+**核心承诺**：服务端在任何时刻都无法解密笔记内容或推导 masterKey（认证协议 v2 起，服务端不接触主密码）。
+
+## 2. 已知取舍（有意保留，非缺陷）
+
+### 2.1 恢复码可绕过两步验证（TOTP）
+
+**现状**：`POST /auth/recover`（恢复码 + 新主密码）**不要求 TOTP**。持有恢复码者可单因素换取新会话（masterKey 不变，历史笔记不受影响）。
+
+**理由**：恢复码是「主密码 + 2FA 设备都不可用」时的唯一逃生通道；若也要求 TOTP，用户丢失 2FA 设备后将永久失去数据访问。恢复码本身为 10 位 Crockford Base32（约 2^50 熵），且与主密码共用账号级锁定策略（6 次失败锁 15 分钟）。
+
+**用户需知情的事**：启用 2FA 后，恢复码的保管等级等同于「主密码 + 2FA 之和」。建议离线保存，不要与设备放在一起。
+
+### 2.2 移动端允许明文 HTTP（`usesCleartextTraffic=true`）
+
+**现状**：Android `AndroidManifest.xml` 允许明文 HTTP；小程序/安卓在选择**公网** `http://` 服务器地址时会弹窗警告（内网自托管不警告）。
+
+**理由**：自托管是产品的基本场景，用户可能把服务器跑在局域网或没有证书的 VPS 上。若强制 HTTPS，这类部署将完全不可用。判定内网的实现见 `shared/src/net-utils.ts`（含单测）。
+
+**风险**：公网明文链路可被窃听/篡改（笔记本身是密文，但**主密码派生凭据**与文件夹结构走明文）。**建议**：公网部署务必配 HTTPS（`DEPLOY.md` 的 Caddy 方案可自动签发）。
+
+### 2.3 桌面端 CSP 的 `connect-src` 允许任意 http/https
+
+**现状**：桌面客户端需连接用户任意配置的服务器地址，无法在构建期收敛白名单。
+
+**风险**：若 WebView 内出现注入（目前无已知路径：Markdown 渲染经 DOMPurify 白名单，`script-src 'self'`），理论上可外发数据。属「自托管任意服务器」功能的必然代价。
+
+### 2.4 备份文件默认明文
+
+**现状**：默认 `db-<时间戳>.sqlite` 明文落盘。备份含 `totp_secret`、`wrapped_master_key` 等敏感材料——**等同生产库的敏感度**。
+
+**缓解**：设置 `BACKUP_ENCRYPTION_KEY` 后，备份以 AES-256-GCM 加密为 `db-*.sqlite.enc`（scrypt N=2^15 派生密钥，密码错误无法解密）。恢复用：
+
+```bash
+node dist/scripts/backup.js --decrypt /path/db-xxx.sqlite.enc /path/restore.sqlite
+```
+
+**建议**：公网服务器务必设置该变量；密钥另行妥善保管（丢失则备份不可恢复）。
+
+### 2.5 服务端更新白名单的信任模型
+
+桌面端自动更新的下载地址白名单为 `GitHub Releases 前缀 + 用户配置的服务器 origin + manifest 声明的 origin`。
+
+**信任根是 manifest 本身**（它同时提供 sha256）。因此白名单防的是「误配置/意外重定向」，**不是**「服务器被攻破」——服务器被攻破时攻击者可以同时篡改 URL 与 hash。白名单的 `originPrefix` 输出带尾斜杠，`https://host.evil.com` 类前缀欺骗不成立。
+
+### 2.6 单实例部署的 setup 先到先得
+
+未初始化的全新部署，第一个访问 `POST /auth/setup` 的人成为账户所有者（此后 409 拒绝）。**建议**：部署完成后立即初始化，或先在内网完成 setup 再暴露公网。
+
+### 2.7 `/auth/status` 的 `deviceKnown` 字段
+
+匿名请求携带任意 `X-Client-Device-Id` 可得知该 id 是否已注册（设备 id 由客户端随机生成，枚举不可行，属低危信息面）。保留该字段是因为客户端需要区分「设备已注册」与「设备第一次来」。
+
+## 3. 会话与凭据生命周期
+
+- access token：15 分钟，内存/AsyncStorage（不含明文密钥）
+- refresh token：30 天，**每次刷新轮换**，服务端只存 SHA-256 哈希；web 走 `httpOnly + SameSite=strict + Secure(可配)` cookie，桌面/安卓/小程序走 `X-Refresh-Token` header
+- 登出（设置 → 会话 → 退出登录）：清空服务端该设备的 RT 哈希 + 清本机凭据与缓存（`POST /auth/logout`）
+- 设备吊销：`DELETE /devices/:id` 清 RT 哈希，被吊销设备的 RT 立即失效
+- 错误分类纪律：只有「服务端判定吊销/过期（401/403）」才清凭据并回解锁页；网络/超时/5xx/429 一律保留凭据（避免断网误锁）
+
+## 4. 本地数据与缓存
+
+| 位置 | 内容 | 保护 |
+| ---- | ---- | ---- |
+| web IndexedDB | 笔记密文 + 明文缓存（localDEK 加密）、文件夹名 | 明文缓存随 lock() 清除 |
+| web Cache Storage | 仅静态资源 | 自 2.5.39 起**不缓存任何 `/api/` 响应** |
+| 桌面 localStorage | refresh token（跨源 cookie 不可用） | 登出/切换模式时清除 |
+| 安卓 Keychain | masterKey（生物识别保护）、refresh token | 系统 Keystore |
+| 安卓 AsyncStorage | access token、设备 id | 系统沙箱 |
+| 小程序 storage | masterKey（指纹门禁，用户已确认该取舍）、refresh token | 微信沙箱 |
+
+## 5. 修订记录
+
+- 2026-09-16：初版，随技术债清理补充（备份加密、登出入口、恢复码/明文 HTTP/白名单信任模型）

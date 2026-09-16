@@ -61,6 +61,12 @@ export const config = {
   backupDir: getEnv('BACKUP_DIR', join(process.cwd(), 'backups')),
   /** 备份保留份数（默认 30 份，按日期滚动） */
   backupRetention: Number.parseInt(getEnv('BACKUP_RETENTION', '30'), 10),
+  /**
+   * 备份加密口令（技术债清理）：设置后备份以 AES-256-GCM 加密落盘
+   * （`db-*.sqlite.enc`）。备份里含 users.totp_secret、wrapped_master_key 等
+   * 敏感材料——不加密时这些等同生产库明文。未设置则保持明文并记 warn。
+   */
+  backupEncryptionKey: getEnvOpt('BACKUP_ENCRYPTION_KEY'),
 } as const;
 
 // 生产环境强制校验 JWT_SECRET：未设置 / 使用开发默认值 / 长度不足 → 拒绝启动。

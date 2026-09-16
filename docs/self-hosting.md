@@ -204,6 +204,23 @@ docker compose logs -f dustnote
 - 滚动保留最近 30 份
 - 失败时 logger.error + Sentry（若配置了 DSN）
 
+**建议启用备份加密**：备份含 `users.totp_secret`、`wrapped_master_key` 等敏感材料，
+不加密时等同生产库明文。设置环境变量后备份以 AES-256-GCM 加密落盘：
+
+```bash
+# .env
+BACKUP_ENCRYPTION_KEY=<足够长的随机串>   # 丢失则备份不可恢复，请另行妥善保管
+```
+
+加密后产物为 `db-<时间戳>.sqlite.enc`，恢复前先解密：
+
+```bash
+docker exec -w /app/server dustnote node dist/scripts/backup.js \
+  --decrypt /app/server/backups/db-xxx.sqlite.enc /tmp/restore.sqlite
+```
+
+安全取舍与信任边界的完整说明见 [security-model.md](./security-model.md)。
+
 手动触发一次备份：
 
 ```bash

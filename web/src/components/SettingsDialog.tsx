@@ -110,6 +110,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   // 删除账户（联机模式，GDPR Article 17）：两步确认
   const [deleteConfirmStep, setDeleteConfirmStep] = useState<1 | 2 | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  // 主动登出确认（技术债清理：此前无登出入口,30 天 RT 常驻本机）
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
+  const [logoutBusy, setLogoutBusy] = useState(false);
   // 修改主密码
   const [curPw, setCurPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -603,6 +606,22 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               </div>
             </div>
 
+            {/* 退出登录（清除本机凭据）——技术债清理：此前无登出入口,
+                30 天 refresh token 常驻本机（桌面端在 localStorage） */}
+            <div>
+              <label className="mb-2 block text-xs font-semibold text-surface-muted">
+                {t('settings.session_section')}
+              </label>
+              <button
+                onClick={() => setLogoutConfirm(true)}
+                disabled={logoutBusy}
+                className="w-full rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+              >
+                {logoutBusy ? t('common.loading') : t('settings.logout')}
+              </button>
+              <p className="mt-1 text-xs text-surface-muted">{t('settings.logout_desc')}</p>
+            </div>
+
             {/* 设备管理（仅联机模式） */}
             {appMode === 'online' && (
               <div>
@@ -1035,6 +1054,27 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
       {showImportExport && <ImportExportDialog onClose={() => setShowImportExport(false)} />}
       {showShares && <SharesManager onClose={() => setShowShares(false)} />}
+
+      {logoutConfirm && (
+        <ConfirmDialog
+          title={t('settings.logout')}
+          message={t('settings.logout_confirm')}
+          confirmLabel={logoutBusy ? t('common.loading') : t('settings.logout')}
+          variant="danger"
+          onConfirm={() => {
+            setLogoutBusy(true);
+            void useStore
+              .getState()
+              .logout()
+              .catch(() => undefined)
+              .finally(() => {
+                setLogoutBusy(false);
+                setLogoutConfirm(false);
+              });
+          }}
+          onCancel={() => setLogoutConfirm(false)}
+        />
+      )}
     </>
   );
 }

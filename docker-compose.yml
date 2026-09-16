@@ -48,6 +48,9 @@ services:
       - PORT=3210
       - DB_PATH=/app/server/data/dustnote.db
       - BACKUP_DIR=/app/server/backups
+      # 备份加密口令（可选,建议设置）：备份含 totp_secret 等敏感材料,
+      # 设置后以 AES-256-GCM 加密落盘（db-*.sqlite.enc）
+      - BACKUP_ENCRYPTION_KEY=${BACKUP_ENCRYPTION_KEY:-}
       - WEB_ORIGIN=${WEB_ORIGIN:-http://localhost}
       - SERVER_VERSION=${SERVER_VERSION:-2.5.40}
       # 必填：未设置时 compose 直接报错，避免容器起来后才崩在 config-validate

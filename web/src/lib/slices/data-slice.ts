@@ -208,6 +208,11 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
           cursor = next.nextCursor ?? null;
         }
         const notesRes = { notes: allNotes };
+        // 增量解密（技术债：WS note_changed 触发的全量 loadAll 会整库重解密）：
+        // 先取旧快照，密文未变的笔记直接复用已有明文，把 O(全库) 解密降为
+        // O(实际变化数)。注意必须在 set 覆盖 notes 之前取。
+        const prevNotes = get().notes;
+        const prevPlain = get().notesPlain;
         set({
           notes: new Map(notesRes.notes.map((n: NoteRow) => [n.id, n])),
           folders: foldersRes.folders,
@@ -220,6 +225,14 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
         if (masterKey) {
           const plain = new Map<string, NotePlaintext>();
           for (const n of notesRes.notes) {
+            const prev = prevNotes.get(n.id);
+            if (prev && prev.ciphertext === n.ciphertext) {
+              const reused = prevPlain.get(n.id);
+              if (reused) {
+                plain.set(n.id, reused);
+                continue;
+              }
+            }
             try {
               const envelope = parseEnvelope(n.ciphertext);
               const pt = await decryptNote(masterKey, envelope, noteAad(n.id, get().userId ?? ''));

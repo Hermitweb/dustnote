@@ -303,6 +303,10 @@ const resources = {
         device_kicked: '✅ 设备已踢出',
         device_kick_fail: '踢出失败：{{reason}}',
         device_last_active: '最后活跃 {{time}}',
+        session_section: '会话',
+        logout: '退出登录',
+        logout_desc: '清除本机保存的登录凭据与缓存（服务端该设备的刷新令牌同时失效）。下次需重新输入主密码解锁。',
+        logout_confirm: '确定退出登录吗？本机保存的刷新令牌会失效、离线缓存会被清除，下次需重新输入主密码。',
         delete_account: '删除账户',
         delete_account_desc:
           '永久删除账户及服务器上的全部数据（GDPR 被遗忘权）。操作不可恢复，建议先在「数据管理」导出备份。',
@@ -963,6 +967,10 @@ const resources = {
         device_kicked: '✅ Device kicked',
         device_kick_fail: 'Kick failed: {{reason}}',
         device_last_active: 'Last active {{time}}',
+        session_section: 'Session',
+        logout: 'Sign out',
+        logout_desc: 'Clear the credentials and caches stored on this device (the refresh token for this device is also revoked server-side). You will need your master password again.',
+        logout_confirm: 'Sign out? The refresh token on this device will be revoked and offline caches cleared. You will need your master password again.',
         delete_account: 'Delete Account',
         delete_account_desc:
           'Permanently delete your account and all server-side data (GDPR right to erasure). This cannot be undone — export a backup first.',

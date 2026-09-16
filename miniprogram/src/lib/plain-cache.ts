@@ -16,9 +16,20 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
+/**
+ * 条目上限（技术债清理）：此前无上限,大库长时间使用会持续堆积解密后的
+ * 明文（每条含完整正文）。Map 保持插入序,超限时淘汰最旧的条目——
+ * 命中的条目在 get 时重新插入以维持 LRU 语义。
+ */
+const MAX_ENTRIES = 300;
+
 export function getCachedPlain(id: string, ciphertext: string): CacheEntry | undefined {
   const hit = cache.get(id);
-  return hit && hit.ciphertext === ciphertext ? hit : undefined;
+  if (!hit || hit.ciphertext !== ciphertext) return undefined;
+  // LRU：命中的条目移到队尾（Map 迭代序 = 插入序）
+  cache.delete(id);
+  cache.set(id, hit);
+  return hit;
 }
 
 export function putCachedPlain(
@@ -28,7 +39,13 @@ export function putCachedPlain(
   content: string,
   tags?: string[],
 ): void {
+  if (cache.has(id)) cache.delete(id);
   cache.set(id, { ciphertext, title, content, tags });
+  while (cache.size > MAX_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
 }
 
 export function invalidatePlain(id: string): void {

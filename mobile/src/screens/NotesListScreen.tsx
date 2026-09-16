@@ -79,6 +79,10 @@ export function NotesListScreen() {
   const [folders, setFolders] = useState<Folder[]>([]);
   // 批量操作：长按笔记进入多选，底部操作栏支持全选/移动/删除
   const lastFolderRestoredRef = useRef(false);
+  // 最新列表的 ref 镜像（增量解密用）：不能把 notes 加进 load 的依赖,
+  // 否则每次 setNotes 都会重建 load 并触发 useFocusEffect 重跑 → 自激循环
+  const itemsRef = useRef<NoteListItem[]>([]);
+  itemsRef.current = notes;
   // F10：解密循环的世代号——锁屏/卸载/新一次 load 都会把它顶掉,循环据此
   // 提前退出,避免用已被清除的 masterKey 空转整表（并防止对已卸载实例 setState）
   const loadGenRef = useRef(0);
@@ -151,11 +155,19 @@ export function NotesListScreen() {
       // 截断掩盖）,分批 yield 让 UI 保持可响应
       const withPlain: NoteListItem[] = [];
       let sinceYield = 0;
+      // 增量解密（技术债）：密文未变的笔记复用上一轮已解密的明文——
+      // 移动端没有小程序那样的明文缓存,而 load 挂在 useFocusEffect 上,
+      // 每次从编辑页返回都会整库重解密;复用后降为 O(实际变化数)。
+      // 用 ref 镜像最新列表,避免把 notes 加进 load 的依赖（会自触发循环）
+      const prevById = new Map(itemsRef.current.map((it) => [it.id, it]));
       for (const n of snapshot.notes) {
         // 每轮先查世代：锁屏/卸载后不再继续空转（masterKey 可能已被清零）
         if (loadGenRef.current !== gen) return;
         let plain: NotePlaintext | null = null;
-        if (masterKey) {
+        const prevItem = prevById.get(n.id);
+        if (prevItem && prevItem.ciphertext === n.ciphertext && prevItem.plain) {
+          plain = prevItem.plain;
+        } else if (masterKey) {
           try {
             plain = await decryptNote(
               masterKey,
