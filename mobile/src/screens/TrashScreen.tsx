@@ -190,7 +190,9 @@ export function TrashScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.permBtn}
-                onPress={() => handlePermanentDelete(item.id, item.plain?.title ?? t('trash.this_note'))}
+                onPress={() =>
+                  handlePermanentDelete(item.id, item.plain?.title ?? t('trash.this_note'))
+                }
               >
                 <Text style={styles.permText}>{t('trash.perm_delete')}</Text>
               </TouchableOpacity>

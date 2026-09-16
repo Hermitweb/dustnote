@@ -82,7 +82,7 @@ async function runEnsure(): Promise<void> {
   const { json: cipherJson } = await encryptNote(
     masterKey,
     { title: DEFAULT_FOLDER_NAME, content: INTRO_CONTENT, tags: [] },
-    noteAad(noteId, useAuthStore.getState().userId ?? ''),
+    noteAad(noteId, useAuthStore.getState().userId ?? '')
   );
   await repo.createNote({
     id: noteId,

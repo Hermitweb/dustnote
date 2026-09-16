@@ -242,195 +242,199 @@ export default function Folders() {
     <>
       <ThemeVars />
       <View className={`page ${darkClass}`}>
-      <View className="topbar topbar-center">
-        <Text className="topbar-title">{moving ? t('folders.moving_title') : t('folders.title')}</Text>
-      </View>
+        <View className="topbar topbar-center">
+          <Text className="topbar-title">
+            {moving ? t('folders.moving_title') : t('folders.title')}
+          </Text>
+        </View>
 
-      {/* 移动模式：选择目标父级 */}
-      {moving && (
-        <ScrollView scrollY className="flex-1">
-          <View className="settings-group">
-            <Text className="settings-group-title">
-              {t('folders.move_to', { name: moving.name })}
-              {movingHasChildren ? t('folders.move_children_note') : ''}
-            </Text>
-            <View className="settings-row" onClick={() => void handleMove(null)}>
-              <View className="settings-row-label">
-                <Text>{t('folders.top_level')}</Text>
-              </View>
-            </View>
-            {!movingHasChildren &&
-              moveTargets.map((f) => (
-                <View key={f.id} className="settings-row" onClick={() => void handleMove(f.id)}>
-                  <View className="settings-row-label">
-                    <Text>
-                      {BRANCH_ICON[f.branch ?? 'work'] ?? '📁'} {f.name}
-                    </Text>
-                  </View>
+        {/* 移动模式：选择目标父级 */}
+        {moving && (
+          <ScrollView scrollY className="flex-1">
+            <View className="settings-group">
+              <Text className="settings-group-title">
+                {t('folders.move_to', { name: moving.name })}
+                {movingHasChildren ? t('folders.move_children_note') : ''}
+              </Text>
+              <View className="settings-row" onClick={() => void handleMove(null)}>
+                <View className="settings-row-label">
+                  <Text>{t('folders.top_level')}</Text>
                 </View>
-              ))}
-            <View className="settings-row" onClick={() => setMovingId(null)}>
-              <View className="settings-row-label">
-                <Text className="text-muted">{t('folders.cancel_move')}</Text>
               </View>
-            </View>
-          </View>
-        </ScrollView>
-      )}
-
-      {/* 常规模式：创建 + 列表 */}
-      {!moving && (
-        <>
-          <View className="settings-group">
-            <View className="folder-input-row">
-              <FInput
-                className="folder-input"
-                placeholder={t('folders.input_placeholder')}
-                value={newName}
-                focus={nameFocus}
-                onBlur={() => setNameFocus(false)}
-                onInput={(e: any) => setNewName((e.detail as { value: string }).value)}
-                onConfirm={() => void handleCreate()}
-              />
-              <Text
-                className={`mint-btn mint-btn-sm${!newName.trim() ? ' mint-btn-disabled' : ''}`}
-                onClick={() => void handleCreate()}
-              >
-                {t('folders.add')}
-              </Text>
-            </View>
-
-            {/* 创建位置：父级 chips（一级文件夹；二级不可再嵌套） */}
-            <Text className="folder-create-label">{t('folders.create_in')}</Text>
-            <View className="folder-chip-row">
-              <Text
-                className={`folder-chip${parentSel === null ? ' folder-chip-active' : ''}`}
-                onClick={() => setParentSel(null)}
-              >
-                {t('folders.top_level')}
-              </Text>
-              {parentCandidates.map((f) => (
-                <Text
-                  key={f.id}
-                  className={`folder-chip${parentSel === f.id ? ' folder-chip-active' : ''}`}
-                  onClick={() => setParentSel(f.id)}
-                >
-                  📁 {f.name}
-                </Text>
-              ))}
-            </View>
-          </View>
-
-          <ScrollView
-            scrollY
-            className="flex-1"
-            refresherEnabled
-            refresherTriggered={loading}
-            onRefresherRefresh={() => void load()}
-          >
-            {loading && <View className="loading">{t('common.loading')}</View>}
-            {!loading && folders.length === 0 && (
-              <View className="empty-state">
-                <Text className="empty-state-icon">📁</Text>
-                <Text className="empty-state-text">{t('folders.empty')}</Text>
-              </View>
-            )}
-            {/* 目录树：顶层 + 已展开层的子文件夹；行内 ➕/✏️/📁/🗑️（对齐安卓端） */}
-            {treeRows.map((f) => {
-              const children = folders.filter((x) => x.parentId === f.id);
-              const hasChildren = children.length > 0;
-              const isExpanded = expanded.has(f.id);
-              return (
-                <View
-                  key={f.id}
-                  className="settings-row folder-row"
-                  style={{ paddingLeft: ((f.depth ?? 1) - 1) * 24 }}
-                >
-                  <View
-                    className="folder-row-main"
-                    onClick={() => hasChildren && toggleExpanded(f.id)}
-                  >
-                    {hasChildren ? <Text className="folder-caret">{isExpanded ? '▼' : '▶'}</Text> : null}
-                    <Text className="folder-row-name">
-                      📁 {f.name}
-                      {hasChildren ? ` (${children.length})` : ''}
-                    </Text>
+              {!movingHasChildren &&
+                moveTargets.map((f) => (
+                  <View key={f.id} className="settings-row" onClick={() => void handleMove(f.id)}>
+                    <View className="settings-row-label">
+                      <Text>
+                        {BRANCH_ICON[f.branch ?? 'work'] ?? '📁'} {f.name}
+                      </Text>
+                    </View>
                   </View>
-                  <View className="folder-row-actions">
-                    {(f.depth ?? 1) < MAX_DEPTH && (
+                ))}
+              <View className="settings-row" onClick={() => setMovingId(null)}>
+                <View className="settings-row-label">
+                  <Text className="text-muted">{t('folders.cancel_move')}</Text>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+        )}
+
+        {/* 常规模式：创建 + 列表 */}
+        {!moving && (
+          <>
+            <View className="settings-group">
+              <View className="folder-input-row">
+                <FInput
+                  className="folder-input"
+                  placeholder={t('folders.input_placeholder')}
+                  value={newName}
+                  focus={nameFocus}
+                  onBlur={() => setNameFocus(false)}
+                  onInput={(e: any) => setNewName((e.detail as { value: string }).value)}
+                  onConfirm={() => void handleCreate()}
+                />
+                <Text
+                  className={`mint-btn mint-btn-sm${!newName.trim() ? ' mint-btn-disabled' : ''}`}
+                  onClick={() => void handleCreate()}
+                >
+                  {t('folders.add')}
+                </Text>
+              </View>
+
+              {/* 创建位置：父级 chips（一级文件夹；二级不可再嵌套） */}
+              <Text className="folder-create-label">{t('folders.create_in')}</Text>
+              <View className="folder-chip-row">
+                <Text
+                  className={`folder-chip${parentSel === null ? ' folder-chip-active' : ''}`}
+                  onClick={() => setParentSel(null)}
+                >
+                  {t('folders.top_level')}
+                </Text>
+                {parentCandidates.map((f) => (
+                  <Text
+                    key={f.id}
+                    className={`folder-chip${parentSel === f.id ? ' folder-chip-active' : ''}`}
+                    onClick={() => setParentSel(f.id)}
+                  >
+                    📁 {f.name}
+                  </Text>
+                ))}
+              </View>
+            </View>
+
+            <ScrollView
+              scrollY
+              className="flex-1"
+              refresherEnabled
+              refresherTriggered={loading}
+              onRefresherRefresh={() => void load()}
+            >
+              {loading && <View className="loading">{t('common.loading')}</View>}
+              {!loading && folders.length === 0 && (
+                <View className="empty-state">
+                  <Text className="empty-state-icon">📁</Text>
+                  <Text className="empty-state-text">{t('folders.empty')}</Text>
+                </View>
+              )}
+              {/* 目录树：顶层 + 已展开层的子文件夹；行内 ➕/✏️/📁/🗑️（对齐安卓端） */}
+              {treeRows.map((f) => {
+                const children = folders.filter((x) => x.parentId === f.id);
+                const hasChildren = children.length > 0;
+                const isExpanded = expanded.has(f.id);
+                return (
+                  <View
+                    key={f.id}
+                    className="settings-row folder-row"
+                    style={{ paddingLeft: ((f.depth ?? 1) - 1) * 24 }}
+                  >
+                    <View
+                      className="folder-row-main"
+                      onClick={() => hasChildren && toggleExpanded(f.id)}
+                    >
+                      {hasChildren ? (
+                        <Text className="folder-caret">{isExpanded ? '▼' : '▶'}</Text>
+                      ) : null}
+                      <Text className="folder-row-name">
+                        📁 {f.name}
+                        {hasChildren ? ` (${children.length})` : ''}
+                      </Text>
+                    </View>
+                    <View className="folder-row-actions">
+                      {(f.depth ?? 1) < MAX_DEPTH && (
+                        <Text
+                          className="folder-row-btn"
+                          onClick={() => {
+                            // 选中父级 + 展开该行 + 聚焦输入框，明确反馈「在哪建」
+                            setParentSel(f.id);
+                            setExpanded((prev) => {
+                              const next = new Set(prev);
+                              next.add(f.id);
+                              return next;
+                            });
+                            setNewName('');
+                            setNameFocus(true);
+                            Taro.showToast({
+                              title: t('folders.create_in_toast', { name: f.name }),
+                              icon: 'none',
+                            });
+                          }}
+                        >
+                          ➕
+                        </Text>
+                      )}
                       <Text
                         className="folder-row-btn"
                         onClick={() => {
-                          // 选中父级 + 展开该行 + 聚焦输入框，明确反馈「在哪建」
-                          setParentSel(f.id);
-                          setExpanded((prev) => {
-                            const next = new Set(prev);
-                            next.add(f.id);
-                            return next;
-                          });
-                          setNewName('');
-                          setNameFocus(true);
-                          Taro.showToast({
-                            title: t('folders.create_in_toast', { name: f.name }),
-                            icon: 'none',
-                          });
+                          setRenameTarget(f);
+                          setRenameText(f.name);
                         }}
                       >
-                        ➕
+                        ✏️
                       </Text>
-                    )}
-                    <Text
-                      className="folder-row-btn"
-                      onClick={() => {
-                        setRenameTarget(f);
-                        setRenameText(f.name);
-                      }}
-                    >
-                      ✏️
-                    </Text>
-                    <Text className="folder-row-btn" onClick={() => setMovingId(f.id)}>
-                      📁
-                    </Text>
-                    <Text className="folder-row-btn" onClick={() => void handleDelete(f)}>
-                      🗑️
-                    </Text>
+                      <Text className="folder-row-btn" onClick={() => setMovingId(f.id)}>
+                        📁
+                      </Text>
+                      <Text className="folder-row-btn" onClick={() => void handleDelete(f)}>
+                        🗑️
+                      </Text>
+                    </View>
                   </View>
+                );
+              })}
+            </ScrollView>
+          </>
+        )}
+        {/* 重命名弹层（页面内实现，双端一致） */}
+        {renameTarget && (
+          <View className="modal-mask" onClick={() => setRenameTarget(null)}>
+            <View className="modal-card" onClick={(e) => e.stopPropagation()}>
+              <Text className="modal-title">{t('folders.rename_title')}</Text>
+              <Input
+                className="mint-input"
+                value={renameText}
+                focus
+                onInput={(e: any) => setRenameText((e.detail as { value: string }).value)}
+                onConfirm={() => void submitRename()}
+              />
+              <View className="row gap-m">
+                <View
+                  className="mint-btn mint-btn-ghost flex-1"
+                  onClick={() => setRenameTarget(null)}
+                >
+                  {t('common.cancel')}
                 </View>
-              );
-            })}
-          </ScrollView>
-        </>
-      )}
-      {/* 重命名弹层（页面内实现，双端一致） */}
-      {renameTarget && (
-        <View className="modal-mask" onClick={() => setRenameTarget(null)}>
-          <View className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <Text className="modal-title">{t('folders.rename_title')}</Text>
-            <Input
-              className="mint-input"
-              value={renameText}
-              focus
-              onInput={(e: any) => setRenameText((e.detail as { value: string }).value)}
-              onConfirm={() => void submitRename()}
-            />
-            <View className="row gap-m">
-              <View
-                className="mint-btn mint-btn-ghost flex-1"
-                onClick={() => setRenameTarget(null)}
-              >
-                {t('common.cancel')}
-              </View>
-              <View
-                className={`mint-btn flex-1${!renameText.trim() ? ' mint-btn-disabled' : ''}`}
-                onClick={() => void submitRename()}
-              >
-                {t('common.confirm')}
+                <View
+                  className={`mint-btn flex-1${!renameText.trim() ? ' mint-btn-disabled' : ''}`}
+                  onClick={() => void submitRename()}
+                >
+                  {t('common.confirm')}
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      )}
-    </View>
+        )}
+      </View>
     </>
   );
 }

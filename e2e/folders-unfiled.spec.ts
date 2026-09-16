@@ -23,7 +23,10 @@ test.describe('文件夹与未分类', () => {
     await defaultFolder.click({ button: 'right' });
     await page.getByText('删除', { exact: true }).first().click();
     await expect(page.getByText(/确定删除文件夹/)).toBeVisible({ timeout: 5000 });
-    await page.getByRole('button', { name: /^删除$/ }).last().click();
+    await page
+      .getByRole('button', { name: /^删除$/ })
+      .last()
+      .click();
     await page.waitForTimeout(1500);
 
     // M1 回归：0 文件夹时「未分类」节点必须渲染（此前 unfiledCount===0 时不渲染）
@@ -41,7 +44,10 @@ test.describe('登出（技术债）', () => {
     await setupStandalone(page);
 
     // 打开设置
-    await page.getByRole('button', { name: /设置|Settings/ }).first().click();
+    await page
+      .getByRole('button', { name: /设置|Settings/ })
+      .first()
+      .click();
     await page.waitForTimeout(800);
 
     // 会话 → 退出登录
@@ -50,7 +56,10 @@ test.describe('登出（技术债）', () => {
     await logoutBtn.click();
 
     await expect(page.getByText(/确定退出登录/)).toBeVisible({ timeout: 5000 });
-    await page.getByRole('button', { name: /退出登录|Sign out/ }).last().click();
+    await page
+      .getByRole('button', { name: /退出登录|Sign out/ })
+      .last()
+      .click();
     await page.waitForTimeout(1500);
 
     // 回到解锁页

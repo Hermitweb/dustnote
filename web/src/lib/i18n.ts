@@ -8,7 +8,12 @@ import { initReactI18next } from 'react-i18next';
 const resources = {
   'zh-CN': {
     translation: {
-      app: { name: '尘渊笔记', tagline: '端到端加密 · 跨端同步', skip_to_content: '跳转到主要内容', github_repo: 'GitHub 项目主页' },
+      app: {
+        name: '尘渊笔记',
+        tagline: '端到端加密 · 跨端同步',
+        skip_to_content: '跳转到主要内容',
+        github_repo: 'GitHub 项目主页',
+      },
       env: {
         http_notice:
           '当前经 HTTP 访问，部分浏览器功能受限（离线缓存、读剪贴板、语音输入）。笔记加密与同步不受影响，配置 HTTPS 可获得完整体验',
@@ -80,11 +85,11 @@ const resources = {
         ctx: {
           new_file: '新增文件',
           new_folder: '新增子文件夹',
-        share: '分享',
-        favorite: '收藏',
-        unfavorite: '取消收藏',
-        pin: '置顶',
-        unpin: '取消置顶',
+          share: '分享',
+          favorite: '收藏',
+          unfavorite: '取消收藏',
+          pin: '置顶',
+          unpin: '取消置顶',
           rename: '重命名',
           move: '移动',
           delete: '删除',
@@ -94,7 +99,8 @@ const resources = {
         renamed: '已重命名',
         moved: '已移动',
         deleted: '已删除',
-        folder_delete_confirm: '确定删除文件夹「{{name}}」及其全部子文件夹吗？其中 {{count}} 条笔记将失去文件夹归属（可在侧栏「未分类」中找到并重新归档）。',
+        folder_delete_confirm:
+          '确定删除文件夹「{{name}}」及其全部子文件夹吗？其中 {{count}} 条笔记将失去文件夹归属（可在侧栏「未分类」中找到并重新归档）。',
         exported: '已导出',
         exported_folder: '已导出 {{count}} 篇笔记',
         imported: '已导入 {{count}} 篇笔记',
@@ -168,7 +174,8 @@ const resources = {
         view_edit_tip: '编辑 Markdown 源码，适合熟悉语法的快速写作',
         view_split_tip: '左侧写 Markdown，右侧实时预览渲染效果',
         view_preview_tip: '只读查看笔记的渲染效果',
-        view_wysiwyg_tip: '所见即所得编辑：直接在排版效果上写作（加粗、标题、列表），无需 Markdown 语法；保存内容仍为 Markdown',
+        view_wysiwyg_tip:
+          '所见即所得编辑：直接在排版效果上写作（加粗、标题、列表），无需 Markdown 语法；保存内容仍为 Markdown',
         wysiwyg_placeholder: '开始编辑...',
         trash_readonly: '🗑️ 回收站 · 只读',
         restore: '恢复',
@@ -231,7 +238,8 @@ const resources = {
         app_mode_standalone: '单机模式',
         app_mode_online: '联机模式',
         switch_mode: '切换模式',
-        switch_mode_hint: '切换仅更换数据通道：原模式数据保留在本机（联机数据在服务端），可用导出/导入手动迁移。切换到联机后需登录或注册。',
+        switch_mode_hint:
+          '切换仅更换数据通道：原模式数据保留在本机（联机数据在服务端），可用导出/导入手动迁移。切换到联机后需登录或注册。',
         current_mode: '当前模式',
         server_url: '服务器地址',
         server_url_placeholder: 'https://your-server.com',
@@ -241,8 +249,10 @@ const resources = {
         connection_ok: '连接成功',
         connection_failed: '连接失败',
         migrate_data: '切换模式',
-        confirm_switch_to_online: '切换到联机模式？原单机数据保留在本机（不自动上传），切换后需登录或注册；需要迁移时用导出/导入。',
-        confirm_switch_to_standalone: '切换到单机模式？联机数据保留在服务器（不自动下载），切换后需输入单机主密码；需要迁移时用导出/导入。',
+        confirm_switch_to_online:
+          '切换到联机模式？原单机数据保留在本机（不自动上传），切换后需登录或注册；需要迁移时用导出/导入。',
+        confirm_switch_to_standalone:
+          '切换到单机模式？联机数据保留在服务器（不自动下载），切换后需输入单机主密码；需要迁移时用导出/导入。',
         data_mgmt: '数据管理',
         import_export: '导入 / 导出',
         shares_mgmt: '分享管理',
@@ -305,8 +315,10 @@ const resources = {
         device_last_active: '最后活跃 {{time}}',
         session_section: '会话',
         logout: '退出登录',
-        logout_desc: '清除本机保存的登录凭据与缓存（服务端该设备的刷新令牌同时失效）。下次需重新输入主密码解锁。',
-        logout_confirm: '确定退出登录吗？本机保存的刷新令牌会失效、离线缓存会被清除，下次需重新输入主密码。',
+        logout_desc:
+          '清除本机保存的登录凭据与缓存（服务端该设备的刷新令牌同时失效）。下次需重新输入主密码解锁。',
+        logout_confirm:
+          '确定退出登录吗？本机保存的刷新令牌会失效、离线缓存会被清除，下次需重新输入主密码。',
         delete_account: '删除账户',
         delete_account_desc:
           '永久删除账户及服务器上的全部数据（GDPR 被遗忘权）。操作不可恢复，建议先在「数据管理」导出备份。',
@@ -651,8 +663,8 @@ const resources = {
         favorited: '已收藏',
         unfavorited: '未收藏',
         merged_hint: '合并会保留两边的改动，冲突字段优先采用你的编辑',
-      },      notes: '笔记',
-
+      },
+      notes: '笔记',
     },
     tray: {
       pending_sync: '{{app}} · 待同步 {{count}} 条',
@@ -665,7 +677,12 @@ const resources = {
   },
   en: {
     translation: {
-      app: { name: 'DustNote', tagline: 'E2E Encrypted · Cross-platform Sync', skip_to_content: 'Skip to main content', github_repo: 'GitHub Project Homepage' },
+      app: {
+        name: 'DustNote',
+        tagline: 'E2E Encrypted · Cross-platform Sync',
+        skip_to_content: 'Skip to main content',
+        github_repo: 'GitHub Project Homepage',
+      },
       env: {
         http_notice:
           'Accessing via plain HTTP. Some browser features are limited (offline cache, clipboard read, voice input). Note encryption and sync are unaffected; configure HTTPS for the full experience',
@@ -696,7 +713,8 @@ const resources = {
         too_weak: 'Password must be at least 6 characters',
         grace_unlock: 'Continue without password',
         locked_retry: 'Account locked, retry in {{sec}}s',
-        no_recovery_warning: '⚠️ Forgot the master password with no recovery code = notes lost forever',
+        no_recovery_warning:
+          '⚠️ Forgot the master password with no recovery code = notes lost forever',
         recover_code_invalid: 'Invalid recovery code format (expected XXXXX-XXXXX)',
         recover_standalone_subtitle:
           'Enter the recovery code to reset the master password (the master key is preserved, so notes stay decryptable)',
@@ -719,7 +737,7 @@ const resources = {
         title: 'Sidebar',
         all: 'All Notes',
         favorites: 'Favorites',
-      notes: 'Notes',
+        notes: 'Notes',
         trash: 'Trash',
         folders: 'Folders',
         select_folder_tip: 'Enter batch select mode (check notes, then use the batch bar)',
@@ -753,7 +771,8 @@ const resources = {
         renamed: 'Renamed',
         moved: 'Moved',
         deleted: 'Deleted',
-        folder_delete_confirm: 'Delete folder "{{name}}" and all its subfolders? {{count}} notes inside will lose their folder (find them under Unfiled in the sidebar to re-file).',
+        folder_delete_confirm:
+          'Delete folder "{{name}}" and all its subfolders? {{count}} notes inside will lose their folder (find them under Unfiled in the sidebar to re-file).',
         exported: 'Exported',
         exported_folder: 'Exported {{count}} notes',
         imported: 'Imported {{count}} notes',
@@ -827,7 +846,8 @@ const resources = {
         view_edit_tip: 'Edit the raw Markdown source — fast if you know the syntax',
         view_split_tip: 'Write Markdown on the left, live-rendered preview on the right',
         view_preview_tip: 'Read-only view of the rendered note',
-        view_wysiwyg_tip: 'WYSIWYG editing: write directly on the formatted result (bold, headings, lists) — no Markdown syntax needed; still saved as Markdown',
+        view_wysiwyg_tip:
+          'WYSIWYG editing: write directly on the formatted result (bold, headings, lists) — no Markdown syntax needed; still saved as Markdown',
         wysiwyg_placeholder: 'Start editing...',
         trash_readonly: '🗑️ Trash · Read-only',
         restore: 'Restore',
@@ -858,7 +878,8 @@ const resources = {
         clipboard_empty: 'Clipboard is empty',
         clipboard_inserted: '✅ Clipboard content inserted',
         clipboard_read_fail: 'Clipboard read failed (requires HTTPS or desktop)',
-        clipboard_read_insecure: 'Plain HTTP environment: the browser blocks clipboard reads (HTTPS or desktop required)',
+        clipboard_read_insecure:
+          'Plain HTTP environment: the browser blocks clipboard reads (HTTPS or desktop required)',
         format_bold: 'Bold (**text**)',
         format_italic: 'Italic (*text*)',
         format_link: 'Link ([text](url))',
@@ -892,7 +913,8 @@ const resources = {
         app_mode_standalone: 'Standalone',
         app_mode_online: 'Online',
         switch_mode: 'Switch Mode',
-        switch_mode_hint: 'Switching only changes the data channel. Data stays on its original side (use Export/Import to migrate). Sign in or sign up after switching to online.',
+        switch_mode_hint:
+          'Switching only changes the data channel. Data stays on its original side (use Export/Import to migrate). Sign in or sign up after switching to online.',
         current_mode: 'Current Mode',
         server_url: 'Server URL',
         server_url_placeholder: 'https://your-server.com',
@@ -969,8 +991,10 @@ const resources = {
         device_last_active: 'Last active {{time}}',
         session_section: 'Session',
         logout: 'Sign out',
-        logout_desc: 'Clear the credentials and caches stored on this device (the refresh token for this device is also revoked server-side). You will need your master password again.',
-        logout_confirm: 'Sign out? The refresh token on this device will be revoked and offline caches cleared. You will need your master password again.',
+        logout_desc:
+          'Clear the credentials and caches stored on this device (the refresh token for this device is also revoked server-side). You will need your master password again.',
+        logout_confirm:
+          'Sign out? The refresh token on this device will be revoked and offline caches cleared. You will need your master password again.',
         delete_account: 'Delete Account',
         delete_account_desc:
           'Permanently delete your account and all server-side data (GDPR right to erasure). This cannot be undone — export a backup first.',
@@ -1334,7 +1358,8 @@ const resources = {
     },
     update: {
       available_title: 'New version of {{app}} available',
-      available_body: 'Version {{version}} is now available. Open Settings → Check for Updates to download.',
+      available_body:
+        'Version {{version}} is now available. Open Settings → Check for Updates to download.',
     },
   },
 };

@@ -9,7 +9,10 @@ import { deriveSecrets, KDF_PARAMS, type KdfParams, type DerivedSecrets } from '
 
 let worker: Worker | null = null;
 let nextId = 0;
-const pending = new Map<number, { resolve: (v: DerivedSecrets) => void; reject: (e: Error) => void }>();
+const pending = new Map<
+  number,
+  { resolve: (v: DerivedSecrets) => void; reject: (e: Error) => void }
+>();
 
 function getWorker(): Worker | null {
   if (worker) return worker;
@@ -74,8 +77,14 @@ export async function deriveSecretsInWorker(
     }, 30_000);
 
     pending.set(id, {
-      resolve: (v) => { clearTimeout(timer); resolve(v); },
-      reject: (e) => { clearTimeout(timer); reject(e); },
+      resolve: (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      reject: (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
     });
 
     w.postMessage({

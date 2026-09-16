@@ -176,7 +176,12 @@ async function importToOnline(
 
   const cleared = canClearSlot(outcome);
   if (cleared) clearPendingMigration();
-  return { imported: outcome.imported, failed: outcome.failed, unresolved: outcome.unresolved, cleared };
+  return {
+    imported: outcome.imported,
+    failed: outcome.failed,
+    unresolved: outcome.unresolved,
+    cleared,
+  };
 }
 
 /** 消费待迁移数据（auth store 在新模式鉴权成功后调用） */
@@ -184,16 +189,26 @@ export async function consumePendingMigration(
   repo: DataRepository,
   currentMasterKey: Uint8Array,
   oldMasterKey: Uint8Array | null
-): Promise<
-  { imported: number; failed: number; unresolved: number; cleared: boolean; exhausted?: boolean } | null
-> {
+): Promise<{
+  imported: number;
+  failed: number;
+  unresolved: number;
+  cleared: boolean;
+  exhausted?: boolean;
+} | null> {
   const slot = loadPendingMigration();
   if (!slot) return null;
 
   // H2：自动重试上限——超过后不再重跑，槽保留为「未完成迁移报告」
   const gate = openMigrationAttempt(slot);
   if (gate.exhausted) {
-    return { imported: 0, failed: gate.failedCount, unresolved: gate.failedCount, cleared: false, exhausted: true };
+    return {
+      imported: 0,
+      failed: gate.failedCount,
+      unresolved: gate.failedCount,
+      cleared: false,
+      exhausted: true,
+    };
   }
   // 带 attempts 的「活槽」贯穿本轮：账本落盘是 {...slot} 展开，
   // 传旧引用会把 attempts 抹掉

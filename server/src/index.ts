@@ -27,9 +27,9 @@ async function main(): Promise<void> {
 
   // 1.5 幂等列 ensure：TOTP 防重放计数器（轻量列级 ensure,不占迁移条目；
   // 首次部署/升级自动补列,已存在则跳过）
-  const totpCol = (
-    db.prepare("PRAGMA table_info('users')").all() as { name: string }[]
-  ).some((c) => c.name === 'totp_last_counter');
+  const totpCol = (db.prepare("PRAGMA table_info('users')").all() as { name: string }[]).some(
+    (c) => c.name === 'totp_last_counter'
+  );
   if (!totpCol) {
     db.exec('ALTER TABLE users ADD COLUMN totp_last_counter INTEGER NOT NULL DEFAULT -1');
     logger.info('已补列 users.totp_last_counter（TOTP 防重放）');

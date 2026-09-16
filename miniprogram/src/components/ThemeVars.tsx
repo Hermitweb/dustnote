@@ -29,7 +29,6 @@ function bindSystemThemeListener(): void {
   }
 }
 
-
 /** 各页根 View 拼接:手动深色→theme-dark;手动浅色+系统深色→theme-light;auto→'' */
 export function useThemeDarkClass(): string {
   const theme = useThemeStore((s) => s.theme);
@@ -45,7 +44,9 @@ export function useThemeDarkClass(): string {
   if (theme === 'dark') return 'theme-dark';
   if (theme === 'light') {
     // 手动浅色:仅当系统为深色时需要反制类
-    return currentEffectiveTheme('light', systemDark === true) === 'light' && systemDark ? 'theme-light' : '';
+    return currentEffectiveTheme('light', systemDark === true) === 'light' && systemDark
+      ? 'theme-light'
+      : '';
   }
   return '';
 }

@@ -25,7 +25,12 @@ export function isPrivateAddress(url: string): boolean {
   const bare6 = url.match(/^https?:\/\/([0-9a-f:]{2,})/i);
   if (bare6 && bare6[1]!.includes(':')) {
     const addr = bare6[1]!.toLowerCase();
-    if (addr.startsWith('::1') || addr.startsWith('fc') || addr.startsWith('fd') || addr.startsWith('fe80')) {
+    if (
+      addr.startsWith('::1') ||
+      addr.startsWith('fc') ||
+      addr.startsWith('fd') ||
+      addr.startsWith('fe80')
+    ) {
       return true;
     }
   }

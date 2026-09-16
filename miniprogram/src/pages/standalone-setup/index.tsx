@@ -85,58 +85,58 @@ export default function StandaloneSetup() {
   const darkClass = useThemeDarkClass();
   return (
     <>
-    <ThemeVars />
-    <View className={`setup-container ${darkClass}`}>
-      <Image
-        src={logoUrl}
-        className="hero-logo"
-        style={{ width: '64px', height: '64px', textAlign: 'center' }}
-      />
-      <Text className="hero-title text-center">{t('standalone_setup.title')}</Text>
-      <Text className="hero-subtitle mb-l text-center">{t('standalone_setup.subtitle')}</Text>
+      <ThemeVars />
+      <View className={`setup-container ${darkClass}`}>
+        <Image
+          src={logoUrl}
+          className="hero-logo"
+          style={{ width: '64px', height: '64px', textAlign: 'center' }}
+        />
+        <Text className="hero-title text-center">{t('standalone_setup.title')}</Text>
+        <Text className="hero-subtitle mb-l text-center">{t('standalone_setup.subtitle')}</Text>
 
-      <FInput
-        className="mint-input"
-        password
-        placeholder={t('standalone_setup.pwd_placeholder')}
-        value={password}
-        onInput={(e) => setPassword((e.detail as { value: string }).value)}
-      />
-      <FInput
-        className="mint-input"
-        password
-        placeholder={t('standalone_setup.confirm_placeholder')}
-        value={confirm}
-        onInput={(e) => setConfirm((e.detail as { value: string }).value)}
-      />
+        <FInput
+          className="mint-input"
+          password
+          placeholder={t('standalone_setup.pwd_placeholder')}
+          value={password}
+          onInput={(e) => setPassword((e.detail as { value: string }).value)}
+        />
+        <FInput
+          className="mint-input"
+          password
+          placeholder={t('standalone_setup.confirm_placeholder')}
+          value={confirm}
+          onInput={(e) => setConfirm((e.detail as { value: string }).value)}
+        />
 
-      {password && (
-        <View className="mb-m">
-          <View className="strength-bar">
-            <View
-              className={`strength-bar-fill ${strength.level}`}
-              style={{ width: `${strength.width}%` }}
-            />
+        {password && (
+          <View className="mb-m">
+            <View className="strength-bar">
+              <View
+                className={`strength-bar-fill ${strength.level}`}
+                style={{ width: `${strength.width}%` }}
+              />
+            </View>
+            <Text className="hint">{t('common.strength_label', { label: strength.label })}</Text>
           </View>
-          <Text className="hint">{t('common.strength_label', { label: strength.label })}</Text>
+        )}
+
+        <View
+          className="mint-btn mint-btn-block"
+          onClick={() => doSetup(password, confirm)}
+          style={{ opacity: submitting ? 0.5 : 1 }}
+        >
+          {submitting ? t('standalone_setup.setting_up') : t('standalone_setup.create_btn')}
         </View>
-      )}
 
-      <View
-        className="mint-btn mint-btn-block"
-        onClick={() => doSetup(password, confirm)}
-        style={{ opacity: submitting ? 0.5 : 1 }}
-      >
-        {submitting ? t('standalone_setup.setting_up') : t('standalone_setup.create_btn')}
+        <Text className="hint mt-l" style={{ display: 'block', textAlign: 'center' }}>
+          {t('standalone_setup.warn')}
+        </Text>
+        <Text className="text-xs text-muted mt-s" style={{ display: 'block', textAlign: 'center' }}>
+          {t('standalone_setup.data_warn')}
+        </Text>
       </View>
-
-      <Text className="hint mt-l" style={{ display: 'block', textAlign: 'center' }}>
-        {t('standalone_setup.warn')}
-      </Text>
-      <Text className="text-xs text-muted mt-s" style={{ display: 'block', textAlign: 'center' }}>
-        {t('standalone_setup.data_warn')}
-      </Text>
-    </View>
     </>
   );
 }

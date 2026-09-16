@@ -40,7 +40,9 @@ function syncUrl(serverUrl: string | null): void {
       url.searchParams.delete('server');
     }
     history.replaceState(null, '', url.toString());
-  } catch { /* SSR / 非浏览器环境 */ }
+  } catch {
+    /* SSR / 非浏览器环境 */
+  }
 }
 
 function loadState(): ModeState {

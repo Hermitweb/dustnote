@@ -11,7 +11,12 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import type { Database as DatabaseType } from 'better-sqlite3';
-import { purgeExpiredTrash, pruneAuditLog, TRASH_RETENTION_DAYS, SHARE_RETENTION_DAYS } from './trash-cleanup.js';
+import {
+  purgeExpiredTrash,
+  pruneAuditLog,
+  TRASH_RETENTION_DAYS,
+  SHARE_RETENTION_DAYS,
+} from './trash-cleanup.js';
 
 // 临时 DB 实例（:memory: 避免文件清理）
 let testDb: DatabaseType;
@@ -22,9 +27,7 @@ beforeAll(() => {
   // 最小 schema：notes/shares/audit_log + 一个 user 外键占位。
   // 此前最小 schema 没有 shares 表——「失效分享清理」分支从未被测试触达,
   // 审计 H2（清理从未生效）正是从这个盲区漏掉的。
-  testDb
-    .prepare(`CREATE TABLE users (id TEXT PRIMARY KEY)`)
-    .run();
+  testDb.prepare(`CREATE TABLE users (id TEXT PRIMARY KEY)`).run();
   testDb.prepare(`INSERT INTO users (id) VALUES (?)`).run('user-1');
   testDb
     .prepare(

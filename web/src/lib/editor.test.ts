@@ -62,8 +62,8 @@ describe('image-store', () => {
     const { countBase64Images } = await import('../lib/image-store');
     expect(countBase64Images('![img](data:image/png;base64,abc123)')).toBe(1);
     expect(countBase64Images('no images')).toBe(0);
-    expect(countBase64Images(
-      '![a](data:image/png;base64,abc) ![b](data:image/jpeg;base64,def)'
-    )).toBe(2);
+    expect(
+      countBase64Images('![a](data:image/png;base64,abc) ![b](data:image/jpeg;base64,def)')
+    ).toBe(2);
   });
 });

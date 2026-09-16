@@ -38,8 +38,14 @@ export async function storeImage(blob: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(IMAGE_STORE, 'readwrite');
     tx.objectStore(IMAGE_STORE).put(blob, id);
-    tx.oncomplete = () => { db.close(); resolve(id); };
-    tx.onerror = () => { db.close(); reject(tx.error); };
+    tx.oncomplete = () => {
+      db.close();
+      resolve(id);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
   });
 }
 
@@ -49,8 +55,14 @@ export async function getImage(id: string): Promise<string | null> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(IMAGE_STORE, 'readonly');
     const req = tx.objectStore(IMAGE_STORE).get(id);
-    req.onsuccess = () => { db.close(); resolve(req.result ?? null); };
-    req.onerror = () => { db.close(); reject(req.error); };
+    req.onsuccess = () => {
+      db.close();
+      resolve(req.result ?? null);
+    };
+    req.onerror = () => {
+      db.close();
+      reject(req.error);
+    };
   });
 }
 
@@ -60,8 +72,14 @@ export async function deleteImage(id: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(IMAGE_STORE, 'readwrite');
     tx.objectStore(IMAGE_STORE).delete(id);
-    tx.oncomplete = () => { db.close(); resolve(); };
-    tx.onerror = () => { db.close(); reject(tx.error); };
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
   });
 }
 

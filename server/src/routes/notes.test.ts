@@ -337,7 +337,11 @@ describe('notes data layer (queries used by notesRouter handlers)', () => {
         .run();
 
       // handler 的级联语义:软删 + 吊销该笔记全部活跃分享（同事务）
-      testDb.prepare(`UPDATE notes SET deleted_at = ?, version = version + 1 WHERE id = ? AND deleted_at IS NULL`).run(NOW(), 'share-host');
+      testDb
+        .prepare(
+          `UPDATE notes SET deleted_at = ?, version = version + 1 WHERE id = ? AND deleted_at IS NULL`
+        )
+        .run(NOW(), 'share-host');
       const revoked = testDb
         .prepare('UPDATE shares SET revoked = 1 WHERE note_id = ? AND user_id = ? AND revoked = 0')
         .run('share-host', 'user-1');
@@ -369,14 +373,16 @@ describe('notes data layer (queries used by notesRouter handlers)', () => {
       }
 
       const listSql = (cursorTs?: string, cursorId?: string) => {
-        const conds = ['user_id = ?', "deleted_at IS NULL"];
+        const conds = ['user_id = ?', 'deleted_at IS NULL'];
         const params: unknown[] = ['user-1'];
         if (cursorTs && cursorId) {
           conds.push('(server_updated_at < ? OR (server_updated_at = ? AND id < ?))');
           params.push(cursorTs, cursorTs, cursorId);
         }
         return testDb
-          .prepare(`SELECT * FROM notes WHERE ${conds.join(' AND ')} ORDER BY server_updated_at DESC, id DESC LIMIT 2`)
+          .prepare(
+            `SELECT * FROM notes WHERE ${conds.join(' AND ')} ORDER BY server_updated_at DESC, id DESC LIMIT 2`
+          )
           .all(...params) as { id: string; server_updated_at: string }[];
       };
 

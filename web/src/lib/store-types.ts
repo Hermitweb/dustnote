@@ -4,11 +4,7 @@
  * 所有共享类型集中在此，避免循环依赖。
  */
 
-import type {
-  NoteCipherEnvelope,
-  MergeableNote,
-  FieldConflict,
-} from '@dustnote/client-core';
+import type { NoteCipherEnvelope, MergeableNote, FieldConflict } from '@dustnote/client-core';
 
 export type { NoteCipherEnvelope };
 

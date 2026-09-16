@@ -34,16 +34,26 @@ components:
       type: object
       properties:
         id: { type: string, format: uuid }
-        ciphertext: { type: string, description: "E2EE 密文 JSON 字符串" }
+        ciphertext: { type: string, description: 'E2EE 密文 JSON 字符串' }
         keyVersion: { type: integer }
         isPinned: { type: boolean }
         isFavorite: { type: boolean }
-        deletedAt: { type: string, format: "date-time", nullable: true }
-        version: { type: integer, description: "乐观锁版本号" }
-        clientUpdatedAt: { type: string, format: "date-time" }
-        serverUpdatedAt: { type: string, format: "date-time" }
+        deletedAt: { type: string, format: 'date-time', nullable: true }
+        version: { type: integer, description: '乐观锁版本号' }
+        clientUpdatedAt: { type: string, format: 'date-time' }
+        serverUpdatedAt: { type: string, format: 'date-time' }
         folderId: { type: string, format: uuid, nullable: true }
-      required: [id, ciphertext, keyVersion, isPinned, isFavorite, version, clientUpdatedAt, serverUpdatedAt]
+      required:
+        [
+          id,
+          ciphertext,
+          keyVersion,
+          isPinned,
+          isFavorite,
+          version,
+          clientUpdatedAt,
+          serverUpdatedAt,
+        ]
 
     Folder:
       type: object
@@ -53,7 +63,7 @@ components:
         parentId: { type: string, format: uuid, nullable: true }
         icon: { type: string, nullable: true }
         sortOrder: { type: integer }
-        createdAt: { type: string, format: "date-time" }
+        createdAt: { type: string, format: 'date-time' }
         depth: { type: integer, enum: [1, 2] }
         branch: { type: string, enum: [work, personal], nullable: true }
 
@@ -77,10 +87,10 @@ components:
         token: { type: string }
         wrappedShareKey: { type: object }
         hasPassword: { type: boolean }
-        expiresAt: { type: string, format: "date-time", nullable: true }
+        expiresAt: { type: string, format: 'date-time', nullable: true }
         viewCount: { type: integer }
         revoked: { type: boolean }
-        createdAt: { type: string, format: "date-time" }
+        createdAt: { type: string, format: 'date-time' }
 
     UpdateManifest:
       type: object
@@ -102,7 +112,7 @@ paths:
       summary: 健康检查
       security: []
       responses:
-        "200":
+        '200':
           description: OK
           content:
             application/json:
@@ -119,7 +129,7 @@ paths:
       summary: 检查鉴权状态
       security: []
       responses:
-        "200":
+        '200':
           description: OK
           content:
             application/json:
@@ -149,7 +159,7 @@ paths:
                 rcSalt: { type: string }
                 deviceName: { type: string }
       responses:
-        "201":
+        '201':
           description: 创建成功
           content:
             application/json:
@@ -174,7 +184,7 @@ paths:
                 authKey: { type: string }
                 deviceName: { type: string }
       responses:
-        "200":
+        '200':
           description: 解锁成功
           content:
             application/json:
@@ -185,7 +195,7 @@ paths:
                   userId: { type: string, format: uuid }
                   deviceId: { type: string, format: uuid }
                   wrappedMasterKey: { type: object }
-        "401":
+        '401':
           description: 密码错误
 
   /auth/recover:
@@ -202,14 +212,14 @@ paths:
                 recoveryAuthKey: { type: string }
                 deviceName: { type: string }
       responses:
-        "200":
+        '200':
           description: 恢复成功
 
   /auth/refresh:
     post:
       summary: 刷新 access token
       responses:
-        "200":
+        '200':
           description: 刷新成功
           content:
             application/json:
@@ -224,13 +234,13 @@ paths:
       parameters:
         - name: since
           in: query
-          schema: { type: string, format: "date-time" }
+          schema: { type: string, format: 'date-time' }
           description: 增量同步游标
         - name: includeDeleted
           in: query
-          schema: { type: string, enum: ["0", "1"] }
+          schema: { type: string, enum: ['0', '1'] }
       responses:
-        "200":
+        '200':
           description: OK
           content:
             application/json:
@@ -239,7 +249,7 @@ paths:
                 properties:
                   notes:
                     type: array
-                    items: { $ref: "#/components/schemas/NoteRow" }
+                    items: { $ref: '#/components/schemas/NoteRow' }
     post:
       summary: 创建笔记
       requestBody:
@@ -254,10 +264,10 @@ paths:
                 keyVersion: { type: integer }
                 isPinned: { type: boolean }
                 isFavorite: { type: boolean }
-                clientUpdatedAt: { type: string, format: "date-time" }
+                clientUpdatedAt: { type: string, format: 'date-time' }
                 folderId: { type: string, format: uuid, nullable: true }
       responses:
-        "201":
+        '201':
           description: 创建成功
 
   /notes/{id}:
@@ -279,13 +289,13 @@ paths:
                 isPinned: { type: boolean }
                 isFavorite: { type: boolean }
                 deletedAt: { type: string, nullable: true }
-                clientUpdatedAt: { type: string, format: "date-time" }
-                version: { type: integer, description: "当前版本号（乐观锁）" }
+                clientUpdatedAt: { type: string, format: 'date-time' }
+                version: { type: integer, description: '当前版本号（乐观锁）' }
                 folderId: { type: string, nullable: true }
       responses:
-        "200":
+        '200':
           description: 更新成功
-        "409":
+        '409':
           description: 版本冲突
           content:
             application/json:
@@ -294,7 +304,7 @@ paths:
                 properties:
                   error: { type: string }
                   message: { type: string }
-                  current: { $ref: "#/components/schemas/NoteRow" }
+                  current: { $ref: '#/components/schemas/NoteRow' }
     delete:
       summary: 软删除笔记
       parameters:
@@ -303,14 +313,14 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        "200":
+        '200':
           description: 删除成功
 
   /folders:
     get:
       summary: 获取文件夹列表
       responses:
-        "200":
+        '200':
           description: OK
           content:
             application/json:
@@ -319,7 +329,7 @@ paths:
                 properties:
                   folders:
                     type: array
-                    items: { $ref: "#/components/schemas/Folder" }
+                    items: { $ref: '#/components/schemas/Folder' }
     post:
       summary: 创建文件夹
       requestBody:
@@ -333,14 +343,14 @@ paths:
                 parentId: { type: string, format: uuid, nullable: true }
                 branch: { type: string, enum: [work, personal] }
       responses:
-        "201":
+        '201':
           description: 创建成功
 
   /shares:
     get:
       summary: 获取分享列表
       responses:
-        "200":
+        '200':
           description: OK
     post:
       summary: 创建分享链接
@@ -355,28 +365,28 @@ paths:
                 ciphertext: { type: object }
                 wrappedShareKey: { type: object }
                 password: { type: string, minLength: 8, maxLength: 64 }
-                expiresIn: { type: integer, description: "秒" }
+                expiresIn: { type: integer, description: '秒' }
       responses:
-        "201":
+        '201':
           description: 创建成功
 
   /templates:
     get:
       summary: 获取模板列表
       responses:
-        "200":
+        '200':
           description: OK
     post:
       summary: 创建自定义模板
       responses:
-        "201":
+        '201':
           description: 创建成功
 
   /preferences:
     patch:
       summary: 更新偏好设置
       responses:
-        "200":
+        '200':
           description: 更新成功
 
   /update-manifest:
@@ -397,8 +407,8 @@ paths:
           in: header
           schema: { type: string }
       responses:
-        "200":
+        '200':
           description: OK
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/UpdateManifest" }
+              schema: { $ref: '#/components/schemas/UpdateManifest' }

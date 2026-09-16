@@ -56,7 +56,7 @@ export function generateTotp(secret: string, time?: number): string {
 export function verifyTotpWithCounter(
   token: string,
   secret: string,
-  lastUsedCounter: number,
+  lastUsedCounter: number
 ): { ok: boolean; counter: number } {
   const now = Math.floor(Date.now() / 1000);
   // 检查当前窗口和前后各 1 个窗口（允许 ±30 秒的时钟偏移）

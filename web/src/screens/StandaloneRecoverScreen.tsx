@@ -59,9 +59,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
             🔑
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('auth.recover_title')}</h1>
-          <p className="mt-2 text-sm text-surface-muted">
-            {t('auth.recover_standalone_subtitle')}
-          </p>
+          <p className="mt-2 text-sm text-surface-muted">{t('auth.recover_standalone_subtitle')}</p>
         </div>
 
         <form

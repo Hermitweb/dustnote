@@ -31,7 +31,5 @@ export function resolveSlashCommand(insert: string): string {
 export function filterSlashCommands(query: string): SlashCommand[] {
   const q = query.toLowerCase();
   if (!q) return SLASH_COMMANDS;
-  return SLASH_COMMANDS.filter(
-    (cmd) => cmd.label.toLowerCase().includes(q) || cmd.id.includes(q)
-  );
+  return SLASH_COMMANDS.filter((cmd) => cmd.label.toLowerCase().includes(q) || cmd.id.includes(q));
 }

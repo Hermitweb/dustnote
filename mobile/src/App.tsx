@@ -70,17 +70,25 @@ import { checkUpdateOnce } from './lib/use-update-check';
               password: string | Uint8Array,
               salt: Uint8Array,
               iterations: number,
-              dkLen: number,
-            ) => Promise<Uint8Array>,
+              dkLen: number
+            ) => Promise<Uint8Array>
           ) => void;
         };
-        setPbkdf2NativeImpl((password, salt, iterations, dkLen) =>
-          new Promise<Uint8Array>((resolve, reject) => {
-            qc.pbkdf2(password, salt, iterations, dkLen, 'sha256', (err: Error | null, key: Uint8Array) => {
-              if (err) reject(err);
-              else resolve(key instanceof Uint8Array ? key : new Uint8Array(key));
-            });
-          }),
+        setPbkdf2NativeImpl(
+          (password, salt, iterations, dkLen) =>
+            new Promise<Uint8Array>((resolve, reject) => {
+              qc.pbkdf2(
+                password,
+                salt,
+                iterations,
+                dkLen,
+                'sha256',
+                (err: Error | null, key: Uint8Array) => {
+                  if (err) reject(err);
+                  else resolve(key instanceof Uint8Array ? key : new Uint8Array(key));
+                }
+              );
+            })
         );
         status.nativePbkdf2 = true;
       } else {
@@ -203,12 +211,16 @@ function AppInner() {
   useEffect(() => {
     if (authState !== 'unlocked' || mode !== 'online') return;
     const timer = setTimeout(() => {
-      void checkUpdateOnce().then((r) => {
-        if (r.status === 'force_update' || r.hasUpdate) {
-          // 有更新可用时，SettingsScreen 的 onCheckUpdate 会处理提示
-          // 这里仅静默检查，不弹窗打扰用户
-        }
-      }).catch(() => { /* 静默失败 */ });
+      void checkUpdateOnce()
+        .then((r) => {
+          if (r.status === 'force_update' || r.hasUpdate) {
+            // 有更新可用时，SettingsScreen 的 onCheckUpdate 会处理提示
+            // 这里仅静默检查，不弹窗打扰用户
+          }
+        })
+        .catch(() => {
+          /* 静默失败 */
+        });
     }, 5000);
     return () => clearTimeout(timer);
   }, [authState, mode]);
@@ -344,7 +356,11 @@ function AppInner() {
               component={TrashScreen}
               options={{ title: t('app.trash_title') }}
             />
-            <Stack.Screen name="Shares" component={SharesScreen} options={{ title: t('app.shares_title') }} />
+            <Stack.Screen
+              name="Shares"
+              component={SharesScreen}
+              options={{ title: t('app.shares_title') }}
+            />
           </Stack.Navigator>
         </NavigationContainer>
         {/* 同步冲突裁决（pendingConflicts 非空时弹出） */}

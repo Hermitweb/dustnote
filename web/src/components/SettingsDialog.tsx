@@ -836,10 +836,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 >
                   <span className="flex items-center gap-2">
                     <span>📸</span>
-                    <span>{allowScreenshot ? t('settings.screenshot_on') : t('settings.screenshot_off')}</span>
+                    <span>
+                      {allowScreenshot ? t('settings.screenshot_on') : t('settings.screenshot_off')}
+                    </span>
                   </span>
                   <span className="text-xs text-surface-muted">
-                    {allowScreenshot ? t('settings.screenshot_on_hint') : t('settings.screenshot_off_hint')}
+                    {allowScreenshot
+                      ? t('settings.screenshot_on_hint')
+                      : t('settings.screenshot_off_hint')}
                   </span>
                 </button>
               </div>
@@ -992,7 +996,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 </button>
               )}
               {pwaInstall.installed && (
-                <div className="mt-2 text-mint-600 dark:text-mint-400">{t('settings.pwa_installed')}</div>
+                <div className="mt-2 text-mint-600 dark:text-mint-400">
+                  {t('settings.pwa_installed')}
+                </div>
               )}
             </div>
           </div>

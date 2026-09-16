@@ -34,14 +34,10 @@ export function UpdateBanner({ result }: { result: CheckUpdateResult }) {
             {t('update.new_version', { version })}
           </div>
           {level === 'L2_strong_prompt' && (
-            <div className="text-xs text-slate-500">
-              {t('update.suggest_upgrade')}
-            </div>
+            <div className="text-xs text-slate-500">{t('update.suggest_upgrade')}</div>
           )}
           {level === 'L3_soft_prompt' && (
-            <div className="text-xs text-slate-500">
-              {t('update.available')}
-            </div>
+            <div className="text-xs text-slate-500">{t('update.available')}</div>
           )}
         </div>
         <a

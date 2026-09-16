@@ -170,36 +170,36 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   userId: null,
   masterKey: null,
   pwSalt: null,
-    localAuthBlob: null,
-    lockoutState: { ...INITIAL_LOCKOUT_STATE },
-    pendingMasterKey: null,
+  localAuthBlob: null,
+  lockoutState: { ...INITIAL_LOCKOUT_STATE },
+  pendingMasterKey: null,
 
-    setPendingMasterKey: (key) => set({ pendingMasterKey: key }),
+  setPendingMasterKey: (key) => set({ pendingMasterKey: key }),
 
-    unlockWithBiometric: async () => {
-      const cached = readCachedMasterKey();
-      if (!cached) return false;
-      const mode = useModeStore.getState().mode;
-      if (mode === 'standalone') {
-        const blob = loadLocalAuthBlobSync();
-        if (!blob) return false;
-        set({ authState: 'unlocked', masterKey: cached, localAuthBlob: blob });
-        return true;
-      }
-      // 联机：恢复持久化 token（已过期由 401 静默刷新兜底）。
-      // startSyncWs 延后一拍执行：连接初始化不阻塞指纹解锁的跳转
-      const token = readPersistedToken();
-      if (!token) return false;
-      set({ authState: 'unlocked', masterKey: cached, accessToken: token });
-      setTimeout(() => {
-        try {
-          startSyncWs();
-        } catch {
-          /* ignore */
-        }
-      }, 0);
+  unlockWithBiometric: async () => {
+    const cached = readCachedMasterKey();
+    if (!cached) return false;
+    const mode = useModeStore.getState().mode;
+    if (mode === 'standalone') {
+      const blob = loadLocalAuthBlobSync();
+      if (!blob) return false;
+      set({ authState: 'unlocked', masterKey: cached, localAuthBlob: blob });
       return true;
-    },
+    }
+    // 联机：恢复持久化 token（已过期由 401 静默刷新兜底）。
+    // startSyncWs 延后一拍执行：连接初始化不阻塞指纹解锁的跳转
+    const token = readPersistedToken();
+    if (!token) return false;
+    set({ authState: 'unlocked', masterKey: cached, accessToken: token });
+    setTimeout(() => {
+      try {
+        startSyncWs();
+      } catch {
+        /* ignore */
+      }
+    }, 0);
+    return true;
+  },
 
   // ========== 通用 actions ==========
 
@@ -290,19 +290,16 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       userId: string;
       deviceId: string;
       refreshToken: string;
-    }>(
-      '/auth/setup',
-      {
-        // 主密码不出客户端，服务端只拿到 authKey 和密文
-        authKey: toBase64(pw.authKey),
-        recoveryAuthKey: toBase64(rc.authKey),
-        wrappedMasterKeyPw: wrappedPw,
-        wrappedMasterKeyRc: wrappedRc,
-        pwSalt: toBase64(pwSalt),
-        rcSalt: toBase64(rcSalt),
-        deviceName: '小程序',
-      }
-    );
+    }>('/auth/setup', {
+      // 主密码不出客户端，服务端只拿到 authKey 和密文
+      authKey: toBase64(pw.authKey),
+      recoveryAuthKey: toBase64(rc.authKey),
+      wrappedMasterKeyPw: wrappedPw,
+      wrappedMasterKeyRc: wrappedRc,
+      pwSalt: toBase64(pwSalt),
+      rcSalt: toBase64(rcSalt),
+      deviceName: '小程序',
+    });
 
     persistToken(r.accessToken);
     if (r.refreshToken) persistRefreshToken(r.refreshToken);
@@ -331,7 +328,9 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     let salt = get().pwSalt;
     let kdfParams: KdfParams | undefined;
     if (!salt) {
-      const status = await getApi().get<{ pwSalt: string | null; kdfParams?: KdfParams }>('/auth/status');
+      const status = await getApi().get<{ pwSalt: string | null; kdfParams?: KdfParams }>(
+        '/auth/status'
+      );
       salt = status.pwSalt;
       kdfParams = status.kdfParams;
       if (!salt) throw new Error('系统未初始化');
@@ -489,7 +488,9 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       const blob = localAuthBlob ?? loadLocalAuthBlobSync();
       if (!blob) throw new Error('未初始化');
       if (isLocked(lockoutState)) {
-        throw new Error(`账号已锁定，请 ${Math.ceil(remainingLockoutMs(lockoutState) / 1000)} 秒后重试`);
+        throw new Error(
+          `账号已锁定，请 ${Math.ceil(remainingLockoutMs(lockoutState) / 1000)} 秒后重试`
+        );
       }
       const verify = await unlockLocalAuth(oldPassword, blob, KDF_PARAMS_MOBILE);
       if (!verify.success || !verify.masterKey) throw new Error('当前密码错误');
@@ -625,9 +626,7 @@ export function getApi(): ApiClient {
   // 原请求；刷新失败（宽限期已过/设备被吊销/无 refresh token）才锁定回解锁页。
   // 排除 /auth/ 自身(解锁密码错误本来就返回 401,属正常业务语义)。
   const authExpiredFetch: FetchFn = async (url, init) => {
-    let res = await (process.env.TARO_ENV === 'weapp'
-      ? taroFetch(url, init)
-      : fetch(url, init));
+    let res = await (process.env.TARO_ENV === 'weapp' ? taroFetch(url, init) : fetch(url, init));
     if (res.status === 401 && !String(url).includes('/auth/')) {
       const outcome = await refreshAccessToken();
       if (outcome.status === 'ok') {

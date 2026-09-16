@@ -95,7 +95,9 @@ export function purgeExpiredTrash(now: Date = new Date()): number {
   // 破坏性的表重建（旧表 ciphertext 列是 NOT NULL，无法置空）。
   // revoked 分享用 created_at 判定保留期（未存吊销时间戳），保证刚吊销的
   // 分享在列表里还能看到约 30 天（非致命，表缺失/局部异常不影响主流程）
-  const shareCutoff = new Date(now.getTime() - SHARE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const shareCutoff = new Date(
+    now.getTime() - SHARE_RETENTION_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
   try {
     const purgedShares = db
       .prepare(

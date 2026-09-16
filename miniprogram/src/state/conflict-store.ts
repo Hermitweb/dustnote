@@ -86,5 +86,3 @@ export const useConflictStore = create<ConflictStoreState>((set, get) => ({
     set({ pendingConflicts: next });
   },
 }));
-
-

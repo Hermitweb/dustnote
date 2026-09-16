@@ -100,7 +100,7 @@ export function NotesListScreen() {
   /** 从模板创建笔记(目标文件夹由调用方给定) */
   const createFromTemplate = async (
     tpl: (typeof PRESET_TEMPLATES)[number],
-    folderId: string,
+    folderId: string
   ): Promise<void> => {
     if (!masterKey) return;
     const doc: NotePlaintext = {
@@ -280,7 +280,9 @@ export function NotesListScreen() {
   }, []);
   const toggleSelectAll = useCallback(() => {
     setSelectedIds((prev) =>
-      prev.size === filtered.length && filtered.length > 0 ? new Set() : new Set(filtered.map((n) => n.id))
+      prev.size === filtered.length && filtered.length > 0
+        ? new Set()
+        : new Set(filtered.map((n) => n.id))
     );
   }, [filtered]);
 
@@ -423,10 +425,14 @@ export function NotesListScreen() {
   const confirmBatchDelete = useCallback(() => {
     const n = selectedIds.size;
     if (n === 0) return;
-    Alert.alert(t('notes.batch_delete_confirm_title'), t('notes.batch_delete_confirm', { count: n }), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.delete'), style: 'destructive', onPress: () => void doBatchDelete() },
-    ]);
+    Alert.alert(
+      t('notes.batch_delete_confirm_title'),
+      t('notes.batch_delete_confirm', { count: n }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.delete'), style: 'destructive', onPress: () => void doBatchDelete() },
+      ]
+    );
   }, [selectedIds, doBatchDelete, t]);
 
   const styles = makeStyles(colors, layout);
@@ -583,56 +589,60 @@ export function NotesListScreen() {
             delayLongPress={400}
             onLongPress={() => setTplPickVisible(true)}
             onPress={async () => {
-          if (!masterKey) return;
-          // 笔记必须归属文件夹：「全部」视图未选中文件夹时不创建
-          if (folderFilter === 'all') {
-            Alert.alert(t('common.hint'), t('notes.create_need_folder'));
-            return;
-          }
-          try {
-            // 用真实密文创建空笔记，保证列表展示与其他端一致
-            const empty: NotePlaintext = { title: t('app.new_note'), content: '', tags: [] };
-            const ciphertext = await packEnvelope(masterKey, empty);
-            // 当前选中文件夹 → 新笔记归属该文件夹
-            const targetFolderId = folderFilter;
-            const newId = await repo.createNote({
-              ciphertext,
-              keyVersion: 1,
-              isPinned: false,
-              isFavorite: false,
-              folderId: targetFolderId,
-            });
-            // 创建后直接进入编辑器（与 Web 端行为一致）；否则只刷列表、
-            // 用户面对一篇没有打开的空笔记（真机实测反馈）
-            void AsyncStorage.setItem('dustnote_last_folder', targetFolderId);
-            navigation.navigate('NoteEdit', { noteId: newId });
-          } catch (err) {
-            // 联机模式网络不可用：入队待同步（离线队列简化版）
-            if (mode === 'online' && isNetworkError(err)) {
+              if (!masterKey) return;
+              // 笔记必须归属文件夹：「全部」视图未选中文件夹时不创建
+              if (folderFilter === 'all') {
+                Alert.alert(t('common.hint'), t('notes.create_need_folder'));
+                return;
+              }
               try {
+                // 用真实密文创建空笔记，保证列表展示与其他端一致
                 const empty: NotePlaintext = { title: t('app.new_note'), content: '', tags: [] };
                 const ciphertext = await packEnvelope(masterKey, empty);
-                const targetFolderId = folderFilter !== 'all' ? folderFilter : null;
-                await enqueueOffline('POST', '/notes', {
+                // 当前选中文件夹 → 新笔记归属该文件夹
+                const targetFolderId = folderFilter;
+                const newId = await repo.createNote({
                   ciphertext,
                   keyVersion: 1,
                   isPinned: false,
                   isFavorite: false,
-                  clientUpdatedAt: new Date().toISOString(),
                   folderId: targetFolderId,
                 });
-                Alert.alert(t('notes.offline_queued_title'), t('notes.offline_queued_detail'));
-              } catch {
-                Alert.alert(t('notes.create_failed'), (err as Error).message);
+                // 创建后直接进入编辑器（与 Web 端行为一致）；否则只刷列表、
+                // 用户面对一篇没有打开的空笔记（真机实测反馈）
+                void AsyncStorage.setItem('dustnote_last_folder', targetFolderId);
+                navigation.navigate('NoteEdit', { noteId: newId });
+              } catch (err) {
+                // 联机模式网络不可用：入队待同步（离线队列简化版）
+                if (mode === 'online' && isNetworkError(err)) {
+                  try {
+                    const empty: NotePlaintext = {
+                      title: t('app.new_note'),
+                      content: '',
+                      tags: [],
+                    };
+                    const ciphertext = await packEnvelope(masterKey, empty);
+                    const targetFolderId = folderFilter !== 'all' ? folderFilter : null;
+                    await enqueueOffline('POST', '/notes', {
+                      ciphertext,
+                      keyVersion: 1,
+                      isPinned: false,
+                      isFavorite: false,
+                      clientUpdatedAt: new Date().toISOString(),
+                      folderId: targetFolderId,
+                    });
+                    Alert.alert(t('notes.offline_queued_title'), t('notes.offline_queued_detail'));
+                  } catch {
+                    Alert.alert(t('notes.create_failed'), (err as Error).message);
+                  }
+                } else {
+                  console.warn('创建失败', err);
+                  Alert.alert(t('notes.create_failed'), (err as Error).message);
+                }
               }
-            } else {
-              console.warn('创建失败', err);
-              Alert.alert(t('notes.create_failed'), (err as Error).message);
-            }
-          }
-        }}
-      >
-        <Text style={styles.fabText}>+</Text>
+            }}
+          >
+            <Text style={styles.fabText}>+</Text>
           </TouchableOpacity>
         </>
       )}
@@ -680,7 +690,9 @@ export function NotesListScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>{t('notes.batch_move_title', { count: selectedIds.size })}</Text>
+            <Text style={styles.modalTitle}>
+              {t('notes.batch_move_title', { count: selectedIds.size })}
+            </Text>
             <ScrollView style={styles.modalList}>
               <TouchableOpacity style={styles.modalItem} onPress={() => void doBatchMove(null)}>
                 <Text style={styles.modalItemText}>{t('notes.batch_move_root')}</Text>
@@ -695,10 +707,7 @@ export function NotesListScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <TouchableOpacity
-              style={styles.modalCancel}
-              onPress={() => setMoveModalVisible(false)}
-            >
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setMoveModalVisible(false)}>
               <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
@@ -712,11 +721,7 @@ export function NotesListScreen() {
         animationType="fade"
         onRequestClose={closeAction}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={closeAction}
-        >
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeAction}>
           <TouchableOpacity activeOpacity={1} style={styles.modalSheet}>
             <Text style={styles.modalTitle} numberOfLines={1}>
               {actionNote?.plain?.title ?? t('editor.untitled')}
@@ -802,10 +807,7 @@ export function NotesListScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <TouchableOpacity
-              style={styles.modalCancel}
-              onPress={() => setTplPickVisible(false)}
-            >
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setTplPickVisible(false)}>
               <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>

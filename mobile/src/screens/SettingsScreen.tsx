@@ -240,7 +240,10 @@ export function SettingsScreen() {
           t('settings.update_force_detail', { message: r.message ?? '' }),
           [
             { text: t('settings.update_later'), style: 'cancel' },
-            { text: t('settings.update_download'), onPress: () => void Linking.openURL(r.updateUrl!) },
+            {
+              text: t('settings.update_download'),
+              onPress: () => void Linking.openURL(r.updateUrl!),
+            },
           ]
         );
       } else if (r.hasUpdate && r.manifest) {
@@ -259,7 +262,10 @@ export function SettingsScreen() {
           ]
         );
       } else if (r.status === 'ok') {
-        Alert.alert(t('settings.update_up_to_date'), t('settings.update_current_detail', { version: APP_VERSION }));
+        Alert.alert(
+          t('settings.update_up_to_date'),
+          t('settings.update_current_detail', { version: APP_VERSION })
+        );
       } else if (r.status === 'error') {
         Alert.alert(t('settings.update_check_failed'), r.message ?? t('errors.unknown'));
       }
@@ -382,11 +388,14 @@ export function SettingsScreen() {
                 setBusy(false);
               }
             },
-          }
+          },
         ]
       );
     } catch (err) {
-      Alert.alert(t('settings.import_parse_failed'), t('settings.import_json_error', { reason: (err as Error).message }));
+      Alert.alert(
+        t('settings.import_parse_failed'),
+        t('settings.import_json_error', { reason: (err as Error).message })
+      );
       setBusy(false);
     }
   };
@@ -455,7 +464,10 @@ export function SettingsScreen() {
           t('settings.export_md_generated_detail', { filename })
         );
       }
-      Alert.alert(t('settings.export_success'), t('settings.export_md_success_detail', { count: ok }));
+      Alert.alert(
+        t('settings.export_success'),
+        t('settings.export_md_success_detail', { count: ok })
+      );
     } catch (err) {
       Alert.alert(t('settings.export_failed'), (err as Error).message);
     } finally {
@@ -595,7 +607,10 @@ export function SettingsScreen() {
                     });
                     imported++;
                   }
-                  Alert.alert(t('settings.import_success'), t('settings.import_md_success_detail', { count: imported }));
+                  Alert.alert(
+                    t('settings.import_success'),
+                    t('settings.import_md_success_detail', { count: imported })
+                  );
                 } catch (e) {
                   Alert.alert(t('settings.import_failed'), (e as Error).message);
                 } finally {
@@ -723,7 +738,10 @@ export function SettingsScreen() {
       const auth = useAuthStore.getState();
       if (appMode === 'online') {
         await auth.changePassword(pwCurrent, pwNew);
-        Alert.alert(t('settings.change_password_success'), t('settings.change_password_success_detail'));
+        Alert.alert(
+          t('settings.change_password_success'),
+          t('settings.change_password_success_detail')
+        );
       } else {
         const newCode = await auth.changePasswordStandalone(pwCurrent, pwNew);
         Alert.alert(
@@ -754,12 +772,16 @@ export function SettingsScreen() {
   // 加载2FA状态（联机模式）
   React.useEffect(() => {
     if (appMode !== 'online') return;
-    get2faStatus().then((r) => setTotpEnabled(r.enabled)).catch(() => {});
+    get2faStatus()
+      .then((r) => setTotpEnabled(r.enabled))
+      .catch(() => {});
   }, [appMode]);
 
   // 截屏开关(Android FLAG_SECURE 可配置化):读持久化值
   useEffect(() => {
-    getScreenshotAllowed().then(setAllowScreenshot).catch(() => {});
+    getScreenshotAllowed()
+      .then(setAllowScreenshot)
+      .catch(() => {});
   }, []);
 
   const onSetup2fa = async () => {
@@ -775,7 +797,10 @@ export function SettingsScreen() {
   };
 
   const onEnable2fa = async () => {
-    if (totpCode.length !== 6) { Alert.alert(t('common.hint'), t('settings.totp_code_required')); return; }
+    if (totpCode.length !== 6) {
+      Alert.alert(t('common.hint'), t('settings.totp_code_required'));
+      return;
+    }
     setTotpBusy(true);
     try {
       await enable2fa(totpCode);
@@ -798,7 +823,10 @@ export function SettingsScreen() {
         text: t('common.confirm'),
         onPress: async () => {
           // 简化：复用 totpCode 状态
-          if (totpCode.length !== 6) { Alert.alert(t('common.hint'), t('settings.totp_code_required')); return; }
+          if (totpCode.length !== 6) {
+            Alert.alert(t('common.hint'), t('settings.totp_code_required'));
+            return;
+          }
           setTotpBusy(true);
           try {
             await disable2fa(totpCode);
@@ -846,7 +874,10 @@ export function SettingsScreen() {
                 language: 'zh-CN',
               };
               await repo.setPreferences(defaultPrefs).catch(() => undefined);
-              Alert.alert(t('settings.clear_data_success'), t('settings.clear_data_success_detail'));
+              Alert.alert(
+                t('settings.clear_data_success'),
+                t('settings.clear_data_success_detail')
+              );
             } else {
               await repo.clearBusinessData();
               // 单机模式：一并清空本地鉴权，回到首次设置
@@ -1320,19 +1351,42 @@ export function SettingsScreen() {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{t('settings.totp_setup_title')}</Text>
-            <TouchableOpacity onPress={() => { setShow2fa(false); setTotpSecret(''); setTotpCode(''); }}>
+            <TouchableOpacity
+              onPress={() => {
+                setShow2fa(false);
+                setTotpSecret('');
+                setTotpCode('');
+              }}
+            >
               <Text style={styles.modalClose}>✕</Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.modalHint}>{t('settings.totp_setup_hint')}</Text>
           {totpSecret ? (
             <>
-              <View style={{ padding: 16, backgroundColor: colors.card, borderRadius: 8, marginVertical: 12 }}>
-                <Text style={{ fontFamily: 'monospace', fontSize: 14, color: colors.fg, textAlign: 'center', letterSpacing: 2 }}>
+              <View
+                style={{
+                  padding: 16,
+                  backgroundColor: colors.card,
+                  borderRadius: 8,
+                  marginVertical: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: 'monospace',
+                    fontSize: 14,
+                    color: colors.fg,
+                    textAlign: 'center',
+                    letterSpacing: 2,
+                  }}
+                >
                   {totpSecret}
                 </Text>
               </View>
-              <Text style={[styles.modalHint, { marginBottom: 4 }]}>{t('settings.totp_manual_hint')}</Text>
+              <Text style={[styles.modalHint, { marginBottom: 4 }]}>
+                {t('settings.totp_manual_hint')}
+              </Text>
               <FTextInput
                 style={styles.pwInput}
                 placeholder={t('settings.totp_code_placeholder')}

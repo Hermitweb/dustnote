@@ -11,11 +11,7 @@ import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore } from '../../state/auth';
 import { apiErrorCode } from '@dustnote/shared';
 import { t, useLanguage } from '../../lib/i18n';
-import {
-  isBiometricEnabled,
-  isBiometricSupported,
-  promptBiometric,
-} from '../../lib/biometric';
+import { isBiometricEnabled, isBiometricSupported, promptBiometric } from '../../lib/biometric';
 
 export default function Unlock() {
   const [password, setPassword] = useState('');
@@ -82,64 +78,64 @@ export default function Unlock() {
   const darkClass = useThemeDarkClass();
   return (
     <>
-    <ThemeVars />
+      <ThemeVars />
       <View className={`hero ${darkClass}`}>
-      <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
-      <Text className="hero-title text-mint">{t('app.name')}</Text>
-      <Text className="hero-subtitle mb-l">{t('unlock.subtitle')}</Text>
+        <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
+        <Text className="hero-title text-mint">{t('app.name')}</Text>
+        <Text className="hero-subtitle mb-l">{t('unlock.subtitle')}</Text>
 
-      <FInput
-        className="mint-input"
-        password
-        placeholder={t('common.master_password')}
-        value={password}
-        onInput={(e) => setPassword((e.detail as { value: string }).value)}
-      />
-
-      {showTotp && (
         <FInput
           className="mint-input"
-          placeholder={t('unlock.totp_placeholder')}
-          type="number"
-          maxlength={6}
-          value={totpCode}
-          onInput={(e) => setTotpCode((e.detail as { value: string }).value)}
+          password
+          placeholder={t('common.master_password')}
+          value={password}
+          onInput={(e) => setPassword((e.detail as { value: string }).value)}
         />
-      )}
 
-      <View
-        className="mint-btn mint-btn-block"
-        onClick={onUnlock}
-        style={{ opacity: submitting ? 0.5 : 1 }}
-      >
-        {submitting ? t('common.unlocking') : t('common.unlock')}
-      </View>
+        {showTotp && (
+          <FInput
+            className="mint-input"
+            placeholder={t('unlock.totp_placeholder')}
+            type="number"
+            maxlength={6}
+            value={totpCode}
+            onInput={(e) => setTotpCode((e.detail as { value: string }).value)}
+          />
+        )}
 
-      {bioReady && !submitting && (
         <View
-          className="mint-btn mint-btn-ghost mint-btn-block mt-s"
-          style={{ opacity: bioEntering ? 0.5 : 1 }}
-          onClick={() => void onBiometric()}
+          className="mint-btn mint-btn-block"
+          onClick={onUnlock}
+          style={{ opacity: submitting ? 0.5 : 1 }}
         >
-          {bioEntering ? t('common.unlocking') : `🔒 ${t('unlock.biometric_btn')}`}
+          {submitting ? t('common.unlocking') : t('common.unlock')}
         </View>
-      )}
 
-      <View
-        className="hint-mint mt-l"
-        onClick={() => Taro.navigateTo({ url: '/pages/setup/index' })}
-      >
-        {t('unlock.create_hint')}
-      </View>
+        {bioReady && !submitting && (
+          <View
+            className="mint-btn mint-btn-ghost mint-btn-block mt-s"
+            style={{ opacity: bioEntering ? 0.5 : 1 }}
+            onClick={() => void onBiometric()}
+          >
+            {bioEntering ? t('common.unlocking') : `🔒 ${t('unlock.biometric_btn')}`}
+          </View>
+        )}
 
-      {/* 忘记密码：恢复码找回（对齐安卓端入口） */}
-      <View
-        className="hint-mint"
-        onClick={() => Taro.navigateTo({ url: '/pages/online-recover/index' })}
-      >
-        {t('recover.forgot')}
+        <View
+          className="hint-mint mt-l"
+          onClick={() => Taro.navigateTo({ url: '/pages/setup/index' })}
+        >
+          {t('unlock.create_hint')}
+        </View>
+
+        {/* 忘记密码：恢复码找回（对齐安卓端入口） */}
+        <View
+          className="hint-mint"
+          onClick={() => Taro.navigateTo({ url: '/pages/online-recover/index' })}
+        >
+          {t('recover.forgot')}
+        </View>
       </View>
-    </View>
     </>
   );
 }

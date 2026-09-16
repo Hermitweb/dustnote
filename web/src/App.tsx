@@ -29,15 +29,33 @@ import { QuickCapture } from './components/QuickCapture';
 import { Logo } from './components/Logo';
 
 // React.lazy 惰性加载重对话框（首屏不依赖，减少主 bundle 体积）
-const SettingsDialog = lazy(() => import('./components/SettingsDialog').then((m) => ({ default: m.SettingsDialog })));
-const SharesManager = lazy(() => import('./components/SharesManager').then((m) => ({ default: m.SharesManager })));
-const AdminConfig = lazy(() => import('./components/AdminConfig').then((m) => ({ default: m.AdminConfig })));
-const ImportExportDialog = lazy(() => import('./components/ImportExportDialog').then((m) => ({ default: m.ImportExportDialog })));
-const ModeSelectDialog = lazy(() => import('./components/ModeSelectDialog').then((m) => ({ default: m.ModeSelectDialog })));
-const Cheatsheet = lazy(() => import('./components/Cheatsheet').then((m) => ({ default: m.Cheatsheet })));
-const CommandPalette = lazy(() => import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })));
-const AboutDialog = lazy(() => import('./components/AboutDialog').then((m) => ({ default: m.AboutDialog })));
-const ConflictDialog = lazy(() => import('./components/ConflictDialog').then((m) => ({ default: m.ConflictDialog })));
+const SettingsDialog = lazy(() =>
+  import('./components/SettingsDialog').then((m) => ({ default: m.SettingsDialog }))
+);
+const SharesManager = lazy(() =>
+  import('./components/SharesManager').then((m) => ({ default: m.SharesManager }))
+);
+const AdminConfig = lazy(() =>
+  import('./components/AdminConfig').then((m) => ({ default: m.AdminConfig }))
+);
+const ImportExportDialog = lazy(() =>
+  import('./components/ImportExportDialog').then((m) => ({ default: m.ImportExportDialog }))
+);
+const ModeSelectDialog = lazy(() =>
+  import('./components/ModeSelectDialog').then((m) => ({ default: m.ModeSelectDialog }))
+);
+const Cheatsheet = lazy(() =>
+  import('./components/Cheatsheet').then((m) => ({ default: m.Cheatsheet }))
+);
+const CommandPalette = lazy(() =>
+  import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette }))
+);
+const AboutDialog = lazy(() =>
+  import('./components/AboutDialog').then((m) => ({ default: m.AboutDialog }))
+);
+const ConflictDialog = lazy(() =>
+  import('./components/ConflictDialog').then((m) => ({ default: m.ConflictDialog }))
+);
 
 type StandaloneView = 'setup' | 'unlock' | 'recover';
 
@@ -377,7 +395,10 @@ function App() {
       {/* 页面隐藏时全屏遮挡（§3.6），防任务切换预览/截图泄露笔记内容 */}
       {pageHidden && <div className="fixed inset-0 z-[9999] bg-surface-bg" aria-hidden="true" />}
       {!sidebarHidden && <Sidebar />}
-      <div style={{ overscrollBehavior: 'contain' }} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div
+        style={{ overscrollBehavior: 'contain' }}
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
         {/* 顶部操作条 */}
         <header className="flex items-center gap-2 border-b border-surface-border bg-surface-card px-4 py-2">
           {/* 移动端汉堡按钮：切换 sidebar 抽屉 */}
@@ -434,30 +455,60 @@ function App() {
             </button>
           </div>
         </header>
-        <main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col overflow-hidden outline-none">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden outline-none"
+        >
           <Editor />
         </main>
       </div>
 
-      {showSettings && <Suspense fallback={null}><SettingsDialog onClose={() => setShowSettings(false)} /></Suspense>}
-      {showShares && <Suspense fallback={null}><SharesManager onClose={() => setShowShares(false)} /></Suspense>}
-      {showAdmin && <Suspense fallback={null}><AdminConfig onClose={() => setShowAdmin(false)} /></Suspense>}
-      {showImportExport && <Suspense fallback={null}><ImportExportDialog onClose={() => setShowImportExport(false)} /></Suspense>}
+      {showSettings && (
+        <Suspense fallback={null}>
+          <SettingsDialog onClose={() => setShowSettings(false)} />
+        </Suspense>
+      )}
+      {showShares && (
+        <Suspense fallback={null}>
+          <SharesManager onClose={() => setShowShares(false)} />
+        </Suspense>
+      )}
+      {showAdmin && (
+        <Suspense fallback={null}>
+          <AdminConfig onClose={() => setShowAdmin(false)} />
+        </Suspense>
+      )}
+      {showImportExport && (
+        <Suspense fallback={null}>
+          <ImportExportDialog onClose={() => setShowImportExport(false)} />
+        </Suspense>
+      )}
 
-      <Suspense fallback={null}><Cheatsheet /></Suspense>
+      <Suspense fallback={null}>
+        <Cheatsheet />
+      </Suspense>
 
       {updateCheck.result && updateCheck.result.status === 'ok' && updateCheck.result.manifest && (
         <UpdateBanner result={updateCheck.result} />
       )}
 
-      <Suspense fallback={null}><CommandPalette /></Suspense>
+      <Suspense fallback={null}>
+        <CommandPalette />
+      </Suspense>
 
       {showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
 
-      {showAbout && <Suspense fallback={null}><AboutDialog onClose={() => setShowAbout(false)} /></Suspense>}
+      {showAbout && (
+        <Suspense fallback={null}>
+          <AboutDialog onClose={() => setShowAbout(false)} />
+        </Suspense>
+      )}
 
       {/* 同步冲突裁决（pendingConflicts 非空时展示） */}
-      <Suspense fallback={null}><ConflictDialog /></Suspense>
+      <Suspense fallback={null}>
+        <ConflictDialog />
+      </Suspense>
 
       <ToastContainer />
     </div>

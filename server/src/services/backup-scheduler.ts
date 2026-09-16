@@ -19,7 +19,9 @@ const FIRST_RUN_DELAY_MS = 60 * 1000;
 function onBackupFailure(where: string, err: unknown): void {
   logger.error({ err, where }, `${where}备份失败——数据安全的最后一道防线失效,请立即排查`);
   // 配置了 DSN 时进 Sentry 聚合告警;未配置时 no-op
-  captureException(err instanceof Error ? err : new Error(`backup failed (${where}): ${String(err)}`));
+  captureException(
+    err instanceof Error ? err : new Error(`backup failed (${where}): ${String(err)}`)
+  );
 }
 
 let timer: ReturnType<typeof setInterval> | null = null;

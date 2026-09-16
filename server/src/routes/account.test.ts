@@ -47,11 +47,7 @@ beforeAll(async () => {
       `INSERT INTO notes (id, user_id, ciphertext, client_updated_at) VALUES ('n1', 'u1', 'x', '2026-01-01T00:00:00Z')`
     )
     .run();
-  testDb
-    .prepare(
-      `INSERT INTO folders (id, user_id, name) VALUES ('f1', 'u1', '默认')`
-    )
-    .run();
+  testDb.prepare(`INSERT INTO folders (id, user_id, name) VALUES ('f1', 'u1', '默认')`).run();
   testDb
     .prepare(
       `INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key)
@@ -108,9 +104,7 @@ describe('GET /account/export — SELECT 与真实 schema 一致（H1 回归）'
         .all('u1')
     ).toHaveLength(1);
     expect(
-      testDb
-        .prepare(`SELECT id, user_id, name, color FROM tags WHERE user_id = ?`)
-        .all('u1')
+      testDb.prepare(`SELECT id, user_id, name, color FROM tags WHERE user_id = ?`).all('u1')
     ).toHaveLength(0);
     expect(
       testDb

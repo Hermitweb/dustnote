@@ -232,7 +232,8 @@ const requestImpl: RequestMethod = async function (
 ) {
   const fresh = async (): Promise<ApiClient> => {
     const dId = await getDeviceId();
-    const token = currentToken ?? (await AsyncStorage.getItem('dustnote_access_token')) ?? undefined;
+    const token =
+      currentToken ?? (await AsyncStorage.getItem('dustnote_access_token')) ?? undefined;
     // 每次请求重新构造 client（带最新 baseUrl + deviceId + token + 超时）
     return new ApiClient({
       baseUrl: resolveBaseUrl(),

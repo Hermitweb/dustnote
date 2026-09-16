@@ -60,7 +60,11 @@ export async function encryptBackupFile(plainPath: string, passphrase: string): 
 }
 
 /** 解密 <file>.enc 到 outPath（恢复用；口令错误/文件损坏抛错） */
-export async function decryptBackupFile(encPath: string, passphrase: string, outPath: string): Promise<void> {
+export async function decryptBackupFile(
+  encPath: string,
+  passphrase: string,
+  outPath: string
+): Promise<void> {
   const buf = await readFile(encPath);
   if (buf.length < ENC_MAGIC.length + ENC_SALT_LEN + ENC_IV_LEN + ENC_TAG_LEN) {
     throw new Error('备份文件过短或格式不符');

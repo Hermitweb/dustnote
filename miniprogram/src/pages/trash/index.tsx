@@ -142,62 +142,64 @@ export default function Trash() {
     <>
       <ThemeVars />
       <View className={`page ${darkClass}`}>
-      <View className="topbar">
-        <Text className="topbar-title">{t('trash.title')}</Text>
-        <Text className="topbar-actions">
-          {notes.length > 0 && (
-            <Text
-              className="topbar-action-text text-danger"
-              onClick={() => void handleEmptyTrash()}
-            >
-              {t('trash.empty_btn')}
-            </Text>
-          )}
-        </Text>
-      </View>
+        <View className="topbar">
+          <Text className="topbar-title">{t('trash.title')}</Text>
+          <Text className="topbar-actions">
+            {notes.length > 0 && (
+              <Text
+                className="topbar-action-text text-danger"
+                onClick={() => void handleEmptyTrash()}
+              >
+                {t('trash.empty_btn')}
+              </Text>
+            )}
+          </Text>
+        </View>
 
-      <ScrollView
-        scrollY
-        className="flex-1"
-        refresherEnabled
-        refresherTriggered={loading}
-        onRefresherRefresh={() => void load()}
-      >
-        {loading && <View className="loading">{t('common.loading')}</View>}
-        {!loading && notes.length === 0 && (
-          <View className="empty-state">
-            <Text className="empty-state-icon">🗑️</Text>
-            <Text className="empty-state-text">{t('trash.empty')}</Text>
-          </View>
-        )}
-        {notes.map((n) => (
-          <View key={n.id} className="note-row">
-            <View className="note-row-head">
-              <View className="note-icons">
-                {n.isPinned ? <Text>📌</Text> : null}
-                {n.isFavorite ? <Text>⭐</Text> : null}
+        <ScrollView
+          scrollY
+          className="flex-1"
+          refresherEnabled
+          refresherTriggered={loading}
+          onRefresherRefresh={() => void load()}
+        >
+          {loading && <View className="loading">{t('common.loading')}</View>}
+          {!loading && notes.length === 0 && (
+            <View className="empty-state">
+              <Text className="empty-state-icon">🗑️</Text>
+              <Text className="empty-state-text">{t('trash.empty')}</Text>
+            </View>
+          )}
+          {notes.map((n) => (
+            <View key={n.id} className="note-row">
+              <View className="note-row-head">
+                <View className="note-icons">
+                  {n.isPinned ? <Text>📌</Text> : null}
+                  {n.isFavorite ? <Text>⭐</Text> : null}
+                </View>
+                <Text className="note-title">{titles[n.id] || t('common.unnamed_note')}</Text>
               </View>
-              <Text className="note-title">{titles[n.id] || t('common.unnamed_note')}</Text>
-            </View>
-            <Text className="note-meta">{parseServerDate(n.serverUpdatedAt).toLocaleString('zh-CN')}</Text>
-            <View className="note-actions">
-              <Text
-                className="mint-btn mint-btn-sm mint-btn-ghost"
-                onClick={() => void handleRestore(n)}
-              >
-                {t('common.restore')}
+              <Text className="note-meta">
+                {parseServerDate(n.serverUpdatedAt).toLocaleString('zh-CN')}
               </Text>
-              <Text
-                className="mint-btn mint-btn-sm mint-btn-danger"
-                onClick={() => void handlePermanentDelete(n)}
-              >
-                {t('common.perm_delete')}
-              </Text>
+              <View className="note-actions">
+                <Text
+                  className="mint-btn mint-btn-sm mint-btn-ghost"
+                  onClick={() => void handleRestore(n)}
+                >
+                  {t('common.restore')}
+                </Text>
+                <Text
+                  className="mint-btn mint-btn-sm mint-btn-danger"
+                  onClick={() => void handlePermanentDelete(n)}
+                >
+                  {t('common.perm_delete')}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
-      </ScrollView>
-    </View>
+          ))}
+        </ScrollView>
+      </View>
     </>
   );
 }

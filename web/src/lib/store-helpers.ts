@@ -5,11 +5,7 @@
  * 使用 Zustand 的 `useStore.getState()` 延迟读取，避免循环依赖。
  */
 
-import {
-  ApiClient,
-  ApiException,
-  hkdf,
-} from '@dustnote/shared';
+import { ApiClient, ApiException, hkdf } from '@dustnote/shared';
 import type { NoteRow, NotePlaintext } from './store-types';
 import { getDeviceId } from './device';
 import { useModeStore } from './mode-store';

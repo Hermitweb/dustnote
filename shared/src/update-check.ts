@@ -188,7 +188,10 @@ export async function checkForUpdate(opts: CheckUpdateOptions): Promise<CheckUpd
 
     // L0/L1/L2 需要阻断或强提示 → status=force_update
     // L3 仅软提示 → status=ok + hasUpdate=true
-    const isBlocking = forceLevel === 'L0_block' || forceLevel === 'L1_2nd_startup' || forceLevel === 'L2_strong_prompt';
+    const isBlocking =
+      forceLevel === 'L0_block' ||
+      forceLevel === 'L1_2nd_startup' ||
+      forceLevel === 'L2_strong_prompt';
 
     return {
       status: isBlocking ? 'force_update' : 'ok',

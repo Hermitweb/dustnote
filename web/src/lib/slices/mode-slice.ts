@@ -95,9 +95,7 @@ export const createModeSlice: StateCreator<StoreState, [], [], ModeSlice> = (set
     // 需要迁移时用设置里的导出/导入手动完成。
     useModeStore.getState().setMode(target);
     if (target === 'online') {
-      useModeStore
-        .getState()
-        .setServerUrl(serverUrl || useModeStore.getState().serverUrl);
+      useModeStore.getState().setServerUrl(serverUrl || useModeStore.getState().serverUrl);
     } else {
       useModeStore.getState().setServerUrl(null);
     }

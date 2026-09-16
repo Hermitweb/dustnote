@@ -30,11 +30,7 @@ import {
 import { loadLockoutStateSync } from '../../lib/local-auth-storage';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
-import {
-  isBiometricEnabled,
-  isBiometricSupported,
-  promptBiometric,
-} from '../../lib/biometric';
+import { isBiometricEnabled, isBiometricSupported, promptBiometric } from '../../lib/biometric';
 
 export default function StandaloneUnlock() {
   const [password, setPassword] = useState('');
@@ -98,7 +94,10 @@ export default function StandaloneUnlock() {
 
   const onUnlock = async () => {
     if (locked) {
-      Taro.showToast({ title: t('standalone_unlock.locked_toast', { min: remainingMin }), icon: 'none' });
+      Taro.showToast({
+        title: t('standalone_unlock.locked_toast', { min: remainingMin }),
+        icon: 'none',
+      });
       return;
     }
     if (!password) {
@@ -125,64 +124,64 @@ export default function StandaloneUnlock() {
   const darkClass = useThemeDarkClass();
   return (
     <>
-    <ThemeVars />
+      <ThemeVars />
       <View className={`hero ${darkClass}`}>
-      <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
-      <Text className="hero-title text-mint">{t('app.name')}</Text>
-      <Text className="hero-subtitle mb-l">{t('standalone_unlock.subtitle')}</Text>
+        <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
+        <Text className="hero-title text-mint">{t('app.name')}</Text>
+        <Text className="hero-subtitle mb-l">{t('standalone_unlock.subtitle')}</Text>
 
-      {locked && (
+        {locked && (
+          <View
+            className="mint-card"
+            style={{ width: '100%', maxWidth: '560rpx', background: 'var(--danger-soft)' }}
+          >
+            <Text className="text-danger fw-bold" style={{ display: 'block' }}>
+              {t('standalone_unlock.locked_title')}
+            </Text>
+            <Text className="text-sm mt-s" style={{ display: 'block' }}>
+              {t('standalone_unlock.locked_hint', { min: remainingMin })}
+            </Text>
+          </View>
+        )}
+
+        <FInput
+          className="mint-input"
+          password
+          placeholder={t('common.master_password')}
+          value={password}
+          disabled={locked}
+          onInput={(e) => setPassword((e.detail as { value: string }).value)}
+        />
+
         <View
-          className="mint-card"
-          style={{ width: '100%', maxWidth: '560rpx', background: 'var(--danger-soft)' }}
+          className="mint-btn mint-btn-block"
+          onClick={onUnlock}
+          style={{ opacity: submitting || locked ? 0.5 : 1 }}
         >
-          <Text className="text-danger fw-bold" style={{ display: 'block' }}>
-            {t('standalone_unlock.locked_title')}
-          </Text>
-          <Text className="text-sm mt-s" style={{ display: 'block' }}>
-            {t('standalone_unlock.locked_hint', { min: remainingMin })}
-          </Text>
+          {submitting
+            ? t('common.unlocking')
+            : locked
+              ? t('standalone_unlock.locked_btn', { min: remainingMin })
+              : t('common.unlock')}
         </View>
-      )}
 
-      <FInput
-        className="mint-input"
-        password
-        placeholder={t('common.master_password')}
-        value={password}
-        disabled={locked}
-        onInput={(e) => setPassword((e.detail as { value: string }).value)}
-      />
+        {bioReady && !locked && !submitting && (
+          <View
+            className="mint-btn mint-btn-ghost mint-btn-block mt-s"
+            style={{ opacity: bioEntering ? 0.5 : 1 }}
+            onClick={() => void onBiometric()}
+          >
+            {bioEntering ? t('common.unlocking') : `🔒 ${t('unlock.biometric_btn')}`}
+          </View>
+        )}
 
-      <View
-        className="mint-btn mint-btn-block"
-        onClick={onUnlock}
-        style={{ opacity: submitting || locked ? 0.5 : 1 }}
-      >
-        {submitting
-          ? t('common.unlocking')
-          : locked
-            ? t('standalone_unlock.locked_btn', { min: remainingMin })
-            : t('common.unlock')}
-      </View>
-
-      {bioReady && !locked && !submitting && (
         <View
-          className="mint-btn mint-btn-ghost mint-btn-block mt-s"
-          style={{ opacity: bioEntering ? 0.5 : 1 }}
-          onClick={() => void onBiometric()}
+          className="hint-mint mt-l"
+          onClick={() => Taro.navigateTo({ url: '/pages/standalone-recover/index' })}
         >
-          {bioEntering ? t('common.unlocking') : `🔒 ${t('unlock.biometric_btn')}`}
+          {t('standalone_unlock.forgot')}
         </View>
-      )}
-
-      <View
-        className="hint-mint mt-l"
-        onClick={() => Taro.navigateTo({ url: '/pages/standalone-recover/index' })}
-      >
-        {t('standalone_unlock.forgot')}
       </View>
-    </View>
     </>
   );
 }

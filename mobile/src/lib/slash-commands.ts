@@ -18,7 +18,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { id: 'code', label: '代码块', icon: '💻', insert: '```\n\n```' },
   { id: 'quote', label: '引用', icon: '💬', insert: '> ' },
   { id: 'divider', label: '分割线', icon: '➖', insert: '\n---\n' },
-  { id: 'table', label: '表格', icon: '📊', insert: '| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| | | |' },
+  {
+    id: 'table',
+    label: '表格',
+    icon: '📊',
+    insert: '| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| | | |',
+  },
   { id: 'link', label: '双向链接', icon: '🔗', insert: '[[' },
 ];
 
@@ -32,7 +37,5 @@ export function resolveSlashCommand(insert: string): string {
 export function filterSlashCommands(query: string): SlashCommand[] {
   const q = query.toLowerCase();
   if (!q) return SLASH_COMMANDS;
-  return SLASH_COMMANDS.filter(
-    (cmd) => cmd.label.toLowerCase().includes(q) || cmd.id.includes(q)
-  );
+  return SLASH_COMMANDS.filter((cmd) => cmd.label.toLowerCase().includes(q) || cmd.id.includes(q));
 }

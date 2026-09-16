@@ -5,11 +5,11 @@
 
 ## 1. 信任边界总览
 
-| 组件 | 能看到什么 | 看不到什么 |
-| ---- | ---------- | ---------- |
-| 服务端（自托管） | 凭据哈希（scrypt N=2^17）、密文信封、文件夹名/层级、笔记元数据（时间戳、置顶/收藏标志）、分享密文 | 笔记明文、主密码、masterKey、shareKey |
-| 客户端（web/桌面/安卓/小程序） | 全部明文（解锁后） | 其他用户的任何数据 |
-| 备份文件 | 生产库全量（含 `users.totp_secret`、`wrapped_master_key`、凭据哈希） | 笔记明文（本身是密文） |
+| 组件                           | 能看到什么                                                                                        | 看不到什么                            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| 服务端（自托管）               | 凭据哈希（scrypt N=2^17）、密文信封、文件夹名/层级、笔记元数据（时间戳、置顶/收藏标志）、分享密文 | 笔记明文、主密码、masterKey、shareKey |
+| 客户端（web/桌面/安卓/小程序） | 全部明文（解锁后）                                                                                | 其他用户的任何数据                    |
+| 备份文件                       | 生产库全量（含 `users.totp_secret`、`wrapped_master_key`、凭据哈希）                              | 笔记明文（本身是密文）                |
 
 **核心承诺**：服务端在任何时刻都无法解密笔记内容或推导 masterKey（认证协议 v2 起，服务端不接触主密码）。
 
@@ -73,14 +73,14 @@ node dist/scripts/backup.js --decrypt /path/db-xxx.sqlite.enc /path/restore.sqli
 
 ## 4. 本地数据与缓存
 
-| 位置 | 内容 | 保护 |
-| ---- | ---- | ---- |
-| web IndexedDB | 笔记密文 + 明文缓存（localDEK 加密）、文件夹名 | 明文缓存随 lock() 清除 |
-| web Cache Storage | 仅静态资源 | 自 2.5.39 起**不缓存任何 `/api/` 响应** |
-| 桌面 localStorage | refresh token（跨源 cookie 不可用） | 登出/切换模式时清除 |
-| 安卓 Keychain | masterKey（生物识别保护）、refresh token | 系统 Keystore |
-| 安卓 AsyncStorage | access token、设备 id | 系统沙箱 |
-| 小程序 storage | masterKey（指纹门禁，用户已确认该取舍）、refresh token | 微信沙箱 |
+| 位置              | 内容                                                   | 保护                                    |
+| ----------------- | ------------------------------------------------------ | --------------------------------------- |
+| web IndexedDB     | 笔记密文 + 明文缓存（localDEK 加密）、文件夹名         | 明文缓存随 lock() 清除                  |
+| web Cache Storage | 仅静态资源                                             | 自 2.5.39 起**不缓存任何 `/api/` 响应** |
+| 桌面 localStorage | refresh token（跨源 cookie 不可用）                    | 登出/切换模式时清除                     |
+| 安卓 Keychain     | masterKey（生物识别保护）、refresh token               | 系统 Keystore                           |
+| 安卓 AsyncStorage | access token、设备 id                                  | 系统沙箱                                |
+| 小程序 storage    | masterKey（指纹门禁，用户已确认该取舍）、refresh token | 微信沙箱                                |
 
 ## 5. 修订记录
 

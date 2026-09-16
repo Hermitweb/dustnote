@@ -384,7 +384,14 @@ export function FoldersScreen() {
       <Modal visible={renaming !== null} transparent animationType="fade">
         <TouchableOpacity style={styles.modalMask} onPress={() => setRenaming(null)}>
           <View style={styles.modalCard}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 12,
+              }}
+            >
               <Text style={styles.modalTitle}>{t('folders.rename_title')}</Text>
               <TouchableOpacity onPress={() => setRenaming(null)}>
                 <Text style={{ fontSize: 18, color: colors.muted }}>✕</Text>
@@ -418,7 +425,14 @@ export function FoldersScreen() {
       <Modal visible={moving !== null} transparent animationType="fade">
         <TouchableOpacity style={styles.modalMask} onPress={() => setMoving(null)}>
           <View style={[styles.modalCard, { maxHeight: 420 }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 12,
+              }}
+            >
               <Text style={styles.modalTitle}>
                 {t('folders.move_folder')}「{moving?.name}」
               </Text>
@@ -452,7 +466,14 @@ export function FoldersScreen() {
       <Modal visible={createModal !== null} transparent animationType="fade">
         <TouchableOpacity style={styles.modalMask} onPress={() => setCreateModal(null)}>
           <View style={styles.modalCard}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 12,
+              }}
+            >
               <Text style={styles.modalTitle} numberOfLines={1}>
                 {t('folders.create_sub_title')}
               </Text>

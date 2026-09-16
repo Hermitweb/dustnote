@@ -72,9 +72,8 @@ const CODE_BUCKET_PAIRS: ReadonlyArray<readonly [string, Bucket]> = [
   ['db_error', 'server'],
 ];
 
-export const ERROR_CODE_BUCKET: Readonly<Record<string, Bucket>> = Object.fromEntries(
-  CODE_BUCKET_PAIRS
-);
+export const ERROR_CODE_BUCKET: Readonly<Record<string, Bucket>> =
+  Object.fromEntries(CODE_BUCKET_PAIRS);
 
 /**
  * 取错误码对应的 i18n key；未知名返回 null（调用方回退 `errors.generic`

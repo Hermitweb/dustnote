@@ -168,7 +168,9 @@ sharesRouter.get('/shares', (req, res) => {
       noteId: r.note_id,
       token: r.token,
       // 标题不再存服务端；主人用本地已解密的笔记按 noteId 自行显示
-      wrappedShareKey: (r.wrapped_share_key ? JSON.parse(r.wrapped_share_key) : null) as Ciphertext | null,
+      wrappedShareKey: (r.wrapped_share_key
+        ? JSON.parse(r.wrapped_share_key)
+        : null) as Ciphertext | null,
       hasPassword: !!r.has_password,
       expiresAt: r.expires_at,
       viewCount: r.view_count,

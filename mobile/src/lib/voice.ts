@@ -42,7 +42,10 @@ export async function startVoice(h: VoiceHandlers): Promise<boolean> {
       active = false;
       handlers?.onEnd();
     };
-    Voice.onSpeechError = (e: { message?: string; error?: { code?: string; message?: string } }) => {
+    Voice.onSpeechError = (e: {
+      message?: string;
+      error?: { code?: string; message?: string };
+    }) => {
       active = false;
       handlers?.onError(e?.message || e?.error?.message || e?.error?.code || '语音识别失败');
       // 错误路径不保证再发 END:确保监听态复位(审计 M3)

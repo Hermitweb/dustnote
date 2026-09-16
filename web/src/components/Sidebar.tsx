@@ -167,12 +167,13 @@ export function Sidebar() {
       move: t('sidebar.batch.move'),
     };
     if (failed > 0) {
-      toast.error(
-        t('sidebar.batch_done_failed', { label: labels[action], count: ok, failed })
-      );
+      toast.error(t('sidebar.batch_done_failed', { label: labels[action], count: ok, failed }));
       // 发现7：失败 op 的本地乐观更新不回滚,立即 loadAll 用服务端现状校正,
       // 消除「移动失败的笔记在目标文件夹继续显示」的分叉窗口
-      void useStore.getState().loadAll().catch(() => undefined);
+      void useStore
+        .getState()
+        .loadAll()
+        .catch(() => undefined);
     } else {
       toast.success(t('sidebar.batch_done', { label: labels[action], count: ok }));
     }
@@ -563,7 +564,11 @@ export function Sidebar() {
         onClick={() => useStore.getState().toggleSidebar()}
         aria-hidden="true"
       />
-      <aside role="navigation" aria-label={t('sidebar.title')} className="fixed inset-y-0 left-0 z-40 flex h-full w-72 max-w-[85vw] flex-col border-r border-surface-border bg-surface-card sm:static sm:z-auto sm:max-w-none">
+      <aside
+        role="navigation"
+        aria-label={t('sidebar.title')}
+        className="fixed inset-y-0 left-0 z-40 flex h-full w-72 max-w-[85vw] flex-col border-r border-surface-border bg-surface-card sm:static sm:z-auto sm:max-w-none"
+      >
         {/* 顶栏 */}
         <div className="border-b border-surface-border p-4">
           <div className="mb-3 flex items-center gap-2">
@@ -931,7 +936,8 @@ export function Sidebar() {
                         : (() => {
                             // 全部视图+选中文件夹：显示文件夹名，不再误标「收藏」;
                             // 「未分类」scope 显示对应标签
-                            if (isUnfiledScope) return `${t('editor.unfiled')} (${visibleNotes.length})`;
+                            if (isUnfiledScope)
+                              return `${t('editor.unfiled')} (${visibleNotes.length})`;
                             const f = folders.find((x) => x.id === selectedFolderId);
                             return `${f ? `${f.icon ?? '📁'} ${f.name}` : t('sidebar.notes')} (${visibleNotes.length})`;
                           })()}
@@ -1055,7 +1061,9 @@ export function Sidebar() {
               {/* 渐进加载触发器：IntersectionObserver 检测到时追加更多笔记 */}
               {showNoteList && visibleCount < visibleNotes.length && (
                 <div ref={loadMoreRef} className="py-2 text-center text-xs text-surface-muted">
-                  {t('sidebar.load_more', { count: Math.min(50, visibleNotes.length - visibleCount) })}
+                  {t('sidebar.load_more', {
+                    count: Math.min(50, visibleNotes.length - visibleCount),
+                  })}
                 </div>
               )}
             </div>
@@ -1132,9 +1140,7 @@ export function Sidebar() {
                   onClick={() => {
                     const allSelected =
                       visibleNotes.length > 0 && visibleNotes.every((n) => selectedIds.has(n.id));
-                    setSelectedIds(
-                      new Set(allSelected ? [] : visibleNotes.map((n) => n.id))
-                    );
+                    setSelectedIds(new Set(allSelected ? [] : visibleNotes.map((n) => n.id)));
                   }}
                 />
               ) : null}
@@ -1369,7 +1375,11 @@ export function Sidebar() {
             {ctxMenu.target.type === 'note' && (
               <>
                 <MenuItem
-                  label={notes.get(ctxMenu.target.id)?.isFavorite ? t('sidebar.ctx.unfavorite') : t('sidebar.ctx.favorite')}
+                  label={
+                    notes.get(ctxMenu.target.id)?.isFavorite
+                      ? t('sidebar.ctx.unfavorite')
+                      : t('sidebar.ctx.favorite')
+                  }
                   onClick={() => {
                     const cur = notes.get(ctxMenu.target.id);
                     if (!cur) return;
@@ -1378,7 +1388,11 @@ export function Sidebar() {
                   }}
                 />
                 <MenuItem
-                  label={notes.get(ctxMenu.target.id)?.isPinned ? t('sidebar.ctx.unpin') : t('sidebar.ctx.pin')}
+                  label={
+                    notes.get(ctxMenu.target.id)?.isPinned
+                      ? t('sidebar.ctx.unpin')
+                      : t('sidebar.ctx.pin')
+                  }
                   onClick={() => {
                     const cur = notes.get(ctxMenu.target.id);
                     if (!cur) return;

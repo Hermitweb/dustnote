@@ -45,7 +45,10 @@ let inFlight: Promise<void> | null = null;
 export async function ensureDefaultContent(
   repo: DataRepository,
   masterKey: Uint8Array | null,
-  snapshot: { folders?: Array<{ id: string }>; notes?: Array<{ id: string; folderId: string | null; deletedAt: string | null }> }
+  snapshot: {
+    folders?: Array<{ id: string }>;
+    notes?: Array<{ id: string; folderId: string | null; deletedAt: string | null }>;
+  }
 ): Promise<void> {
   if (inFlight) return inFlight;
   inFlight = runEnsure(repo, masterKey, snapshot).finally(() => {
@@ -57,7 +60,10 @@ export async function ensureDefaultContent(
 async function runEnsure(
   repo: DataRepository,
   masterKey: Uint8Array | null,
-  snapshot: { folders?: Array<{ id: string }>; notes?: Array<{ id: string; folderId: string | null; deletedAt: string | null }> }
+  snapshot: {
+    folders?: Array<{ id: string }>;
+    notes?: Array<{ id: string; folderId: string | null; deletedAt: string | null }>;
+  }
 ): Promise<void> {
   if (!masterKey) return;
   if ((snapshot.folders ?? []).length > 0) return;

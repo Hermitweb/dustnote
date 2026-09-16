@@ -141,10 +141,10 @@ async function handleConflict(op: QueuedOp, serverData: unknown): Promise<void> 
   try {
     const envelope = parseEnvelope(serverRow.ciphertext);
     serverPlain = await decryptNote(
-        masterKey,
-        envelope,
-        envelope.payload.a === 1 ? noteAad(serverRow.id, userId ?? '') : undefined,
-      );
+      masterKey,
+      envelope,
+      envelope.payload.a === 1 ? noteAad(serverRow.id, userId ?? '') : undefined
+    );
   } catch {
     return;
   }

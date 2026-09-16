@@ -189,128 +189,130 @@ export default function Shares() {
     <>
       <ThemeVars />
       <View className={`page ${darkClass}`}>
-      <View className="topbar">
-        {selecting ? (
-          <>
-            <Text className="topbar-back" onClick={exitSelect}>
-              ✕
+        <View className="topbar">
+          {selecting ? (
+            <>
+              <Text className="topbar-back" onClick={exitSelect}>
+                ✕
+              </Text>
+              <Text className="topbar-title" onClick={toggleAll}>
+                {hasAllSelected
+                  ? t('common.deselect_all')
+                  : selCount
+                    ? t('common.select_all_n', { count: selCount })
+                    : t('common.select_all')}
+              </Text>
+              <View className="topbar-actions" />
+            </>
+          ) : (
+            <>
+              <Text className="topbar-title">{t('share_mgr.title')}</Text>
+            </>
+          )}
+        </View>
+
+        <ScrollView
+          scrollY
+          className="flex-1"
+          refresherEnabled
+          refresherTriggered={loading}
+          onRefresherRefresh={() => void load()}
+        >
+          {loading && <View className="loading">{t('common.loading')}</View>}
+          {!loading && shares.length === 0 && (
+            <View className="empty-state">
+              <Text className="empty-state-icon">🔗</Text>
+              <Text className="empty-state-text">{t('share_mgr.empty')}</Text>
+            </View>
+          )}
+          {shares.map((s) => {
+            const expired = isExpired(s.expiresAt);
+            const status = s.revoked
+              ? t('share_mgr.status_revoked')
+              : expired
+                ? t('share_mgr.status_expired')
+                : t('share_mgr.status_valid');
+            const canAct = !s.revoked && !expired;
+            const checked = selectedIds.has(s.id);
+            return (
+              <View
+                key={s.id}
+                className={`share-row${selecting ? ' select-mode' : ''}${checked ? ' note-row-checked' : ''}`}
+              >
+                <View className="share-row-head">
+                  {selecting && (
+                    <View
+                      className={`checkbox${checked ? ' checkbox-checked' : ''}`}
+                      onClick={() => toggleSelect(s.id)}
+                    >
+                      {checked && <Text className="checkbox-mark">✓</Text>}
+                    </View>
+                  )}
+                  <Text
+                    className="share-title"
+                    onClick={() => (selecting ? toggleSelect(s.id) : undefined)}
+                    onLongPress={() => {
+                      if (!selecting && canAct) enterSelect(s.id);
+                    }}
+                  >
+                    {titles[s.noteId] || t('share_mgr.no_title')}
+                  </Text>
+                  {!selecting && canAct && (
+                    <View className="share-actions">
+                      <Text
+                        className="mint-btn mint-btn-sm mint-btn-ghost"
+                        onClick={() => void copyShareLink(s)}
+                      >
+                        {t('share_mgr.copy_link')}
+                      </Text>
+                      <Text
+                        className="mint-btn mint-btn-sm mint-btn-danger"
+                        onClick={async () => {
+                          try {
+                            await getApi().delete(`/shares/${s.id}`);
+                            Taro.showToast({ title: t('share_mgr.revoked'), icon: 'success' });
+                            await load();
+                          } catch {
+                            Taro.showToast({ title: t('common.operation_failed'), icon: 'none' });
+                          }
+                        }}
+                      >
+                        {t('share_mgr.revoke')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text className="share-meta">
+                  {parseServerDate(s.createdAt).toLocaleString('zh-CN')}
+                  {t('share_mgr.views', { count: s.viewCount })}
+                  {s.hasPassword ? t('share_mgr.encrypted') : t('share_mgr.public')}
+                  {s.revoked
+                    ? ''
+                    : s.expiresAt
+                      ? t('share_mgr.expires_at', {
+                          time: parseServerDate(s.expiresAt).toLocaleString('zh-CN'),
+                        })
+                      : t('share_mgr.never_expires')}
+                </Text>
+                <Text className="share-meta">{t('share_mgr.status_label', { status })}</Text>
+              </View>
+            );
+          })}
+        </ScrollView>
+
+        {selecting && (
+          <View className="batch-bar">
+            <Text className="batch-bar-count">
+              {t('common.selected_count', { count: selCount })}
             </Text>
-            <Text className="topbar-title" onClick={toggleAll}>
-              {hasAllSelected
-                ? t('common.deselect_all')
-                : selCount
-                  ? t('common.select_all_n', { count: selCount })
-                  : t('common.select_all')}
-            </Text>
-            <View className="topbar-actions" />
-          </>
-        ) : (
-          <>
-            <Text className="topbar-title">{t('share_mgr.title')}</Text>
-          </>
+            <View className="batch-bar-actions">
+              <Text className="batch-btn batch-btn-danger" onClick={batchRevoke}>
+                {t('share_mgr.batch_revoke')}
+              </Text>
+            </View>
+          </View>
         )}
       </View>
-
-      <ScrollView
-        scrollY
-        className="flex-1"
-        refresherEnabled
-        refresherTriggered={loading}
-        onRefresherRefresh={() => void load()}
-      >
-        {loading && <View className="loading">{t('common.loading')}</View>}
-        {!loading && shares.length === 0 && (
-          <View className="empty-state">
-            <Text className="empty-state-icon">🔗</Text>
-            <Text className="empty-state-text">{t('share_mgr.empty')}</Text>
-          </View>
-        )}
-        {shares.map((s) => {
-          const expired = isExpired(s.expiresAt);
-          const status = s.revoked
-            ? t('share_mgr.status_revoked')
-            : expired
-              ? t('share_mgr.status_expired')
-              : t('share_mgr.status_valid');
-          const canAct = !s.revoked && !expired;
-          const checked = selectedIds.has(s.id);
-          return (
-            <View
-              key={s.id}
-              className={`share-row${selecting ? ' select-mode' : ''}${checked ? ' note-row-checked' : ''}`}
-            >
-              <View className="share-row-head">
-                {selecting && (
-                  <View
-                    className={`checkbox${checked ? ' checkbox-checked' : ''}`}
-                    onClick={() => toggleSelect(s.id)}
-                  >
-                    {checked && <Text className="checkbox-mark">✓</Text>}
-                  </View>
-                )}
-                <Text
-                  className="share-title"
-                  onClick={() => (selecting ? toggleSelect(s.id) : undefined)}
-                  onLongPress={() => {
-                    if (!selecting && canAct) enterSelect(s.id);
-                  }}
-                >
-                  {titles[s.noteId] || t('share_mgr.no_title')}
-                </Text>
-                {!selecting && canAct && (
-                  <View className="share-actions">
-                    <Text
-                      className="mint-btn mint-btn-sm mint-btn-ghost"
-                      onClick={() => void copyShareLink(s)}
-                    >
-                      {t('share_mgr.copy_link')}
-                    </Text>
-                    <Text
-                      className="mint-btn mint-btn-sm mint-btn-danger"
-                      onClick={async () => {
-                        try {
-                          await getApi().delete(`/shares/${s.id}`);
-                          Taro.showToast({ title: t('share_mgr.revoked'), icon: 'success' });
-                          await load();
-                        } catch {
-                          Taro.showToast({ title: t('common.operation_failed'), icon: 'none' });
-                        }
-                      }}
-                    >
-                      {t('share_mgr.revoke')}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text className="share-meta">
-                {parseServerDate(s.createdAt).toLocaleString('zh-CN')}
-                {t('share_mgr.views', { count: s.viewCount })}
-                {s.hasPassword ? t('share_mgr.encrypted') : t('share_mgr.public')}
-                {s.revoked
-                  ? ''
-                  : s.expiresAt
-                    ? t('share_mgr.expires_at', {
-                        time: parseServerDate(s.expiresAt).toLocaleString('zh-CN'),
-                      })
-                    : t('share_mgr.never_expires')}
-              </Text>
-              <Text className="share-meta">{t('share_mgr.status_label', { status })}</Text>
-            </View>
-          );
-        })}
-      </ScrollView>
-
-      {selecting && (
-        <View className="batch-bar">
-          <Text className="batch-bar-count">{t('common.selected_count', { count: selCount })}</Text>
-          <View className="batch-bar-actions">
-            <Text className="batch-btn batch-btn-danger" onClick={batchRevoke}>
-              {t('share_mgr.batch_revoke')}
-            </Text>
-          </View>
-        </View>
-      )}
-    </View>
     </>
   );
 }

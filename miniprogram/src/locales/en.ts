@@ -210,7 +210,8 @@ const en: typeof zhCN = {
     migrated_failed: 'Migrated {{count}}, {{failed}} failed - auto-retry on next unlock',
     migration_pending: 'Pending migration found but old key missing; switch back to re-export',
     migrated_failed_title: 'Migration incomplete',
-    migration_gave_up: '{{failed}} notes still failed after several retries (corrupted ciphertext or over the server size limit); automatic retry stopped. Your original data is untouched.',
+    migration_gave_up:
+      '{{failed}} notes still failed after several retries (corrupted ciphertext or over the server size limit); automatic retry stopped. Your original data is untouched.',
     import_backup: '📥 Import backup',
     share_mgmt: '🔗 Share management',
     device_mgmt: '💻 Devices',
@@ -258,7 +259,8 @@ const en: typeof zhCN = {
     err_pwd_mismatch: "New passwords don't match",
     pwd_success_title: 'Password changed',
     pwd_changed_standalone_title: 'Password changed',
-    pwd_changed_standalone_content: 'A new recovery code was generated (the old one is invalidated) and copied to clipboard. Keep it safe:\n{{code}}',
+    pwd_changed_standalone_content:
+      'A new recovery code was generated (the old one is invalidated) and copied to clipboard. Keep it safe:\n{{code}}',
     pwd_success_content:
       'Your master password has been updated. Keep it safe — if you forget it, you can recover access with your recovery code.',
     pwd_failed: 'Failed to change',
@@ -274,8 +276,7 @@ const en: typeof zhCN = {
     imported_count: 'Imported {{count}} notes',
     import_backup_content: 'Import {{count}} notes (existing skipped), confirm?',
     parse_failed: 'Failed to parse file',
-    import_unsupported:
-      "Import isn't supported in the mini program yet — use the H5 version",
+    import_unsupported: "Import isn't supported in the mini program yet — use the H5 version",
     switch_title: 'Switch mode',
     switch_content:
       'Make sure your data has been exported before switching. Switch to the other mode?',
@@ -332,7 +333,8 @@ const en: typeof zhCN = {
     unsupported_ok: 'I understand',
     err_empty_server: 'Enter a server address',
     err_server_prefix: 'The address must start with http:// or https://',
-    warn_plain_http: 'Plain HTTP over a public network can be intercepted; HTTPS is recommended. Ignore this if self-hosting on a LAN.',
+    warn_plain_http:
+      'Plain HTTP over a public network can be intercepted; HTTPS is recommended. Ignore this if self-hosting on a LAN.',
     ok_initialized: 'Connected (server initialized)',
     ok_uninitialized: 'Connected (server not initialized)',
     err_connect: 'Connection failed',
@@ -383,7 +385,8 @@ const en: typeof zhCN = {
     recovering: 'Recovering…',
     forgot: 'Forgot password?',
     online_title: 'Recover with recovery code',
-    online_subtitle: 'Enter your recovery code and a new master password — existing notes are unaffected',
+    online_subtitle:
+      'Enter your recovery code and a new master password — existing notes are unaffected',
     online_btn: 'Reset password & unlock',
     reset_btn: 'Reset master password',
     success_title: 'Recovery complete',
@@ -392,7 +395,8 @@ const en: typeof zhCN = {
     saved_btn: "I've saved it",
     failed: 'Recovery failed',
     note_ok: '✓ Existing notes can still be decrypted after recovery (the masterKey is unchanged)',
-    note_warn: 'After recovery, the old recovery code and the old master password will stop working',
+    note_warn:
+      'After recovery, the old recovery code and the old master password will stop working',
     back: '← Back to unlock',
   },
   unlock: {

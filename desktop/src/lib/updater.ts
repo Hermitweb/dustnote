@@ -62,8 +62,16 @@ let cachedInstallerSha256: string | null = null;
 
 /** 简单语义版本比较：latest > current 返回 true（major.minor.patch 逐段数值） */
 function isNewerVersion(latest: string, current: string): boolean {
-  const l = latest.replace(/^v/, '').split('-')[0]!.split('.').map((p) => parseInt(p, 10) || 0);
-  const c = current.replace(/^v/, '').split('-')[0]!.split('.').map((p) => parseInt(p, 10) || 0);
+  const l = latest
+    .replace(/^v/, '')
+    .split('-')[0]!
+    .split('.')
+    .map((p) => parseInt(p, 10) || 0);
+  const c = current
+    .replace(/^v/, '')
+    .split('-')[0]!
+    .split('.')
+    .map((p) => parseInt(p, 10) || 0);
   for (let i = 0; i < Math.max(l.length, c.length); i++) {
     const lv = l[i] ?? 0;
     const cv = c[i] ?? 0;

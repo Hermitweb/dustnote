@@ -11,11 +11,7 @@ import {
   noteAad,
   ApiException,
 } from '@dustnote/shared';
-import {
-  encryptNote,
-  decryptNote,
-  parseEnvelope,
-} from '@dustnote/client-core';
+import { encryptNote, decryptNote, parseEnvelope } from '@dustnote/client-core';
 import type { StoreState } from '../store';
 import type { NoteRow, NotePlaintext, Folder, ViewMode } from '../store-types';
 import {
@@ -99,7 +95,10 @@ export interface DataSlice {
   ensureDefaultContent: () => Promise<void>;
   createNote: (folderId?: string | null) => Promise<string>;
   createNoteFromTemplate: (templateId: string, folderId?: string | null) => Promise<string>;
-  updateNote: (id: string, patch: Partial<NotePlaintext> & { isPinned?: boolean; isFavorite?: boolean }) => Promise<void>;
+  updateNote: (
+    id: string,
+    patch: Partial<NotePlaintext> & { isPinned?: boolean; isFavorite?: boolean }
+  ) => Promise<void>;
   moveNote: (id: string, folderId: string | null) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   selectNote: (id: string | null) => void;
@@ -107,7 +106,10 @@ export interface DataSlice {
   setViewMode: (mode: ViewMode) => void;
   toggleSidebar: () => void;
   focusSearch: () => void;
-  createFolder: (name: string, opts?: { parentId?: string | null; branch?: 'work' | 'personal' | null }) => Promise<string>;
+  createFolder: (
+    name: string,
+    opts?: { parentId?: string | null; branch?: 'work' | 'personal' | null }
+  ) => Promise<string>;
   deleteFolder: (id: string) => Promise<void>;
   renameFolder: (id: string, name: string) => Promise<void>;
   moveFolder: (id: string, parentId: string | null) => Promise<void>;
@@ -207,9 +209,11 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
         let cursor: string | null = firstPage.nextCursor ?? null;
         // 防御性上限：500 条/页 × 200 页 = 10 万条,防服务端异常导致的死循环
         for (let page = 0; page < 200 && cursor; page++) {
-          const next = await a.get<{ notes: NoteRow[]; hasMore?: boolean; nextCursor?: string | null }>(
-            `/notes?includeDeleted=1&cursor=${encodeURIComponent(cursor)}`
-          );
+          const next = await a.get<{
+            notes: NoteRow[];
+            hasMore?: boolean;
+            nextCursor?: string | null;
+          }>(`/notes?includeDeleted=1&cursor=${encodeURIComponent(cursor)}`);
           allNotes = allNotes.concat(next.notes);
           cursor = next.nextCursor ?? null;
         }
@@ -341,30 +345,78 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
 
     const noteId = randomUuid();
     const empty: NotePlaintext = { title: '新笔记', content: '', tags: [] };
-    const { json: cipherJson } = await encryptNote(masterKey, empty, noteAad(noteId, get().userId ?? ''));
+    const { json: cipherJson } = await encryptNote(
+      masterKey,
+      empty,
+      noteAad(noteId, get().userId ?? '')
+    );
 
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
-      const id = await repository.createNote({ id: noteId, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, folderId: effectiveFolderId });
+      const id = await repository.createNote({
+        id: noteId,
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: false,
+        isFavorite: false,
+        folderId: effectiveFolderId,
+      });
       const now = new Date().toISOString();
       // 本地 NoteRow 必须记 effectiveFolderId（H7）：发请求的是 fallback 后的值,
       // 本地 state 记原始入参会与真实归属分叉——当次会话文件夹树里找不到
-      const note: NoteRow = { id, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, deletedAt: null, version: 1, clientUpdatedAt: now, serverUpdatedAt: now, folderId: effectiveFolderId };
-      const newNotes = new Map(get().notes); newNotes.set(id, note);
-      const newPlain = new Map(get().notesPlain); newPlain.set(id, empty);
+      const note: NoteRow = {
+        id,
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: false,
+        isFavorite: false,
+        deletedAt: null,
+        version: 1,
+        clientUpdatedAt: now,
+        serverUpdatedAt: now,
+        folderId: effectiveFolderId,
+      };
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, note);
+      const newPlain = new Map(get().notesPlain);
+      newPlain.set(id, empty);
       set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: id } as Partial<StoreState>);
       return id;
     }
 
-    const r = await api().post<{ id: string; serverUpdatedAt: string; version: number }>('/notes', { id: noteId, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, clientUpdatedAt: new Date().toISOString(), folderId: effectiveFolderId });
-    const note: NoteRow = { id: r.id, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, deletedAt: null, version: r.version, clientUpdatedAt: new Date().toISOString(), serverUpdatedAt: r.serverUpdatedAt, folderId: effectiveFolderId };
-    const newNotes = new Map(get().notes); newNotes.set(note.id, note);
-    const newPlain = new Map(get().notesPlain); newPlain.set(note.id, empty);
+    const r = await api().post<{ id: string; serverUpdatedAt: string; version: number }>('/notes', {
+      id: noteId,
+      ciphertext: cipherJson,
+      keyVersion: 1,
+      isPinned: false,
+      isFavorite: false,
+      clientUpdatedAt: new Date().toISOString(),
+      folderId: effectiveFolderId,
+    });
+    const note: NoteRow = {
+      id: r.id,
+      ciphertext: cipherJson,
+      keyVersion: 1,
+      isPinned: false,
+      isFavorite: false,
+      deletedAt: null,
+      version: r.version,
+      clientUpdatedAt: new Date().toISOString(),
+      serverUpdatedAt: r.serverUpdatedAt,
+      folderId: effectiveFolderId,
+    };
+    const newNotes = new Map(get().notes);
+    newNotes.set(note.id, note);
+    const newPlain = new Map(get().notesPlain);
+    newPlain.set(note.id, empty);
     set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: note.id } as Partial<StoreState>);
     return note.id;
   },
 
-  async createNoteFromTemplate(templateId: string, folderId: string | null = null): Promise<string> {
+  async createNoteFromTemplate(
+    templateId: string,
+    folderId: string | null = null
+  ): Promise<string> {
     const masterKey = get().masterKey;
     if (!masterKey) throw new Error('未解锁');
     const tpl = get().templates.find((t) => t.id === templateId);
@@ -383,7 +435,11 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const title = firstLine.replace(/^#+\s*/, '') || tpl.name;
     const plain: NotePlaintext = { title, content: plainContent, tags: [] };
     const noteId = randomUuid();
-    const { json: cipherJson } = await encryptNote(masterKey, plain, noteAad(noteId, get().userId ?? ''));
+    const { json: cipherJson } = await encryptNote(
+      masterKey,
+      plain,
+      noteAad(noteId, get().userId ?? '')
+    );
 
     // 幽灵笔记根治（H7/F8）：模板路径此前完全没有 folderId fallback——
     // 「全部」视图未选文件夹时 TemplatePicker 传 null,服务端与本地都落无归属笔记
@@ -396,24 +452,68 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
 
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
-      const id = await repository.createNote({ id: noteId, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, folderId: effectiveFolderId });
+      const id = await repository.createNote({
+        id: noteId,
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: false,
+        isFavorite: false,
+        folderId: effectiveFolderId,
+      });
       const now = new Date().toISOString();
-      const note: NoteRow = { id, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, deletedAt: null, version: 1, clientUpdatedAt: now, serverUpdatedAt: now, folderId: effectiveFolderId };
-      const newNotes = new Map(get().notes); newNotes.set(id, note);
-      const newPlain = new Map(get().notesPlain); newPlain.set(id, plain);
+      const note: NoteRow = {
+        id,
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: false,
+        isFavorite: false,
+        deletedAt: null,
+        version: 1,
+        clientUpdatedAt: now,
+        serverUpdatedAt: now,
+        folderId: effectiveFolderId,
+      };
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, note);
+      const newPlain = new Map(get().notesPlain);
+      newPlain.set(id, plain);
       set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: id } as Partial<StoreState>);
       return id;
     }
 
-    const r = await api().post<{ id: string; serverUpdatedAt: string; version: number }>('/notes', { id: noteId, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, clientUpdatedAt: new Date().toISOString(), folderId: effectiveFolderId });
-    const note: NoteRow = { id: r.id, ciphertext: cipherJson, keyVersion: 1, isPinned: false, isFavorite: false, deletedAt: null, version: r.version, clientUpdatedAt: new Date().toISOString(), serverUpdatedAt: r.serverUpdatedAt, folderId: effectiveFolderId };
-    const newNotes = new Map(get().notes); newNotes.set(note.id, note);
-    const newPlain = new Map(get().notesPlain); newPlain.set(note.id, plain);
+    const r = await api().post<{ id: string; serverUpdatedAt: string; version: number }>('/notes', {
+      id: noteId,
+      ciphertext: cipherJson,
+      keyVersion: 1,
+      isPinned: false,
+      isFavorite: false,
+      clientUpdatedAt: new Date().toISOString(),
+      folderId: effectiveFolderId,
+    });
+    const note: NoteRow = {
+      id: r.id,
+      ciphertext: cipherJson,
+      keyVersion: 1,
+      isPinned: false,
+      isFavorite: false,
+      deletedAt: null,
+      version: r.version,
+      clientUpdatedAt: new Date().toISOString(),
+      serverUpdatedAt: r.serverUpdatedAt,
+      folderId: effectiveFolderId,
+    };
+    const newNotes = new Map(get().notes);
+    newNotes.set(note.id, note);
+    const newPlain = new Map(get().notesPlain);
+    newPlain.set(note.id, plain);
     set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: note.id } as Partial<StoreState>);
     return note.id;
   },
 
-  async updateNote(id: string, patch: Partial<NotePlaintext> & { isPinned?: boolean; isFavorite?: boolean }): Promise<void> {
+  async updateNote(
+    id: string,
+    patch: Partial<NotePlaintext> & { isPinned?: boolean; isFavorite?: boolean }
+  ): Promise<void> {
     const masterKey = get().masterKey;
     if (!masterKey) throw new Error('未解锁');
     const note = get().notes.get(id);
@@ -421,31 +521,72 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
 
     const current = get().notesPlain.get(id);
     const isCorrupt = !current;
-    if ((patch.title !== undefined || patch.content !== undefined || patch.tags !== undefined) && isCorrupt) {
+    if (
+      (patch.title !== undefined || patch.content !== undefined || patch.tags !== undefined) &&
+      isCorrupt
+    ) {
       console.warn('skip updateNote for corrupt note', id);
       return;
     }
-    const merged: NotePlaintext = { title: patch.title ?? current?.title ?? '', content: patch.content ?? current?.content ?? '', tags: patch.tags ?? current?.tags ?? [] };
-    const { json: cipherJson } = await encryptNote(masterKey, merged, noteAad(id, get().userId ?? ''));
+    const merged: NotePlaintext = {
+      title: patch.title ?? current?.title ?? '',
+      content: patch.content ?? current?.content ?? '',
+      tags: patch.tags ?? current?.tags ?? [],
+    };
+    const { json: cipherJson } = await encryptNote(
+      masterKey,
+      merged,
+      noteAad(id, get().userId ?? '')
+    );
 
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
-      const version = await repository.updateNote(id, { ciphertext: cipherJson, keyVersion: 1, isPinned: patch.isPinned ?? note.isPinned, isFavorite: patch.isFavorite ?? note.isFavorite });
-      const newNotes = new Map(get().notes); newNotes.set(id, { ...note, ciphertext: cipherJson, version, isPinned: patch.isPinned ?? note.isPinned, isFavorite: patch.isFavorite ?? note.isFavorite });
-      const newPlain = new Map(get().notesPlain); newPlain.set(id, merged);
+      const version = await repository.updateNote(id, {
+        ciphertext: cipherJson,
+        keyVersion: 1,
+        isPinned: patch.isPinned ?? note.isPinned,
+        isFavorite: patch.isFavorite ?? note.isFavorite,
+      });
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, {
+        ...note,
+        ciphertext: cipherJson,
+        version,
+        isPinned: patch.isPinned ?? note.isPinned,
+        isFavorite: patch.isFavorite ?? note.isFavorite,
+      });
+      const newPlain = new Map(get().notesPlain);
+      newPlain.set(id, merged);
       set({ notes: newNotes, notesPlain: newPlain } as Partial<StoreState>);
       return;
     }
 
-    const body = { ciphertext: cipherJson, keyVersion: 1, isPinned: patch.isPinned ?? note.isPinned, isFavorite: patch.isFavorite ?? note.isFavorite, clientUpdatedAt: new Date().toISOString(), version: note.version };
-    const newNotes = new Map(get().notes); newNotes.set(id, { ...note, ciphertext: cipherJson, isPinned: patch.isPinned ?? note.isPinned, isFavorite: patch.isFavorite ?? note.isFavorite });
-    const newPlain = new Map(get().notesPlain); newPlain.set(id, merged);
+    const body = {
+      ciphertext: cipherJson,
+      keyVersion: 1,
+      isPinned: patch.isPinned ?? note.isPinned,
+      isFavorite: patch.isFavorite ?? note.isFavorite,
+      clientUpdatedAt: new Date().toISOString(),
+      version: note.version,
+    };
+    const newNotes = new Map(get().notes);
+    newNotes.set(id, {
+      ...note,
+      ciphertext: cipherJson,
+      isPinned: patch.isPinned ?? note.isPinned,
+      isFavorite: patch.isFavorite ?? note.isFavorite,
+    });
+    const newPlain = new Map(get().notesPlain);
+    newPlain.set(id, merged);
     set({ notes: newNotes, notesPlain: newPlain } as Partial<StoreState>);
 
     // 三方合并上下文:base=改动前明文(公共祖先),local=本次编辑结果——
     // 离线重放撞 409 时 SyncEngine 据此做字段级合并(此前无人填充,
     // 离线编辑被静默丢弃)
-    const metadataOf = (p: NotePlaintext | undefined, meta: { isPinned: boolean; isFavorite: boolean }) => ({
+    const metadataOf = (
+      p: NotePlaintext | undefined,
+      meta: { isPinned: boolean; isFavorite: boolean }
+    ) => ({
       id,
       plaintext: p ?? { title: '', content: '', tags: [] },
       isPinned: meta.isPinned,
@@ -456,19 +597,32 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     });
     const ok = await runOrEnqueue(
       {
-        method: 'PATCH', path: `/notes/${id}`, body, noteId: id,
+        method: 'PATCH',
+        path: `/notes/${id}`,
+        body,
+        noteId: id,
         conflictCtx: {
           noteId: id,
           baseVersion: note.version,
           base: metadataOf(current, { isPinned: note.isPinned, isFavorite: note.isFavorite }),
-          local: metadataOf(merged, { isPinned: patch.isPinned ?? note.isPinned, isFavorite: patch.isFavorite ?? note.isFavorite }),
+          local: metadataOf(merged, {
+            isPinned: patch.isPinned ?? note.isPinned,
+            isFavorite: patch.isFavorite ?? note.isFavorite,
+          }),
         },
       },
       async () => {
         try {
-          const r = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, body);
-          const nn = new Map(get().notes); const updated = nn.get(id);
-          if (updated) { nn.set(id, { ...updated, version: r.version, serverUpdatedAt: r.serverUpdatedAt }); set({ notes: nn } as Partial<StoreState>); }
+          const r = await api().patch<{ version: number; serverUpdatedAt: string }>(
+            `/notes/${id}`,
+            body
+          );
+          const nn = new Map(get().notes);
+          const updated = nn.get(id);
+          if (updated) {
+            nn.set(id, { ...updated, version: r.version, serverUpdatedAt: r.serverUpdatedAt });
+            set({ notes: nn } as Partial<StoreState>);
+          }
         } catch (err: unknown) {
           // 409(version_mismatch):乐观锁撞车。此前不回写本地 version,
           // 后续每次保存都 409,该笔记保存链路实质瘫痪。这里拉取服务端
@@ -477,15 +631,24 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
           if (!(err instanceof ApiException) || err.err.status !== 409) throw err;
           const fresh = await api().get<{ version: number }>(`/notes/${id}`);
           const retryBody = { ...body, version: fresh.version };
-          const r2 = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, retryBody);
-          const nn = new Map(get().notes); const updated = nn.get(id);
-          if (updated) { nn.set(id, { ...updated, version: r2.version, serverUpdatedAt: r2.serverUpdatedAt }); set({ notes: nn } as Partial<StoreState>); }
+          const r2 = await api().patch<{ version: number; serverUpdatedAt: string }>(
+            `/notes/${id}`,
+            retryBody
+          );
+          const nn = new Map(get().notes);
+          const updated = nn.get(id);
+          if (updated) {
+            nn.set(id, { ...updated, version: r2.version, serverUpdatedAt: r2.serverUpdatedAt });
+            set({ notes: nn } as Partial<StoreState>);
+          }
         }
       },
       () => get().refreshPendingCount()
     );
     if (!ok) set({ isOnline: false } as Partial<StoreState>);
-    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(() => undefined);
+    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(
+      () => undefined
+    );
   },
 
   async moveNote(id: string, folderId: string | null): Promise<void> {
@@ -497,32 +660,58 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
       await repository.moveNote(id, target);
-      const newNotes = new Map(get().notes); newNotes.set(id, { ...note, folderId: target });
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, { ...note, folderId: target });
       set({ notes: newNotes } as Partial<StoreState>);
       return;
     }
-    const body = { folderId: target, clientUpdatedAt: new Date().toISOString(), version: note.version };
-    const newNotes = new Map(get().notes); newNotes.set(id, { ...note, folderId: target });
+    const body = {
+      folderId: target,
+      clientUpdatedAt: new Date().toISOString(),
+      version: note.version,
+    };
+    const newNotes = new Map(get().notes);
+    newNotes.set(id, { ...note, folderId: target });
     set({ notes: newNotes } as Partial<StoreState>);
-    const ok = await runOrEnqueue({ method: 'PATCH', path: `/notes/${id}`, body, noteId: id }, async () => {
-      const apply = (version: number, serverUpdatedAt?: string) => {
-        const nn = new Map(get().notes); const updated = nn.get(id);
-        if (updated) { nn.set(id, { ...updated, version, serverUpdatedAt: serverUpdatedAt ?? updated.serverUpdatedAt }); set({ notes: nn } as Partial<StoreState>); }
-      };
-      try {
-        const r = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, body);
-        apply(r.version, r.serverUpdatedAt);
-      } catch (err: unknown) {
-        // 409 自愈（M14）：与 updateNote 同款——拉服务端最新 version 重试一次,
-        // 否则批量移动撞上其他端改动时本地/服务端状态分叉到下次 loadAll
-        if (!(err instanceof ApiException) || err.err.status !== 409) throw err;
-        const fresh = await api().get<{ version: number }>(`/notes/${id}`);
-        const r2 = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, { ...body, version: fresh.version });
-        apply(r2.version, r2.serverUpdatedAt);
-      }
-    }, () => get().refreshPendingCount());
+    const ok = await runOrEnqueue(
+      { method: 'PATCH', path: `/notes/${id}`, body, noteId: id },
+      async () => {
+        const apply = (version: number, serverUpdatedAt?: string) => {
+          const nn = new Map(get().notes);
+          const updated = nn.get(id);
+          if (updated) {
+            nn.set(id, {
+              ...updated,
+              version,
+              serverUpdatedAt: serverUpdatedAt ?? updated.serverUpdatedAt,
+            });
+            set({ notes: nn } as Partial<StoreState>);
+          }
+        };
+        try {
+          const r = await api().patch<{ version: number; serverUpdatedAt: string }>(
+            `/notes/${id}`,
+            body
+          );
+          apply(r.version, r.serverUpdatedAt);
+        } catch (err: unknown) {
+          // 409 自愈（M14）：与 updateNote 同款——拉服务端最新 version 重试一次,
+          // 否则批量移动撞上其他端改动时本地/服务端状态分叉到下次 loadAll
+          if (!(err instanceof ApiException) || err.err.status !== 409) throw err;
+          const fresh = await api().get<{ version: number }>(`/notes/${id}`);
+          const r2 = await api().patch<{ version: number; serverUpdatedAt: string }>(
+            `/notes/${id}`,
+            { ...body, version: fresh.version }
+          );
+          apply(r2.version, r2.serverUpdatedAt);
+        }
+      },
+      () => get().refreshPendingCount()
+    );
     if (!ok) set({ isOnline: false } as Partial<StoreState>);
-    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(() => undefined);
+    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(
+      () => undefined
+    );
   },
 
   async deleteNote(id: string): Promise<void> {
@@ -531,22 +720,42 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
       await repository.deleteNote(id);
-      const newNotes = new Map(get().notes); newNotes.set(id, { ...note, deletedAt: new Date().toISOString() });
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, { ...note, deletedAt: new Date().toISOString() });
       set({ notes: newNotes, selectedNoteId: null } as Partial<StoreState>);
       return;
     }
-    const newNotes = new Map(get().notes); newNotes.set(id, { ...note, deletedAt: new Date().toISOString() });
+    const newNotes = new Map(get().notes);
+    newNotes.set(id, { ...note, deletedAt: new Date().toISOString() });
     set({ notes: newNotes, selectedNoteId: null } as Partial<StoreState>);
-    const ok = await runOrEnqueue({ method: 'DELETE', path: `/notes/${id}`, noteId: id }, async () => { await api().delete(`/notes/${id}`); }, () => get().refreshPendingCount());
+    const ok = await runOrEnqueue(
+      { method: 'DELETE', path: `/notes/${id}`, noteId: id },
+      async () => {
+        await api().delete(`/notes/${id}`);
+      },
+      () => get().refreshPendingCount()
+    );
     if (!ok) set({ isOnline: false } as Partial<StoreState>);
-    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(() => undefined);
+    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(
+      () => undefined
+    );
   },
 
-  selectNote(id: string | null): void { set({ selectedNoteId: id } as Partial<StoreState>); },
-  selectFolder(id: string | null): void { set({ selectedFolderId: id, viewMode: 'all' } as Partial<StoreState>); },
-  setViewMode(mode: ViewMode): void { set({ viewMode: mode, selectedFolderId: null, selectedNoteId: null } as Partial<StoreState>); },
-  toggleSidebar(): void { set((s) => ({ sidebarHidden: !s.sidebarHidden } as Partial<StoreState>)); },
-  focusSearch(): void { set((s) => ({ searchFocusToken: s.searchFocusToken + 1 } as Partial<StoreState>)); },
+  selectNote(id: string | null): void {
+    set({ selectedNoteId: id } as Partial<StoreState>);
+  },
+  selectFolder(id: string | null): void {
+    set({ selectedFolderId: id, viewMode: 'all' } as Partial<StoreState>);
+  },
+  setViewMode(mode: ViewMode): void {
+    set({ viewMode: mode, selectedFolderId: null, selectedNoteId: null } as Partial<StoreState>);
+  },
+  toggleSidebar(): void {
+    set((s) => ({ sidebarHidden: !s.sidebarHidden }) as Partial<StoreState>);
+  },
+  focusSearch(): void {
+    set((s) => ({ searchFocusToken: s.searchFocusToken + 1 }) as Partial<StoreState>);
+  },
 
   async permanentDeleteNote(id: string): Promise<void> {
     const note = get().notes.get(id);
@@ -554,43 +763,85 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
       await repository.permanentDeleteNote(id);
-      const newNotes = new Map(get().notes); newNotes.delete(id);
-      const newPlain = new Map(get().notesPlain); newPlain.delete(id);
-      set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: get().selectedNoteId === id ? null : get().selectedNoteId } as Partial<StoreState>);
+      const newNotes = new Map(get().notes);
+      newNotes.delete(id);
+      const newPlain = new Map(get().notesPlain);
+      newPlain.delete(id);
+      set({
+        notes: newNotes,
+        notesPlain: newPlain,
+        selectedNoteId: get().selectedNoteId === id ? null : get().selectedNoteId,
+      } as Partial<StoreState>);
       return;
     }
-    const newNotes = new Map(get().notes); newNotes.delete(id);
-    const newPlain = new Map(get().notesPlain); newPlain.delete(id);
-    set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: get().selectedNoteId === id ? null : get().selectedNoteId } as Partial<StoreState>);
-    const ok = await runOrEnqueue({ method: 'DELETE', path: `/notes/${id}/permanent`, noteId: id }, async () => { await api().delete(`/notes/${id}/permanent`); }, () => get().refreshPendingCount());
+    const newNotes = new Map(get().notes);
+    newNotes.delete(id);
+    const newPlain = new Map(get().notesPlain);
+    newPlain.delete(id);
+    set({
+      notes: newNotes,
+      notesPlain: newPlain,
+      selectedNoteId: get().selectedNoteId === id ? null : get().selectedNoteId,
+    } as Partial<StoreState>);
+    const ok = await runOrEnqueue(
+      { method: 'DELETE', path: `/notes/${id}/permanent`, noteId: id },
+      async () => {
+        await api().delete(`/notes/${id}/permanent`);
+      },
+      () => get().refreshPendingCount()
+    );
     if (!ok) set({ isOnline: false } as Partial<StoreState>);
-    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(() => undefined);
+    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(
+      () => undefined
+    );
   },
 
   async emptyTrash(): Promise<void> {
-    const trashIds = Array.from(get().notes.values()).filter((n) => n.deletedAt).map((n) => n.id);
+    const trashIds = Array.from(get().notes.values())
+      .filter((n) => n.deletedAt)
+      .map((n) => n.id);
     if (trashIds.length === 0) return;
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
       await repository.emptyTrash();
-      const newNotes = new Map(get().notes); const newPlain = new Map(get().notesPlain);
-      for (const id of trashIds) { newNotes.delete(id); newPlain.delete(id); }
+      const newNotes = new Map(get().notes);
+      const newPlain = new Map(get().notesPlain);
+      for (const id of trashIds) {
+        newNotes.delete(id);
+        newPlain.delete(id);
+      }
       set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: null } as Partial<StoreState>);
       return;
     }
-    const newNotes = new Map(get().notes); const newPlain = new Map(get().notesPlain);
-    for (const id of trashIds) { newNotes.delete(id); newPlain.delete(id); }
+    const newNotes = new Map(get().notes);
+    const newPlain = new Map(get().notesPlain);
+    for (const id of trashIds) {
+      newNotes.delete(id);
+      newPlain.delete(id);
+    }
     set({ notes: newNotes, notesPlain: newPlain, selectedNoteId: null } as Partial<StoreState>);
     let anyEnqueued = false;
     for (const id of trashIds) {
-      try { await api().delete(`/notes/${id}/permanent`); } catch (err) {
+      try {
+        await api().delete(`/notes/${id}/permanent`);
+      } catch (err) {
         const e = err as { err?: { status?: number } };
         if (e.err?.status === 409 || e.err?.status === 404) continue;
-        if (isTransientNetworkError(err)) { await (await import('../offline-queue')).enqueue({ method: 'DELETE', path: `/notes/${id}/permanent`, noteId: id }); anyEnqueued = true; }
+        if (isTransientNetworkError(err)) {
+          await (
+            await import('../offline-queue')
+          ).enqueue({ method: 'DELETE', path: `/notes/${id}/permanent`, noteId: id });
+          anyEnqueued = true;
+        }
       }
     }
-    if (anyEnqueued) { set({ isOnline: false } as Partial<StoreState>); await get().refreshPendingCount(); }
-    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(() => undefined);
+    if (anyEnqueued) {
+      set({ isOnline: false } as Partial<StoreState>);
+      await get().refreshPendingCount();
+    }
+    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(
+      () => undefined
+    );
   },
 
   async restoreNote(id: string): Promise<void> {
@@ -599,42 +850,73 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
       await repository.restoreNote(id);
-      const newNotes = new Map(get().notes); newNotes.set(id, { ...note, deletedAt: null });
+      const newNotes = new Map(get().notes);
+      newNotes.set(id, { ...note, deletedAt: null });
       set({ notes: newNotes } as Partial<StoreState>);
       return;
     }
-    const body = { deletedAt: null, clientUpdatedAt: new Date().toISOString(), version: note.version };
-    const newNotes = new Map(get().notes); newNotes.set(id, { ...note, deletedAt: null });
+    const body = {
+      deletedAt: null,
+      clientUpdatedAt: new Date().toISOString(),
+      version: note.version,
+    };
+    const newNotes = new Map(get().notes);
+    newNotes.set(id, { ...note, deletedAt: null });
     set({ notes: newNotes } as Partial<StoreState>);
-    const ok = await runOrEnqueue({ method: 'PATCH', path: `/notes/${id}`, body, noteId: id }, async () => {
-      const apply = (version: number, serverUpdatedAt?: string) => {
-        const nn = new Map(get().notes); const updated = nn.get(id);
-        if (updated) { nn.set(id, { ...updated, version, serverUpdatedAt: serverUpdatedAt ?? updated.serverUpdatedAt }); set({ notes: nn } as Partial<StoreState>); }
-      };
-      try {
-        const r = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, body);
-        apply(r.version, r.serverUpdatedAt);
-      } catch (err: unknown) {
-        // 409 自愈（M14）：与 updateNote/moveNote 同款
-        if (!(err instanceof ApiException) || err.err.status !== 409) throw err;
-        const fresh = await api().get<{ version: number }>(`/notes/${id}`);
-        const r2 = await api().patch<{ version: number; serverUpdatedAt: string }>(`/notes/${id}`, { ...body, version: fresh.version });
-        apply(r2.version, r2.serverUpdatedAt);
-      }
-    }, () => get().refreshPendingCount());
+    const ok = await runOrEnqueue(
+      { method: 'PATCH', path: `/notes/${id}`, body, noteId: id },
+      async () => {
+        const apply = (version: number, serverUpdatedAt?: string) => {
+          const nn = new Map(get().notes);
+          const updated = nn.get(id);
+          if (updated) {
+            nn.set(id, {
+              ...updated,
+              version,
+              serverUpdatedAt: serverUpdatedAt ?? updated.serverUpdatedAt,
+            });
+            set({ notes: nn } as Partial<StoreState>);
+          }
+        };
+        try {
+          const r = await api().patch<{ version: number; serverUpdatedAt: string }>(
+            `/notes/${id}`,
+            body
+          );
+          apply(r.version, r.serverUpdatedAt);
+        } catch (err: unknown) {
+          // 409 自愈（M14）：与 updateNote/moveNote 同款
+          if (!(err instanceof ApiException) || err.err.status !== 409) throw err;
+          const fresh = await api().get<{ version: number }>(`/notes/${id}`);
+          const r2 = await api().patch<{ version: number; serverUpdatedAt: string }>(
+            `/notes/${id}`,
+            { ...body, version: fresh.version }
+          );
+          apply(r2.version, r2.serverUpdatedAt);
+        }
+      },
+      () => get().refreshPendingCount()
+    );
     if (!ok) set({ isOnline: false } as Partial<StoreState>);
-    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(() => undefined);
+    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(
+      () => undefined
+    );
   },
 
   async loadTemplates(): Promise<void> {
     const { mode } = get();
-    if (mode === 'standalone') { set({ templates: PRESET_TEMPLATES } as Partial<StoreState>); return; }
+    if (mode === 'standalone') {
+      set({ templates: PRESET_TEMPLATES } as Partial<StoreState>);
+      return;
+    }
     try {
       // 服务端只存用户自定义模板（预设在前端内置），两者合并展示——
       // 旧实现整体覆盖导致联机模式预设模板消失
       const r = await api().get<{ templates: Template[] }>('/templates');
       set({ templates: [...PRESET_TEMPLATES, ...(r.templates ?? [])] } as Partial<StoreState>);
-    } catch { set({ templates: PRESET_TEMPLATES } as Partial<StoreState>); }
+    } catch {
+      set({ templates: PRESET_TEMPLATES } as Partial<StoreState>);
+    }
   },
 
   async saveAsTemplate(name: string, plain: NotePlaintext): Promise<void> {
@@ -643,8 +925,27 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const { mode } = get();
     if (mode !== 'online') throw new Error('自定义模板仅在联机模式可用');
     const { json: cipherJson } = await encryptNote(masterKey, plain);
-    const r = await api().post<{ id: string }>('/templates', { name, description: '', category: 'custom', icon: '📝', content: cipherJson, sortOrder: 100 });
-    const newTemplate: Template = { id: r.id, userId: get().userId, name, description: '', category: 'custom', icon: '📝', content: cipherJson, isPreset: false, sortOrder: 100, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const r = await api().post<{ id: string }>('/templates', {
+      name,
+      description: '',
+      category: 'custom',
+      icon: '📝',
+      content: cipherJson,
+      sortOrder: 100,
+    });
+    const newTemplate: Template = {
+      id: r.id,
+      userId: get().userId,
+      name,
+      description: '',
+      category: 'custom',
+      icon: '📝',
+      content: cipherJson,
+      isPreset: false,
+      sortOrder: 100,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
     set({ templates: [...get().templates, newTemplate] } as Partial<StoreState>);
   },
 
@@ -658,7 +959,10 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     set({ templates: get().templates.filter((t) => t.id !== id) } as Partial<StoreState>);
   },
 
-  async createFolder(name: string, opts?: { parentId?: string | null; branch?: 'work' | 'personal' | null }): Promise<string> {
+  async createFolder(
+    name: string,
+    opts?: { parentId?: string | null; branch?: 'work' | 'personal' | null }
+  ): Promise<string> {
     // F8：parentId 归一——陈旧/虚拟 id 会让单机模式（无 FK）落一个
     // parentId 指向不存在文件夹的孤儿,树渲染从 parentId=null 往下走,
     // 该文件夹永远不显示
@@ -669,13 +973,44 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
       const id = await repository.createFolder({ name, parentId, branch });
-      set({ folders: [...get().folders, { id, name, parentId, icon: null, sortOrder: get().folders.length, createdAt: new Date().toISOString(), depth, branch }] } as Partial<StoreState>);
+      set({
+        folders: [
+          ...get().folders,
+          {
+            id,
+            name,
+            parentId,
+            icon: null,
+            sortOrder: get().folders.length,
+            createdAt: new Date().toISOString(),
+            depth,
+            branch,
+          },
+        ],
+      } as Partial<StoreState>);
       return id;
     }
-    const body: { name: string; parentId: string | null; branch?: 'work' | 'personal' } = { name, parentId };
+    const body: { name: string; parentId: string | null; branch?: 'work' | 'personal' } = {
+      name,
+      parentId,
+    };
     if (branch) body.branch = branch;
     const r = await api().post<{ id: string }>('/folders', body);
-    set({ folders: [...get().folders, { id: r.id, name, parentId, icon: null, sortOrder: 0, createdAt: new Date().toISOString(), depth, branch }] } as Partial<StoreState>);
+    set({
+      folders: [
+        ...get().folders,
+        {
+          id: r.id,
+          name,
+          parentId,
+          icon: null,
+          sortOrder: 0,
+          createdAt: new Date().toISOString(),
+          depth,
+          branch,
+        },
+      ],
+    } as Partial<StoreState>);
     return r.id;
   },
 
@@ -730,7 +1065,10 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
         /* ignore */
       }
       if (migrated > 0) {
-        toast.info(i18n.t('sidebar.unfiled_migrated', { count: migrated }) || `已把 ${migrated} 条未分类笔记移入「${DEFAULT_FOLDER_NAME}」`);
+        toast.info(
+          i18n.t('sidebar.unfiled_migrated', { count: migrated }) ||
+            `已把 ${migrated} 条未分类笔记移入「${DEFAULT_FOLDER_NAME}」`
+        );
       }
     })().finally(() => {
       ensureInFlight = null;
@@ -764,25 +1102,45 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     if (mode === 'standalone' && repository) {
       await repository.deleteFolder(id);
       set({ folders: get().folders.filter((f) => !descIds.has(f.id)) } as Partial<StoreState>);
-      const newNotes = new Map(get().notes); let changed = false;
-      for (const [nid, n] of newNotes) { if (n.folderId && descIds.has(n.folderId)) { newNotes.set(nid, { ...n, folderId: null }); changed = true; } }
+      const newNotes = new Map(get().notes);
+      let changed = false;
+      for (const [nid, n] of newNotes) {
+        if (n.folderId && descIds.has(n.folderId)) {
+          newNotes.set(nid, { ...n, folderId: null });
+          changed = true;
+        }
+      }
       if (changed) set({ notes: newNotes } as Partial<StoreState>);
       return;
     }
     set({ folders: get().folders.filter((f) => !descIds.has(f.id)) } as Partial<StoreState>);
     try {
-      const ok = await runOrEnqueue({ method: 'DELETE', path: `/folders/${id}` }, async () => { await api().delete(`/folders/${id}`); }, () => get().refreshPendingCount());
+      const ok = await runOrEnqueue(
+        { method: 'DELETE', path: `/folders/${id}` },
+        async () => {
+          await api().delete(`/folders/${id}`);
+        },
+        () => get().refreshPendingCount()
+      );
       if (!ok) set({ isOnline: false } as Partial<StoreState>);
     } finally {
       // 缓存回写放 finally：runOrEnqueue 抛 4xx 时本地已乐观删除,不回写会让
       // IndexedDB 留着指向已删文件夹的 stale 笔记
-      const newNotes = new Map(get().notes); let changed = false;
-      for (const [nid, n] of newNotes) { if (n.folderId && descIds.has(n.folderId)) { newNotes.set(nid, { ...n, folderId: null }); changed = true; } }
+      const newNotes = new Map(get().notes);
+      let changed = false;
+      for (const [nid, n] of newNotes) {
+        if (n.folderId && descIds.has(n.folderId)) {
+          newNotes.set(nid, { ...n, folderId: null });
+          changed = true;
+        }
+      }
       if (changed) set({ notes: newNotes } as Partial<StoreState>);
       // M-B：notes 的 IndexedDB 缓存也要回写——只 cacheFolders 的话,删文件夹后
       // 离线重启会读到指向已删文件夹的 stale 笔记,既不进任何 scope 也不满足
       // 未分类的 null 判定,仅搜索可达
-      void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(() => undefined);
+      void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(
+        () => undefined
+      );
       void cacheFolders(get().folders).catch(() => undefined);
     }
   },
@@ -791,9 +1149,23 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const trimmed = name.trim();
     if (!trimmed) throw new Error('文件夹名不能为空');
     const { mode, repository } = get();
-    if (mode === 'standalone' && repository) { await repository.renameFolder(id, trimmed); set({ folders: get().folders.map((f) => (f.id === id ? { ...f, name: trimmed } : f)) } as Partial<StoreState>); return; }
-    set({ folders: get().folders.map((f) => (f.id === id ? { ...f, name: trimmed } : f)) } as Partial<StoreState>);
-    const ok = await runOrEnqueue({ method: 'PATCH', path: `/folders/${id}` }, async () => { await api().patch(`/folders/${id}`, { name: trimmed }); }, () => get().refreshPendingCount());
+    if (mode === 'standalone' && repository) {
+      await repository.renameFolder(id, trimmed);
+      set({
+        folders: get().folders.map((f) => (f.id === id ? { ...f, name: trimmed } : f)),
+      } as Partial<StoreState>);
+      return;
+    }
+    set({
+      folders: get().folders.map((f) => (f.id === id ? { ...f, name: trimmed } : f)),
+    } as Partial<StoreState>);
+    const ok = await runOrEnqueue(
+      { method: 'PATCH', path: `/folders/${id}` },
+      async () => {
+        await api().patch(`/folders/${id}`, { name: trimmed });
+      },
+      () => get().refreshPendingCount()
+    );
     if (!ok) set({ isOnline: false } as Partial<StoreState>);
     void cacheFolders(get().folders).catch(() => undefined);
   },
@@ -806,9 +1178,27 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const parent = resolvedParent ? get().folders.find((f) => f.id === resolvedParent) : undefined;
     const depth = parent ? (parent.depth ?? 1) + 1 : 1;
     const branch = parent ? (parent.branch ?? null) : null;
-    if (mode === 'standalone' && repository) { await repository.moveFolder(id, resolvedParent); set({ folders: get().folders.map((f) => (f.id === id ? { ...f, parentId: resolvedParent, depth, branch } : f)) } as Partial<StoreState>); return; }
-    set({ folders: get().folders.map((f) => (f.id === id ? { ...f, parentId: resolvedParent, depth, branch } : f)) } as Partial<StoreState>);
-    const ok = await runOrEnqueue({ method: 'PATCH', path: `/folders/${id}` }, async () => { await api().patch(`/folders/${id}`, { parentId: resolvedParent }); }, () => get().refreshPendingCount());
+    if (mode === 'standalone' && repository) {
+      await repository.moveFolder(id, resolvedParent);
+      set({
+        folders: get().folders.map((f) =>
+          f.id === id ? { ...f, parentId: resolvedParent, depth, branch } : f
+        ),
+      } as Partial<StoreState>);
+      return;
+    }
+    set({
+      folders: get().folders.map((f) =>
+        f.id === id ? { ...f, parentId: resolvedParent, depth, branch } : f
+      ),
+    } as Partial<StoreState>);
+    const ok = await runOrEnqueue(
+      { method: 'PATCH', path: `/folders/${id}` },
+      async () => {
+        await api().patch(`/folders/${id}`, { parentId: resolvedParent });
+      },
+      () => get().refreshPendingCount()
+    );
     if (!ok) set({ isOnline: false } as Partial<StoreState>);
     void cacheFolders(get().folders).catch(() => undefined);
   },

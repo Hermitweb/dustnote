@@ -60,7 +60,8 @@ const en = {
     err_no_server: 'Online mode requires a server URL',
     err_empty_server: 'Please enter the server URL',
     err_url_format: 'URL must start with http:// or https://',
-    warn_plain_http: 'Plain HTTP over a public network can be intercepted; HTTPS is recommended. Ignore this if self-hosting on a LAN.',
+    warn_plain_http:
+      'Plain HTTP over a public network can be intercepted; HTTPS is recommended. Ignore this if self-hosting on a LAN.',
     err_timeout: 'Connection timed out (10s). Check the URL and your network.',
     err_unreachable:
       'Cannot reach the server: check the URL, that the server is reachable, and that the app is allowed to access the network in system settings.',
@@ -95,7 +96,8 @@ const en = {
     password_required: 'Please enter your master password',
     unlock_failed: 'Unlock failed',
     session_expired_title: 'Session expired',
-    session_expired_body: 'Your session is no longer valid (signed out elsewhere or expired). Please unlock again.',
+    session_expired_body:
+      'Your session is no longer valid (signed out elsewhere or expired). Please unlock again.',
     recover_forgot: 'Forgot password? Recover with recovery code',
     // Unlock / lockout
     locked_title: 'Account locked',
@@ -373,8 +375,7 @@ const en = {
     update_available: 'Update available',
     update_force_detail:
       'This version is outdated. Please update to the latest version.\n\n{{message}}',
-    update_detail:
-      'Latest: v{{latest}}\nCurrent: v{{current}}\n\nDownload now?',
+    update_detail: 'Latest: v{{latest}}\nCurrent: v{{current}}\n\nDownload now?',
     update_later: 'Later',
     update_download: 'Download',
     update_up_to_date: 'Up to date',

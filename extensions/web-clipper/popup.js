@@ -76,7 +76,7 @@ $('clip-btn').addEventListener('click', async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         ciphertext: noteContent, // 注意：实际应该加密，这里简化处理

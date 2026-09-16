@@ -68,7 +68,8 @@ const zhCN = {
     err_no_server: '联机模式需要填写服务器地址',
     err_empty_server: '请输入服务器地址',
     err_url_format: '地址需以 http:// 或 https:// 开头',
-    warn_plain_http: '当前使用明文 HTTP 连接公网地址,数据在链路上可被窃听,建议配置 HTTPS。局域网自托管可忽略此提示。',
+    warn_plain_http:
+      '当前使用明文 HTTP 连接公网地址,数据在链路上可被窃听,建议配置 HTTPS。局域网自托管可忽略此提示。',
     err_timeout: '连接超时（10秒），请检查地址和网络',
     err_unreachable:
       '无法连接服务器：请检查地址是否正确、服务器是否可达，以及系统设置中是否允许本应用联网',
@@ -145,7 +146,8 @@ const zhCN = {
     recovery_save_btn: '我已保存，继续',
     code_copied_detail: '恢复码已复制到剪贴板，请粘贴保存到安全的地方。',
     copy_code_btn: '📋 复制恢复码',
-    recover_screen_subtitle: '输入你的 10 位恢复码和新主密码。\n恢复后 masterKey 保留，已有笔记可继续解密。',
+    recover_screen_subtitle:
+      '输入你的 10 位恢复码和新主密码。\n恢复后 masterKey 保留，已有笔记可继续解密。',
     recover_code_placeholder: '恢复码 (XXXXX-XXXXX)',
     recover_code_invalid: '恢复码格式不正确（应为 XXXXX-XXXXX）',
     new_password_placeholder: '新主密码（至少 6 位）',
@@ -382,7 +384,8 @@ const zhCN = {
     update_latest_short: '最新 v{{version}}',
     // 导出 / 导入
     export_backup_generated: '已生成备份',
-    export_backup_generated_detail: '备份文件已生成：\n{{filename}}\n\n请通过分享菜单保存到云盘或本地。',
+    export_backup_generated_detail:
+      '备份文件已生成：\n{{filename}}\n\n请通过分享菜单保存到云盘或本地。',
     export_md_row: '📄 导出为 Markdown',
     export_md_title: 'DustNote 笔记导出',
     export_md_message: 'DustNote 笔记 {{ts}}',
@@ -392,7 +395,8 @@ const zhCN = {
     export_md_success_detail: '共导出 {{count}} 篇笔记为 Markdown',
     import_file_row: '📁 从文件导入 (.md/.txt/.json)',
     import_failed: '导入失败',
-    import_file_json_detail: '检测到 JSON 备份文件：\n笔记 {{count}} 条\n\n将覆盖当前所有数据，继续？',
+    import_file_json_detail:
+      '检测到 JSON 备份文件：\n笔记 {{count}} 条\n\n将覆盖当前所有数据，继续？',
     import_restored: '数据已恢复',
     import_file_md_detail:
       '检测到 Markdown 文件：\n将导入 {{count}} 篇笔记（追加，不覆盖现有数据）\n\n继续？',
@@ -423,7 +427,8 @@ const zhCN = {
     totp_row_on: '🔒 两步验证（已开启）',
     totp_row_off: '🔓 两步验证（未开启）',
     totp_setup_title: '设置两步验证',
-    totp_setup_hint: '使用 Google Authenticator、Authy 或 1Password 扫描以下密钥，输入6位验证码确认启用。',
+    totp_setup_hint:
+      '使用 Google Authenticator、Authy 或 1Password 扫描以下密钥，输入6位验证码确认启用。',
     totp_manual_hint: '手动输入密钥或扫描二维码（如支持）',
     totp_code_placeholder: '输入6位验证码',
     totp_code_required: '请输入6位验证码',

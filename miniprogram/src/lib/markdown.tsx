@@ -27,10 +27,15 @@ function copyLink(url: string) {
 
 // 行内语法：行内代码优先，避免 ** 或 [ 在代码里被误解析
 // 新增 wikilink: [[title]] 或 [[title|display]]
-const INLINE_RE = /(`[^`]+`)|(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|(\[\[[^\]|]+(?:\|[^\]]+)?\]\])|(!\[[^\]]*\]\([^)\s]+\))|(\[[^\]]+\]\([^)\s]+\))/g;
+const INLINE_RE =
+  /(`[^`]+`)|(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|(\[\[[^\]|]+(?:\|[^\]]+)?\]\])|(!\[[^\]]*\]\([^)\s]+\))|(\[[^\]]+\]\([^)\s]+\))/g;
 
 /** 渲染一行内联内容（粗体/斜体/行内代码/链接） */
-function renderInline(text: string, keyPrefix: string, onWikilink?: (title: string) => void): React.ReactNode[] {
+function renderInline(
+  text: string,
+  keyPrefix: string,
+  onWikilink?: (title: string) => void
+): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   let last = 0;
   let index = 0;
@@ -69,13 +74,17 @@ function renderInline(text: string, keyPrefix: string, onWikilink?: (title: stri
       const title = pipeIdx >= 0 ? inner.slice(0, pipeIdx).trim() : inner.trim();
       const display = pipeIdx >= 0 ? inner.slice(pipeIdx + 1).trim() : title;
       nodes.push(
-        <Text key={key} className="md-link" onClick={() => {
-          if (onWikilink) {
-            onWikilink(title);
-          } else {
-            Taro.showToast({ title: `📄 ${title}`, icon: 'none' });
-          }
-        }}>
+        <Text
+          key={key}
+          className="md-link"
+          onClick={() => {
+            if (onWikilink) {
+              onWikilink(title);
+            } else {
+              Taro.showToast({ title: `📄 ${title}`, icon: 'none' });
+            }
+          }}
+        >
           📄 {display}
         </Text>
       );
@@ -251,7 +260,12 @@ function groupBlocks(lines: string[]): BlockItem[] {
   return blocks;
 }
 
-function renderList(items: string[], ordered: boolean, keyPrefix: string, onWikilink?: (title: string) => void): React.ReactNode {
+function renderList(
+  items: string[],
+  ordered: boolean,
+  keyPrefix: string,
+  onWikilink?: (title: string) => void
+): React.ReactNode {
   return (
     <View key={keyPrefix} className={ordered ? 'md-ol' : 'md-ul'}>
       {items.map((item, idx) => {
@@ -262,7 +276,9 @@ function renderList(items: string[], ordered: boolean, keyPrefix: string, onWiki
         return (
           <View key={`${keyPrefix}-${idx}`} className="md-li">
             <Text className="md-li-marker">{prefix}</Text>
-            <Text className="md-li-body">{renderInline(body, `${keyPrefix}-${idx}`, onWikilink)}</Text>
+            <Text className="md-li-body">
+              {renderInline(body, `${keyPrefix}-${idx}`, onWikilink)}
+            </Text>
           </View>
         );
       })}
@@ -270,7 +286,10 @@ function renderList(items: string[], ordered: boolean, keyPrefix: string, onWiki
   );
 }
 
-function renderBlocks(blocks: BlockItem[], onWikilink?: (title: string) => void): React.ReactNode[] {
+function renderBlocks(
+  blocks: BlockItem[],
+  onWikilink?: (title: string) => void
+): React.ReactNode[] {
   return blocks.map((b, idx) => {
     const key = `md-${idx}`;
     switch (b.type) {
@@ -316,7 +335,13 @@ function renderBlocks(blocks: BlockItem[], onWikilink?: (title: string) => void)
  * @param content Markdown 原文（纯文本）
  * @param onWikilink 点击 [[标题]] 链接时的回调（标题 -> 由调用方解析跳转目标笔记）
  */
-export default function Markdown({ content, onWikilink }: { content: string; onWikilink?: (title: string) => void }) {
+export default function Markdown({
+  content,
+  onWikilink,
+}: {
+  content: string;
+  onWikilink?: (title: string) => void;
+}) {
   const lines = (content ?? '').split(/\r?\n/);
   return <View className="md">{renderBlocks(groupBlocks(lines), onWikilink)}</View>;
 }

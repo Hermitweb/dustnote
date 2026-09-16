@@ -32,7 +32,17 @@ import { useModeStore } from '../../lib/mode-store';
 import { getRepo } from '../../lib/get-repo';
 import { enqueueOffline, isNetworkError } from '../../lib/offline-queue';
 import { ensureDefaultContent } from '../../lib/default-content';
-import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders, encryptString, randomBytes, wrapKey, toBase64Url, apiErrorCode, type Template } from '@dustnote/shared';
+import {
+  noteAad,
+  PRESET_TEMPLATES,
+  fillTemplatePlaceholders,
+  encryptString,
+  randomBytes,
+  wrapKey,
+  toBase64Url,
+  apiErrorCode,
+  type Template,
+} from '@dustnote/shared';
 import { randomUuid } from '../../lib/uuid';
 import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
 import { PickSheet, type PickItem } from '../../components/PickSheet';
@@ -95,7 +105,9 @@ function IndexBody() {
   const mode = useModeStore((s) => s.mode);
   const modeInitialized = useModeStore((s) => s.initialized);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [plains, setPlains] = useState<Record<string, { title: string; content: string; tags?: string[] }>>({});
+  const [plains, setPlains] = useState<
+    Record<string, { title: string; content: string; tags?: string[] }>
+  >({});
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const searchIndexRef = useRef(new SearchIndex());
@@ -385,7 +397,10 @@ function IndexBody() {
     try {
       const shareKey = randomBytes(32);
       const pt = plains[n.id] ?? { title: '', content: '' };
-      const ciphertext = await encryptString(shareKey, JSON.stringify({ title: pt.title, content: pt.content }));
+      const ciphertext = await encryptString(
+        shareKey,
+        JSON.stringify({ title: pt.title, content: pt.content })
+      );
       const wrappedShareKey = await wrapKey(mk, shareKey);
       const r = await getApi().post<{ token: string }>('/shares', {
         noteId: n.id,
@@ -399,7 +414,11 @@ function IndexBody() {
       Taro.showToast({ title: t('editor.share_link_copied'), icon: 'success' });
     } catch (err: any) {
       const msg = err?.err?.message || err?.message || t('common.unknown_error');
-      Taro.showToast({ title: t('editor.share_failed_msg', { msg }), icon: 'none', duration: 3000 });
+      Taro.showToast({
+        title: t('editor.share_failed_msg', { msg }),
+        icon: 'none',
+        duration: 3000,
+      });
     }
   };
 
@@ -499,7 +518,7 @@ function IndexBody() {
       if (!fid) return;
       const fname = folderList.find((f) => f.id === fid)!.name;
       let ok = 0;
-    let fail = 0;
+      let fail = 0;
       for (const id of ids) {
         try {
           await repo.moveNote(id, fid);
@@ -655,464 +674,478 @@ function IndexBody() {
   return (
     <>
       <View className={`page ${darkClass}`}>
-      <View className="topbar">
-        {selecting ? (
-          <>
-            <Text className="topbar-back" onClick={exitSelect}>
-              ✕
-            </Text>
-            <Text className="topbar-title" onClick={toggleAll}>
-              {hasAll
-                ? t('common.deselect_all')
-                : selCount
-                  ? t('common.select_all_n', { count: selCount })
-                  : t('common.select_all')}
-            </Text>
-            <View className="topbar-actions" />
-          </>
-        ) : (
-          <>
-            <Text className="topbar-title">{t('app.name')}</Text>
-            <View className="topbar-actions">
-              <Text
-                className="icon-btn"
-                onClick={() => Taro.navigateTo({ url: '/pages/settings/index' })}
-              >
-                ⚙️
+        <View className="topbar">
+          {selecting ? (
+            <>
+              <Text className="topbar-back" onClick={exitSelect}>
+                ✕
               </Text>
-              <Text className="icon-btn" onClick={() => lock()}>
-                🔒
+              <Text className="topbar-title" onClick={toggleAll}>
+                {hasAll
+                  ? t('common.deselect_all')
+                  : selCount
+                    ? t('common.select_all_n', { count: selCount })
+                    : t('common.select_all')}
               </Text>
-            </View>
-          </>
-        )}
-      </View>
-
-      {!selecting && (
-        <View className="search-box">
-          <FInput
-            className="search-input"
-            placeholder={t('index.search_placeholder')}
-            value={searchQuery}
-            onInput={(e) => setSearchQuery((e.detail as { value: string }).value)}
-          />
-          {searchQuery ? (
-            <Text className="search-clear" onClick={() => setSearchQuery('')}>
-              ✕
-            </Text>
-          ) : null}
+              <View className="topbar-actions" />
+            </>
+          ) : (
+            <>
+              <Text className="topbar-title">{t('app.name')}</Text>
+              <View className="topbar-actions">
+                <Text
+                  className="icon-btn"
+                  onClick={() => Taro.navigateTo({ url: '/pages/settings/index' })}
+                >
+                  ⚙️
+                </Text>
+                <Text className="icon-btn" onClick={() => lock()}>
+                  🔒
+                </Text>
+              </View>
+            </>
+          )}
         </View>
-      )}
 
-      {!selecting && viewMode === 'all' && allTags.length > 0 && (
-        <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>
-          <View className="folder-tabs-inner">
-            <Text
-              className={`folder-chip${activeTag === null ? ' folder-chip-active' : ''}`}
-              onClick={() => setActiveTag(null)}
-            >
-              {t('index.all_tags')}
-            </Text>
-            {allTags.map((tg) => (
-              <Text
-                key={tg}
-                className={`folder-chip${activeTag === tg ? ' folder-chip-active' : ''}`}
-                onClick={() => setActiveTag(activeTag === tg ? null : tg)}
-              >
-                #{tg}
+        {!selecting && (
+          <View className="search-box">
+            <FInput
+              className="search-input"
+              placeholder={t('index.search_placeholder')}
+              value={searchQuery}
+              onInput={(e) => setSearchQuery((e.detail as { value: string }).value)}
+            />
+            {searchQuery ? (
+              <Text className="search-clear" onClick={() => setSearchQuery('')}>
+                ✕
               </Text>
-            ))}
+            ) : null}
           </View>
-        </ScrollView>
-      )}
-      {!selecting && viewMode === 'all' && folders.length > 0 && (
-        <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>
-          <View className="folder-tabs-inner">
+        )}
+
+        {!selecting && viewMode === 'all' && allTags.length > 0 && (
+          <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>
+            <View className="folder-tabs-inner">
+              <Text
+                className={`folder-chip${activeTag === null ? ' folder-chip-active' : ''}`}
+                onClick={() => setActiveTag(null)}
+              >
+                {t('index.all_tags')}
+              </Text>
+              {allTags.map((tg) => (
+                <Text
+                  key={tg}
+                  className={`folder-chip${activeTag === tg ? ' folder-chip-active' : ''}`}
+                  onClick={() => setActiveTag(activeTag === tg ? null : tg)}
+                >
+                  #{tg}
+                </Text>
+              ))}
+            </View>
+          </ScrollView>
+        )}
+        {!selecting && viewMode === 'all' && folders.length > 0 && (
+          <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>
+            <View className="folder-tabs-inner">
+              <Text
+                className={`folder-chip${selectedFolderId === null ? ' folder-chip-active' : ''}`}
+                onClick={() => selectFolder(null)}
+              >
+                {t('index.tab_all')}
+              </Text>
+              {folderCrumbsOf(selectedFolderId, folders as Folder[]).map((c) => (
+                <Text
+                  key={c.id}
+                  className={`folder-chip${selectedFolderId === c.id ? ' folder-chip-active' : ''}`}
+                  onClick={() => selectFolder(c.id)}
+                >
+                  ▸ {c.name}
+                </Text>
+              ))}
+            </View>
+          </ScrollView>
+        )}
+        {!selecting &&
+          viewMode === 'all' &&
+          subFoldersOf(selectedFolderId, folders as Folder[]).length > 0 && (
+            <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>
+              <View className="folder-tabs-inner">
+                {subFoldersOf(selectedFolderId, folders as Folder[]).map((f) => (
+                  <Text key={f.id} className="folder-chip" onClick={() => selectFolder(f.id)}>
+                    📁 {f.name}
+                  </Text>
+                ))}
+              </View>
+            </ScrollView>
+          )}
+
+        {!selecting && (
+          <View className="view-tabs">
             <Text
-              className={`folder-chip${selectedFolderId === null ? ' folder-chip-active' : ''}`}
-              onClick={() => selectFolder(null)}
+              className={`view-tab${viewMode === 'all' ? ' view-tab-active' : ''}`}
+              onClick={() => {
+                setViewMode('all');
+                exitSelect();
+              }}
             >
               {t('index.tab_all')}
             </Text>
-            {folderCrumbsOf(selectedFolderId, folders as Folder[]).map((c) => (
-              <Text
-                key={c.id}
-                className={`folder-chip${selectedFolderId === c.id ? ' folder-chip-active' : ''}`}
-                onClick={() => selectFolder(c.id)}
-              >
-                ▸ {c.name}
-              </Text>
-            ))}
-          </View>
-        </ScrollView>
-      )}
-      {!selecting && viewMode === 'all' && subFoldersOf(selectedFolderId, folders as Folder[]).length > 0 && (
-        <ScrollView scrollX className="folder-tabs" enhanced showScrollbar={false}>
-          <View className="folder-tabs-inner">
-            {subFoldersOf(selectedFolderId, folders as Folder[]).map((f) => (
-              <Text key={f.id} className="folder-chip" onClick={() => selectFolder(f.id)}>
-                📁 {f.name}
-              </Text>
-            ))}
-          </View>
-        </ScrollView>
-      )}
-
-      {!selecting && (
-        <View className="view-tabs">
-          <Text
-            className={`view-tab${viewMode === 'all' ? ' view-tab-active' : ''}`}
-            onClick={() => {
-              setViewMode('all');
-              exitSelect();
-            }}
-          >
-            {t('index.tab_all')}
-          </Text>
-          <Text
-            className={`view-tab${viewMode === 'favorite' ? ' view-tab-active' : ''}`}
-            onClick={() => {
-              setViewMode('favorite');
-              exitSelect();
-            }}
-          >
-            {t('index.tab_favorite')}
-          </Text>
-          <Text
-            className={`view-tab${viewMode === 'trash' ? ' view-tab-active' : ''}`}
-            onClick={() => {
-              setViewMode('trash');
-              exitSelect();
-            }}
-          >
-            {t('index.tab_trash')}
-          </Text>
-        </View>
-      )}
-
-      <ScrollView
-        scrollY
-        className="flex-1"
-        refresherEnabled
-        refresherTriggered={loading}
-        onRefresherRefresh={() => void load()}
-      >
-        {loading && <View className="loading">{t('common.loading')}</View>}
-        {!loading && loadError && (
-          <View className="empty-state">
-            <Text className="empty-state-icon">⚠️</Text>
-            <Text className="empty-state-text">{t('common.load_failed')}</Text>
-            <Text className="empty-state-retry" onClick={() => void load()}>
-              {t('common.retry')}
-            </Text>
-          </View>
-        )}
-        {!loading && !loadError && visibleNotes.length === 0 && (
-          <View className="empty-state">
-            <Text className="empty-state-icon">
-              {viewMode === 'trash' ? '🗑️' : viewMode === 'favorite' ? '⭐' : '📝'}
-            </Text>
-            <Text className="empty-state-text">
-              {viewMode === 'trash'
-                ? t('index.empty_trash')
-                : viewMode === 'favorite'
-                  ? t('index.empty_favorite')
-                  : t('index.empty_notes')}
-            </Text>
-          </View>
-        )}
-        {visibleNotes.map((n) => {
-          const title = plains[n.id]?.title || t('common.unnamed_note');
-          const checked = selectedIds.has(n.id);
-          return (
-            <View
-              key={n.id}
-              className={`note-row${selecting ? ' select-mode' : ''}${checked ? ' note-row-checked' : ''}`}
+            <Text
+              className={`view-tab${viewMode === 'favorite' ? ' view-tab-active' : ''}`}
+              onClick={() => {
+                setViewMode('favorite');
+                exitSelect();
+              }}
             >
-              <View className="note-row-head">
-                {selecting && (
-                  <View
-                    className={`checkbox${checked ? ' checkbox-checked' : ''}`}
-                    onClick={() => toggleSelect(n.id)}
-                  >
-                    {checked && <Text className="checkbox-mark">✓</Text>}
-                  </View>
-                )}
-                <View className="note-icons">
-                  {n.isPinned ? <Text>📌</Text> : null}
-                  {n.isFavorite ? <Text>⭐</Text> : null}
-                </View>
-                <Text
-                  className="note-title"
-                  onClick={() =>
-                    selecting
-                      ? toggleSelect(n.id)
-                      : Taro.navigateTo({ url: `/pages/note/edit?id=${n.id}` })
-                  }
-                  onLongPress={() => {
-                    if (!selecting) enterSelect(n.id);
-                  }}
-                >
-                  {title}
-                </Text>
-              </View>
-              <Text className="note-meta">
-                {parseServerDate(n.serverUpdatedAt).toLocaleString('zh-CN')}
+              {t('index.tab_favorite')}
+            </Text>
+            <Text
+              className={`view-tab${viewMode === 'trash' ? ' view-tab-active' : ''}`}
+              onClick={() => {
+                setViewMode('trash');
+                exitSelect();
+              }}
+            >
+              {t('index.tab_trash')}
+            </Text>
+          </View>
+        )}
+
+        <ScrollView
+          scrollY
+          className="flex-1"
+          refresherEnabled
+          refresherTriggered={loading}
+          onRefresherRefresh={() => void load()}
+        >
+          {loading && <View className="loading">{t('common.loading')}</View>}
+          {!loading && loadError && (
+            <View className="empty-state">
+              <Text className="empty-state-icon">⚠️</Text>
+              <Text className="empty-state-text">{t('common.load_failed')}</Text>
+              <Text className="empty-state-retry" onClick={() => void load()}>
+                {t('common.retry')}
               </Text>
-              {!selecting && viewMode === 'trash' && (
-                <View className="note-actions">
+            </View>
+          )}
+          {!loading && !loadError && visibleNotes.length === 0 && (
+            <View className="empty-state">
+              <Text className="empty-state-icon">
+                {viewMode === 'trash' ? '🗑️' : viewMode === 'favorite' ? '⭐' : '📝'}
+              </Text>
+              <Text className="empty-state-text">
+                {viewMode === 'trash'
+                  ? t('index.empty_trash')
+                  : viewMode === 'favorite'
+                    ? t('index.empty_favorite')
+                    : t('index.empty_notes')}
+              </Text>
+            </View>
+          )}
+          {visibleNotes.map((n) => {
+            const title = plains[n.id]?.title || t('common.unnamed_note');
+            const checked = selectedIds.has(n.id);
+            return (
+              <View
+                key={n.id}
+                className={`note-row${selecting ? ' select-mode' : ''}${checked ? ' note-row-checked' : ''}`}
+              >
+                <View className="note-row-head">
+                  {selecting && (
+                    <View
+                      className={`checkbox${checked ? ' checkbox-checked' : ''}`}
+                      onClick={() => toggleSelect(n.id)}
+                    >
+                      {checked && <Text className="checkbox-mark">✓</Text>}
+                    </View>
+                  )}
+                  <View className="note-icons">
+                    {n.isPinned ? <Text>📌</Text> : null}
+                    {n.isFavorite ? <Text>⭐</Text> : null}
+                  </View>
                   <Text
-                    className="mint-btn mint-btn-sm mint-btn-ghost"
-                    onClick={() => restoreSingle(n)}
-                  >
-                    {t('common.restore')}
-                  </Text>
-                  <Text
-                    className="mint-btn mint-btn-sm mint-btn-danger"
-                    onClick={() => permanentDeleteSingle(n)}
-                  >
-                    {t('common.perm_delete')}
-                  </Text>
-                </View>
-              )}
-              {!selecting && viewMode !== 'trash' && (
-                <View className="note-actions">
-                  <Text
-                    className="mint-btn mint-btn-sm mint-btn-ghost"
-                    onClick={() => void pinSingle(n)}
-                  >
-                    {n.isPinned ? `📌 ${t('index.unpin')}` : `📌 ${t('index.pin')}`}
-                  </Text>
-                  <Text
-                    className="mint-btn mint-btn-sm mint-btn-ghost"
-                    onClick={async () => {
-                      try {
-                        const repo = getRepo();
-                        await repo.updateNote(n.id, { isFavorite: !n.isFavorite } as any);
-                        await load();
-                      } catch {
-                        Taro.showToast({ title: t('common.save_failed'), icon: 'none' });
-                      }
+                    className="note-title"
+                    onClick={() =>
+                      selecting
+                        ? toggleSelect(n.id)
+                        : Taro.navigateTo({ url: `/pages/note/edit?id=${n.id}` })
+                    }
+                    onLongPress={() => {
+                      if (!selecting) enterSelect(n.id);
                     }}
                   >
-                    {n.isFavorite ? t('index.unfavorite') : t('index.favorite')}
+                    {title}
                   </Text>
-                  {mode === 'online' && (
+                </View>
+                <Text className="note-meta">
+                  {parseServerDate(n.serverUpdatedAt).toLocaleString('zh-CN')}
+                </Text>
+                {!selecting && viewMode === 'trash' && (
+                  <View className="note-actions">
                     <Text
                       className="mint-btn mint-btn-sm mint-btn-ghost"
-                      onClick={() => void shareFromList(n)}
+                      onClick={() => restoreSingle(n)}
                     >
-                      🔗 {t('index.share')}
+                      {t('common.restore')}
                     </Text>
-                  )}
-                  <Text
-                    className="mint-btn mint-btn-sm mint-btn-ghost"
-                    onClick={() => {
-                      setSelecting(true);
-                      toggleSelect(n.id);
-                    }}
-                  >
-                    {t('common.select')}
+                    <Text
+                      className="mint-btn mint-btn-sm mint-btn-danger"
+                      onClick={() => permanentDeleteSingle(n)}
+                    >
+                      {t('common.perm_delete')}
+                    </Text>
+                  </View>
+                )}
+                {!selecting && viewMode !== 'trash' && (
+                  <View className="note-actions">
+                    <Text
+                      className="mint-btn mint-btn-sm mint-btn-ghost"
+                      onClick={() => void pinSingle(n)}
+                    >
+                      {n.isPinned ? `📌 ${t('index.unpin')}` : `📌 ${t('index.pin')}`}
+                    </Text>
+                    <Text
+                      className="mint-btn mint-btn-sm mint-btn-ghost"
+                      onClick={async () => {
+                        try {
+                          const repo = getRepo();
+                          await repo.updateNote(n.id, { isFavorite: !n.isFavorite } as any);
+                          await load();
+                        } catch {
+                          Taro.showToast({ title: t('common.save_failed'), icon: 'none' });
+                        }
+                      }}
+                    >
+                      {n.isFavorite ? t('index.unfavorite') : t('index.favorite')}
+                    </Text>
+                    {mode === 'online' && (
+                      <Text
+                        className="mint-btn mint-btn-sm mint-btn-ghost"
+                        onClick={() => void shareFromList(n)}
+                      >
+                        🔗 {t('index.share')}
+                      </Text>
+                    )}
+                    <Text
+                      className="mint-btn mint-btn-sm mint-btn-ghost"
+                      onClick={() => {
+                        setSelecting(true);
+                        toggleSelect(n.id);
+                      }}
+                    >
+                      {t('common.select')}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+
+        {selecting && (
+          <View className="batch-bar">
+            <Text className="batch-bar-count">
+              {t('common.selected_count', { count: selCount })}
+            </Text>
+            <View className="batch-bar-actions">
+              {viewMode !== 'trash' && (
+                <>
+                  <Text className="batch-btn" onClick={batchMove}>
+                    {t('index.batch_move')}
                   </Text>
-                </View>
+                  <Text className="batch-btn" onClick={() => batchPatch('isPinned', true)}>
+                    {t('index.batch_pin')}
+                  </Text>
+                  <Text className="batch-btn" onClick={() => batchPatch('isFavorite', true)}>
+                    {t('index.batch_favorite')}
+                  </Text>
+                </>
+              )}
+              {viewMode === 'trash' ? (
+                <>
+                  <Text className="batch-btn" onClick={batchRestore}>
+                    {t('index.batch_restore')}
+                  </Text>
+                  <Text className="batch-btn batch-btn-danger" onClick={batchPermDelete}>
+                    {t('index.batch_perm_delete')}
+                  </Text>
+                </>
+              ) : (
+                <Text className="batch-btn batch-btn-danger" onClick={batchDelete}>
+                  {t('index.batch_delete')}
+                </Text>
               )}
             </View>
-          );
-        })}
-      </ScrollView>
-
-      {selecting && (
-        <View className="batch-bar">
-          <Text className="batch-bar-count">{t('common.selected_count', { count: selCount })}</Text>
-          <View className="batch-bar-actions">
-            {viewMode !== 'trash' && (
-              <>
-                <Text className="batch-btn" onClick={batchMove}>
-                  {t('index.batch_move')}
-                </Text>
-                <Text className="batch-btn" onClick={() => batchPatch('isPinned', true)}>
-                  {t('index.batch_pin')}
-                </Text>
-                <Text className="batch-btn" onClick={() => batchPatch('isFavorite', true)}>
-                  {t('index.batch_favorite')}
-                </Text>
-              </>
-            )}
-            {viewMode === 'trash' ? (
-              <>
-                <Text className="batch-btn" onClick={batchRestore}>
-                  {t('index.batch_restore')}
-                </Text>
-                <Text className="batch-btn batch-btn-danger" onClick={batchPermDelete}>
-                  {t('index.batch_perm_delete')}
-                </Text>
-              </>
-            ) : (
-              <Text className="batch-btn batch-btn-danger" onClick={batchDelete}>
-                {t('index.batch_delete')}
-              </Text>
-            )}
           </View>
-        </View>
-      )}
+        )}
 
-      {!selecting && (
-        <View
-          className="fab-tpl"
-          onClick={async () => {
-            if (!masterKey) {
-              Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
-              return;
-            }
-            try {
-              // 选模板:预设 + 服务端自定义(联机)
-              const customItems = serverTemplates.map((tp) => ({ key: `c:${tp.id}`, label: `🗂 ${tp.name}` }));
-              const presetItems = PRESET_TEMPLATES.map((tp, i) => ({ key: `p:${i}`, label: `${tp.icon} ${tp.name}` }));
-              // F11：走统一的 openPickSheet（与选文件夹共用 resolver 槽）——
-              // 否则本 Promise 不在守卫内,被其他入口覆盖时会永久悬空
-              const pick = await openPickSheet({
-                title: t('index.pick_template'),
-                items: [...presetItems, ...customItems],
-              });
-              if (!pick) return;
-              let tplName = '';
-              let content = '';
-              if (pick.startsWith('p:')) {
-                const tpl = PRESET_TEMPLATES[Number(pick.slice(2))]!;
-                tplName = tpl.name;
-                content = fillTemplatePlaceholders(tpl.content);
-              } else {
-                const ct = serverTemplates.find((tp) => `c:${tp.id}` === pick)!;
-                tplName = ct.name;
-                const env = parseEnvelope(ct.content);
-                const pt = await decryptNote(masterKey, env);
-                content = pt.content;
+        {!selecting && (
+          <View
+            className="fab-tpl"
+            onClick={async () => {
+              if (!masterKey) {
+                Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
+                return;
               }
-              if (!tplName) return;
-              // 选目标文件夹（与 FAB 新建一致的必选逻辑）
-              let folderId: string | null = selectedFolderId;
-              const folderList = folders as Folder[];
-              if (folderId == null || !folderList.some((f) => f.id === folderId)) {
-                if (folderList.length === 0) {
-                  await ensureDefaultContent();
-                  const fresh = (await getRepo().loadAll()).folders as Folder[];
-                  if (fresh.length === 0) {
-                    Taro.showToast({ title: t('index.need_folder'), icon: 'none' });
-                    return;
-                  }
-                  folderId = fresh[0]!.id;
+              try {
+                // 选模板:预设 + 服务端自定义(联机)
+                const customItems = serverTemplates.map((tp) => ({
+                  key: `c:${tp.id}`,
+                  label: `🗂 ${tp.name}`,
+                }));
+                const presetItems = PRESET_TEMPLATES.map((tp, i) => ({
+                  key: `p:${i}`,
+                  label: `${tp.icon} ${tp.name}`,
+                }));
+                // F11：走统一的 openPickSheet（与选文件夹共用 resolver 槽）——
+                // 否则本 Promise 不在守卫内,被其他入口覆盖时会永久悬空
+                const pick = await openPickSheet({
+                  title: t('index.pick_template'),
+                  items: [...presetItems, ...customItems],
+                });
+                if (!pick) return;
+                let tplName = '';
+                let content = '';
+                if (pick.startsWith('p:')) {
+                  const tpl = PRESET_TEMPLATES[Number(pick.slice(2))]!;
+                  tplName = tpl.name;
+                  content = fillTemplatePlaceholders(tpl.content);
                 } else {
-                  folderId = await pickFolderFromList(folderList);
-                  if (!folderId) return;
+                  const ct = serverTemplates.find((tp) => `c:${tp.id}` === pick)!;
+                  tplName = ct.name;
+                  const env = parseEnvelope(ct.content);
+                  const pt = await decryptNote(masterKey, env);
+                  content = pt.content;
                 }
+                if (!tplName) return;
+                // 选目标文件夹（与 FAB 新建一致的必选逻辑）
+                let folderId: string | null = selectedFolderId;
+                const folderList = folders as Folder[];
+                if (folderId == null || !folderList.some((f) => f.id === folderId)) {
+                  if (folderList.length === 0) {
+                    await ensureDefaultContent();
+                    const fresh = (await getRepo().loadAll()).folders as Folder[];
+                    if (fresh.length === 0) {
+                      Taro.showToast({ title: t('index.need_folder'), icon: 'none' });
+                      return;
+                    }
+                    folderId = fresh[0]!.id;
+                  } else {
+                    folderId = await pickFolderFromList(folderList);
+                    if (!folderId) return;
+                  }
+                }
+                const doc: NotePlaintext = { title: tplName, content, tags: [] };
+                const noteId = randomUuid();
+                const { json: cipherJson } = await encryptNote(
+                  masterKey,
+                  doc,
+                  noteAad(noteId, useAuthStore.getState().userId ?? '')
+                );
+                const id = await getRepo().createNote({
+                  id: noteId,
+                  ciphertext: cipherJson,
+                  keyVersion: 1,
+                  isPinned: false,
+                  isFavorite: false,
+                  folderId,
+                });
+                Taro.navigateTo({ url: `/pages/note/edit?id=${id}` });
+              } catch (e: any) {
+                if (e?.errMsg?.includes?.('cancel')) return;
+                Taro.showToast({ title: t('common.create_failed'), icon: 'none' });
               }
-              const doc: NotePlaintext = { title: tplName, content, tags: [] };
+            }}
+          >
+            <Text>📄</Text>
+          </View>
+        )}
+
+        {!selecting && (
+          <View
+            className="fab"
+            onClick={async () => {
+              if (!masterKey) {
+                Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
+                return;
+              }
+              // try 外声明：catch 里的离线入队也需要 noteId/folderId
               const noteId = randomUuid();
-              const { json: cipherJson } = await encryptNote(
-                masterKey,
-                doc,
-                noteAad(noteId, useAuthStore.getState().userId ?? ''),
-              );
-              const id = await getRepo().createNote({
-                id: noteId,
-                ciphertext: cipherJson,
-                keyVersion: 1,
-                isPinned: false,
-                isFavorite: false,
-                folderId,
-              });
-              Taro.navigateTo({ url: `/pages/note/edit?id=${id}` });
-            } catch (e: any) {
-              if (e?.errMsg?.includes?.('cancel')) return;
-              Taro.showToast({ title: t('common.create_failed'), icon: 'none' });
-            }
-          }}
-        >
-          <Text>📄</Text>
-        </View>
-      )}
-
-      {!selecting && (
-        <View
-          className="fab"
-          onClick={async () => {
-            if (!masterKey) {
-              Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
-              return;
-            }
-            // try 外声明：catch 里的离线入队也需要 noteId/folderId
-            const noteId = randomUuid();
-            let folderId: string | null = selectedFolderId;
-            try {
-              // 笔记必须归属文件夹：选中文件夹直接用；否则 ActionSheet 必选
-              const folderList = folders as Folder[];
-              if (folderId == null || !folderList.some((f) => f.id === folderId)) {
-                if (folderList.length === 0) {
-                  await ensureDefaultContent();
-                  const fresh = (await getRepo().loadAll()).folders as Folder[];
-                  if (fresh.length === 0) {
-                    Taro.showToast({ title: t('index.need_folder'), icon: 'none' });
-                    return;
+              let folderId: string | null = selectedFolderId;
+              try {
+                // 笔记必须归属文件夹：选中文件夹直接用；否则 ActionSheet 必选
+                const folderList = folders as Folder[];
+                if (folderId == null || !folderList.some((f) => f.id === folderId)) {
+                  if (folderList.length === 0) {
+                    await ensureDefaultContent();
+                    const fresh = (await getRepo().loadAll()).folders as Folder[];
+                    if (fresh.length === 0) {
+                      Taro.showToast({ title: t('index.need_folder'), icon: 'none' });
+                      return;
+                    }
+                    folderId = fresh[0]!.id;
+                  } else {
+                    folderId = await pickFolderFromList(folderList);
+                    if (!folderId) return;
                   }
-                  folderId = fresh[0]!.id;
-                } else {
-                  folderId = await pickFolderFromList(folderList);
-                  if (!folderId) return;
                 }
-              }
-              const empty: NotePlaintext = { title: t('index.new_note'), content: '', tags: [] };
-              const { json: cipherJson } = await encryptNote(
-                masterKey,
-                empty,
-                noteAad(noteId, useAuthStore.getState().userId ?? ''),
-              );
-              const id = await getRepo().createNote({
-                id: noteId,
-                ciphertext: cipherJson,
-                keyVersion: 1,
-                isPinned: false,
-                isFavorite: false,
-                folderId,
-              });
-              Taro.navigateTo({ url: `/pages/note/edit?id=${id}` });
-            } catch (e: any) {
-              if (e?.errMsg?.includes?.('cancel')) return;
-              // 网络不可用：新笔记入离线队列（对齐安卓端，弱网不丢笔记）
-              if (isNetworkError(e)) {
-                try {
-                  const empty: NotePlaintext = { title: t('index.new_note'), content: '', tags: [] };
-                  const noteId = randomUuid();
-                  const { json: cipherJson } = await encryptNote(
-                    masterKey,
-                    empty,
-                    noteAad(noteId, useAuthStore.getState().userId ?? ''),
-                  );
-                  await enqueueOffline('POST', '/notes', {
-                    ciphertext: cipherJson,
-                    keyVersion: 1,
-                    isPinned: false,
-                    isFavorite: false,
-                    folderId,
-                    clientUpdatedAt: new Date().toISOString(),
-                  });
-                  Taro.showToast({ title: t('index.offline_queued'), icon: 'none' });
-                  return;
-                } catch {
-                  /* 入队失败按普通创建失败处理 */
+                const empty: NotePlaintext = { title: t('index.new_note'), content: '', tags: [] };
+                const { json: cipherJson } = await encryptNote(
+                  masterKey,
+                  empty,
+                  noteAad(noteId, useAuthStore.getState().userId ?? '')
+                );
+                const id = await getRepo().createNote({
+                  id: noteId,
+                  ciphertext: cipherJson,
+                  keyVersion: 1,
+                  isPinned: false,
+                  isFavorite: false,
+                  folderId,
+                });
+                Taro.navigateTo({ url: `/pages/note/edit?id=${id}` });
+              } catch (e: any) {
+                if (e?.errMsg?.includes?.('cancel')) return;
+                // 网络不可用：新笔记入离线队列（对齐安卓端，弱网不丢笔记）
+                if (isNetworkError(e)) {
+                  try {
+                    const empty: NotePlaintext = {
+                      title: t('index.new_note'),
+                      content: '',
+                      tags: [],
+                    };
+                    const noteId = randomUuid();
+                    const { json: cipherJson } = await encryptNote(
+                      masterKey,
+                      empty,
+                      noteAad(noteId, useAuthStore.getState().userId ?? '')
+                    );
+                    await enqueueOffline('POST', '/notes', {
+                      ciphertext: cipherJson,
+                      keyVersion: 1,
+                      isPinned: false,
+                      isFavorite: false,
+                      folderId,
+                      clientUpdatedAt: new Date().toISOString(),
+                    });
+                    Taro.showToast({ title: t('index.offline_queued'), icon: 'none' });
+                    return;
+                  } catch {
+                    /* 入队失败按普通创建失败处理 */
+                  }
                 }
+                Taro.showToast({ title: t('common.create_failed'), icon: 'none' });
               }
-              Taro.showToast({ title: t('common.create_failed'), icon: 'none' });
-            }
-          }}
-        >
-          <Text>+</Text>
-        </View>
-      )}
+            }}
+          >
+            <Text>+</Text>
+          </View>
+        )}
 
-      {/* pickFolderFromList / 模板选择的半屏弹层。此前从未挂载：setPickSheet 后
+        {/* pickFolderFromList / 模板选择的半屏弹层。此前从未挂载：setPickSheet 后
           Promise 永不 resolve，新建/模板/批量移动等依赖选文件夹的入口全部无响应 */}
-      {pickSheet && <PickSheet {...pickSheet} />}
-    </View>
+        {pickSheet && <PickSheet {...pickSheet} />}
+      </View>
     </>
   );
 }

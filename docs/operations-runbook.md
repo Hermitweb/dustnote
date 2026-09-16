@@ -28,18 +28,18 @@
 
 ### 3.1 实际可用的监控手段
 
-| 手段 | 说明 | 判定方法 |
-| ---- | ---- | ---- |
-| Docker healthcheck | compose 内置,30s 间隔 curl /api/v1/health | `docker inspect -f '{{.State.Health.Status}}' dustnote` |
-| 应用健康端点 | 返回 version,不泄露业务规模 | `curl http://<host>:<port>/api/v1/health` |
-| Sentry 错误聚合 | **仅在 .env 配置 SENTRY_DSN 时启用**,未配置为 no-op | Sentry 控制台 |
-| 结构化日志 | pino JSON 日志(含 40+ 字段脱敏),`docker compose logs` | grep error/warn |
-| 备份监控 | backup-scheduler 失败会 logger.error + captureException(配置 DSN 时) | `docker compose logs dustnote \| grep 备份失败` |
+| 手段               | 说明                                                                 | 判定方法                                                |
+| ------------------ | -------------------------------------------------------------------- | ------------------------------------------------------- |
+| Docker healthcheck | compose 内置,30s 间隔 curl /api/v1/health                            | `docker inspect -f '{{.State.Health.Status}}' dustnote` |
+| 应用健康端点       | 返回 version,不泄露业务规模                                          | `curl http://<host>:<port>/api/v1/health`               |
+| Sentry 错误聚合    | **仅在 .env 配置 SENTRY_DSN 时启用**,未配置为 no-op                  | Sentry 控制台                                           |
+| 结构化日志         | pino JSON 日志(含 40+ 字段脱敏),`docker compose logs`                | grep error/warn                                         |
+| 备份监控           | backup-scheduler 失败会 logger.error + captureException(配置 DSN 时) | `docker compose logs dustnote \| grep 备份失败`         |
 
 ### 3.2 待建设的告警能力（规划）
 
 - 外部拨测(UptimeRobot 类)对 /api/v1/health 的可用率监控
-- 备份文件按日存在性巡检(脚本核对 backups 卷内当日 db-*.sqlite)
+- 备份文件按日存在性巡检(脚本核对 backups 卷内当日 db-\*.sqlite)
 - Prometheus /metrics 端点(当前未实现)
 
 ## 4. 常见故障处理

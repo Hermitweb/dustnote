@@ -82,7 +82,7 @@ export function NoteEditScreen() {
     () => () => {
       void stopVoice();
     },
-    [],
+    []
   );
   const [voiceText, setVoiceText] = useState('');
   const [note, setNote] = useState<NoteRow | null>(null);
@@ -270,7 +270,9 @@ export function NoteEditScreen() {
     } catch (err) {
       // 409 自愈:服务端 409 响应带 current(密文+版本)。基线未变(仅版本落后)
       // 则用最新版本重放本地内容;真冲突才提示(修 1.5s 循环弹窗+版本卡死)
-      const apiErr = err as { err?: { status?: number; data?: { current?: { version?: number; ciphertext?: string } } } };
+      const apiErr = err as {
+        err?: { status?: number; data?: { current?: { version?: number; ciphertext?: string } } };
+      };
       const curRow = apiErr?.err?.data?.current;
       const curCipher = curRow?.ciphertext;
       const curVersion = curRow?.version;
@@ -584,7 +586,10 @@ export function NoteEditScreen() {
                     Authorization: `Bearer ${token}`,
                     ...ch,
                   },
-                  body: JSON.stringify({ version: note?.version ?? 1, clientUpdatedAt: new Date().toISOString() }),
+                  body: JSON.stringify({
+                    version: note?.version ?? 1,
+                    clientUpdatedAt: new Date().toISOString(),
+                  }),
                 }
               );
               if (!restoreR.ok) throw new Error(`HTTP ${restoreR.status}`);
@@ -853,26 +858,61 @@ export function NoteEditScreen() {
 
       {/* ========== 模板选择 Modal ========== */}
       {/* 「…」更多菜单(低频操作:移动/历史/分享/删除) */}
-      <Modal visible={showMoreMenu} transparent animationType="fade" onRequestClose={() => setShowMoreMenu(false)}>
-        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setShowMoreMenu(false)}>
+      <Modal
+        visible={showMoreMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMoreMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMoreMenu(false)}
+        >
           <TouchableOpacity activeOpacity={1} style={[styles.menuSheet, { paddingVertical: 8 }]}>
             {!decryptFailed && (
-              <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMoreMenu(false); void onLoadFolders(); }}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMoreMenu(false);
+                  void onLoadFolders();
+                }}
+              >
                 <Text style={styles.menuItemText}>📁 {t('editor.move')}</Text>
               </TouchableOpacity>
             )}
             {mode === 'online' && !decryptFailed && (
-              <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMoreMenu(false); void onLoadHistory(); }}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMoreMenu(false);
+                  void onLoadHistory();
+                }}
+              >
                 <Text style={styles.menuItemText}>🕘 {t('editor.history')}</Text>
               </TouchableOpacity>
             )}
             {mode === 'online' && !decryptFailed && (
-              <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMoreMenu(false); void onShare(); }}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMoreMenu(false);
+                  void onShare();
+                }}
+              >
                 <Text style={styles.menuItemText}>🔗 {t('editor.share')}</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMoreMenu(false); onDelete(); }}>
-              <Text style={[styles.menuItemText, { color: colors.danger }]}>🗑 {t('editor.delete')}</Text>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowMoreMenu(false);
+                onDelete();
+              }}
+            >
+              <Text style={[styles.menuItemText, { color: colors.danger }]}>
+                🗑 {t('editor.delete')}
+              </Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -1028,7 +1068,14 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderBottomColor: c.border,
       borderBottomWidth: 1,
     },
-    toolbarBtn: { fontSize: 20, padding: 12, minHeight: 44, minWidth: 44, textAlign: 'center', color: c.fg },
+    toolbarBtn: {
+      fontSize: 20,
+      padding: 12,
+      minHeight: 44,
+      minWidth: 44,
+      textAlign: 'center',
+      color: c.fg,
+    },
     toolbarStatus: { fontSize: 12, color: c.muted },
     scroll: { flex: 1 },
     backlinksCard: {

@@ -11,17 +11,21 @@ import { View, Text, ScrollView } from '@tarojs/components';
 import { FInput } from '../../components/FInput';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
-import { useAuthStore, APP_VERSION, getApi, decryptNote, parseEnvelope, encryptNote } from '../../state/auth';
+import {
+  useAuthStore,
+  APP_VERSION,
+  getApi,
+  decryptNote,
+  parseEnvelope,
+  encryptNote,
+} from '../../state/auth';
 import { noteAad } from '@dustnote/shared';
 import { randomUuid } from '../../lib/uuid';
 import { useThemeStore, type Theme } from '../../state/theme';
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo, resetRepoCache } from '../../lib/get-repo';
 import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
-import {
-  savePendingMigration,
-  loadPendingMigration,
-} from '../../lib/migration';
+import { savePendingMigration, loadPendingMigration } from '../../lib/migration';
 import { clearStandaloneMasterKey } from '../../lib/standalone-session';
 import { setup2fa, enable2fa, disable2fa, get2faStatus } from '../../lib/totp-client';
 import { t, setLanguage, useLanguage, type Language } from '../../lib/i18n';
@@ -53,7 +57,8 @@ const showEditableModal = (opts: {
   });
 
 /** 服务端设备列表项（GET /devices 返回结构） */
-interface DeviceItem {  id: string;
+interface DeviceItem {
+  id: string;
   name: string;
   platform: string;
   isCurrent: boolean;
@@ -326,7 +331,11 @@ export default function Settings() {
     try {
       const env = parseEnvelope(ciphertext);
       const aadUserId = useAuthStore.getState().userId ?? '';
-      const pt = await decryptNote(mk, env, env.payload.a === 1 ? noteAad(id, aadUserId) : undefined);
+      const pt = await decryptNote(
+        mk,
+        env,
+        env.payload.a === 1 ? noteAad(id, aadUserId) : undefined
+      );
       putCachedPlain(id, ciphertext, pt.title, pt.content, pt.tags);
       return pt;
     } catch {
@@ -357,7 +366,12 @@ export default function Settings() {
           ? '\n\n> 标签：' + pt.tags.map((tg) => '#' + tg).join(' ')
           : '';
         parts.push(
-          '# ' + (pt.title || t('common.unnamed_note')) + '\n\n' + pt.content + tagsLine + '\n\n---\n'
+          '# ' +
+            (pt.title || t('common.unnamed_note')) +
+            '\n\n' +
+            pt.content +
+            tagsLine +
+            '\n\n---\n'
         );
         ok++;
       }
@@ -527,16 +541,16 @@ export default function Settings() {
           Taro.getFileSystemManager().readFile({
             filePath: path,
             encoding: 'utf-8',
-          success: async (readRes) => {
-            try {
-              await routeImportContent(String(readRes.data));
-            } catch (err) {
-              const msg =
-                (err as { err?: { message?: string } })?.err?.message ||
-                t('settings.parse_failed');
-              Taro.showToast({ title: msg, icon: 'none', duration: 3000 });
-            }
-          },
+            success: async (readRes) => {
+              try {
+                await routeImportContent(String(readRes.data));
+              } catch (err) {
+                const msg =
+                  (err as { err?: { message?: string } })?.err?.message ||
+                  t('settings.parse_failed');
+                Taro.showToast({ title: msg, icon: 'none', duration: 3000 });
+              }
+            },
             fail: () => Taro.showToast({ title: t('settings.parse_failed'), icon: 'none' }),
           });
         },
@@ -660,7 +674,7 @@ export default function Settings() {
 
   const onAutolock = async () => {
     const labels = AUTOLOCK_OPTIONS.map((m) =>
-      m === '0' ? t('settings.autolock_off') : t('settings.autolock_minutes', { n: m }),
+      m === '0' ? t('settings.autolock_off') : t('settings.autolock_minutes', { n: m })
     );
     try {
       const r = await Taro.showActionSheet({ itemList: labels });
@@ -724,321 +738,326 @@ export default function Settings() {
     <>
       <ThemeVars />
       <View className={`page ${darkClass}`}>
-      <View className="topbar topbar-center">
-        <Text className="topbar-title">{t('settings.title')}</Text>
-      </View>
+        <View className="topbar topbar-center">
+          <Text className="topbar-title">{t('settings.title')}</Text>
+        </View>
 
-      <View className="settings-group">
-        <View className="settings-row" onClick={onThemeChange}>
-          <View className="settings-row-label">
-            <Text>{t('settings.theme')}</Text>
-          </View>
-          <Text className="settings-row-value">{t(THEME_KEY[theme])} ›</Text>
-        </View>
-        <View className="settings-row" onClick={onLanguageChange}>
-          <View className="settings-row-label">
-            <Text>{t('settings.language')}</Text>
-          </View>
-          <Text className="settings-row-value">{lang === 'en' ? 'English' : '简体中文'} ›</Text>
-        </View>
-        <View className="settings-row">
-          <View className="settings-row-label">
-            <Text>{t('settings.current_mode')}</Text>
-          </View>
-          <Text className="settings-row-value">
-            {mode === 'standalone' ? t('settings.mode_standalone') : t('settings.mode_online')} ›
-          </Text>
-        </View>
-        <View className="settings-row" onClick={onSwitchMode}>
-          <View className="settings-row-label">
-            <Text>{t('settings.switch_mode')}</Text>
-          </View>
-          <Text className="settings-row-value">›</Text>
-        </View>
-        {mode === 'online' && (
-          <View className="settings-row" onClick={onChangeServerUrl}>
+        <View className="settings-group">
+          <View className="settings-row" onClick={onThemeChange}>
             <View className="settings-row-label">
-              <Text>{t('settings.server_url_title')}</Text>
+              <Text>{t('settings.theme')}</Text>
+            </View>
+            <Text className="settings-row-value">{t(THEME_KEY[theme])} ›</Text>
+          </View>
+          <View className="settings-row" onClick={onLanguageChange}>
+            <View className="settings-row-label">
+              <Text>{t('settings.language')}</Text>
+            </View>
+            <Text className="settings-row-value">{lang === 'en' ? 'English' : '简体中文'} ›</Text>
+          </View>
+          <View className="settings-row">
+            <View className="settings-row-label">
+              <Text>{t('settings.current_mode')}</Text>
             </View>
             <Text className="settings-row-value">
-              {serverUrl ? serverUrl.replace(/^https?:\/\//i, '') : '›'}
+              {mode === 'standalone' ? t('settings.mode_standalone') : t('settings.mode_online')} ›
             </Text>
           </View>
-        )}
-        <View className="settings-row" onClick={onAutolock}>
-          <View className="settings-row-label">
-            <Text>{t('settings.autolock_title')}</Text>
-          </View>
-          <Text className="settings-row-value">
-            {(() => {
-              const m = String(Taro.getStorageSync('dustnote_autolock_min') || '0');
-              return m === '0' ? t('settings.autolock_off') : t('settings.autolock_minutes', { n: m });
-            })()} ›
-          </Text>
-        </View>
-        {process.env.TARO_ENV === 'weapp' && bioSupported && (
-          <View className="settings-row" onClick={onToggleBiometric}>
+          <View className="settings-row" onClick={onSwitchMode}>
             <View className="settings-row-label">
-              <Text>{t('settings.biometric_row')}</Text>
-            </View>
-            <Text className="settings-row-value">{bioOn ? '✓' : '›'}</Text>
-          </View>
-        )}
-        {mode === 'online' && (
-          <View className="settings-row" onClick={onTotp}>
-            <View className="settings-row-label">
-              <Text>{t('settings.totp_title')}</Text>
+              <Text>{t('settings.switch_mode')}</Text>
             </View>
             <Text className="settings-row-value">›</Text>
           </View>
-        )}
-        <View className="settings-row" onClick={onExport}>
-          <View className="settings-row-label">
-            <Text>{t('settings.export_backup')}</Text>
+          {mode === 'online' && (
+            <View className="settings-row" onClick={onChangeServerUrl}>
+              <View className="settings-row-label">
+                <Text>{t('settings.server_url_title')}</Text>
+              </View>
+              <Text className="settings-row-value">
+                {serverUrl ? serverUrl.replace(/^https?:\/\//i, '') : '›'}
+              </Text>
+            </View>
+          )}
+          <View className="settings-row" onClick={onAutolock}>
+            <View className="settings-row-label">
+              <Text>{t('settings.autolock_title')}</Text>
+            </View>
+            <Text className="settings-row-value">
+              {(() => {
+                const m = String(Taro.getStorageSync('dustnote_autolock_min') || '0');
+                return m === '0'
+                  ? t('settings.autolock_off')
+                  : t('settings.autolock_minutes', { n: m });
+              })()}{' '}
+              ›
+            </Text>
           </View>
-          <Text className="settings-row-value">›</Text>
-        </View>
-        <View className="settings-row" onClick={onExportMarkdown}>
-          <View className="settings-row-label">
-            <Text>{t('settings.export_md_row')}</Text>
+          {process.env.TARO_ENV === 'weapp' && bioSupported && (
+            <View className="settings-row" onClick={onToggleBiometric}>
+              <View className="settings-row-label">
+                <Text>{t('settings.biometric_row')}</Text>
+              </View>
+              <Text className="settings-row-value">{bioOn ? '✓' : '›'}</Text>
+            </View>
+          )}
+          {mode === 'online' && (
+            <View className="settings-row" onClick={onTotp}>
+              <View className="settings-row-label">
+                <Text>{t('settings.totp_title')}</Text>
+              </View>
+              <Text className="settings-row-value">›</Text>
+            </View>
+          )}
+          <View className="settings-row" onClick={onExport}>
+            <View className="settings-row-label">
+              <Text>{t('settings.export_backup')}</Text>
+            </View>
+            <Text className="settings-row-value">›</Text>
           </View>
-          <Text className="settings-row-value">›</Text>
-        </View>
-        <View className="settings-row" onClick={onPasteImport}>
-          <View className="settings-row-label">
-            <Text>{t('settings.paste_import_row')}</Text>
+          <View className="settings-row" onClick={onExportMarkdown}>
+            <View className="settings-row-label">
+              <Text>{t('settings.export_md_row')}</Text>
+            </View>
+            <Text className="settings-row-value">›</Text>
           </View>
-          <Text className="settings-row-value">›</Text>
-        </View>
-        <View className="settings-row" onClick={onImport}>
-          <View className="settings-row-label">
-            <Text>{t('settings.import_backup')}</Text>
+          <View className="settings-row" onClick={onPasteImport}>
+            <View className="settings-row-label">
+              <Text>{t('settings.paste_import_row')}</Text>
+            </View>
+            <Text className="settings-row-value">›</Text>
           </View>
-          <Text className="settings-row-value">›</Text>
-        </View>
-        {mode === 'online' && (
+          <View className="settings-row" onClick={onImport}>
+            <View className="settings-row-label">
+              <Text>{t('settings.import_backup')}</Text>
+            </View>
+            <Text className="settings-row-value">›</Text>
+          </View>
+          {mode === 'online' && (
+            <View
+              className="settings-row"
+              onClick={() => {
+                Taro.navigateTo({ url: '/pages/share-mgr/index' }).catch(() => {});
+              }}
+            >
+              <View className="settings-row-label">
+                <Text>{t('settings.share_mgmt')}</Text>
+              </View>
+              <Text className="settings-row-value">›</Text>
+            </View>
+          )}
+          {mode === 'online' && (
+            <View className="settings-row" onClick={() => void openDevices()}>
+              <View className="settings-row-label">
+                <Text>{t('settings.device_mgmt')}</Text>
+              </View>
+              <Text className="settings-row-value">›</Text>
+            </View>
+          )}
           <View
             className="settings-row"
             onClick={() => {
-              Taro.navigateTo({ url: '/pages/share-mgr/index' }).catch(() => {});
+              Taro.navigateTo({ url: '/pages/folders/index' }).catch(() => {});
             }}
           >
             <View className="settings-row-label">
-              <Text>{t('settings.share_mgmt')}</Text>
+              <Text>{t('settings.folder_mgmt')}</Text>
             </View>
             <Text className="settings-row-value">›</Text>
           </View>
-        )}
-        {mode === 'online' && (
-          <View className="settings-row" onClick={() => void openDevices()}>
+          <View
+            className="settings-row"
+            onClick={() => {
+              Taro.navigateTo({ url: '/pages/trash/index' }).catch(() => {});
+            }}
+          >
             <View className="settings-row-label">
-              <Text>{t('settings.device_mgmt')}</Text>
+              <Text>{t('settings.trash')}</Text>
             </View>
             <Text className="settings-row-value">›</Text>
           </View>
-        )}
-        <View
-          className="settings-row"
-          onClick={() => {
-            Taro.navigateTo({ url: '/pages/folders/index' }).catch(() => {});
-          }}
-        >
-          <View className="settings-row-label">
-            <Text>{t('settings.folder_mgmt')}</Text>
-          </View>
-          <Text className="settings-row-value">›</Text>
-        </View>
-        <View
-          className="settings-row"
-          onClick={() => {
-            Taro.navigateTo({ url: '/pages/trash/index' }).catch(() => {});
-          }}
-        >
-          <View className="settings-row-label">
-            <Text>{t('settings.trash')}</Text>
-          </View>
-          <Text className="settings-row-value">›</Text>
-        </View>
-        <View className="settings-row" onClick={onPwdOpen}>
-          <View className="settings-row-label">
-            <Text>{t('settings.change_pwd')}</Text>
-          </View>
-          <Text className="settings-row-value">›</Text>
-        </View>
-        <View className="settings-row" onClick={onClearCache}>
-          <View className="settings-row-label">
-            <Text>{t('settings.clear_cache')}</Text>
-          </View>
-          <Text className="settings-row-value">›</Text>
-        </View>
-        {mode === 'online' && (
-          <View className="settings-row" onClick={() => void onDeleteAccount()}>
+          <View className="settings-row" onClick={onPwdOpen}>
             <View className="settings-row-label">
-              <Text className="text-danger">{t('settings.delete_account')}</Text>
+              <Text>{t('settings.change_pwd')}</Text>
             </View>
             <Text className="settings-row-value">›</Text>
           </View>
-        )}
-        <View
-          className="settings-row"
-          onClick={() => {
-            lock();
-            Taro.reLaunch({ url: '/pages/index/index' });
-          }}
-        >
-          <View className="settings-row-label">
-            <Text className="text-danger">{t('settings.lock')}</Text>
+          <View className="settings-row" onClick={onClearCache}>
+            <View className="settings-row-label">
+              <Text>{t('settings.clear_cache')}</Text>
+            </View>
+            <Text className="settings-row-value">›</Text>
           </View>
-          <Text className="settings-row-value">›</Text>
+          {mode === 'online' && (
+            <View className="settings-row" onClick={() => void onDeleteAccount()}>
+              <View className="settings-row-label">
+                <Text className="text-danger">{t('settings.delete_account')}</Text>
+              </View>
+              <Text className="settings-row-value">›</Text>
+            </View>
+          )}
+          <View
+            className="settings-row"
+            onClick={() => {
+              lock();
+              Taro.reLaunch({ url: '/pages/index/index' });
+            }}
+          >
+            <View className="settings-row-label">
+              <Text className="text-danger">{t('settings.lock')}</Text>
+            </View>
+            <Text className="settings-row-value">›</Text>
+          </View>
         </View>
-      </View>
 
-      <View className="settings-group">
-        <View className="settings-row" onClick={onCopyGithub}>
-          <View className="settings-row-label">
-            <Text>🐙 GitHub</Text>
+        <View className="settings-group">
+          <View className="settings-row" onClick={onCopyGithub}>
+            <View className="settings-row-label">
+              <Text>🐙 GitHub</Text>
+            </View>
+            <Text className="settings-row-value">Hermitweb/dustnote ›</Text>
           </View>
-          <Text className="settings-row-value">Hermitweb/dustnote ›</Text>
-        </View>
-        <View
-          className="settings-row"
-          onClick={() => {
-            Taro.showModal({
-              title: t('settings.license_title'),
-              content: t('settings.license_content'),
-              showCancel: false,
-              confirmText: t('common.ok'),
-            });
-          }}
-        >
-          <View className="settings-row-label">
-            <Text>{t('settings.license')}</Text>
-          </View>
-          <Text className="settings-row-value">MIT ›</Text>
-        </View>
-        <View
-          className="settings-row"
-          onClick={() => {
-            // 体验版/开发版没有版本管理,getUpdateManager 不生效——明确反馈而非无响应
-            if (typeof Taro.getUpdateManager !== 'function') {
-              Taro.showToast({ title: t('settings.update_unavailable'), icon: 'none' });
-              return;
-            }
-            const um = Taro.getUpdateManager();
-            um.onUpdateReady(() => {
+          <View
+            className="settings-row"
+            onClick={() => {
               Taro.showModal({
-                title: t('settings.update_ready_title'),
-                content: t('settings.update_ready_content'),
-                success: (r) => {
-                  if (r.confirm) um.applyUpdate();
-                },
+                title: t('settings.license_title'),
+                content: t('settings.license_content'),
+                showCancel: false,
+                confirmText: t('common.ok'),
               });
-            });
-            um.onUpdateFailed(() => {
-              Taro.showToast({ title: t('settings.update_failed'), icon: 'none' });
-            });
-            // Taro 类型未跟上的基础库方法:主动触发一次检查
-            (um as unknown as { checkUpdate?: () => void }).checkUpdate?.();
-            Taro.showToast({ title: t('settings.update_checking'), icon: 'none' });
-          }}
-        >
-          <View className="settings-row-label">
-            <Text>{t('settings.check_update')}</Text>
+            }}
+          >
+            <View className="settings-row-label">
+              <Text>{t('settings.license')}</Text>
+            </View>
+            <Text className="settings-row-value">MIT ›</Text>
           </View>
-          <Text className="settings-row-value">v{APP_VERSION} ›</Text>
+          <View
+            className="settings-row"
+            onClick={() => {
+              // 体验版/开发版没有版本管理,getUpdateManager 不生效——明确反馈而非无响应
+              if (typeof Taro.getUpdateManager !== 'function') {
+                Taro.showToast({ title: t('settings.update_unavailable'), icon: 'none' });
+                return;
+              }
+              const um = Taro.getUpdateManager();
+              um.onUpdateReady(() => {
+                Taro.showModal({
+                  title: t('settings.update_ready_title'),
+                  content: t('settings.update_ready_content'),
+                  success: (r) => {
+                    if (r.confirm) um.applyUpdate();
+                  },
+                });
+              });
+              um.onUpdateFailed(() => {
+                Taro.showToast({ title: t('settings.update_failed'), icon: 'none' });
+              });
+              // Taro 类型未跟上的基础库方法:主动触发一次检查
+              (um as unknown as { checkUpdate?: () => void }).checkUpdate?.();
+              Taro.showToast({ title: t('settings.update_checking'), icon: 'none' });
+            }}
+          >
+            <View className="settings-row-label">
+              <Text>{t('settings.check_update')}</Text>
+            </View>
+            <Text className="settings-row-value">v{APP_VERSION} ›</Text>
+          </View>
         </View>
-      </View>
 
-      <View className="footer">
-        <Text className="footer-text">{t('settings.footer_title', { version: APP_VERSION })}</Text>
-        <Text className="footer-text">{t('settings.footer_e2e')}</Text>
-        <Text className="footer-text">MIT License · {GITHUB_URL.replace('https://', '')}</Text>
-      </View>
-      {pwdOpen && (
-        <View className="modal-mask" onClick={() => !changing && setPwdOpen(false)}>
-          <View className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <Text className="modal-title">{t('settings.pwd_title')}</Text>
-            <FInput
-              className="mint-input"
-              password
-              placeholder={t('settings.pwd_current_placeholder')}
-              value={oldPwd}
-              onInput={(e) => setOldPwd((e.detail as { value: string }).value)}
-            />
-            <FInput
-              className="mint-input"
-              password
-              placeholder={t('settings.pwd_new_placeholder')}
-              value={newPwd}
-              onInput={(e) => setNewPwd((e.detail as { value: string }).value)}
-            />
-            <FInput
-              className="mint-input"
-              password
-              placeholder={t('settings.pwd_confirm_placeholder')}
-              value={confirmPwd}
-              onInput={(e) => setConfirmPwd((e.detail as { value: string }).value)}
-            />
-            <View className="row gap-m">
-              <View
-                className="mint-btn mint-btn-ghost flex-1"
-                onClick={() => !changing && setPwdOpen(false)}
-              >
-                {t('common.cancel')}
-              </View>
-              <View
-                className="mint-btn flex-1"
-                style={{ opacity: changing ? 0.5 : 1 }}
-                onClick={onPwdSubmit}
-              >
-                {changing ? t('settings.changing') : t('settings.confirm_change')}
+        <View className="footer">
+          <Text className="footer-text">
+            {t('settings.footer_title', { version: APP_VERSION })}
+          </Text>
+          <Text className="footer-text">{t('settings.footer_e2e')}</Text>
+          <Text className="footer-text">MIT License · {GITHUB_URL.replace('https://', '')}</Text>
+        </View>
+        {pwdOpen && (
+          <View className="modal-mask" onClick={() => !changing && setPwdOpen(false)}>
+            <View className="modal-card" onClick={(e) => e.stopPropagation()}>
+              <Text className="modal-title">{t('settings.pwd_title')}</Text>
+              <FInput
+                className="mint-input"
+                password
+                placeholder={t('settings.pwd_current_placeholder')}
+                value={oldPwd}
+                onInput={(e) => setOldPwd((e.detail as { value: string }).value)}
+              />
+              <FInput
+                className="mint-input"
+                password
+                placeholder={t('settings.pwd_new_placeholder')}
+                value={newPwd}
+                onInput={(e) => setNewPwd((e.detail as { value: string }).value)}
+              />
+              <FInput
+                className="mint-input"
+                password
+                placeholder={t('settings.pwd_confirm_placeholder')}
+                value={confirmPwd}
+                onInput={(e) => setConfirmPwd((e.detail as { value: string }).value)}
+              />
+              <View className="row gap-m">
+                <View
+                  className="mint-btn mint-btn-ghost flex-1"
+                  onClick={() => !changing && setPwdOpen(false)}
+                >
+                  {t('common.cancel')}
+                </View>
+                <View
+                  className="mint-btn flex-1"
+                  style={{ opacity: changing ? 0.5 : 1 }}
+                  onClick={onPwdSubmit}
+                >
+                  {changing ? t('settings.changing') : t('settings.confirm_change')}
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      )}
-      {devicesOpen && (
-        <View className="modal-mask" onClick={() => setDevicesOpen(false)}>
-          <View className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <Text className="modal-title">{t('settings.devices_title')}</Text>
-            {devicesLoading ? (
-              <Text className="modal-text">{t('common.loading')}</Text>
-            ) : devices.length === 0 ? (
-              <Text className="modal-text">{t('settings.no_devices')}</Text>
-            ) : (
-              <ScrollView scrollY style={{ maxHeight: '500rpx' }}>
-                {devices.map((d) => (
-                  <View key={d.id} className="device-item">
-                    <View className="device-item-info">
-                      <Text className="device-item-name">
-                        {d.name}
-                        {d.isCurrent ? t('settings.current_tag') : ''}
-                      </Text>
-                      <Text className="device-item-meta">
-                        {d.platform} · {parseServerDate(d.lastActiveAt).toLocaleString()}
-                      </Text>
+        )}
+        {devicesOpen && (
+          <View className="modal-mask" onClick={() => setDevicesOpen(false)}>
+            <View className="modal-card" onClick={(e) => e.stopPropagation()}>
+              <Text className="modal-title">{t('settings.devices_title')}</Text>
+              {devicesLoading ? (
+                <Text className="modal-text">{t('common.loading')}</Text>
+              ) : devices.length === 0 ? (
+                <Text className="modal-text">{t('settings.no_devices')}</Text>
+              ) : (
+                <ScrollView scrollY style={{ maxHeight: '500rpx' }}>
+                  {devices.map((d) => (
+                    <View key={d.id} className="device-item">
+                      <View className="device-item-info">
+                        <Text className="device-item-name">
+                          {d.name}
+                          {d.isCurrent ? t('settings.current_tag') : ''}
+                        </Text>
+                        <Text className="device-item-meta">
+                          {d.platform} · {parseServerDate(d.lastActiveAt).toLocaleString()}
+                        </Text>
+                      </View>
+                      {!d.isCurrent && (
+                        <Text className="device-item-kick" onClick={() => void kickDevice(d)}>
+                          {t('settings.kick')}
+                        </Text>
+                      )}
                     </View>
-                    {!d.isCurrent && (
-                      <Text className="device-item-kick" onClick={() => void kickDevice(d)}>
-                        {t('settings.kick')}
-                      </Text>
-                    )}
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-            <View className="row gap-m">
-              <View
-                className="mint-btn mint-btn-ghost flex-1"
-                onClick={() => setDevicesOpen(false)}
-              >
-                {t('common.close')}
+                  ))}
+                </ScrollView>
+              )}
+              <View className="row gap-m">
+                <View
+                  className="mint-btn mint-btn-ghost flex-1"
+                  onClick={() => setDevicesOpen(false)}
+                >
+                  {t('common.close')}
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      )}
-    </View>
+        )}
+      </View>
     </>
   );
 }

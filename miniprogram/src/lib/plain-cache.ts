@@ -37,7 +37,7 @@ export function putCachedPlain(
   ciphertext: string,
   title: string,
   content: string,
-  tags?: string[],
+  tags?: string[]
 ): void {
   if (cache.has(id)) cache.delete(id);
   cache.set(id, { ciphertext, title, content, tags });

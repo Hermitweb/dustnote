@@ -66,7 +66,9 @@ export interface MigrationAttemptGate {
  * 开启一轮迁移尝试：自增轮次并判定是否已放弃自动重试。
  * 纯函数，不改动入参。
  */
-export function openMigrationAttempt(slot: Pick<MigrationSlot, 'attempts' | 'failedIds'>): MigrationAttemptGate {
+export function openMigrationAttempt(
+  slot: Pick<MigrationSlot, 'attempts' | 'failedIds'>
+): MigrationAttemptGate {
   const attempts = (slot.attempts ?? 0) + 1;
   return {
     attempts,
@@ -96,7 +98,7 @@ export async function runFolderImport(
 ): Promise<void> {
   for (const folder of folders) {
     if (folderMap.has(folder.id)) continue;
-    const parentId = folder.parentId ? folderMap.get(folder.parentId) ?? null : null;
+    const parentId = folder.parentId ? (folderMap.get(folder.parentId) ?? null) : null;
     try {
       const newId = await createFolder({
         name: folder.name,
@@ -218,7 +220,7 @@ export async function runNoteImport(opts: NoteImportOptions): Promise<NoteImport
         keyVersion: 1,
         isPinned: note.isPinned,
         isFavorite: note.isFavorite,
-        folderId: note.folderId ? folderMap.get(note.folderId) ?? null : null,
+        folderId: note.folderId ? (folderMap.get(note.folderId) ?? null) : null,
       });
       imported++;
       doneIds.add(note.id);

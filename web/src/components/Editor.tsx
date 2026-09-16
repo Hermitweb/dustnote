@@ -15,8 +15,12 @@ import { wikilinkExtension, extractWikilinks, buildBacklinkIndex } from '../lib/
 import { filterSlashCommands, resolveSlashCommand, type SlashCommand } from '../lib/slash-commands';
 import { storeImage } from '../lib/image-store';
 import { toast } from '../lib/toast';
-const NoteHistoryDialog = lazy(() => import('./NoteHistoryDialog').then((m) => ({ default: m.NoteHistoryDialog })));
-const WysiwygEditor = lazy(() => import('./WysiwygEditor').then((m) => ({ default: m.WysiwygEditor })));
+const NoteHistoryDialog = lazy(() =>
+  import('./NoteHistoryDialog').then((m) => ({ default: m.NoteHistoryDialog }))
+);
+const WysiwygEditor = lazy(() =>
+  import('./WysiwygEditor').then((m) => ({ default: m.WysiwygEditor }))
+);
 
 // 注册 wikilink extension（[[笔记标题]] 语法）
 marked.use({ extensions: [wikilinkExtension] });
@@ -668,8 +672,18 @@ export function Editor() {
       {/* 内容 */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {mode === 'wysiwyg' ? (
-          <Suspense fallback={<div className="flex flex-1 items-center justify-center text-surface-muted">{t('common.loading')}</div>}>
-            <WysiwygEditor content={content} onChange={setContent} placeholder={t('editor.md_placeholder')} />
+          <Suspense
+            fallback={
+              <div className="flex flex-1 items-center justify-center text-surface-muted">
+                {t('common.loading')}
+              </div>
+            }
+          >
+            <WysiwygEditor
+              content={content}
+              onChange={setContent}
+              placeholder={t('editor.md_placeholder')}
+            />
           </Suspense>
         ) : (
           <>
@@ -695,10 +709,20 @@ export function Editor() {
                   }}
                   onKeyDown={(e) => {
                     if (!showSlash) return;
-                    if (e.key === 'ArrowDown') { e.preventDefault(); setSlashIndex((i) => Math.min(i + 1, slashCommands.length - 1)); }
-                    else if (e.key === 'ArrowUp') { e.preventDefault(); setSlashIndex((i) => Math.max(i - 1, 0)); }
-                    else if (e.key === 'Enter' || e.key === 'Tab') { if (slashCommands.length > 0) { e.preventDefault(); insertSlashCommand(slashCommands[slashIndex]!); } }
-                    else if (e.key === 'Escape') { setShowSlash(false); }
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setSlashIndex((i) => Math.min(i + 1, slashCommands.length - 1));
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setSlashIndex((i) => Math.max(i - 1, 0));
+                    } else if (e.key === 'Enter' || e.key === 'Tab') {
+                      if (slashCommands.length > 0) {
+                        e.preventDefault();
+                        insertSlashCommand(slashCommands[slashIndex]!);
+                      }
+                    } else if (e.key === 'Escape') {
+                      setShowSlash(false);
+                    }
                   }}
                   onDrop={onDrop}
                   onPaste={onPaste}
@@ -709,12 +733,20 @@ export function Editor() {
                 {showSlash && slashCommands.length > 0 && (
                   <div className="absolute bottom-4 left-6 z-50 max-h-60 w-64 overflow-y-auto rounded-xl border border-surface-border bg-surface-card py-1 shadow-xl">
                     {slashCommands.map((cmd, i) => (
-                      <button key={cmd.id} onClick={() => insertSlashCommand(cmd)} onMouseEnter={() => setSlashIndex(i)}
-                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${i === slashIndex ? 'bg-mint-100 text-mint-800 dark:bg-mint-900/30 dark:text-mint-300' : 'text-surface-fg hover:bg-surface-bg'}`}>
+                      <button
+                        key={cmd.id}
+                        onClick={() => insertSlashCommand(cmd)}
+                        onMouseEnter={() => setSlashIndex(i)}
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${i === slashIndex ? 'bg-mint-100 text-mint-800 dark:bg-mint-900/30 dark:text-mint-300' : 'text-surface-fg hover:bg-surface-bg'}`}
+                      >
                         <span className="text-base">{cmd.icon}</span>
                         <div className="flex-1 truncate">
-                          <div className="font-medium">{i18n.language === 'en' ? cmd.labelEn : cmd.label}</div>
-                          <div className="text-xs text-surface-muted">{i18n.language === 'en' ? cmd.descriptionEn : cmd.description}</div>
+                          <div className="font-medium">
+                            {i18n.language === 'en' ? cmd.labelEn : cmd.label}
+                          </div>
+                          <div className="text-xs text-surface-muted">
+                            {i18n.language === 'en' ? cmd.descriptionEn : cmd.description}
+                          </div>
                         </div>
                       </button>
                     ))}
@@ -723,19 +755,32 @@ export function Editor() {
               </div>
             )}
             {(mode === 'preview' || mode === 'split') && (
-              <div className="min-h-0 flex-1 overflow-y-auto p-6" onClick={(e) => {
-                const target = (e.target as HTMLElement).closest('.wikilink');
-                if (target) {
-                  const title = target.getAttribute('data-note-title');
-                  if (title) {
-                    const entry = Array.from(notesPlain.entries()).find(([, p]) => p.title === title);
-                    if (entry) selectNote(entry[0]);
-                    else toast.info(t('editor.wikilink_not_found', { title }));
+              <div
+                className="min-h-0 flex-1 overflow-y-auto p-6"
+                onClick={(e) => {
+                  const target = (e.target as HTMLElement).closest('.wikilink');
+                  if (target) {
+                    const title = target.getAttribute('data-note-title');
+                    if (title) {
+                      const entry = Array.from(notesPlain.entries()).find(
+                        ([, p]) => p.title === title
+                      );
+                      if (entry) selectNote(entry[0]);
+                      else toast.info(t('editor.wikilink_not_found', { title }));
+                    }
                   }
-                }
-              }}>
-                <div className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(marked.parse(previewSource || content || `*${t('editor.empty_content')}*`) as string) }} />
+                }}
+              >
+                <div
+                  className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeHtml(
+                      marked.parse(
+                        previewSource || content || `*${t('editor.empty_content')}*`
+                      ) as string
+                    ),
+                  }}
+                />
                 {backlinks.length > 0 && (
                   <div className="mt-6 border-t border-surface-border pt-4">
                     <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-muted">
@@ -743,8 +788,11 @@ export function Editor() {
                     </h3>
                     <div className="space-y-1">
                       {backlinks.map((bl) => (
-                        <button key={bl.sourceId} onClick={() => selectNote(bl.sourceId)}
-                          className="block w-full truncate rounded px-2 py-1 text-left text-sm text-mint-600 hover:bg-surface-bg dark:text-mint-400">
+                        <button
+                          key={bl.sourceId}
+                          onClick={() => selectNote(bl.sourceId)}
+                          className="block w-full truncate rounded px-2 py-1 text-left text-sm text-mint-600 hover:bg-surface-bg dark:text-mint-400"
+                        >
                           📄 {bl.sourceTitle}
                         </button>
                       ))}

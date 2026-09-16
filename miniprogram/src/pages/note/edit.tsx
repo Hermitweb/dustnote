@@ -16,7 +16,15 @@ import { FInput, FTextarea } from '../../components/FInput';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { startVoice, stopVoice } from '../../lib/voice';
-import { encryptString, randomBytes, toBase64Url, wrapKey, noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders } from '@dustnote/shared';
+import {
+  encryptString,
+  randomBytes,
+  toBase64Url,
+  wrapKey,
+  noteAad,
+  PRESET_TEMPLATES,
+  fillTemplatePlaceholders,
+} from '@dustnote/shared';
 import { PickSheet } from '../../components/PickSheet';
 import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
@@ -150,7 +158,10 @@ export default function NoteEdit() {
                 oEnv,
                 oEnv.payload.a === 1 ? noteAad(other.id, aadUserId) : undefined
               );
-              if (oPt.content.includes(`[[${pt.title}]]`) || oPt.content.includes(`[[${pt.title}|`)) {
+              if (
+                oPt.content.includes(`[[${pt.title}]]`) ||
+                oPt.content.includes(`[[${pt.title}|`)
+              ) {
                 bl.push({ id: other.id, title: oPt.title });
               }
             } catch {
@@ -180,8 +191,13 @@ export default function NoteEdit() {
     const ok = startVoice({
       onPartial: (text) => setVoiceText(text),
       onFinal: (text) => {
-        if (text) setContent((c) => (c ? `${c}
-${text}` : text));
+        if (text)
+          setContent((c) =>
+            c
+              ? `${c}
+${text}`
+              : text
+          );
         setVoiceText('');
       },
       onError: (msg) => Taro.showToast({ title: msg, icon: 'none', duration: 3000 }),
@@ -196,20 +212,26 @@ ${text}` : text));
   /** 编辑标签:showModal editable 输入,逗号/空格分隔 */
   const onEditTags = () => {
     if (!noteRef.current) return;
-    (Taro.showModal as unknown as (o: Record<string, unknown>) => Promise<{
-      confirm: boolean;
-      content?: string;
-    }>)({
+    (
+      Taro.showModal as unknown as (o: Record<string, unknown>) => Promise<{
+        confirm: boolean;
+        content?: string;
+      }>
+    )({
       title: t('editor.edit_tags'),
       content: tags.join(','),
       editable: true,
       placeholderText: t('editor.tags_placeholder'),
     }).then((r) => {
       if (!r.confirm) return;
-      const next = Array.from(new Set((r.content ?? '')
-        .split(/[,，、\s]+/)
-        .map((x) => x.trim())
-        .filter(Boolean))).slice(0, 20);
+      const next = Array.from(
+        new Set(
+          (r.content ?? '')
+            .split(/[,，、\s]+/)
+            .map((x) => x.trim())
+            .filter(Boolean)
+        )
+      ).slice(0, 20);
       setTags(next);
       // 直接用最新值保存(setTags 后闭包仍是旧值)
       void (async () => {
@@ -217,7 +239,11 @@ ${text}` : text));
           const cur = noteRef.current;
           if (!cur || !masterKey) return;
           const a = noteAad(cur.id, useAuthStore.getState().userId ?? '');
-          const { json: cipherJson } = await encryptNote(masterKey, { title, content, tags: next }, a);
+          const { json: cipherJson } = await encryptNote(
+            masterKey,
+            { title, content, tags: next },
+            a
+          );
           const newVersion = await getRepo().updateNote(cur.id, {
             ciphertext: cipherJson,
             keyVersion: 1,
@@ -261,15 +287,21 @@ ${text}` : text));
       await doSaveAsTemplate();
     } catch (err: any) {
       const msg = err?.err?.message || err?.message || t('common.unknown_error');
-      Taro.showToast({ title: t('editor.share_failed_msg', { msg }), icon: 'none', duration: 3000 });
+      Taro.showToast({
+        title: t('editor.share_failed_msg', { msg }),
+        icon: 'none',
+        duration: 3000,
+      });
     }
   };
 
   const doSaveAsTemplate = async () => {
-    const r = (Taro.showModal as unknown as (o: Record<string, unknown>) => Promise<{
-      confirm: boolean;
-      content?: string;
-    }>)({
+    const r = (
+      Taro.showModal as unknown as (o: Record<string, unknown>) => Promise<{
+        confirm: boolean;
+        content?: string;
+      }>
+    )({
       title: t('editor.save_as_template'),
       content: title.slice(0, 60),
       editable: true,
@@ -330,7 +362,7 @@ ${text}` : text));
             const serverPt = await decryptNote(
               masterKey,
               env,
-              env.payload.a === 1 ? aad : undefined,
+              env.payload.a === 1 ? aad : undefined
             );
             const base = basePlainRef.current;
             const serverUnchanged =
@@ -398,7 +430,11 @@ ${text}` : text));
       } else {
         const msg = err?.err?.message || err?.message || t('common.unknown_error');
         console.error('[save]', err);
-        Taro.showToast({ title: t('editor.save_failed_msg', { msg }), icon: 'none', duration: 3000 });
+        Taro.showToast({
+          title: t('editor.save_failed_msg', { msg }),
+          icon: 'none',
+          duration: 3000,
+        });
         setSaveStatus('error');
       }
     }
@@ -466,7 +502,10 @@ ${text}` : text));
     try {
       const newVersion = await getRepo().updateNote(cur.id, { isFavorite: next });
       setNote((p) => (p ? { ...p, version: newVersion } : p));
-      Taro.showToast({ title: next ? t('editor.favorited') : t('editor.unfavorited'), icon: 'none' });
+      Taro.showToast({
+        title: next ? t('editor.favorited') : t('editor.unfavorited'),
+        icon: 'none',
+      });
     } catch {
       setNote({ ...cur, isFavorite: !next });
       Taro.showToast({ title: t('common.operation_failed'), icon: 'none' });
@@ -559,7 +598,11 @@ ${text}` : text));
       Taro.showToast({ title: t('editor.share_link_copied'), icon: 'success' });
     } catch (err: any) {
       const msg = err?.err?.message || err?.message || t('common.unknown_error');
-      Taro.showToast({ title: t('editor.share_failed_msg', { msg }), icon: 'none', duration: 3000 });
+      Taro.showToast({
+        title: t('editor.share_failed_msg', { msg }),
+        icon: 'none',
+        duration: 3000,
+      });
     } finally {
       setSharing(false);
     }
@@ -761,223 +804,281 @@ ${text}` : text));
   const darkClass = useThemeDarkClass();
   return (
     <>
-    <ThemeVars />
+      <ThemeVars />
       <View className={`page ${darkClass}`}>
-      <View className="topbar">
-        {/* 返回用原生导航栏左上角箭头（useUnload 会冲刷未保存修改）；此处只留保存状态 */}
-        <Text className="save-indicator">{statusText}</Text>
-        <View className="topbar-actions">
-          <Text
-            className={`mint-btn mint-btn-sm mint-btn-ghost${preview ? ' icon-btn-active' : ''}`}
-            onClick={() => setPreview((v) => !v)}
-          >
-            {preview ? t('editor.edit') : t('editor.preview')}
-          </Text>
-          <Text className="icon-btn" onClick={toggleVoice}>
-            {listening ? voiceText ? `🎙${voiceText.slice(-6)}` : '🎙' : '🎤'}
-          </Text>
-          <Text className="mint-btn mint-btn-sm" onClick={onManualSave}>
-            {t('editor.save')}
-          </Text>
-          <Text className="icon-btn" onClick={() => setMenuOpen(true)}>
-            ⋯
-          </Text>
+        <View className="topbar">
+          {/* 返回用原生导航栏左上角箭头（useUnload 会冲刷未保存修改）；此处只留保存状态 */}
+          <Text className="save-indicator">{statusText}</Text>
+          <View className="topbar-actions">
+            <Text
+              className={`mint-btn mint-btn-sm mint-btn-ghost${preview ? ' icon-btn-active' : ''}`}
+              onClick={() => setPreview((v) => !v)}
+            >
+              {preview ? t('editor.edit') : t('editor.preview')}
+            </Text>
+            <Text className="icon-btn" onClick={toggleVoice}>
+              {listening ? (voiceText ? `🎙${voiceText.slice(-6)}` : '🎙') : '🎤'}
+            </Text>
+            <Text className="mint-btn mint-btn-sm" onClick={onManualSave}>
+              {t('editor.save')}
+            </Text>
+            <Text className="icon-btn" onClick={() => setMenuOpen(true)}>
+              ⋯
+            </Text>
+          </View>
         </View>
-      </View>
 
-      <View className="editor-body">
-        <FInput
-          className="mint-input-title"
-          value={title}
-          onInput={(e) => setTitle((e.detail as { value: string }).value)}
-          placeholder={t('editor.title_placeholder')}
-        />
+        <View className="editor-body">
+          <FInput
+            className="mint-input-title"
+            value={title}
+            onInput={(e) => setTitle((e.detail as { value: string }).value)}
+            placeholder={t('editor.title_placeholder')}
+          />
 
-        {preview ? (
-          <ScrollView scrollY className="flex-1">
-            <View className="md-preview">
-              <Markdown content={content} onWikilink={(target) => void onWikilink(target)} />
-            </View>
-            {backlinks.length > 0 && (
-              <View className="backlinks-card">
-                <Text className="backlinks-title">
-                  {t('editor.backlinks_count', { count: backlinks.length })}
-                </Text>
-                {backlinks.map((bl) => (
-                  <Text key={bl.id} className="backlink-item" onClick={() => onBacklinkTap(bl.id)}>
-                    📄 {bl.title}
+          {preview ? (
+            <ScrollView scrollY className="flex-1">
+              <View className="md-preview">
+                <Markdown content={content} onWikilink={(target) => void onWikilink(target)} />
+              </View>
+              {backlinks.length > 0 && (
+                <View className="backlinks-card">
+                  <Text className="backlinks-title">
+                    {t('editor.backlinks_count', { count: backlinks.length })}
+                  </Text>
+                  {backlinks.map((bl) => (
+                    <Text
+                      key={bl.id}
+                      className="backlink-item"
+                      onClick={() => onBacklinkTap(bl.id)}
+                    >
+                      📄 {bl.title}
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+          ) : (
+            <>
+              <FTextarea
+                className="mint-textarea flex-1"
+                value={content}
+                onInput={(e) => {
+                  const val = (e.detail as { value: string }).value;
+                  setContent(val);
+                  // 斜杠命令检测
+                  const lastNewline = val.lastIndexOf('\n');
+                  const currentLine = val.slice(lastNewline + 1);
+                  if (currentLine.startsWith('/') && !currentLine.includes(' ')) {
+                    setShowSlash(true);
+                    setSlashQuery(currentLine.slice(1));
+                  } else {
+                    setShowSlash(false);
+                  }
+                }}
+                placeholder={t('editor.content_placeholder')}
+                autoHeight
+              />
+              {/* 斜杠命令菜单 */}
+              {showSlash && slashCommands.length > 0 && (
+                <View className="slash-menu">
+                  {slashCommands.map((cmd) => (
+                    <View
+                      key={cmd.id}
+                      className="slash-item"
+                      onClick={() => {
+                        const resolved = resolveSlashCommand(cmd.insert);
+                        const lastNewline = content.lastIndexOf('\n');
+                        const before = content.slice(0, lastNewline + 1);
+                        setContent(before + resolved);
+                        setShowSlash(false);
+                      }}
+                    >
+                      <Text className="slash-icon">{cmd.icon}</Text>
+                      <Text className="slash-label">{cmd.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+        </View>
+        {shareOpen && (
+          <View className="modal-mask" onClick={() => !sharing && setShareOpen(false)}>
+            <View className="modal-card" onClick={(e) => e.stopPropagation()}>
+              <Text className="modal-title">{t('editor.share_title')}</Text>
+              <FInput
+                className="mint-input"
+                password
+                placeholder={t('editor.share_pwd_placeholder')}
+                value={sharePwd}
+                onInput={(e) => setSharePwd((e.detail as { value: string }).value)}
+              />
+              <Text className="hint">{t('editor.expiry')}</Text>
+              <View className="row gap-s mt-s mb-m">
+                {SHARE_EXPIRY_OPTIONS.map((opt) => (
+                  <Text
+                    key={opt.key}
+                    className={`expiry-chip${shareExpiry === opt.key ? ' expiry-chip-active' : ''}`}
+                    onClick={() => setShareExpiry(opt.key)}
+                  >
+                    {t(opt.labelKey)}
                   </Text>
                 ))}
               </View>
-            )}
-          </ScrollView>
-        ) : (
-          <>
-          <FTextarea
-            className="mint-textarea flex-1"
-            value={content}
-            onInput={(e) => {
-              const val = (e.detail as { value: string }).value;
-              setContent(val);
-              // 斜杠命令检测
-              const lastNewline = val.lastIndexOf('\n');
-              const currentLine = val.slice(lastNewline + 1);
-              if (currentLine.startsWith('/') && !currentLine.includes(' ')) {
-                setShowSlash(true);
-                setSlashQuery(currentLine.slice(1));
-              } else {
-                setShowSlash(false);
-              }
-            }}
-            placeholder={t('editor.content_placeholder')}
-            autoHeight
-          />
-          {/* 斜杠命令菜单 */}
-          {showSlash && slashCommands.length > 0 && (
-            <View className="slash-menu">
-              {slashCommands.map((cmd) => (
+              <View className="row gap-m">
                 <View
-                  key={cmd.id}
-                  className="slash-item"
-                  onClick={() => {
-                    const resolved = resolveSlashCommand(cmd.insert);
-                    const lastNewline = content.lastIndexOf('\n');
-                    const before = content.slice(0, lastNewline + 1);
-                    setContent(before + resolved);
-                    setShowSlash(false);
-                  }}
+                  className="mint-btn mint-btn-ghost flex-1"
+                  onClick={() => !sharing && setShareOpen(false)}
                 >
-                  <Text className="slash-icon">{cmd.icon}</Text>
-                  <Text className="slash-label">{cmd.label}</Text>
+                  {t('common.cancel')}
                 </View>
-              ))}
-            </View>
-          )}
-          </>
-        )}
-      </View>
-      {shareOpen && (
-        <View className="modal-mask" onClick={() => !sharing && setShareOpen(false)}>
-          <View className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <Text className="modal-title">{t('editor.share_title')}</Text>
-            <FInput
-              className="mint-input"
-              password
-              placeholder={t('editor.share_pwd_placeholder')}
-              value={sharePwd}
-              onInput={(e) => setSharePwd((e.detail as { value: string }).value)}
-            />
-            <Text className="hint">{t('editor.expiry')}</Text>
-            <View className="row gap-s mt-s mb-m">
-              {SHARE_EXPIRY_OPTIONS.map((opt) => (
-                <Text
-                  key={opt.key}
-                  className={`expiry-chip${shareExpiry === opt.key ? ' expiry-chip-active' : ''}`}
-                  onClick={() => setShareExpiry(opt.key)}
+                <View
+                  className="mint-btn flex-1"
+                  style={{ opacity: sharing ? 0.5 : 1 }}
+                  onClick={doCreateShare}
                 >
-                  {t(opt.labelKey)}
-                </Text>
-              ))}
-            </View>
-            <View className="row gap-m">
-              <View
-                className="mint-btn mint-btn-ghost flex-1"
-                onClick={() => !sharing && setShareOpen(false)}
-              >
-                {t('common.cancel')}
-              </View>
-              <View
-                className="mint-btn flex-1"
-                style={{ opacity: sharing ? 0.5 : 1 }}
-                onClick={doCreateShare}
-              >
-                {sharing ? t('editor.generating') : t('editor.generate_link')}
+                  {sharing ? t('editor.generating') : t('editor.generate_link')}
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      )}
-      {historyOpen && (
-        <View className="modal-mask" onClick={() => setHistoryOpen(false)}>
-          <View className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <Text className="modal-title">{t('editor.history_title')}</Text>
-            {historyLoading ? (
-              <Text className="modal-text">{t('common.loading')}</Text>
-            ) : versions.length === 0 ? (
-              <Text className="modal-text">{t('editor.no_history')}</Text>
-            ) : (
-              <ScrollView scrollY style={{ maxHeight: '600rpx' }}>
-                {versions.map((v) => (
-                  <View key={v.id} className="device-item">
-                    <View
-                      className="device-item-info"
-                      onClick={() => void onPreviewVersion(v)}
-                    >
-                      <Text className="device-item-name">v{v.version}</Text>
-                      <Text className="device-item-meta">
-                        {parseServerDate(v.createdAt).toLocaleString()}
+        )}
+        {historyOpen && (
+          <View className="modal-mask" onClick={() => setHistoryOpen(false)}>
+            <View className="modal-card" onClick={(e) => e.stopPropagation()}>
+              <Text className="modal-title">{t('editor.history_title')}</Text>
+              {historyLoading ? (
+                <Text className="modal-text">{t('common.loading')}</Text>
+              ) : versions.length === 0 ? (
+                <Text className="modal-text">{t('editor.no_history')}</Text>
+              ) : (
+                <ScrollView scrollY style={{ maxHeight: '600rpx' }}>
+                  {versions.map((v) => (
+                    <View key={v.id} className="device-item">
+                      <View className="device-item-info" onClick={() => void onPreviewVersion(v)}>
+                        <Text className="device-item-name">v{v.version}</Text>
+                        <Text className="device-item-meta">
+                          {parseServerDate(v.createdAt).toLocaleString()}
+                        </Text>
+                      </View>
+                      <Text
+                        className="mint-btn mint-btn-sm"
+                        onClick={() => void onRestoreVersion(v)}
+                      >
+                        {t('common.restore')}
                       </Text>
                     </View>
-                    <Text className="mint-btn mint-btn-sm" onClick={() => void onRestoreVersion(v)}>
-                      {t('common.restore')}
-                    </Text>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-            <View className="row gap-m">
-              <View
-                className="mint-btn mint-btn-ghost flex-1"
-                onClick={() => setHistoryOpen(false)}
-              >
-                {t('common.close')}
+                  ))}
+                </ScrollView>
+              )}
+              <View className="row gap-m">
+                <View
+                  className="mint-btn mint-btn-ghost flex-1"
+                  onClick={() => setHistoryOpen(false)}
+                >
+                  {t('common.close')}
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {menuOpen && (
-        <View className="menu-overlay" onClick={() => setMenuOpen(false)}>
-          <View className="menu-sheet" onClick={(e) => e.stopPropagation()}>
-            <Text className="menu-item" onClick={() => { setMenuOpen(false); void togglePinned(); }}>
-              📌 {note?.isPinned ? t('editor.unpin') : t('editor.pin')}
-            </Text>
-            <Text className="menu-item" onClick={() => { setMenuOpen(false); void toggleFavorite(); }}>
-              {note?.isFavorite ? `⭐ ${t('editor.unfavorite')}` : `⭐ ${t('editor.favorite')}`}
-            </Text>
-            <Text className="menu-item" onClick={() => { setMenuOpen(false); onEditTags(); }}>
-              🏷 {t('editor.edit_tags')}
-            </Text>
-            <Text className="menu-item" onClick={() => { setMenuOpen(false); void onMoveFolder(); }}>
-              📁 {t('editor.move')}
-            </Text>
-            <Text className="menu-item" onClick={() => { setMenuOpen(false); openApplyTemplate(); }}>
-              📋 {t('editor.apply_template')}
-            </Text>
-            {mode === 'online' && (
-              <Text className="menu-item" onClick={() => { setMenuOpen(false); void openHistory(); }}>
-                🕘 {t('editor.history')}
+        {menuOpen && (
+          <View className="menu-overlay" onClick={() => setMenuOpen(false)}>
+            <View className="menu-sheet" onClick={(e) => e.stopPropagation()}>
+              <Text
+                className="menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void togglePinned();
+                }}
+              >
+                📌 {note?.isPinned ? t('editor.unpin') : t('editor.pin')}
               </Text>
-            )}
-            {mode === 'online' && (
-              <Text className="menu-item" onClick={() => { setMenuOpen(false); openShare(); }}>
-                🔗 {t('editor.share')}
+              <Text
+                className="menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void toggleFavorite();
+                }}
+              >
+                {note?.isFavorite ? `⭐ ${t('editor.unfavorite')}` : `⭐ ${t('editor.favorite')}`}
               </Text>
-            )}
-            {mode === 'online' && (
-              <Text className="menu-item" onClick={() => { setMenuOpen(false); void saveAsTemplate(); }}>
-                🗂 {t('editor.save_as_template')}
+              <Text
+                className="menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onEditTags();
+                }}
+              >
+                🏷 {t('editor.edit_tags')}
               </Text>
-            )}
-            <Text className="menu-item menu-item-danger" onClick={() => { setMenuOpen(false); onDelete(); }}>
-              🗑️ {t('common.delete')}
-            </Text>
+              <Text
+                className="menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void onMoveFolder();
+                }}
+              >
+                📁 {t('editor.move')}
+              </Text>
+              <Text
+                className="menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  openApplyTemplate();
+                }}
+              >
+                📋 {t('editor.apply_template')}
+              </Text>
+              {mode === 'online' && (
+                <Text
+                  className="menu-item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void openHistory();
+                  }}
+                >
+                  🕘 {t('editor.history')}
+                </Text>
+              )}
+              {mode === 'online' && (
+                <Text
+                  className="menu-item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    openShare();
+                  }}
+                >
+                  🔗 {t('editor.share')}
+                </Text>
+              )}
+              {mode === 'online' && (
+                <Text
+                  className="menu-item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void saveAsTemplate();
+                  }}
+                >
+                  🗂 {t('editor.save_as_template')}
+                </Text>
+              )}
+              <Text
+                className="menu-item menu-item-danger"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDelete();
+                }}
+              >
+                🗑️ {t('common.delete')}
+              </Text>
+            </View>
           </View>
-        </View>
-      )}
-      {tplPick && <PickSheet {...tplPick} />}
-    </View>
+        )}
+        {tplPick && <PickSheet {...tplPick} />}
+      </View>
     </>
   );
 }

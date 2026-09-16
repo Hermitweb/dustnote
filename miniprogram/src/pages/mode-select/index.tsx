@@ -216,89 +216,93 @@ export default function ModeSelect() {
 
   return (
     <>
-    <ThemeVars />
-    <View className={`hero ${darkClass}`}>
-      <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
-      <Text className="hero-title">{t('mode_select.welcome')}</Text>
-      <Text className="hero-subtitle">{t('mode_select.subtitle')}</Text>
+      <ThemeVars />
+      <View className={`hero ${darkClass}`}>
+        <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
+        <Text className="hero-title">{t('mode_select.welcome')}</Text>
+        <Text className="hero-subtitle">{t('mode_select.subtitle')}</Text>
 
-      {/* 单机模式入口 */}
-      <View
-        className="mint-card mt-l"
-        style={{
-          width: '100%',
-          maxWidth: '560rpx',
-          opacity: cryptoAvailable ? 1 : 0.5,
-        }}
-        onClick={chooseStandalone}
-      >
-        <View className="row" style={{ justifyContent: 'center' }}>
-          <Text className="text-lg fw-bold">{t('mode_select.standalone')}</Text>
-          <Text className="text-mint" style={{ marginLeft: '8rpx' }}>{cryptoAvailable ? '›' : '🔒'}</Text>
-        </View>
-        <Text className="hint mt-s" style={{ display: 'block' }}>
-          {t('mode_select.standalone_desc')}
-        </Text>
-        <Text className="text-xs text-muted mt-s" style={{ display: 'block' }}>
-          {t('mode_select.standalone_suit')}
-        </Text>
-        {!cryptoAvailable && (
-          <Text className="text-xs error-text mt-s" style={{ display: 'block' }}>
-            {t('mode_select.webcrypto_warn')}
-          </Text>
-        )}
-      </View>
-
-      {/* 联机模式入口 */}
-      <View className="mint-card mt-m" style={{ width: '100%', maxWidth: '560rpx' }}>
-        <View className="row" style={{ justifyContent: 'center' }}>
-          <Text className="text-lg fw-bold">{t('mode_select.online')}</Text>
-          <Text className="text-mint" style={{ marginLeft: '8rpx' }}>›</Text>
-        </View>
-        <Text className="hint mt-s" style={{ display: 'block' }}>
-          {t('mode_select.online_desc')}
-        </Text>
-        <FInput
-          className="mint-input mt-m"
-          placeholder={'http://192.168.x.x:3210'}
-          value={serverUrl}
-          onInput={(e) => {
-            const v = (e.detail as { value: string }).value;
-            setServerUrlInput(v);
-            return v;
+        {/* 单机模式入口 */}
+        <View
+          className="mint-card mt-l"
+          style={{
+            width: '100%',
+            maxWidth: '560rpx',
+            opacity: cryptoAvailable ? 1 : 0.5,
           }}
-        />
-        {testResult && (
-          <Text
-            className={`text-xs mt-s ${testResult.ok ? 'success-text' : 'error-text'}`}
-            style={{ display: 'block' }}
-          >
-            {testResult.ok ? '✓ ' : '✗ '}
-            {testResult.message}
-          </Text>
-        )}
-        <View className="row mt-m" style={{ justifyContent: 'center', gap: '16rpx' }}>
-          <View
-            className="mint-btn mint-btn-outline mint-btn-sm"
-            style={{ opacity: testing ? 0.5 : 1, minWidth: '200rpx', boxSizing: 'border-box' }}
-            onClick={onTestConnection}
-          >
-            {testing ? t('mode_select.testing') : t('mode_select.test_connection')}
+          onClick={chooseStandalone}
+        >
+          <View className="row" style={{ justifyContent: 'center' }}>
+            <Text className="text-lg fw-bold">{t('mode_select.standalone')}</Text>
+            <Text className="text-mint" style={{ marginLeft: '8rpx' }}>
+              {cryptoAvailable ? '›' : '🔒'}
+            </Text>
           </View>
-          <View
-            className="mint-btn mint-btn-sm"
-            style={{ opacity: testing ? 0.5 : 1, minWidth: '200rpx', boxSizing: 'border-box' }}
-            onClick={chooseOnline}
-          >
-            {t('mode_select.enter_online')}
+          <Text className="hint mt-s" style={{ display: 'block' }}>
+            {t('mode_select.standalone_desc')}
+          </Text>
+          <Text className="text-xs text-muted mt-s" style={{ display: 'block' }}>
+            {t('mode_select.standalone_suit')}
+          </Text>
+          {!cryptoAvailable && (
+            <Text className="text-xs error-text mt-s" style={{ display: 'block' }}>
+              {t('mode_select.webcrypto_warn')}
+            </Text>
+          )}
+        </View>
+
+        {/* 联机模式入口 */}
+        <View className="mint-card mt-m" style={{ width: '100%', maxWidth: '560rpx' }}>
+          <View className="row" style={{ justifyContent: 'center' }}>
+            <Text className="text-lg fw-bold">{t('mode_select.online')}</Text>
+            <Text className="text-mint" style={{ marginLeft: '8rpx' }}>
+              ›
+            </Text>
+          </View>
+          <Text className="hint mt-s" style={{ display: 'block' }}>
+            {t('mode_select.online_desc')}
+          </Text>
+          <FInput
+            className="mint-input mt-m"
+            placeholder={'http://192.168.x.x:3210'}
+            value={serverUrl}
+            onInput={(e) => {
+              const v = (e.detail as { value: string }).value;
+              setServerUrlInput(v);
+              return v;
+            }}
+          />
+          {testResult && (
+            <Text
+              className={`text-xs mt-s ${testResult.ok ? 'success-text' : 'error-text'}`}
+              style={{ display: 'block' }}
+            >
+              {testResult.ok ? '✓ ' : '✗ '}
+              {testResult.message}
+            </Text>
+          )}
+          <View className="row mt-m" style={{ justifyContent: 'center', gap: '16rpx' }}>
+            <View
+              className="mint-btn mint-btn-outline mint-btn-sm"
+              style={{ opacity: testing ? 0.5 : 1, minWidth: '200rpx', boxSizing: 'border-box' }}
+              onClick={onTestConnection}
+            >
+              {testing ? t('mode_select.testing') : t('mode_select.test_connection')}
+            </View>
+            <View
+              className="mint-btn mint-btn-sm"
+              style={{ opacity: testing ? 0.5 : 1, minWidth: '200rpx', boxSizing: 'border-box' }}
+              onClick={chooseOnline}
+            >
+              {t('mode_select.enter_online')}
+            </View>
           </View>
         </View>
-      </View>
 
-      <Text className="text-xs text-muted mt-l" style={{ display: 'block', maxWidth: '560rpx' }}>
-        {t('mode_select.tip')}
-      </Text>
-    </View>
+        <Text className="text-xs text-muted mt-l" style={{ display: 'block', maxWidth: '560rpx' }}>
+          {t('mode_select.tip')}
+        </Text>
+      </View>
     </>
   );
 }

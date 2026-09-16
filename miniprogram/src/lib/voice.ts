@@ -27,9 +27,11 @@ let manager: WechatSIManager | null = null;
 
 function getManager(): WechatSIManager {
   if (manager) return manager;
-  const requirePlugin = (globalThis as {
-    requirePlugin?: (name: string) => { getRecordRecognitionManager: () => WechatSIManager };
-  }).requirePlugin;
+  const requirePlugin = (
+    globalThis as {
+      requirePlugin?: (name: string) => { getRecordRecognitionManager: () => WechatSIManager };
+    }
+  ).requirePlugin;
   if (typeof requirePlugin !== 'function') {
     throw new Error('运行环境不支持语音插件');
   }

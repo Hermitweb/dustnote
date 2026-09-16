@@ -23,9 +23,7 @@ export function PickSheet(props: {
   return (
     <View className="menu-overlay" onClick={props.onClose}>
       <View className="menu-sheet" onClick={(e) => e.stopPropagation()}>
-        {props.title && (
-          <Text className="menu-title">{props.title}</Text>
-        )}
+        {props.title && <Text className="menu-title">{props.title}</Text>}
         <ScrollView scrollY className="menu-scroll" enhanced showScrollbar={false}>
           {props.items.map((it) => (
             <Text

@@ -3,9 +3,7 @@
  */
 
 import type { StateCreator } from 'zustand';
-import {
-  ApiException,
-} from '@dustnote/shared';
+import { ApiException } from '@dustnote/shared';
 import {
   encryptNote,
   decryptNote,
@@ -16,12 +14,7 @@ import {
 } from '@dustnote/client-core';
 import type { StoreState } from '../store';
 import type { PendingConflict, NoteRow, NotePlaintext } from '../store-types';
-import {
-  flushingRef,
-  replayOp,
-  api,
-  cacheNotesLocal,
-} from '../store-helpers';
+import { flushingRef, replayOp, api, cacheNotesLocal } from '../store-helpers';
 import {
   peekAll,
   remove,
@@ -224,7 +217,9 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
       pendingConflicts: get().pendingConflicts.filter((c) => c.noteId !== noteId),
     } as Partial<StoreState>);
 
-    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(() => undefined);
+    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(
+      () => undefined
+    );
   },
 
   dismissConflict(noteId: string): void {
@@ -244,7 +239,10 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
  * 3. 无冲突：自动 re-PATCH 合并结果（用 server version）
  * 4. 有冲突：应用 merged 作为暂存态 + 推到 pendingConflicts
  */
-async function handleNoteConflict(op: import('../offline-queue').QueuedOp, err: ApiException): Promise<void> {
+async function handleNoteConflict(
+  op: import('../offline-queue').QueuedOp,
+  err: ApiException
+): Promise<void> {
   const ctx = op.conflictCtx;
   if (!ctx) return;
 
@@ -344,7 +342,10 @@ async function handleNoteConflict(op: import('../offline-queue').QueuedOp, err: 
       serverVersion: serverRow.version,
     };
     useStore.setState((s) => ({
-      pendingConflicts: [...s.pendingConflicts.filter((c: PendingConflict) => c.noteId !== ctx.noteId), pending],
+      pendingConflicts: [
+        ...s.pendingConflicts.filter((c: PendingConflict) => c.noteId !== ctx.noteId),
+        pending,
+      ],
     }));
   }
 }

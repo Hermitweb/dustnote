@@ -13,10 +13,10 @@ const KEY = 'dustnote_allow_screenshot';
 
 function native(): { setAllowed: (v: boolean) => void } | null {
   if (Platform.OS !== 'android') return null;
-  const mod = NativeModules.DustNoteScreenshot as
-    | { setAllowed?: (v: boolean) => void }
-    | undefined;
-  return mod && typeof mod.setAllowed === 'function' ? { setAllowed: mod.setAllowed.bind(mod) } : null;
+  const mod = NativeModules.DustNoteScreenshot as { setAllowed?: (v: boolean) => void } | undefined;
+  return mod && typeof mod.setAllowed === 'function'
+    ? { setAllowed: mod.setAllowed.bind(mod) }
+    : null;
 }
 
 /** 应用启动时调用:按持久化设置恢复 FLAG_SECURE 状态 */

@@ -65,46 +65,46 @@ export default function Setup() {
   const darkClass = useThemeDarkClass();
   return (
     <>
-    <ThemeVars />
-    <View className={`setup-container ${darkClass}`}>
-      <Text className="hero-title">{t('setup.title')}</Text>
-      <Text className="hero-subtitle mb-l">{t('setup.subtitle')}</Text>
+      <ThemeVars />
+      <View className={`setup-container ${darkClass}`}>
+        <Text className="hero-title">{t('setup.title')}</Text>
+        <Text className="hero-subtitle mb-l">{t('setup.subtitle')}</Text>
 
-      <FInput
-        className="mint-input"
-        password
-        placeholder={t('setup.pwd_placeholder')}
-        value={password}
-        onInput={(e) => setPassword((e.detail as { value: string }).value)}
-      />
-      <FInput
-        className="mint-input"
-        password
-        placeholder={t('setup.confirm_placeholder')}
-        value={confirm}
-        onInput={(e) => setConfirm((e.detail as { value: string }).value)}
-      />
+        <FInput
+          className="mint-input"
+          password
+          placeholder={t('setup.pwd_placeholder')}
+          value={password}
+          onInput={(e) => setPassword((e.detail as { value: string }).value)}
+        />
+        <FInput
+          className="mint-input"
+          password
+          placeholder={t('setup.confirm_placeholder')}
+          value={confirm}
+          onInput={(e) => setConfirm((e.detail as { value: string }).value)}
+        />
 
-      {password && (
-        <View className="mb-m">
-          <View className="strength-bar">
-            <View
-              className={`strength-bar-fill ${strength.level}`}
-              style={{ width: `${strength.width}%` }}
-            />
+        {password && (
+          <View className="mb-m">
+            <View className="strength-bar">
+              <View
+                className={`strength-bar-fill ${strength.level}`}
+                style={{ width: `${strength.width}%` }}
+              />
+            </View>
+            <Text className="hint">{t('common.strength_label', { label: strength.label })}</Text>
           </View>
-          <Text className="hint">{t('common.strength_label', { label: strength.label })}</Text>
-        </View>
-      )}
+        )}
 
-      <View
-        className="mint-btn mint-btn-block"
-        onClick={onSetup}
-        style={{ opacity: submitting ? 0.5 : 1 }}
-      >
-        {submitting ? t('setup.setting_up') : t('setup.create')}
+        <View
+          className="mint-btn mint-btn-block"
+          onClick={onSetup}
+          style={{ opacity: submitting ? 0.5 : 1 }}
+        >
+          {submitting ? t('setup.setting_up') : t('setup.create')}
+        </View>
       </View>
-    </View>
     </>
   );
 }

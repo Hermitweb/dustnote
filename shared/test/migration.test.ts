@@ -282,14 +282,10 @@ describe('runFolderImport', () => {
     const calls: string[] = [];
     let seq = 0;
     const map = new Map<string, string>([['f1', 'existing']]);
-    await runFolderImport(
-      [folder('f1'), folder('f2'), folder('f3', 'f2')],
-      map,
-      async (input) => {
-        calls.push(`${input.name}<-${input.parentId ?? 'root'}`);
-        return `new${++seq}`;
-      }
-    );
+    await runFolderImport([folder('f1'), folder('f2'), folder('f3', 'f2')], map, async (input) => {
+      calls.push(`${input.name}<-${input.parentId ?? 'root'}`);
+      return `new${++seq}`;
+    });
     expect(calls).toEqual(['f-f2<-root', 'f-f3<-new1']);
     expect(map.get('f1')).toBe('existing');
     expect(map.get('f3')).toBe('new2');

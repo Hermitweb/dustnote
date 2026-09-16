@@ -193,7 +193,7 @@ class TextEncoderShim {
           0xf0 | (cp >> 18),
           0x80 | ((cp >> 12) & 63),
           0x80 | ((cp >> 6) & 63),
-          0x80 | (cp & 63),
+          0x80 | (cp & 63)
         );
       }
     }
@@ -203,7 +203,8 @@ class TextEncoderShim {
 
 class TextDecoderShim {
   decode(input?: ArrayBuffer | Uint8Array): string {
-    const b = input instanceof Uint8Array ? input : input ? new Uint8Array(input) : new Uint8Array(0);
+    const b =
+      input instanceof Uint8Array ? input : input ? new Uint8Array(input) : new Uint8Array(0);
     let out = '';
     let i = 0;
     while (i < b.length) {

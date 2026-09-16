@@ -68,7 +68,10 @@ export function SetupScreen() {
           <Text style={styles.codeText}>{recoveryCode}</Text>
         </View>
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border }]}
+          style={[
+            styles.button,
+            { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border },
+          ]}
           onPress={() => {
             // FLAG_SECURE 全局禁截屏（security.md §3.6），截图保存不可行——
             // 提供复制到剪贴板作为替代保存方式
@@ -76,7 +79,9 @@ export function SetupScreen() {
             Alert.alert(t('common.copied'), t('auth.code_copied_detail'));
           }}
         >
-          <Text style={[styles.buttonText, { color: colors.mint600 }]}>{t('auth.copy_code_btn')}</Text>
+          <Text style={[styles.buttonText, { color: colors.mint600 }]}>
+            {t('auth.copy_code_btn')}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.button}

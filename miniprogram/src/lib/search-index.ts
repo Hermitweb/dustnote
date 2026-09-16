@@ -102,7 +102,10 @@ export class SearchIndex {
     this.noteTokens.delete(noteId);
   }
 
-  private addNote(noteId: string, plain: { title: string; content: string; tags?: string[] }): void {
+  private addNote(
+    noteId: string,
+    plain: { title: string; content: string; tags?: string[] }
+  ): void {
     const all = new Set<string>();
     this.indexField(noteId, 'title', plain.title, all);
     this.indexField(noteId, 'content', plain.content, all);

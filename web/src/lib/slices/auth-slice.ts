@@ -105,7 +105,11 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
     if (!blob) {
       set({ authState: 'uninitialized', lockoutState: lockout } as Partial<StoreState>);
     } else {
-      set({ authState: 'needs_unlock', localAuthBlob: blob, lockoutState: lockout } as Partial<StoreState>);
+      set({
+        authState: 'needs_unlock',
+        localAuthBlob: blob,
+        lockoutState: lockout,
+      } as Partial<StoreState>);
     }
   },
 
@@ -184,9 +188,21 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
         kdfParams?: KdfParams;
       }>('/auth/status');
       if (!r.initialized) {
-        set({ authState: 'uninitialized', serverError: null, serverSalt: null, totpEnabled: false, accountKdfParams: null } as Partial<StoreState>);
+        set({
+          authState: 'uninitialized',
+          serverError: null,
+          serverSalt: null,
+          totpEnabled: false,
+          accountKdfParams: null,
+        } as Partial<StoreState>);
       } else {
-        set({ authState: 'needs_unlock', serverError: null, serverSalt: r.pwSalt, totpEnabled: !!r.totpEnabled, accountKdfParams: r.kdfParams ?? null } as Partial<StoreState>);
+        set({
+          authState: 'needs_unlock',
+          serverError: null,
+          serverSalt: r.pwSalt,
+          totpEnabled: !!r.totpEnabled,
+          accountKdfParams: r.kdfParams ?? null,
+        } as Partial<StoreState>);
       }
     } catch (err) {
       set({
@@ -269,7 +285,8 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
 
     // 桌面端(Tauri)跨源不携带 cookie:持久化 refresh token 供 X-Refresh-Token
     // 刷新通道使用(web 同源走 cookie 通道,不落 localStorage)
-    const isTauriEnv = !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+    const isTauriEnv = !!(window as unknown as { __TAURI_INTERNALS__?: unknown })
+      .__TAURI_INTERNALS__;
     if (r.refreshToken && isTauriEnv) {
       try {
         localStorage.setItem('dustnote_refresh', r.refreshToken);
@@ -350,7 +367,10 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
         throw new Error('当前密码错误');
       }
       const newPwSalt = randomBytes(16);
-      const { kek: newKek, authKey: newAuthKey } = await deriveSecretsInWorker(newPassword, newPwSalt);
+      const { kek: newKek, authKey: newAuthKey } = await deriveSecretsInWorker(
+        newPassword,
+        newPwSalt
+      );
       const newWrapped = await wrapKey(newKek, result.masterKey);
       const newBlob: LocalAuthBlob = {
         ...localAuthBlob,
@@ -366,7 +386,9 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
 
     let salt = get().serverSalt;
     if (!salt) {
-      const status = await api().get<{ initialized: boolean; pwSalt: string | null }>('/auth/status');
+      const status = await api().get<{ initialized: boolean; pwSalt: string | null }>(
+        '/auth/status'
+      );
       salt = status.pwSalt;
       if (!salt) throw new Error('系统未初始化');
     }

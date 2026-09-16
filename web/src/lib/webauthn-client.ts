@@ -20,7 +20,7 @@ export { browserSupportsWebAuthn };
  */
 export async function registerPasskey(): Promise<{ verified: boolean; deviceId?: string }> {
   // 1. 从服务端获取注册选项
-  const options = await api().get('/auth/webauthn/register/options') as Record<string, unknown>;
+  const options = (await api().get('/auth/webauthn/register/options')) as Record<string, unknown>;
 
   // 2. 调用浏览器 WebAuthn API
   const attestationResponse = await startRegistration({ optionsJSON: options as any });
@@ -45,7 +45,10 @@ export async function authenticateWithPasskey(): Promise<{
   userId?: string;
 }> {
   // 1. 从服务端获取认证选项
-  const options = await api().get('/auth/webauthn/authenticate/options') as Record<string, unknown>;
+  const options = (await api().get('/auth/webauthn/authenticate/options')) as Record<
+    string,
+    unknown
+  >;
 
   // 2. 调用浏览器 WebAuthn API
   const assertionResponse = await startAuthentication({ optionsJSON: options as any });

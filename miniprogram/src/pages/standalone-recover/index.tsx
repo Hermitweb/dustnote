@@ -89,67 +89,67 @@ export default function StandaloneRecover() {
   const darkClass = useThemeDarkClass();
   return (
     <>
-    <ThemeVars />
-    <View className={`setup-container ${darkClass}`}>
-      <Text className="hero-logo" style={{ textAlign: 'center' }}>
-        🔑
-      </Text>
-      <Text className="hero-title text-center">{t('recover.title')}</Text>
-      <Text className="hero-subtitle mb-l text-center">{t('recover.subtitle')}</Text>
+      <ThemeVars />
+      <View className={`setup-container ${darkClass}`}>
+        <Text className="hero-logo" style={{ textAlign: 'center' }}>
+          🔑
+        </Text>
+        <Text className="hero-title text-center">{t('recover.title')}</Text>
+        <Text className="hero-subtitle mb-l text-center">{t('recover.subtitle')}</Text>
 
-      <FInput
-        className="mint-input"
-        placeholder={t('recover.code_placeholder')}
-        value={recoveryCode}
-        maxlength={16}
-        onInput={(e) => setRecoveryCode((e.detail as { value: string }).value)}
-      />
-      <FInput
-        className="mint-input"
-        password
-        placeholder={t('recover.pwd_placeholder')}
-        value={newPassword}
-        onInput={(e) => setNewPassword((e.detail as { value: string }).value)}
-      />
-      <FInput
-        className="mint-input"
-        password
-        placeholder={t('recover.confirm_placeholder')}
-        value={confirm}
-        onInput={(e) => setConfirm((e.detail as { value: string }).value)}
-      />
+        <FInput
+          className="mint-input"
+          placeholder={t('recover.code_placeholder')}
+          value={recoveryCode}
+          maxlength={16}
+          onInput={(e) => setRecoveryCode((e.detail as { value: string }).value)}
+        />
+        <FInput
+          className="mint-input"
+          password
+          placeholder={t('recover.pwd_placeholder')}
+          value={newPassword}
+          onInput={(e) => setNewPassword((e.detail as { value: string }).value)}
+        />
+        <FInput
+          className="mint-input"
+          password
+          placeholder={t('recover.confirm_placeholder')}
+          value={confirm}
+          onInput={(e) => setConfirm((e.detail as { value: string }).value)}
+        />
 
-      {newPassword && (
-        <View className="mb-m">
-          <View className="strength-bar">
-            <View
-              className={`strength-bar-fill ${strength.level}`}
-              style={{ width: `${strength.width}%` }}
-            />
+        {newPassword && (
+          <View className="mb-m">
+            <View className="strength-bar">
+              <View
+                className={`strength-bar-fill ${strength.level}`}
+                style={{ width: `${strength.width}%` }}
+              />
+            </View>
+            <Text className="hint">{t('common.strength_label', { label: strength.label })}</Text>
           </View>
-          <Text className="hint">{t('common.strength_label', { label: strength.label })}</Text>
+        )}
+
+        <View
+          className="mint-btn mint-btn-block"
+          onClick={onRecover}
+          style={{ opacity: submitting ? 0.5 : 1 }}
+        >
+          {submitting ? t('recover.recovering') : t('recover.reset_btn')}
         </View>
-      )}
 
-      <View
-        className="mint-btn mint-btn-block"
-        onClick={onRecover}
-        style={{ opacity: submitting ? 0.5 : 1 }}
-      >
-        {submitting ? t('recover.recovering') : t('recover.reset_btn')}
+        <Text className="hint mt-l" style={{ display: 'block', textAlign: 'center' }}>
+          {t('recover.note_ok')}
+        </Text>
+        <Text className="text-xs text-muted mt-s" style={{ display: 'block', textAlign: 'center' }}>
+          {t('recover.note_warn')}
+        </Text>
+
+        <View className="hint-mint mt-l" onClick={() => Taro.navigateBack({ delta: 1 })}>
+          {t('recover.back')}
+        </View>
       </View>
-
-      <Text className="hint mt-l" style={{ display: 'block', textAlign: 'center' }}>
-        {t('recover.note_ok')}
-      </Text>
-      <Text className="text-xs text-muted mt-s" style={{ display: 'block', textAlign: 'center' }}>
-        {t('recover.note_warn')}
-      </Text>
-
-      <View className="hint-mint mt-l" onClick={() => Taro.navigateBack({ delta: 1 })}>
-        {t('recover.back')}
-      </View>
-    </View>
     </>
   );
 }

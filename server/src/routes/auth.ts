@@ -248,14 +248,16 @@ const SetupSchema = z.object({
   rcSalt: SaltSchema,
   deviceName: z.string().min(1).max(64).default(DEFAULT_DEVICE_NAME),
   /** 客户端 KDF 参数（web=argon2id, mobile=miniprogram=pbkdf2） */
-  kdfParams: z.object({
-    algorithm: z.string(),
-    m: z.number(),
-    t: z.number(),
-    p: z.number(),
-    iterations: z.number().optional(),
-    dkLen: z.number(),
-  }).optional(),
+  kdfParams: z
+    .object({
+      algorithm: z.string(),
+      m: z.number(),
+      t: z.number(),
+      p: z.number(),
+      iterations: z.number().optional(),
+      dkLen: z.number(),
+    })
+    .optional(),
 });
 
 authRouter.post(
@@ -345,7 +347,11 @@ authRouter.post(
 const UnlockSchema = z.object({
   authKey: AuthKeySchema,
   deviceName: z.string().min(1).max(64).optional(),
-  totpCode: z.string().length(6).regex(/^\d{6}$/).optional(),
+  totpCode: z
+    .string()
+    .length(6)
+    .regex(/^\d{6}$/)
+    .optional(),
 });
 
 authRouter.post(
@@ -490,7 +496,9 @@ authRouter.get('/auth/recovery-params', (_req, res) => {
   let kdfParams = KDF_PARAMS;
   try {
     kdfParams = JSON.parse(user.kdf_params);
-  } catch { /* fallback */ }
+  } catch {
+    /* fallback */
+  }
   res.json({
     rcSalt: user.rc_salt.toString('base64'),
     kdfParams,
@@ -719,7 +727,10 @@ authRouter.post('/auth/refresh', (req, res) => {
     .run(hashRefreshToken(newRefresh), payload.device, payload.sub);
   writeRefreshCookie(res, newRefresh);
   // header 通道（RN 等）：新 refresh token 也放 body,客户端自管轮换
-  res.json({ accessToken: issueAccessToken(payload.sub, payload.device), refreshToken: newRefresh });
+  res.json({
+    accessToken: issueAccessToken(payload.sub, payload.device),
+    refreshToken: newRefresh,
+  });
 });
 
 /**
@@ -739,9 +750,7 @@ authRouter.post('/auth/logout', (req, res) => {
         .prepare('UPDATE devices SET refresh_token_hash = NULL WHERE id = ? AND user_id = ?')
         .run(user.deviceId, user.userId);
       getDb()
-        .prepare(
-          'INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)'
-        )
+        .prepare('INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)')
         .run(user.userId, user.deviceId, 'logout', ipHash(req));
       logger.info({ userId: user.userId, deviceId: user.deviceId }, '用户已登出');
     }
@@ -789,11 +798,17 @@ authRouter.get('/auth/me', (req, res) => {
 import { generateTotpSecret, generateTotpUri, verifyTotpWithCounter } from '../auth/totp.js';
 
 const Verify2faSchema = z.object({
-  code: z.string().length(6).regex(/^\d{6}$/),
+  code: z
+    .string()
+    .length(6)
+    .regex(/^\d{6}$/),
 });
 
 const Disable2faSchema = z.object({
-  code: z.string().length(6).regex(/^\d{6}$/),
+  code: z
+    .string()
+    .length(6)
+    .regex(/^\d{6}$/),
 });
 
 /**
@@ -804,13 +819,22 @@ const Disable2faSchema = z.object({
  */
 authRouter.post('/auth/2fa/setup', (req, res) => {
   const user = req.user as AuthUser | undefined;
-  if (!user) { res.status(401).json({ error: 'unauthorized' }); return; }
+  if (!user) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
 
   const u = getDb().prepare('SELECT totp_enabled FROM users WHERE id = ?').get(user.userId) as
     | { totp_enabled: number }
     | undefined;
-  if (!u) { res.status(404).json({ error: 'user_not_found' }); return; }
-  if (u.totp_enabled) { res.status(400).json({ error: 'already_enabled' }); return; }
+  if (!u) {
+    res.status(404).json({ error: 'user_not_found' });
+    return;
+  }
+  if (u.totp_enabled) {
+    res.status(400).json({ error: 'already_enabled' });
+    return;
+  }
 
   const secret = generateTotpSecret();
   const uri = generateTotpUri(secret, user.userId);
@@ -829,17 +853,34 @@ authRouter.post('/auth/2fa/setup', (req, res) => {
  */
 authRouter.post('/auth/2fa/enable', (req, res) => {
   const user = req.user as AuthUser | undefined;
-  if (!user) { res.status(401).json({ error: 'unauthorized' }); return; }
+  if (!user) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
 
   const parsed = Verify2faSchema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: 'invalid_code' }); return; }
+  if (!parsed.success) {
+    res.status(400).json({ error: 'invalid_code' });
+    return;
+  }
 
-  const u = getDb().prepare('SELECT totp_secret, totp_enabled, totp_last_counter FROM users WHERE id = ?').get(user.userId) as
+  const u = getDb()
+    .prepare('SELECT totp_secret, totp_enabled, totp_last_counter FROM users WHERE id = ?')
+    .get(user.userId) as
     | { totp_secret: string | null; totp_enabled: number; totp_last_counter: number }
     | undefined;
-  if (!u) { res.status(404).json({ error: 'user_not_found' }); return; }
-  if (u.totp_enabled) { res.status(400).json({ error: 'already_enabled' }); return; }
-  if (!u.totp_secret) { res.status(400).json({ error: 'setup_first' }); return; }
+  if (!u) {
+    res.status(404).json({ error: 'user_not_found' });
+    return;
+  }
+  if (u.totp_enabled) {
+    res.status(400).json({ error: 'already_enabled' });
+    return;
+  }
+  if (!u.totp_secret) {
+    res.status(400).json({ error: 'setup_first' });
+    return;
+  }
 
   // 防重放：与 unlock 路径同款 verifyTotpWithCounter,命中的窗口计数器落库,
   // 同一验证码在 30 秒窗口内不能二次用于任何 TOTP 端点（审计 M7）
@@ -848,7 +889,9 @@ authRouter.post('/auth/2fa/enable', (req, res) => {
     res.status(401).json({ error: 'invalid_code' });
     return;
   }
-  getDb().prepare('UPDATE users SET totp_last_counter = ? WHERE id = ?').run(vrEnable.counter, user.userId);
+  getDb()
+    .prepare('UPDATE users SET totp_last_counter = ? WHERE id = ?')
+    .run(vrEnable.counter, user.userId);
 
   getDb().prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?').run(user.userId);
   getDb()
@@ -864,16 +907,30 @@ authRouter.post('/auth/2fa/enable', (req, res) => {
  */
 authRouter.post('/auth/2fa/disable', (req, res) => {
   const user = req.user as AuthUser | undefined;
-  if (!user) { res.status(401).json({ error: 'unauthorized' }); return; }
+  if (!user) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
 
   const parsed = Disable2faSchema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: 'invalid_code' }); return; }
+  if (!parsed.success) {
+    res.status(400).json({ error: 'invalid_code' });
+    return;
+  }
 
-  const u = getDb().prepare('SELECT totp_secret, totp_enabled, totp_last_counter FROM users WHERE id = ?').get(user.userId) as
+  const u = getDb()
+    .prepare('SELECT totp_secret, totp_enabled, totp_last_counter FROM users WHERE id = ?')
+    .get(user.userId) as
     | { totp_secret: string | null; totp_enabled: number; totp_last_counter: number }
     | undefined;
-  if (!u) { res.status(404).json({ error: 'user_not_found' }); return; }
-  if (!u.totp_enabled || !u.totp_secret) { res.status(400).json({ error: 'not_enabled' }); return; }
+  if (!u) {
+    res.status(404).json({ error: 'user_not_found' });
+    return;
+  }
+  if (!u.totp_enabled || !u.totp_secret) {
+    res.status(400).json({ error: 'not_enabled' });
+    return;
+  }
 
   // 防重放：同 enable 端点（审计 M7）——截获的验证码不能在窗口内重放于 disable
   const vrDisable = verifyTotpWithCounter(parsed.data.code, u.totp_secret, u.totp_last_counter);
@@ -881,9 +938,13 @@ authRouter.post('/auth/2fa/disable', (req, res) => {
     res.status(401).json({ error: 'invalid_code' });
     return;
   }
-  getDb().prepare('UPDATE users SET totp_last_counter = ? WHERE id = ?').run(vrDisable.counter, user.userId);
+  getDb()
+    .prepare('UPDATE users SET totp_last_counter = ? WHERE id = ?')
+    .run(vrDisable.counter, user.userId);
 
-  getDb().prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?').run(user.userId);
+  getDb()
+    .prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?')
+    .run(user.userId);
   getDb()
     .prepare('INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)')
     .run(user.userId, user.deviceId, '2fa_disable', ipHash(req));
@@ -897,12 +958,18 @@ authRouter.post('/auth/2fa/disable', (req, res) => {
  */
 authRouter.get('/auth/2fa/status', (req, res) => {
   const user = req.user as AuthUser | undefined;
-  if (!user) { res.status(401).json({ error: 'unauthorized' }); return; }
+  if (!user) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
 
   const u = getDb().prepare('SELECT totp_enabled FROM users WHERE id = ?').get(user.userId) as
     | { totp_enabled: number }
     | undefined;
-  if (!u) { res.status(404).json({ error: 'user_not_found' }); return; }
+  if (!u) {
+    res.status(404).json({ error: 'user_not_found' });
+    return;
+  }
 
   res.json({ enabled: !!u.totp_enabled });
 });

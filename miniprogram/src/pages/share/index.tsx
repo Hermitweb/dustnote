@@ -163,17 +163,17 @@ export default function Share() {
   return (
     <>
       <ThemeVars />
-    <View className={`page px-page ${darkClass}`}>
-      <View className="share-banner" />
-      <Text className="text-xs text-muted">{t('share.banner')}</Text>
-      <Text className="text-lg fw-bold mt-m mb-l">{title}</Text>
-      <View className="share-content">
-        <Markdown content={content} />
+      <View className={`page px-page ${darkClass}`}>
+        <View className="share-banner" />
+        <Text className="text-xs text-muted">{t('share.banner')}</Text>
+        <Text className="text-lg fw-bold mt-m mb-l">{title}</Text>
+        <View className="share-content">
+          <Markdown content={content} />
+        </View>
+        <View className="text-center text-xs text-muted mt-l">
+          <Text>{t('share.footer')}</Text>
+        </View>
       </View>
-      <View className="text-center text-xs text-muted mt-l">
-        <Text>{t('share.footer')}</Text>
-      </View>
-    </View>
     </>
   );
 }

@@ -55,7 +55,13 @@ import {
 } from '@dustnote/shared';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api, setAccessToken, setRefreshToken, refreshAccessTokenSilently, setAuthExpiredHandler } from '../api';
+import {
+  api,
+  setAccessToken,
+  setRefreshToken,
+  refreshAccessTokenSilently,
+  setAuthExpiredHandler,
+} from '../api';
 import i18n from '../lib/i18n';
 import { useModeStore } from '../lib/mode-store';
 import {
@@ -298,20 +304,22 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     const wrappedPw = await wrapKey(pw.kek, masterKey);
     const wrappedRc = await wrapKey(rc.kek, masterKey);
 
-    const r = await api.post<{ accessToken: string; refreshToken?: string; userId: string; deviceId: string }>(
-      '/auth/setup',
-      {
-        // 主密码不出客户端，服务端只拿到 authKey 和密文
-        authKey: toBase64(pw.authKey),
-        recoveryAuthKey: toBase64(rc.authKey),
-        wrappedMasterKeyPw: wrappedPw,
-        wrappedMasterKeyRc: wrappedRc,
-        pwSalt: toBase64(pwSalt),
-        rcSalt: toBase64(rcSalt),
-        deviceName: i18n.t('auth.device_name'),
-        kdfParams: KDF_PARAMS_MOBILE,
-      }
-    );
+    const r = await api.post<{
+      accessToken: string;
+      refreshToken?: string;
+      userId: string;
+      deviceId: string;
+    }>('/auth/setup', {
+      // 主密码不出客户端，服务端只拿到 authKey 和密文
+      authKey: toBase64(pw.authKey),
+      recoveryAuthKey: toBase64(rc.authKey),
+      wrappedMasterKeyPw: wrappedPw,
+      wrappedMasterKeyRc: wrappedRc,
+      pwSalt: toBase64(pwSalt),
+      rcSalt: toBase64(rcSalt),
+      deviceName: i18n.t('auth.device_name'),
+      kdfParams: KDF_PARAMS_MOBILE,
+    });
 
     // 缓存 masterKey 到 keychain（生物识别保护），便于后续指纹 / 面容解锁
     await cacheMasterKeyForBiometric(masterKey);
@@ -343,7 +351,17 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     let salt = get().pwSalt;
     let kdfParams = KDF_PARAMS_MOBILE;
     if (!salt) {
-      const status = await api.get<{ pwSalt: string | null; kdfParams?: { algorithm: 'argon2id' | 'pbkdf2'; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/status');
+      const status = await api.get<{
+        pwSalt: string | null;
+        kdfParams?: {
+          algorithm: 'argon2id' | 'pbkdf2';
+          m: number;
+          t: number;
+          p: number;
+          iterations?: number;
+          dkLen: number;
+        };
+      }>('/auth/status');
       salt = status.pwSalt;
       if (!salt) throw new Error(i18n.t('auth.system_not_initialized'));
       // 直接采用服务端记录的账号 KDF 参数（含 Argon2id 老账号的 m/t/p）——
@@ -355,11 +373,22 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     } else {
       // 即使有缓存的 salt，也要检查 KDF 参数
       try {
-        const status = await api.get<{ kdfParams?: { algorithm: 'argon2id' | 'pbkdf2'; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/status');
+        const status = await api.get<{
+          kdfParams?: {
+            algorithm: 'argon2id' | 'pbkdf2';
+            m: number;
+            t: number;
+            p: number;
+            iterations?: number;
+            dkLen: number;
+          };
+        }>('/auth/status');
         if (status.kdfParams) {
           kdfParams = status.kdfParams;
         }
-      } catch { /* 使用默认 PBKDF2 */ }
+      } catch {
+        /* 使用默认 PBKDF2 */
+      }
     }
 
     const pw = await deriveSecrets(password, fromBase64(salt), kdfParams);
@@ -609,7 +638,9 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     let salt = get().pwSalt;
     let kdfParams: KdfParams = KDF_PARAMS_MOBILE;
     if (!salt) {
-      const status = await api.get<{ pwSalt: string | null; kdfParams?: KdfParams }>('/auth/status');
+      const status = await api.get<{ pwSalt: string | null; kdfParams?: KdfParams }>(
+        '/auth/status'
+      );
       salt = status.pwSalt;
       if (status.kdfParams) kdfParams = status.kdfParams;
       if (!salt) throw new Error(i18n.t('auth.system_not_initialized'));
@@ -669,9 +700,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     if (!blob) throw new Error(i18n.t('auth.not_initialized'));
     if (isLocked(lockoutState)) {
       const remaining = remainingLockoutMs(lockoutState);
-      throw new Error(
-        i18n.t('auth.locked_retry', { seconds: Math.ceil(remaining / 1000) })
-      );
+      throw new Error(i18n.t('auth.locked_retry', { seconds: Math.ceil(remaining / 1000) }));
     }
     const result = await unlockLocalAuth(currentPassword, blob, KDF_PARAMS_MOBILE);
     if (!result.success || !result.masterKey) {
@@ -696,9 +725,23 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   async recoverOnline(recoveryCode: string, newPassword: string): Promise<void> {
     if (newPassword.length < 6) throw new Error(i18n.t('auth.new_password_too_short'));
     // v2：先取恢复码派生所需的 rc_salt + KDF 参数（直接用服务端记录的账号参数）
-    const recoveryParams = await api.get<{ rcSalt: string; kdfParams?: { algorithm: 'argon2id' | 'pbkdf2'; m: number; t: number; p: number; iterations?: number; dkLen: number } }>('/auth/recovery-params');
+    const recoveryParams = await api.get<{
+      rcSalt: string;
+      kdfParams?: {
+        algorithm: 'argon2id' | 'pbkdf2';
+        m: number;
+        t: number;
+        p: number;
+        iterations?: number;
+        dkLen: number;
+      };
+    }>('/auth/recovery-params');
     const kdfParams = recoveryParams.kdfParams ?? KDF_PARAMS_MOBILE;
-    const rc = await deriveSecrets(normalizeRecoveryCode(recoveryCode), fromBase64(recoveryParams.rcSalt), kdfParams);
+    const rc = await deriveSecrets(
+      normalizeRecoveryCode(recoveryCode),
+      fromBase64(recoveryParams.rcSalt),
+      kdfParams
+    );
 
     const r = await api.post<{
       accessToken: string;
@@ -852,7 +895,10 @@ async function doRunPendingMigration(): Promise<void> {
       // 此时不能按「迁移完成」报喜——槽还在，失败笔记仍待处理。
       const msg =
         res.failed > 0
-          ? i18n.t('auth.migration_complete_partial', { imported: res.imported, failed: res.failed })
+          ? i18n.t('auth.migration_complete_partial', {
+              imported: res.imported,
+              failed: res.failed,
+            })
           : res.cleared
             ? i18n.t('auth.migration_complete_detail', { count: res.imported })
             : i18n.t('auth.migration_complete_partial', {

@@ -80,8 +80,7 @@ notesRouter.get('/notes', (req, res) => {
     res.status(400).json({ error: 'invalid_since' });
     return;
   }
-  const CURSOR_RE =
-    /^[^|]+\|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const CURSOR_RE = /^[^|]+\|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (cursor !== undefined && !CURSOR_RE.test(cursor)) {
     res.status(400).json({ error: 'invalid_cursor' });
     return;
@@ -231,22 +230,24 @@ notesRouter.post('/notes', (req, res) => {
     );
     effectiveFolderId = null;
   }
-  const result = db.prepare(
-    `
+  const result = db
+    .prepare(
+      `
     INSERT INTO notes (id, user_id, ciphertext, key_version, is_pinned, is_favorite, client_updated_at, folder_id, version, server_updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
     ON CONFLICT(id) DO NOTHING
   `
-  ).run(
-    id,
-    user.userId,
-    ciphertext,
-    keyVersion,
-    isPinned ? 1 : 0,
-    isFavorite ? 1 : 0,
-    clientUpdatedAt,
-    effectiveFolderId
-  );
+    )
+    .run(
+      id,
+      user.userId,
+      ciphertext,
+      keyVersion,
+      isPinned ? 1 : 0,
+      isFavorite ? 1 : 0,
+      clientUpdatedAt,
+      effectiveFolderId
+    );
 
   // 幂等重放：响应丢失后重试/多端竞争时同一 id 已存在,收敛到服务端现状返回,
   // 客户端据此放弃本地版本——否则按 5xx 退避重试 8 次后被离线队列静默丢弃
@@ -484,10 +485,9 @@ notesRouter.delete('/notes/:id', (req, res) => {
       )
       .run(id, user.userId);
     if (r.changes > 0) {
-      db.prepare('UPDATE shares SET revoked = 1 WHERE note_id = ? AND user_id = ? AND revoked = 0').run(
-        id,
-        user.userId
-      );
+      db.prepare(
+        'UPDATE shares SET revoked = 1 WHERE note_id = ? AND user_id = ? AND revoked = 0'
+      ).run(id, user.userId);
     }
     return r;
   })();

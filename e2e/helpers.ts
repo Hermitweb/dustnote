@@ -58,11 +58,19 @@ export async function setupStandalone(page: Page): Promise<void> {
   await page.waitForTimeout(2000);
 
   const unlockInput = page.locator('input[type="password"]');
-  if (await unlockInput.first().isVisible().catch(() => false)) {
+  if (
+    await unlockInput
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
     await unlockInput.first().fill(TEST_PASSWORD);
     // 必须按 role 精确匹配「解锁」按钮——getByText('解锁') 会先命中标题
     // 「解锁你的笔记」,点标题不触发提交（原 core-flow.spec 同款陷阱）
-    await page.getByRole('button', { name: /^解锁$/ }).first().click();
+    await page
+      .getByRole('button', { name: /^解锁$/ })
+      .first()
+      .click();
     await page.waitForTimeout(3000);
   }
   // 主界面就绪：编辑器可见

@@ -25,7 +25,8 @@ interface Span {
 /** 解析行内格式：粗体 / 斜体 / 行内代码 / 链接 / wikilink */
 function parseInline(text: string): Span[] {
   const spans: Span[] = [];
-  const re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[\[[^\]|]+(?:\|[^\]]+)?\]\])|(\[[^\]]+\]\([^)\s]+\))/g;
+  const re =
+    /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[\[[^\]|]+(?:\|[^\]]+)?\]\])|(\[[^\]]+\]\([^)\s]+\))/g;
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {

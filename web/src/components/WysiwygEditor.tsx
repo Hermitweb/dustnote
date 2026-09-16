@@ -33,7 +33,9 @@ interface WysiwygEditorProps {
  */
 function markdownToHtml(md: string): string {
   // wikilink 扩展不在本模块注册(marked 全局单例),先转成普通链接语法
-  const raw = marked.parse(md.replace(/\[\[([^\]]+)\]\]/g, '[$1](wikilink://$1)'), { async: false }) as string;
+  const raw = marked.parse(md.replace(/\[\[([^\]]+)\]\]/g, '[$1](wikilink://$1)'), {
+    async: false,
+  }) as string;
   return sanitizeHtml(raw);
 }
 
@@ -80,7 +82,8 @@ export function WysiwygEditor({ content, onChange, placeholder }: WysiwygEditorP
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none text-surface-fg dark:prose-invert focus:outline-none min-h-[200px] p-6',
+        class:
+          'prose prose-sm max-w-none text-surface-fg dark:prose-invert focus:outline-none min-h-[200px] p-6',
       },
     },
   });

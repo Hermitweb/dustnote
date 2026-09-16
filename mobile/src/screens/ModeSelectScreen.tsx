@@ -95,12 +95,9 @@ export function ModeSelectScreen() {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10000);
       try {
-        const r = await client.request<{ initialized: boolean }>(
-          'GET',
-          '/auth/status',
-          undefined,
-          { signal: controller.signal }
-        );
+        const r = await client.request<{ initialized: boolean }>('GET', '/auth/status', undefined, {
+          signal: controller.signal,
+        });
         clearTimeout(timer);
         Alert.alert(
           t('mode_select.connection_ok'),
