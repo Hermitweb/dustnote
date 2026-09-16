@@ -33,6 +33,12 @@ export const config = {
   logLevel: getEnv('LOG_LEVEL', 'info'),
   dbPath: getEnv('DB_PATH', './data/dustnote.db'),
   webOrigin: getEnv('WEB_ORIGIN', 'http://localhost:5173'),
+  /**
+   * 服务端地址登记的运维覆盖（GET /api/v1/config/server-endpoint 优先返回它）。
+   * 服务器迁移到新域名/IP 时在此一键改指,已发布客户端无需重新登记;
+   * 留空则返回首次激活的设备登记的地址（server_config 表,先到先得）。
+   */
+  serverPublicUrl: getEnvOpt('SERVER_PUBLIC_URL') ?? null,
   serverVersion: getEnv('SERVER_VERSION', '2.5.40'),
   minClientVersion: getEnv('MIN_CLIENT_VERSION', '2.0.2'),
   recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.5.40'),

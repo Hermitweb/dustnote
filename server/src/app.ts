@@ -25,6 +25,7 @@ import { preferencesRouter } from './routes/preferences.js';
 import { templatesRouter } from './routes/templates.js';
 import { devicesRouter } from './routes/devices.js';
 import { accountRouter } from './routes/account.js';
+import { serverConfigRouter } from './routes/server-config.js';
 
 /**
  * 脱敏 URL 中的敏感查询参数。
@@ -150,6 +151,20 @@ export function createApp(): Application {
     })
   );
   app.use('/api/v1', publicSharesRouter);
+
+  // 服务端地址登记/查询（无需登录,见 routes/server-config.ts）：
+  // 新设备首启引导 + 首次激活登记。公开端点单独限流防滥用。
+  app.use(
+    '/api/v1/config',
+    rateLimit({
+      windowMs: 60_000,
+      limit: 30,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      message: { error: 'too_many_requests', message: '请求过于频繁，请稍后再试' },
+    })
+  );
+  app.use('/api/v1', serverConfigRouter);
 
   // 鉴权中间件
   app.use('/api/v1', authMiddleware);

@@ -502,4 +502,22 @@ export const migrations: Migration[] = [
       db.prepare(`UPDATE meta SET value = '17' WHERE key = 'schema_version'`).run();
     },
   },
+  {
+    id: 18,
+    name: 'server-config',
+    up: (db) => {
+      // 服务端登记的规范地址（小程序部署引导,见 routes/server-config.ts）：
+      // 首次激活的设备 POST 自己连接成功的地址（先到先得）,之后任何新设备经
+      // 发布包预置的引导地址 GET 该值,直达解锁页免「选模式+输地址」。
+      // 键值表留扩展余地（未来放运维可控的其它部署级配置）。
+      db.prepare(
+        `CREATE TABLE IF NOT EXISTS server_config (
+           key        TEXT PRIMARY KEY,
+           value      TEXT NOT NULL,
+           updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+         )`
+      ).run();
+      db.prepare(`UPDATE meta SET value = '18' WHERE key = 'schema_version'`).run();
+    },
+  },
 ];
