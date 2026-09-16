@@ -433,8 +433,18 @@ authRouter.post(
         return;
       }
       // 防重放：verifyTotpWithCounter 返回命中窗口的计数器，落库后
-      // 同一窗口的验证码不可再次使用
-      const vr = verifyTotpWithCounter(parsed.data.totpCode, user.totp_secret, user.totp_last_counter);
+      // 同一窗口的验证码不可再次使用。
+      // F2：必须在校验前**重读**计数器——user 快照取自 verifyPassword 的
+      // await 之前,两个并发请求会拿着同一个旧 counter 双双通过（双花）。
+      // 重读+校验+落库三步全同步,事件循环内不可交错。
+      const counterRow = db
+        .prepare('SELECT totp_last_counter FROM users WHERE id = ?')
+        .get(user.id) as { totp_last_counter: number } | undefined;
+      const vr = verifyTotpWithCounter(
+        parsed.data.totpCode,
+        user.totp_secret,
+        counterRow?.totp_last_counter ?? user.totp_last_counter
+      );
       if (!vr.ok) {
         const next = recordFailureAtomic(db, 'users', user.id);
         logger.warn({ userId: user.id, attempts: next.failedAttempts }, 'TOTP 验证码错误');

@@ -218,6 +218,10 @@ export const migrations: Migration[] = [
   {
     id: 7,
     name: 'e2ee-shares',
+    // 破坏性：DROP TABLE shares（旧明文快照分享无法迁移）。已历史应用,
+    // 标记为未来回放/新库构建时的备份门槛依据（审计 F3：此前无迁移带标记,
+    // M4 的备份门槛实为死代码）
+    destructive: true,
     up: (db) => {
       // 破坏性变更：分享改为 secret-link（端到端加密）方案。
       //
@@ -266,6 +270,9 @@ export const migrations: Migration[] = [
   {
     id: 8,
     name: 'auth-protocol-v2',
+    // 破坏性：DELETE FROM users WHERE auth_hash IS NULL（v1 账号及其全部笔记
+    // 无法在新协议下解密）。同上,标记供备份门槛使用
+    destructive: true,
     up: (db) => {
       // 破坏性变更：认证协议 v1 → v2
       //

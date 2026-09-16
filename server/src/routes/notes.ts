@@ -16,6 +16,14 @@ export const notesRouter = Router();
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** F4：校验 folderId 属于当前用户——FK 只保证 folders 表存在该行,不保证属主 */
+function ownsFolder(db: ReturnType<typeof getDb>, userId: string, folderId: string): boolean {
+  return (
+    db.prepare('SELECT 1 FROM folders WHERE id = ? AND user_id = ?').get(folderId, userId) !==
+    undefined
+  );
+}
+
 /** 密文 blob 上限：单条笔记密文（含 JSON 信封）约 2MB，超出视为异常输入 */
 const MAX_CIPHERTEXT_LENGTH = 2_000_000;
 /** ISO-8601 时间戳（客户端 new Date().toISOString() 产物），拒绝空串/任意字符串 */
@@ -158,6 +166,13 @@ notesRouter.post('/notes', (req, res) => {
   const id = parsed.data.id ?? randomUUID();
 
   const db = getDb();
+  // F4：folderId 属主校验——FK 只保证 folders 表里存在该 id,不保证属于当前
+  // 用户。不校验的话可把笔记挂到他人 folder id（FK 通过、读路径原样带回）,
+  // 传不存在的 id 则 FK 违约冒泡成 500（应为 400）
+  if (folderId != null && !ownsFolder(db, user.userId, folderId)) {
+    res.status(400).json({ error: 'invalid_folder' });
+    return;
+  }
   const result = db.prepare(
     `
     INSERT INTO notes (id, user_id, ciphertext, key_version, is_pinned, is_favorite, client_updated_at, folder_id, version, server_updated_at)
@@ -252,6 +267,12 @@ notesRouter.patch('/notes/:id', (req, res) => {
 
   if (!existing) {
     res.status(404).json({ error: 'not_found' });
+    return;
+  }
+
+  // F4：移动目标文件夹必须属于当前用户（FK 只保证存在,不保证属主）
+  if (data.folderId != null && !ownsFolder(db, user.userId, data.folderId)) {
+    res.status(400).json({ error: 'invalid_folder' });
     return;
   }
 
@@ -422,28 +443,33 @@ notesRouter.delete('/notes/:id/permanent', (req, res) => {
   }
 
   const db = getDb();
-  const result = db
-    .prepare(
-      `
+  // F5：删除与审计行必须原子——此前先 DELETE 再单独 INSERT 审计,磁盘满等
+  // 异常会让「不可恢复删除」无留痕（与 shares create/revoke 的事务化做法一致）
+  const result = db.transaction(() => {
+    const r = db
+      .prepare(
+        `
     DELETE FROM notes WHERE id = ? AND user_id = ?
   `
-    )
-    .run(id, user.userId);
+      )
+      .run(id, user.userId);
+    if (r.changes === 0) return r;
+    db.prepare(
+      'INSERT INTO audit_log (user_id, device_id, event, ip_hash, meta) VALUES (?, ?, ?, ?, ?)'
+    ).run(
+      user.userId,
+      user.deviceId,
+      'note_permanent_delete',
+      ipHash(req),
+      JSON.stringify({ noteId: id })
+    );
+    return r;
+  })();
 
   if (result.changes === 0) {
     res.status(404).json({ error: 'not_found' });
     return;
   }
-  // 审计：笔记永久删除（不可恢复，留痕用于事故排查）
-  db.prepare(
-    'INSERT INTO audit_log (user_id, device_id, event, ip_hash, meta) VALUES (?, ?, ?, ?, ?)'
-  ).run(
-    user.userId,
-    user.deviceId,
-    'note_permanent_delete',
-    ipHash(req),
-    JSON.stringify({ noteId: id })
-  );
   broadcastNoteChanged(user.userId, { id, op: 'permanent_delete' });
   res.json({ ok: true });
 });

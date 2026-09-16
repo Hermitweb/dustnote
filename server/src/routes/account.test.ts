@@ -10,9 +10,21 @@
  * account.ts,这个测试会先红。
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import type { Database as DatabaseType } from 'better-sqlite3';
+
+// F3 配套：迁移 7/8 已标记 destructive,全量跑迁移会触发备份门槛——必须把
+// BACKUP_DIR 指向系统临时目录,否则测试会在仓库 CWD 落真实备份文件。
+// vi.hoisted 在 import 求值前执行,env.ts 才能读到该变量。
+const { tmpBackupDir } = vi.hoisted(() => {
+  const os = require('node:os') as typeof import('node:os');
+  const path = require('node:path') as typeof import('node:path');
+  const dir = path.join(os.tmpdir(), `dustnote-test-backups-${Date.now()}`);
+  process.env.BACKUP_DIR = dir;
+  return { tmpBackupDir: dir };
+});
+
 import { runMigrations } from '../db.js';
 import { migrations } from '../migrations.js';
 
@@ -122,4 +134,15 @@ describe('GET /account/export — SELECT 与真实 schema 一致（H1 回归）'
         .all('u1')
     ).toHaveLength(0);
   });
+});
+
+afterAll(() => {
+  testDb?.close();
+  // 清掉破坏性迁移门槛在临时目录生成的备份（F3 配套）
+  try {
+    const fs = require('node:fs') as typeof import('node:fs');
+    fs.rmSync(tmpBackupDir, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
 });

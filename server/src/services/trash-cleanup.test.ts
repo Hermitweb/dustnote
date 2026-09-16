@@ -198,6 +198,23 @@ describe('purgeExpiredTrash', () => {
     expect(after).toBe(1);
   });
 
+  it('F6: legacy 空格格式时间戳同样按 julianday 正确判定', () => {
+    // 迁移 15 之前入库的 datetime('now') 产物是「YYYY-MM-DD HH:MM:SS」空格格式。
+    // 该用例锁定 julianday 对两种格式的兼容——若未来改回字符串比较会立即回归
+    // （' ' 0x20 < 'T' 0x54,同日空格格式会被误判为更早）。
+    const now = new Date('2026-03-01T00:00:00Z');
+    testDb.exec('DELETE FROM notes');
+    // 31 天前的空格格式（应删）
+    insertNote('legacy-old', '2026-01-29 00:00:00');
+    // 29 天前的空格格式（应留）
+    insertNote('legacy-recent', '2026-01-31 00:00:00');
+
+    purgeExpiredTrash(now);
+
+    expect(testDb.prepare('SELECT 1 FROM notes WHERE id = ?').get('legacy-old')).toBeUndefined();
+    expect(testDb.prepare('SELECT 1 FROM notes WHERE id = ?').get('legacy-recent')).toBeDefined();
+  });
+
   it('returns 0 when nothing to purge', () => {
     // 清空后重新插入一条未删除笔记
     testDb.exec('DELETE FROM notes');
