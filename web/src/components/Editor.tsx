@@ -147,11 +147,23 @@ export function Editor() {
       .catch((err: Error) => toast.error(t('templates.save_fail', { reason: err.message })));
   }, [plain, saveAsTemplate, t]);
 
+  // F6：记录「本地 title/content 属于哪条笔记」——用于区分「切笔记」（必须
+  // 用服务端快照覆盖）与「同一笔记的 loadAll/WS 广播刷新」（notesPlain 的
+  // Map 与对象身份每次重建,若无条件覆盖会吃掉防抖窗口内的未保存输入,
+  // 随后自动保存再把旧值写回服务端）
+  const plainAppliedForRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (plain) {
+    if (!plain) return;
+    const noteId = note?.id ?? null;
+    const localDirty = title !== plain.title || content !== plain.content;
+    if (plainAppliedForRef.current !== noteId || !localDirty) {
       setTitle(plain.title);
       setContent(plain.content);
+      plainAppliedForRef.current = noteId;
     }
+    // 依赖只跟 plain：title/content 是本地输入,进依赖会造成覆盖回环
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plain]);
 
   // 处理图片文件：压缩并插入到光标处（S-2 拖拽 / 粘贴图片）

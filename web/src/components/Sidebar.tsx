@@ -600,7 +600,10 @@ export function Sidebar() {
                   // （H-A：虚拟 id 曾直接透传，单机模式落库成不可见笔记）
                   const target = selectedFolderId === UNFILED_ID ? null : selectedFolderId;
                   if (!target) {
-                    if (selectedFolderId === UNFILED_ID) {
+                    // M1：未分类视图、或一个文件夹都没有时,直接建到「未分类」
+                    // （节点可见可达）——此前这两种情况都只弹「请先选择文件夹」,
+                    // 而根本没有文件夹可选,主 CTA 成死端
+                    if (selectedFolderId === UNFILED_ID || folders.length === 0) {
                       void createNote().catch((err: unknown) =>
                         toast.error(err instanceof Error ? err.message : String(err))
                       );
@@ -889,8 +892,10 @@ export function Sidebar() {
                   ensureDefaultContent 迁入默认文件夹） */}
 
               {/* 「未分类」虚拟节点（H8）：folderId=null 的笔记（含删除文件夹后
-                  的归属失落笔记）在此保持可见可达,不再只靠搜索 */}
-              {showFolderTree && unfiledCount > 0 && (
+                  的归属失落笔记）在此保持可见可达,不再只靠搜索。
+                  M1：folders 为空时也渲染——否则「删光全部文件夹」的用户
+                  看不到任何笔记入口,顶栏新建也无处可归 */}
+              {showFolderTree && (unfiledCount > 0 || folders.length === 0) && (
                 <div>
                   <div
                     className={`flex items-center rounded transition-colors ${

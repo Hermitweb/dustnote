@@ -89,9 +89,15 @@ async function refreshAccessToken(): Promise<string | null> {
           }
         };
         if (locks?.request) {
-          // 发现5：沙箱 iframe 等环境 locks.request 会 reject（SecurityError）——
-          // 兜底为 null（与 doRefresh 内部失败同语义），不让锁异常打断原请求
-          return await locks.request('dustnote-refresh', doRefresh).catch(() => null);
+          // F7：locks.request 自身 reject（沙箱 iframe 的 SecurityError）时
+          // **回退到无锁路径**而不是返回 null——返回 null 会让 authFetch 把
+          // 已解锁用户踢回解锁页（把锁异常误当成会话失效）。并发去重已由
+          // refreshInFlight 单飞承担,无锁执行不会造成刷新风暴。
+          try {
+            return await locks.request('dustnote-refresh', doRefresh);
+          } catch {
+            return await doRefresh();
+          }
         }
         return await doRefresh();
       } finally {

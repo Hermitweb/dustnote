@@ -61,6 +61,12 @@ export interface FlushSummary {
   hadConflict: boolean;
   /** 重放后剩余队列长度（0 = 全部成功，可标记在线） */
   remaining: number;
+  /**
+   * M3：本轮因写限流（429）中止——队列**完整保留**,未消耗任何重试预算。
+   * 调用方应按服务端 Retry-After（或下次触发时机）稍后重试,并提示用户
+   * 「同步受限」,不要把它当成同步完成。
+   */
+  rateLimited?: boolean;
 }
 
 /** 默认错误分类：识别 web ApiException({err:{status,data}}) 与 TypeError */
@@ -81,12 +87,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * 429 的独立重试阈值（发现6）：限流是瞬态且与 op 内容无关，不该与 5xx
- * 共用 8 次阈值——给足限流窗口恢复的轮次（配合指数退避）
- */
-export const RATE_LIMIT_MAX_RETRIES = 30;
-
 export class SyncEngine {
   private inFlight = false;
 
@@ -100,7 +100,7 @@ export class SyncEngine {
    *
    * - 重入守卫：并发触发（online 事件 + 手动同步）只跑一次
    * - 409：调用 onConflict（若有）后移除 op，避免死循环
-   * - 429：写限流,可恢复——保留 + 退避后继续（与 5xx 同语义）
+   * - 429：写限流——中止本轮,队列完整保留且不消耗重试预算（M3）
    * - 其余 4xx：客户端错误,不可恢复,移除 op
    * - 5xx：bumpRetries + 指数退避后继续下一条
    * - 网络不可达（TypeError）：停止重放，保留剩余 op
@@ -109,7 +109,7 @@ export class SyncEngine {
   async flush(): Promise<FlushSummary> {
     // 重入守卫：并发触发会 peek 到同一批 op 并重复执行
     if (this.inFlight) {
-      return { hadConflict: false, remaining: await this.queue.size() };
+      return { hadConflict: false, remaining: await this.queue.size(), rateLimited: false };
     }
     this.inFlight = true;
     const classify = this.hooks.classifyError ?? defaultClassifyError;
@@ -117,12 +117,13 @@ export class SyncEngine {
     try {
       const ops = await this.queue.peekAll();
       if (ops.length === 0) {
-        const summary: FlushSummary = { hadConflict: false, remaining: 0 };
+        const summary: FlushSummary = { hadConflict: false, remaining: 0, rateLimited: false };
         this.hooks.onFlushed?.(summary);
         return summary;
       }
 
       let hadConflict = false;
+      let rateLimited = false;
       for (const op of ops) {
         try {
           await this.hooks.replayOp(op);
@@ -143,15 +144,13 @@ export class SyncEngine {
             await this.queue.remove(op.id);
             hadConflict = true;
           } else if (status === 429) {
-            // 429 写限流：可恢复——保留 + 退避后继续。此前落入「其余 4xx 丢弃」
-            // 分支，离线批量重放/模式迁移超过限流阈值时后半段 op 被静默永久
-            // 删除（审计 C1）。mp/mobile 共用此引擎。
-            // 独立重试阈值（发现6）：限流是瞬态且与 op 本身无关，不该与
-            // 5xx 共用 8 次阈值——WS 重连风暴频繁触发 flush 时 8 次 429
-            // 仍可能耗尽；给 30 次 + 指数退避留足限流窗口恢复时间。
-            await this.queue.bumpRetries(op.id, RATE_LIMIT_MAX_RETRIES);
-            const delay = await this.queue.getRetryDelayForOp(op.id);
-            if (delay > 0) await sleep(delay);
+            // M3：写限流**不消耗重试预算**——此前 bumpRetries 到阈值后 op 被
+            // 静默永久删除（审计 C1 的同类问题只是被推迟），且删除后
+            // getRetryDelayForOp 返回 0 不退避,循环立刻打下一个 op 反而加剧
+            // 请求密度。现在直接中止本轮 flush：队列完整保留,由调用方按
+            // 服务端 Retry-After / 下次触发时机重试,并据 rateLimited 提示用户。
+            rateLimited = true;
+            break;
           } else if (status !== undefined && status >= 400 && status < 500) {
             // 其他 4xx 客户端错误：不可恢复，丢弃
             await this.queue.remove(op.id);
@@ -172,7 +171,7 @@ export class SyncEngine {
       }
 
       const remaining = await this.queue.size();
-      const summary: FlushSummary = { hadConflict, remaining };
+      const summary: FlushSummary = { hadConflict, remaining, rateLimited };
       this.hooks.onFlushed?.(summary);
       return summary;
     } finally {

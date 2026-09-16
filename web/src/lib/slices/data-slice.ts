@@ -33,6 +33,16 @@ import { toast } from '../toast';
 /** 初始默认文件夹与引导笔记（ensureDefaultContent 幂等创建） */
 export const DEFAULT_FOLDER_NAME = '关于尘渊笔记';
 export const INTRO_NOTE_TITLE = '关于尘渊笔记';
+
+/**
+ * F8：所有写路径的 folderId 归一——虚拟 id（UNFILED_ID）/已删除/不存在的 id
+ * 一律归一为 null（落「未分类」,UI 可见可再归档）。单机模式无 FK 校验,
+ * 不归一会落库成仅搜索可达的不可见笔记或孤儿文件夹。
+ */
+function resolveFolderId(folderId: string | null | undefined, folders: Folder[]): string | null {
+  if (folderId == null) return null;
+  return folders.some((f) => f.id === folderId) ? folderId : null;
+}
 /**
  * 并发单飞：ensureDefaultContent 可能在 unlocked effect 重入/StrictMode
  * 双跑时并发执行,都读到「0 文件夹」会各建一份初始内容。并发调用共享
@@ -247,15 +257,12 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     if (!masterKey) throw new Error('未解锁');
 
     // 幽灵笔记根治:调用方(命令面板/快捷键/快速记事)未指定文件夹时
-    // 回退到第一个文件夹,避免产生 folderId=null 的「无归属」笔记
-    let effectiveFolderId = folderId;
+    // 回退到第一个文件夹;指定了但非法（虚拟 UNFILED_ID / 已被其他端删除）
+    // 同样回退——单机模式无 FK 校验,落库即成仅搜索可达的不可见笔记（H-A/F8）
+    const resolved = resolveFolderId(folderId, get().folders);
+    let effectiveFolderId = resolved;
     if (effectiveFolderId == null) {
-      const first = [...get().folders.values()].find((f) => !f.parentId) ?? [...get().folders.values()][0];
-      effectiveFolderId = first ? first.id : null;
-    } else if (!get().folders.some((f) => f.id === effectiveFolderId)) {
-      // 深度防御（H-A）：虚拟 id（如 UNFILED_ID）或已删除的文件夹 id
-      // 一律回退首文件夹,绝不落库——单机模式无 FK 校验会持久化成不可见笔记
-      const first = [...get().folders.values()].find((f) => !f.parentId) ?? [...get().folders.values()][0];
+      const first = get().folders.find((f) => !f.parentId) ?? get().folders[0];
       effectiveFolderId = first ? first.id : null;
     }
 
@@ -305,15 +312,12 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     const noteId = randomUuid();
     const { json: cipherJson } = await encryptNote(masterKey, plain, noteAad(noteId, get().userId ?? ''));
 
-    // 幽灵笔记根治（H7）：模板路径此前完全没有 folderId fallback——「全部」视图
-    // 未选文件夹时 TemplatePicker 传 null,服务端与本地都落无归属笔记
-    let effectiveFolderId = folderId;
+    // 幽灵笔记根治（H7/F8）：模板路径此前完全没有 folderId fallback——
+    // 「全部」视图未选文件夹时 TemplatePicker 传 null,服务端与本地都落无归属笔记
+    const resolvedTpl = resolveFolderId(folderId, get().folders);
+    let effectiveFolderId = resolvedTpl;
     if (effectiveFolderId == null) {
-      const first = [...get().folders.values()].find((f) => !f.parentId) ?? [...get().folders.values()][0];
-      effectiveFolderId = first ? first.id : null;
-    } else if (!get().folders.some((f) => f.id === effectiveFolderId)) {
-      // 深度防御（H-A）：虚拟/已删 id 回退首文件夹,与 createNote 同款
-      const first = [...get().folders.values()].find((f) => !f.parentId) ?? [...get().folders.values()][0];
+      const first = get().folders.find((f) => !f.parentId) ?? get().folders[0];
       effectiveFolderId = first ? first.id : null;
     }
 
@@ -414,16 +418,18 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
   async moveNote(id: string, folderId: string | null): Promise<void> {
     const note = get().notes.get(id);
     if (!note) return;
-    if (note.folderId === folderId) return;
+    // F8：目标归一（虚拟/已删 id → null）,否则单机模式落库成不可见笔记
+    const target = resolveFolderId(folderId, get().folders);
+    if (note.folderId === target) return;
     const { mode, repository } = get();
     if (mode === 'standalone' && repository) {
-      await repository.moveNote(id, folderId);
-      const newNotes = new Map(get().notes); newNotes.set(id, { ...note, folderId });
+      await repository.moveNote(id, target);
+      const newNotes = new Map(get().notes); newNotes.set(id, { ...note, folderId: target });
       set({ notes: newNotes } as Partial<StoreState>);
       return;
     }
-    const body = { folderId, clientUpdatedAt: new Date().toISOString(), version: note.version };
-    const newNotes = new Map(get().notes); newNotes.set(id, { ...note, folderId });
+    const body = { folderId: target, clientUpdatedAt: new Date().toISOString(), version: note.version };
+    const newNotes = new Map(get().notes); newNotes.set(id, { ...note, folderId: target });
     set({ notes: newNotes } as Partial<StoreState>);
     const ok = await runOrEnqueue({ method: 'PATCH', path: `/notes/${id}`, body, noteId: id }, async () => {
       const apply = (version: number, serverUpdatedAt?: string) => {
@@ -580,7 +586,10 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
   },
 
   async createFolder(name: string, opts?: { parentId?: string | null; branch?: 'work' | 'personal' | null }): Promise<string> {
-    const parentId = opts?.parentId ?? null;
+    // F8：parentId 归一——陈旧/虚拟 id 会让单机模式（无 FK）落一个
+    // parentId 指向不存在文件夹的孤儿,树渲染从 parentId=null 往下走,
+    // 该文件夹永远不显示
+    const parentId = resolveFolderId(opts?.parentId ?? null, get().folders);
     const parent = parentId ? get().folders.find((f) => f.id === parentId) : undefined;
     const depth = parent ? (parent.depth ?? 1) + 1 : 1;
     const branch = parentId ? (parent?.branch ?? null) : (opts?.branch ?? null);
@@ -599,22 +608,31 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
 
   /**
    * 首次使用初始化（幂等，解锁并 loadAll 后调用一次）：
-   * 1. 真·全新账号（0 文件夹且 0 笔记）时创建默认文件夹「关于尘渊笔记」+ 引导笔记
+   * 1. 从未播种过时创建默认文件夹「关于尘渊笔记」+ 引导笔记
    * 2. 历史未分类笔记（folderId=null 且未删除）迁入默认文件夹
    *
-   * 发现4（2026-09-11 审计）：迁移条件收紧为「0 文件夹且 0 笔记」——用户删光
-   * 自己全部文件夹（删除确认弹窗承诺「可在侧栏『未分类』中找到并重新归档」）
-   * 后，下次解锁不应再被强制迁入新建的默认文件夹。
+   * M2：三端统一为「持久化种子标记」语义（与 mp 的 dustnote_seeded_<mode>
+   * 一致）。此前 web 用 notes.size 判断——它**含回收站笔记**,导致「0 文件夹
+   * + 笔记全在回收站」时既不建默认文件夹、顶栏新建又永久提示先选文件夹
+   * （M1 死端）；而 mobile 的旧语义会在用户删光文件夹后强制把未分类笔记
+   * 迁回新建的默认文件夹,撤销用户意图。
    */
   async ensureDefaultContent(): Promise<void> {
     if (ensureInFlight) return ensureInFlight;
     ensureInFlight = (async () => {
-      const { folders, notes, masterKey } = get();
+      const { folders, notes, masterKey, mode } = get();
       if (!masterKey) return;
       if (folders.length > 0) return;
-      // 0 文件夹但有存量笔记：用户主动清空了文件夹树,未分类笔记
-      // 由侧栏「未分类」虚拟节点承载,不再强制迁移
-      if (notes.size > 0) return;
+      const seededKey = `dustnote_seeded_${mode}`;
+      let seeded = false;
+      try {
+        seeded = localStorage.getItem(seededKey) === '1';
+      } catch {
+        /* ignore */
+      }
+      // 已播种过：用户主动删光了文件夹,未分类笔记由侧栏「未分类」节点承载,
+      // 不再重新注入引导内容
+      if (seeded) return;
 
       const folderId = await get().createFolder(DEFAULT_FOLDER_NAME);
       // 迁移历史未分类笔记（先迁移再建引导笔记，避免引导笔记被重复处理）
@@ -632,6 +650,12 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
       // 引导笔记（E2EE 加密后创建，与普通笔记无异，可编辑可删除）
       const noteId = await get().createNote(folderId);
       await get().updateNote(noteId, { title: INTRO_NOTE_TITLE, content: INTRO_NOTE_CONTENT });
+      // 播种标记落盘：此后即使用户删光全部文件夹也不再重新注入引导内容（M2）
+      try {
+        localStorage.setItem(seededKey, '1');
+      } catch {
+        /* ignore */
+      }
       if (migrated > 0) {
         toast.info(i18n.t('sidebar.unfiled_migrated', { count: migrated }) || `已把 ${migrated} 条未分类笔记移入「${DEFAULT_FOLDER_NAME}」`);
       }
@@ -658,6 +682,12 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
         }
       }
     }
+    // M4：选中态重置必须在 mode 分支**之前**——此前写在 standalone 分支的
+    // return 之后,单机删除正被选中的文件夹时 selectedFolderId 仍指向已删 id,
+    // folderScope 把所有刚置 null 的笔记全过滤掉 → 列表空白、侧栏无高亮
+    if (descIds.has(get().selectedFolderId ?? '')) {
+      set({ selectedFolderId: null } as Partial<StoreState>);
+    }
     if (mode === 'standalone' && repository) {
       await repository.deleteFolder(id);
       set({ folders: get().folders.filter((f) => !descIds.has(f.id)) } as Partial<StoreState>);
@@ -667,20 +697,21 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
       return;
     }
     set({ folders: get().folders.filter((f) => !descIds.has(f.id)) } as Partial<StoreState>);
-    // 被删文件夹正被选中时回退到「全部」视图,否则 folderScope 过滤后列表空白
-    if (descIds.has(get().selectedFolderId ?? '')) {
-      set({ selectedFolderId: null } as Partial<StoreState>);
+    try {
+      const ok = await runOrEnqueue({ method: 'DELETE', path: `/folders/${id}` }, async () => { await api().delete(`/folders/${id}`); }, () => get().refreshPendingCount());
+      if (!ok) set({ isOnline: false } as Partial<StoreState>);
+    } finally {
+      // 缓存回写放 finally：runOrEnqueue 抛 4xx 时本地已乐观删除,不回写会让
+      // IndexedDB 留着指向已删文件夹的 stale 笔记
+      const newNotes = new Map(get().notes); let changed = false;
+      for (const [nid, n] of newNotes) { if (n.folderId && descIds.has(n.folderId)) { newNotes.set(nid, { ...n, folderId: null }); changed = true; } }
+      if (changed) set({ notes: newNotes } as Partial<StoreState>);
+      // M-B：notes 的 IndexedDB 缓存也要回写——只 cacheFolders 的话,删文件夹后
+      // 离线重启会读到指向已删文件夹的 stale 笔记,既不进任何 scope 也不满足
+      // 未分类的 null 判定,仅搜索可达
+      void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(() => undefined);
+      void cacheFolders(get().folders).catch(() => undefined);
     }
-    const ok = await runOrEnqueue({ method: 'DELETE', path: `/folders/${id}` }, async () => { await api().delete(`/folders/${id}`); }, () => get().refreshPendingCount());
-    if (!ok) set({ isOnline: false } as Partial<StoreState>);
-    const newNotes = new Map(get().notes); let changed = false;
-    for (const [nid, n] of newNotes) { if (n.folderId && descIds.has(n.folderId)) { newNotes.set(nid, { ...n, folderId: null }); changed = true; } }
-    if (changed) set({ notes: newNotes } as Partial<StoreState>);
-    // M-B：notes 的 IndexedDB 缓存也要回写——只 cacheFolders 的话,删文件夹后
-    // 离线重启会读到指向已删文件夹的 stale 笔记,既不进任何 scope 也不满足
-    // 未分类的 null 判定,仅搜索可达
-    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(() => undefined);
-    void cacheFolders(get().folders).catch(() => undefined);
   },
 
   async renameFolder(id: string, name: string): Promise<void> {
@@ -696,12 +727,15 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
 
   async moveFolder(id: string, parentId: string | null): Promise<void> {
     const { mode, repository } = get();
-    const parent = parentId ? get().folders.find((f) => f.id === parentId) : undefined;
+    // F8：parentId 归一（陈旧/虚拟 id → null）,并拒绝把自己挂到自己下面
+    // （会形成自环,树渲染从 parentId=null 往下走时该文件夹永远不显示）
+    const resolvedParent = id === parentId ? null : resolveFolderId(parentId, get().folders);
+    const parent = resolvedParent ? get().folders.find((f) => f.id === resolvedParent) : undefined;
     const depth = parent ? (parent.depth ?? 1) + 1 : 1;
     const branch = parent ? (parent.branch ?? null) : null;
-    if (mode === 'standalone' && repository) { await repository.moveFolder(id, parentId); set({ folders: get().folders.map((f) => (f.id === id ? { ...f, parentId, depth, branch } : f)) } as Partial<StoreState>); return; }
-    set({ folders: get().folders.map((f) => (f.id === id ? { ...f, parentId, depth, branch } : f)) } as Partial<StoreState>);
-    const ok = await runOrEnqueue({ method: 'PATCH', path: `/folders/${id}` }, async () => { await api().patch(`/folders/${id}`, { parentId }); }, () => get().refreshPendingCount());
+    if (mode === 'standalone' && repository) { await repository.moveFolder(id, resolvedParent); set({ folders: get().folders.map((f) => (f.id === id ? { ...f, parentId: resolvedParent, depth, branch } : f)) } as Partial<StoreState>); return; }
+    set({ folders: get().folders.map((f) => (f.id === id ? { ...f, parentId: resolvedParent, depth, branch } : f)) } as Partial<StoreState>);
+    const ok = await runOrEnqueue({ method: 'PATCH', path: `/folders/${id}` }, async () => { await api().patch(`/folders/${id}`, { parentId: resolvedParent }); }, () => get().refreshPendingCount());
     if (!ok) set({ isOnline: false } as Partial<StoreState>);
     void cacheFolders(get().folders).catch(() => undefined);
   },

@@ -12,7 +12,6 @@ import {
   parseEnvelope,
   resolveConflict,
   toMergeable,
-  RATE_LIMIT_MAX_RETRIES,
   type NoteMetadata,
 } from '@dustnote/client-core';
 import type { StoreState } from '../store';
@@ -77,6 +76,7 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
       if (ops.length === 0) return;
 
       let hadConflict = false;
+      let rateLimited = false;
       for (const op of ops) {
         try {
           await replayOp(op);
@@ -101,12 +101,12 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
                 const delayMs = await getRetryDelayForOp(op.id);
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
               } else if (status === 429) {
-                // 429 = 写限流:可恢复——保留+退避重试。此前落入「其余 4xx 丢弃」
-                // 分支,离线批量重放超限时后半段 op 被静默永久删除(审计 C1)。
-                // 独立重试阈值(发现6):限流是瞬态且与 op 无关,不与 5xx 共用 8 次
-                await bumpRetries(op.id, RATE_LIMIT_MAX_RETRIES);
-                const delayMs = await getRetryDelayForOp(op.id);
-                await new Promise((resolve) => setTimeout(resolve, delayMs));
+                // M3：写限流不消耗重试预算,直接中止本轮——队列完整保留。
+                // 此前 bumpRetries 到阈值后 op 被静默删除(C1 同类问题只是被
+                // 推迟),且删除后退避为 0 反而加剧请求密度。服务端已回
+                // Retry-After,由下次 flush 触发时机自然重试。
+                rateLimited = true;
+                break;
               } else {
                 await remove(op.id);
                 hadConflict = true;
@@ -125,6 +125,13 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
       }
 
       await get().refreshPendingCount();
+
+      // 限流中止时不做 loadAll：队列原样保留、无状态需要对账,而此时整体
+      // 替换 notesPlain 反而会覆盖编辑器防抖窗口内的未保存输入(F6)
+      if (rateLimited) {
+        set({ isOnline: false } as Partial<StoreState>);
+        return;
+      }
 
       if (get().pendingConflicts.length === 0 && (hadConflict || ops.length > 0)) {
         try {

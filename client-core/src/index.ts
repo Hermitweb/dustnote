@@ -60,5 +60,4 @@ export {
   type SyncEngineHooks,
   type FlushSummary,
   SyncEngine,
-  RATE_LIMIT_MAX_RETRIES,
 } from './sync-engine.js';
