@@ -60,16 +60,10 @@ test.describe('联机模式', () => {
       timeout: 15_000,
     });
 
-    // 显式选中种子文件夹：产品约束是「笔记必须归属文件夹」，未选中文件夹时
-    // 主 CTA 只弹「请先选择文件夹」而不创建。注册后应用会自动选中种子文件夹，
-    // 重新解锁则不会 —— 不显式选就会走进提示分支，本用例与库状态绑定。
-    const seedFolder = page.getByRole('button', { name: /关于尘渊笔记/ }).first();
-    if (await seedFolder.isVisible().catch(() => false)) {
-      await seedFolder.click();
-      await page.waitForTimeout(1200);
-    }
-
-    // 新建笔记（联机模式走 POST /notes + 乐观锁，回归 batch 修复的 version 兜底）
+    // 不预选文件夹直接点主 CTA：重新解锁后无选中文件夹（收藏/回收站/搜索视图
+    // 同理），此前只弹「请先选择文件夹」而不创建（死端）——统一后主 CTA 无条件
+    // 创建，data-slice 把 null 归一到首文件夹。本用例因此与库状态无关。
+    // （联机模式走 POST /notes + 乐观锁，回归 batch 修复的 version 兜底）
     await page
       .getByRole('button', { name: /新建笔记|新笔记/ })
       .first()

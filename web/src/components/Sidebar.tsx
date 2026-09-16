@@ -602,22 +602,11 @@ export function Sidebar() {
             <div className="flex gap-1">
               <button
                 onClick={() => {
-                  // 笔记必须归属文件夹：未选中文件夹时不创建（收藏/回收站/搜索
-                  // 视图下 selectedFolderId 也为 null，同样引导先选文件夹）。
-                  // 「未分类」视图下归一为 null → data-slice 回退首文件夹
-                  // （H-A：虚拟 id 曾直接透传，单机模式落库成不可见笔记）
+                  // 主 CTA 无条件创建（用户拍板「统一」）：「未分类」视图归一为 null
+                  // （H-A：虚拟 id 曾直接透传，单机模式落库成不可见笔记）；
+                  // 未选中文件夹（重新解锁后常见；收藏/回收站/搜索视图同理）传 null
+                  // → data-slice 回退首文件夹，不再弹「请先选择文件夹」的死端提示。
                   const target = selectedFolderId === UNFILED_ID ? null : selectedFolderId;
-                  if (!target) {
-                    // M1：未分类视图、或一个文件夹都没有时,直接建到「未分类」
-                    // （节点可见可达）——此前这两种情况都只弹「请先选择文件夹」,
-                    // 而根本没有文件夹可选,主 CTA 成死端
-                    if (selectedFolderId === UNFILED_ID || folders.length === 0) {
-                      void createNote().catch((err: unknown) => toast.error(errorText(err)));
-                      return;
-                    }
-                    toast.info(t('sidebar.select_folder_first'));
-                    return;
-                  }
                   void createNote(target).catch((err: unknown) => toast.error(errorText(err)));
                 }}
                 className="flex-1 rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
