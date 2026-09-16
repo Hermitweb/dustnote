@@ -16,3 +16,5 @@ export * from './templates.js';
 export * from './net-utils.js';
 // 服务端错误码 → i18n key 映射（客户端统一取词,不再硬匹配中文文案）
 export * from './error-codes.js';
+// 模式切换迁移的策略层（账本/轮数门禁/清槽判定）——三端单一实现,可单测
+export * from './migration.js';

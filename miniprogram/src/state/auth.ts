@@ -752,6 +752,16 @@ async function doRunPendingMigration(): Promise<void> {
       });
       return;
     }
+    if (!result.cleared) {
+      // 兜底：本轮无失败但槽内仍有历史未解决项（理论上已被上方 failed>0 覆盖）。
+      // 此时**不能**清槽——那会连同「未完成迁移报告」一起丢掉失败笔记的记录。
+      Taro.showToast({
+        title: t('settings.migrated_failed', { count: result.imported, failed: result.unresolved }),
+        icon: 'none',
+        duration: 4000,
+      });
+      return;
+    }
     clearPendingMigration();
     useAuthStore.setState({ pendingMasterKey: null });
     Taro.showToast({

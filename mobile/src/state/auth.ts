@@ -848,10 +848,17 @@ async function doRunPendingMigration(): Promise<void> {
         // 只披露丢失条数;联机路径的槽由 consumePendingMigration 保留待重试
         await clearPendingMigration().catch(() => undefined);
       }
+      // 兜底：本轮无失败但槽内仍有历史未解决项（理论上已被上方 failed>0 覆盖）。
+      // 此时不能按「迁移完成」报喜——槽还在，失败笔记仍待处理。
       const msg =
         res.failed > 0
           ? i18n.t('auth.migration_complete_partial', { imported: res.imported, failed: res.failed })
-          : i18n.t('auth.migration_complete_detail', { count: res.imported });
+          : res.cleared
+            ? i18n.t('auth.migration_complete_detail', { count: res.imported })
+            : i18n.t('auth.migration_complete_partial', {
+                imported: res.imported,
+                failed: res.unresolved,
+              });
       Alert.alert(i18n.t('auth.migration_complete_title'), msg);
       const k = useAuthStore.getState().pendingMasterKey;
       if (k) k.fill(0);
