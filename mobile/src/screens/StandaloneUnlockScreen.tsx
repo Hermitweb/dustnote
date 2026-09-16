@@ -19,6 +19,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } fro
 import { FTextInput } from '../components/FTextInput';
 import logoImage from '../assets/logo.png';
 import { useTranslation } from 'react-i18next';
+import { errorText } from '../lib/error-text';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import ReactNativeBiometrics from 'react-native-biometrics';
@@ -75,7 +76,7 @@ export function StandaloneUnlockScreen() {
       await unlockStandalone(password);
       // store 切换到 unlocked 状态后，App.tsx 会自动路由到主界面
     } catch (err) {
-      Alert.alert(t('auth.unlock_failed'), (err as Error).message);
+      Alert.alert(t('auth.unlock_failed'), errorText(err));
       setPassword('');
     } finally {
       setSubmitting(false);
@@ -106,7 +107,7 @@ export function StandaloneUnlockScreen() {
         Alert.alert(t('common.hint'), t('auth.unlock_biometric_no_cache'));
       }
     } catch (err) {
-      Alert.alert(t('auth.unlock_failed'), (err as Error).message);
+      Alert.alert(t('auth.unlock_failed'), errorText(err));
     } finally {
       setBioBusy(false);
     }

@@ -8,6 +8,7 @@ import { type Ciphertext, toBase64Url, unwrapKey, zeroize } from '@dustnote/shar
 import { useStore } from '../lib/store';
 import { useModeStore } from '../lib/mode-store';
 import { getDeviceId } from '../lib/device';
+import { errorText } from '../lib/error-text';
 import { copyText } from '../lib/clipboard';
 import { toast } from '../lib/toast';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -108,7 +109,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
       }
       setShares(((await r.json()) as { shares: Share[] }).shares);
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err));
     } finally {
       setLoading(false);
     }
@@ -143,7 +144,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       await load();
     } catch (err) {
-      toast.error(t('shares.revoke_fail', { reason: (err as Error).message }));
+      toast.error(t('shares.revoke_fail', { reason: errorText(err) }));
     }
   };
 

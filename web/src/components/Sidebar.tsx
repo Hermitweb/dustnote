@@ -9,6 +9,8 @@ import { Logo } from './Logo';
 import { ConfirmDialog } from './ConfirmDialog';
 import JSZip from 'jszip';
 import { exportAsMarkdown, downloadBlob, parseNoteFile, detectFormat } from '../lib/io-client';
+import { apiErrorCode } from '@dustnote/shared';
+import { errorText } from '../lib/error-text';
 
 /** 右键菜单目标：文件夹或笔记叶子 */
 type CtxTarget =
@@ -383,11 +385,12 @@ export function Sidebar() {
     try {
       await createFolder(name, parentId ? { parentId } : undefined);
     } catch (err) {
-      const code = (err as { code?: string })?.code;
-      if (code === 'folder_depth_exceeded') {
+      // 服务端码在 ApiException.err.code（此前读 err.code → 恒为 undefined，
+      // 该友好提示是死代码，实际一直落到下面的原始文案分支）
+      if (apiErrorCode(err) === 'folder_depth_exceeded') {
         toast.error(t('sidebar.depth_limit_msg'));
       } else {
-        toast.error(err instanceof Error ? err.message : String(err));
+        toast.error(errorText(err));
       }
     }
     cancelNewFolder();
@@ -409,7 +412,7 @@ export function Sidebar() {
       }
       toast.success(t('sidebar.renamed'));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(errorText(err));
     }
     setRenameTarget(null);
   };
@@ -426,7 +429,7 @@ export function Sidebar() {
       }
       toast.success(t('sidebar.moved'));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(errorText(err));
     }
   };
 
@@ -467,7 +470,7 @@ export function Sidebar() {
       await deleteNote(target.id);
       toast.success(t('sidebar.deleted'));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(errorText(err));
     }
   };
 
@@ -500,7 +503,7 @@ export function Sidebar() {
         toast.success(t('sidebar.exported_folder', { count }));
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(errorText(err));
     }
   };
 
@@ -609,17 +612,13 @@ export function Sidebar() {
                     // （节点可见可达）——此前这两种情况都只弹「请先选择文件夹」,
                     // 而根本没有文件夹可选,主 CTA 成死端
                     if (selectedFolderId === UNFILED_ID || folders.length === 0) {
-                      void createNote().catch((err: unknown) =>
-                        toast.error(err instanceof Error ? err.message : String(err))
-                      );
+                      void createNote().catch((err: unknown) => toast.error(errorText(err)));
                       return;
                     }
                     toast.info(t('sidebar.select_folder_first'));
                     return;
                   }
-                  void createNote(target).catch((err: unknown) =>
-                    toast.error(err instanceof Error ? err.message : String(err))
-                  );
+                  void createNote(target).catch((err: unknown) => toast.error(errorText(err)));
                 }}
                 className="flex-1 rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
               >
@@ -1237,9 +1236,7 @@ export function Sidebar() {
               setFolderDeleteConfirm(null);
               void deleteFolder(id)
                 .then(() => toast.success(t('sidebar.deleted')))
-                .catch((err: unknown) =>
-                  toast.error(err instanceof Error ? err.message : String(err))
-                );
+                .catch((err: unknown) => toast.error(errorText(err)));
             }}
             onCancel={() => setFolderDeleteConfirm(null)}
           />

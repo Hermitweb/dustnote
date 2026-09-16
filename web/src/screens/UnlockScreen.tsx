@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isValidRecoveryCode } from '@dustnote/shared';
+import { apiErrorCode, isValidRecoveryCode } from '@dustnote/shared';
 import { useStore } from '../lib/store';
 import { isTauri } from '../lib/platform';
 import { graceRemainingSec } from '../lib/grace-unlock';
+import { errorText } from '../lib/error-text';
 
 export function UnlockScreen() {
   const { t } = useTranslation();
@@ -46,13 +47,13 @@ export function UnlockScreen() {
     try {
       await unlock(password, showTotp ? totpCode : undefined);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'unknown';
-      // 开启了两步验证的账号:服务端 401 totp_required → 追加验证码输入
-      if (msg.includes('totp_required') || msg.includes('两步验证')) {
+      // 按错误码判定，别硬匹配文案：服务端改文案会静默失效，且非中文界面下
+      // 展示的是语义桶文案（不含 'totp_required' / '两步验证'）→ 验证码框永不出现
+      if (apiErrorCode(err) === 'totp_required') {
         setShowTotp(true);
         setError(null);
       } else {
-        setError(msg);
+        setError(errorText(err));
       }
     } finally {
       setSubmitting(false);
@@ -66,7 +67,7 @@ export function UnlockScreen() {
     try {
       await recover(recoveryCode, newPassword);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'unknown');
+      setError(errorText(err));
     } finally {
       setSubmitting(false);
     }

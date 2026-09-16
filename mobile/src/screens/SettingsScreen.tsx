@@ -36,6 +36,7 @@ import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { getScreenshotAllowed, setScreenshotAllowed } from '../lib/screenshot';
 import { useLanguageStore, type AppLanguage } from '../lib/i18n';
+import { errorText } from '../lib/error-text';
 import { createRepository } from '../lib/repository';
 import { useColors, useThemeStore, type ThemeMode, THEMES, type ThemeId } from '../theme';
 import type { BackupPayload, AppMode, Preferences } from '@dustnote/shared';
@@ -136,10 +137,7 @@ export function SettingsScreen() {
       const data = (await r.json()) as { devices: DeviceItem[] };
       setDevices(data.devices ?? []);
     } catch (err) {
-      Alert.alert(
-        t('settings.devices_load_failed'),
-        err instanceof Error ? err.message : String(err)
-      );
+      Alert.alert(t('settings.devices_load_failed'), errorText(err));
     } finally {
       setDevicesLoading(false);
     }
@@ -171,10 +169,7 @@ export function SettingsScreen() {
               setDevices((prev) => prev.filter((d) => d.id !== device.id));
               Alert.alert(t('settings.device_kicked'));
             } catch (err) {
-              Alert.alert(
-                t('settings.device_kick_failed'),
-                err instanceof Error ? err.message : String(err)
-              );
+              Alert.alert(t('settings.device_kick_failed'), errorText(err));
             }
           },
         },
@@ -215,10 +210,7 @@ export function SettingsScreen() {
             lock();
             void useAuthStore.getState().init();
           } catch (err) {
-            Alert.alert(
-              t('settings.delete_account_failed'),
-              err instanceof Error ? err.message : String(err)
-            );
+            Alert.alert(t('settings.delete_account_failed'), errorText(err));
           }
         },
       },
@@ -317,7 +309,7 @@ export function SettingsScreen() {
         );
       }
     } catch (err) {
-      Alert.alert(t('settings.export_failed'), (err as Error).message);
+      Alert.alert(t('settings.export_failed'), errorText(err));
     } finally {
       setBusy(false);
     }
@@ -383,7 +375,7 @@ export function SettingsScreen() {
                   },
                 ]);
               } catch (err) {
-                Alert.alert(t('settings.import_failed'), (err as Error).message);
+                Alert.alert(t('settings.import_failed'), errorText(err));
               } finally {
                 setBusy(false);
               }
@@ -394,7 +386,7 @@ export function SettingsScreen() {
     } catch (err) {
       Alert.alert(
         t('settings.import_parse_failed'),
-        t('settings.import_json_error', { reason: (err as Error).message })
+        t('settings.import_json_error', { reason: errorText(err) })
       );
       setBusy(false);
     }
@@ -469,7 +461,7 @@ export function SettingsScreen() {
         t('settings.export_md_success_detail', { count: ok })
       );
     } catch (err) {
-      Alert.alert(t('settings.export_failed'), (err as Error).message);
+      Alert.alert(t('settings.export_failed'), errorText(err));
     } finally {
       setBusy(false);
     }
@@ -536,7 +528,7 @@ export function SettingsScreen() {
                     },
                   ]);
                 } catch (e) {
-                  Alert.alert(t('settings.import_failed'), (e as Error).message);
+                  Alert.alert(t('settings.import_failed'), errorText(e));
                 } finally {
                   setBusy(false);
                 }
@@ -612,7 +604,7 @@ export function SettingsScreen() {
                     t('settings.import_md_success_detail', { count: imported })
                   );
                 } catch (e) {
-                  Alert.alert(t('settings.import_failed'), (e as Error).message);
+                  Alert.alert(t('settings.import_failed'), errorText(e));
                 } finally {
                   setBusy(false);
                 }
@@ -623,7 +615,7 @@ export function SettingsScreen() {
       }
     } catch (err) {
       if (DocumentPicker.isCancel(err)) return;
-      Alert.alert(t('settings.read_file_failed'), (err as Error).message);
+      Alert.alert(t('settings.read_file_failed'), errorText(err));
     }
   };
 
@@ -713,7 +705,7 @@ export function SettingsScreen() {
       );
     } catch (err) {
       // 失败：模式未变更，数据未受影响（DM-7 原子化回滚）
-      Alert.alert(t('settings.switch_failed'), (err as Error).message);
+      Alert.alert(t('settings.switch_failed'), errorText(err));
     } finally {
       setBusy(false);
     }
@@ -754,7 +746,7 @@ export function SettingsScreen() {
       setPwNew('');
       setPwConfirm('');
     } catch (err) {
-      Alert.alert(t('settings.change_password_failed'), (err as Error).message);
+      Alert.alert(t('settings.change_password_failed'), errorText(err));
     } finally {
       setPwBusy(false);
     }
@@ -790,7 +782,7 @@ export function SettingsScreen() {
       const r = await setup2fa();
       setTotpSecret(r.secret);
     } catch (err) {
-      Alert.alert(t('common.error'), (err as Error).message);
+      Alert.alert(t('common.error'), errorText(err));
     } finally {
       setTotpBusy(false);
     }
@@ -810,7 +802,7 @@ export function SettingsScreen() {
       setTotpCode('');
       Alert.alert(t('settings.totp_enabled_title'), t('settings.totp_enabled_detail'));
     } catch (err) {
-      Alert.alert(t('common.error'), (err as Error).message);
+      Alert.alert(t('common.error'), errorText(err));
     } finally {
       setTotpBusy(false);
     }
@@ -834,7 +826,7 @@ export function SettingsScreen() {
             setTotpCode('');
             Alert.alert(t('settings.totp_disabled_title'), t('settings.totp_disabled_detail'));
           } catch (err) {
-            Alert.alert(t('common.error'), (err as Error).message);
+            Alert.alert(t('common.error'), errorText(err));
           } finally {
             setTotpBusy(false);
           }
@@ -892,7 +884,7 @@ export function SettingsScreen() {
               });
             }
           } catch (err) {
-            Alert.alert(t('settings.clear_data_failed'), (err as Error).message);
+            Alert.alert(t('settings.clear_data_failed'), errorText(err));
           } finally {
             setBusy(false);
           }

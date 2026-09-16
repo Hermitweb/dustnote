@@ -21,6 +21,7 @@ import {
 import { FTextInput } from '../components/FTextInput';
 import { isValidRecoveryCode } from '@dustnote/shared';
 import { useTranslation } from 'react-i18next';
+import { errorText } from '../lib/error-text';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
 
@@ -54,7 +55,7 @@ export function OnlineRecoverScreen() {
       // recoverOnline 已把 authState 置为 unlocked，App.tsx 会自动路由到主界面
       setDone(true);
     } catch (err) {
-      Alert.alert(t('auth.recover_failed'), (err as Error).message);
+      Alert.alert(t('auth.recover_failed'), errorText(err));
     } finally {
       setSubmitting(false);
     }

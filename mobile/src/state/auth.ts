@@ -63,6 +63,7 @@ import {
   setAuthExpiredHandler,
 } from '../api';
 import i18n from '../lib/i18n';
+import { errorText } from '../lib/error-text';
 import { useModeStore } from '../lib/mode-store';
 import {
   loadLocalAuthBlob,
@@ -915,7 +916,7 @@ async function doRunPendingMigration(): Promise<void> {
     console.warn('[auth] 待迁移数据导入失败，将在下次解锁时重试', err);
     Alert.alert(
       i18n.t('auth.migration_title'),
-      i18n.t('auth.migration_incomplete', { reason: (err as Error).message })
+      i18n.t('auth.migration_incomplete', { reason: errorText(err) })
     );
   }
 }

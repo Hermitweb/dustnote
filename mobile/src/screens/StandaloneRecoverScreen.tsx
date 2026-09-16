@@ -26,6 +26,7 @@ import {
 import { FTextInput } from '../components/FTextInput';
 import { isValidRecoveryCode } from '@dustnote/shared';
 import { useTranslation } from 'react-i18next';
+import { errorText } from '../lib/error-text';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
 
@@ -59,7 +60,7 @@ export function StandaloneRecoverScreen() {
       const code = await recoverStandalone(recoveryCode, newPassword);
       setNewRecoveryCode(code);
     } catch (err) {
-      Alert.alert(t('auth.recover_failed'), (err as Error).message);
+      Alert.alert(t('auth.recover_failed'), errorText(err));
     } finally {
       setSubmitting(false);
     }

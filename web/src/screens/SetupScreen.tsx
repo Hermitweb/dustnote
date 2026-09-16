@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
 import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter';
+import { errorText } from '../lib/error-text';
 
 export function SetupScreen() {
   const { t } = useTranslation();
@@ -30,7 +31,7 @@ export function SetupScreen() {
       const code = await setup(password);
       setRecoveryCode(code);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'unknown');
+      setError(errorText(err));
     } finally {
       setSubmitting(false);
     }

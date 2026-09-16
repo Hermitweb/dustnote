@@ -30,6 +30,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
 import { useTranslation } from 'react-i18next';
+import { errorText } from '../lib/error-text';
 import {
   noteAad,
   PRESET_TEMPLATES,
@@ -299,7 +300,7 @@ export function NotesListScreen() {
         });
         await load();
       } catch (err) {
-        Alert.alert(t('editor.operation_failed'), (err as Error).message);
+        Alert.alert(t('editor.operation_failed'), errorText(err));
       }
     },
     [repo, load, t]
@@ -314,7 +315,7 @@ export function NotesListScreen() {
         });
         await load();
       } catch (err) {
-        Alert.alert(t('editor.operation_failed'), (err as Error).message);
+        Alert.alert(t('editor.operation_failed'), errorText(err));
       }
     },
     [repo, load, t]
@@ -364,7 +365,7 @@ export function NotesListScreen() {
         const shareUrl = `${baseUrl}/share/${data.token}#${toBase64Url(shareKey)}`;
         await Share.share({ message: shareUrl, title: plaintext.title || t('editor.share_title') });
       } catch (err) {
-        Alert.alert(t('editor.share_failed'), (err as Error).message);
+        Alert.alert(t('editor.share_failed'), errorText(err));
       }
     },
     [masterKey, mode, t]
@@ -633,11 +634,11 @@ export function NotesListScreen() {
                     });
                     Alert.alert(t('notes.offline_queued_title'), t('notes.offline_queued_detail'));
                   } catch {
-                    Alert.alert(t('notes.create_failed'), (err as Error).message);
+                    Alert.alert(t('notes.create_failed'), errorText(err));
                   }
                 } else {
                   console.warn('创建失败', err);
-                  Alert.alert(t('notes.create_failed'), (err as Error).message);
+                  Alert.alert(t('notes.create_failed'), errorText(err));
                 }
               }
             }}

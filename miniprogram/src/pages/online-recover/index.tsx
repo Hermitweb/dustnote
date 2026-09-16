@@ -12,6 +12,7 @@ import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { FInput } from '../../components/FInput';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
+import { errorText } from '../../lib/error-text';
 
 /** 恢复码格式（与 standalone-recover 一致：XXXXX-XXXXX） */
 function isValidRecoveryCode(code: string): boolean {
@@ -46,7 +47,7 @@ export default function OnlineRecover() {
       Taro.showToast({ title: t('recover.success_title'), icon: 'success' });
       Taro.reLaunch({ url: '/pages/index/index' });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('recover.failed');
+      const msg = errorText(err);
       Taro.showToast({ title: msg || t('recover.failed'), icon: 'none', duration: 3000 });
     } finally {
       setSubmitting(false);

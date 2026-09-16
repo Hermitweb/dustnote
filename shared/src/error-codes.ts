@@ -113,15 +113,20 @@ function extractMessage(err: unknown): string {
 /**
  * 把异常翻成「面向用户的一句话」——各端展示错误时的统一入口。
  *
- * 策略（关键：不能为了 i18n 牺牲中文用户的信息量）：
- * 服务端 message 只有中文，但通常比桶文案**更具体**（如「文件夹名称过长」）。
- * 所以按界面语言分流：
- * - 中文界面 → 原样用服务端文案；文案为空时才回退桶文案
- * - 非中文界面 → 用桶文案（否则英文界面里蹦中文）
+ * 策略（两条都重要）：
  *
- * 未知错误码（服务端新增、客户端还没归桶）在非中文界面下走 `errors.generic`
- * 兜底文案——服务端文案是中文，直出等于没翻译；`defaultValue` 只在**该兜底键
- * 也缺失**时生效，作为词典漏配时的最后防线。
+ * 1. **只对带服务端错误码的异常做桶映射**。无码异常可能是本地抛出的、且文案
+ *    已经过 t() 翻译（如 `new Error(t('shares.error_not_json'))`）——若一并
+ *    替换成桶文案，反而把已本地化的具体文案降级成泛化文案。
+ *    客户端自有文案应在其抛出点翻译，不该走这里。
+ *
+ * 2. 服务端 message 只有中文，中文界面下它比桶文案**更具体**
+ *    （如「文件夹名称过长」），所以：
+ *    - 中文界面 → 原样用服务端文案
+ *    - 非中文界面 → 用桶文案（否则英文界面里蹦中文）
+ *
+ * 无码且无文案时用 `errors.generic` 兜底；`defaultValue` 只在**该兜底键也缺失**
+ * 时生效，作为词典漏配时的最后防线。
  *
  * @param translate 各端注入的取词函数（通常是 i18next 的 t）
  */
@@ -131,7 +136,10 @@ export function errorReason(
   translate: (key: string, options?: { defaultValue?: string }) => string
 ): string {
   const raw = extractMessage(err);
-  const key = errorI18nKey(apiErrorCode(err)) ?? ERROR_GENERIC_KEY;
+  const code = apiErrorCode(err);
+  if (!code) return raw || translate(ERROR_GENERIC_KEY);
+
+  const key = errorI18nKey(code) ?? ERROR_GENERIC_KEY;
   const isChineseUi = typeof uiLang === 'string' && uiLang.toLowerCase().startsWith('zh');
   if (isChineseUi) return raw || translate(key);
   return translate(key, raw ? { defaultValue: raw } : undefined);

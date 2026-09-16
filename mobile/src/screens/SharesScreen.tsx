@@ -22,6 +22,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { errorText } from '../lib/error-text';
 import { decryptString, unwrapKey, toBase64Url, noteAad, type Ciphertext } from '@dustnote/shared';
 import { api } from '../api';
 import { useAuthStore } from '../state/auth';
@@ -114,7 +115,7 @@ export function SharesScreen() {
       Clipboard.setString(url);
       Alert.alert(t('common.copied'), t('share.copied_detail'));
     } catch (err) {
-      Alert.alert(t('share.copy_failed'), (err as Error).message);
+      Alert.alert(t('share.copy_failed'), errorText(err));
     }
   };
 
@@ -123,7 +124,7 @@ export function SharesScreen() {
       const url = await buildLink(item);
       await Share.share({ message: url });
     } catch (err) {
-      Alert.alert(t('editor.share_failed'), (err as Error).message);
+      Alert.alert(t('editor.share_failed'), errorText(err));
     }
   };
 
@@ -140,7 +141,7 @@ export function SharesScreen() {
             setShares((prev) => prev.map((s) => (s.id === item.id ? { ...s, revoked: true } : s)));
             Alert.alert(t('share.revoked_title'), t('share.revoked_detail'));
           } catch (err) {
-            Alert.alert(t('share.revoke_failed'), (err as Error).message);
+            Alert.alert(t('share.revoke_failed'), errorText(err));
           } finally {
             setBusyId(null);
           }

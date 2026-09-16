@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isValidRecoveryCode } from '@dustnote/shared';
 import { useStore } from '../lib/store';
+import { errorText } from '../lib/error-text';
 
 interface Props {
   onBack: () => void;
@@ -45,7 +46,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
       await recoverStandalone(recoveryCode, newPassword);
       // 成功后会自动解锁，不需要显示恢复码
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'unknown');
+      setError(errorText(err));
     } finally {
       setSubmitting(false);
     }

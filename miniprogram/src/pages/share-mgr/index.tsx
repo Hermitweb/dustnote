@@ -12,6 +12,7 @@ import { getRepo } from '../../lib/get-repo';
 import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
 import { useModeStore } from '../../lib/mode-store';
 import { t, useLanguage } from '../../lib/i18n';
+import { errorText } from '../../lib/error-text';
 import { parseServerDate } from '../../lib/date-parse';
 
 interface ShareItem {
@@ -106,7 +107,7 @@ export default function Shares() {
     } catch (err: any) {
       Taro.showToast({
         title: t('share_mgr.load_failed', {
-          msg: err?.err?.message || err?.message || t('common.unknown_error'),
+          msg: errorText(err),
         }),
         icon: 'none',
         duration: 3000,

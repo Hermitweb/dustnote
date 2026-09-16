@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
 import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter';
+import { errorText } from '../lib/error-text';
 
 export function StandaloneSetupScreen() {
   const { t } = useTranslation();
@@ -37,7 +38,7 @@ export function StandaloneSetupScreen() {
       const code = await setupStandalone(password);
       setRecoveryCode(code);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'unknown');
+      setError(errorText(err));
     } finally {
       setSubmitting(false);
     }

@@ -83,13 +83,24 @@ describe('errorReason', () => {
     expect(errorReason(apiErr('invalid_credentials', '密码错误'), 'zh-CN', translate)).toBe(
       '密码错误'
     );
-    expect(errorReason(new Error('文件夹名称过长'), 'zh', translate)).toBe('文件夹名称过长');
   });
 
   it('非中文界面：用桶文案，避免英文界面里蹦中文', () => {
     expect(errorReason(apiErr('invalid_credentials', '密码错误'), 'en', translate)).toBe(
       'Incorrect password'
     );
+    expect(errorReason(apiErr('device_revoked', '会话已过期'), 'en-US', translate)).toBe(
+      'Session expired'
+    );
+  });
+
+  it('无错误码的异常原样保留 —— 本地抛出的文案可能已过 t() 翻译，不能降级成泛化文案', () => {
+    // 这是真实场景：SharesManager 抛 new Error(t('shares.error_not_json'))
+    expect(errorReason(new Error('响应格式不是 JSON'), 'en', translate)).toBe('响应格式不是 JSON');
+    expect(errorReason(new Error('响应格式不是 JSON'), 'zh-CN', translate)).toBe(
+      '响应格式不是 JSON'
+    );
+    expect(errorReason('直接给的文案', 'zh-CN', translate)).toBe('直接给的文案');
   });
 
   it('非中文界面 + 未知码：走兜底文案（服务端文案是中文，直出等于没翻译）', () => {
@@ -107,19 +118,18 @@ describe('errorReason', () => {
     expect(errorReason(apiErr('some_new_code', '服务端限流'), 'en', bare)).toBe('服务端限流');
   });
 
-  it('非中文界面 + 未知码 + 无文案：用兜底文案', () => {
+  it('无文案时回退兜底文案（不显示空字符串）', () => {
     expect(errorReason(apiErr('some_new_code', ''), 'en', translate)).toBe('Something went wrong');
-  });
-
-  it('中文界面 + 无文案：用桶文案（不显示空字符串）', () => {
     expect(errorReason(apiErr('invalid_credentials', ''), 'zh-CN', translate)).toBe(
       'Incorrect password'
     );
-  });
-
-  it('接受字符串与陌生类型，不抛异常', () => {
-    expect(errorReason('直接给的文案', 'zh-CN', translate)).toBe('直接给的文案');
     expect(errorReason(undefined, 'en', translate)).toBe('Something went wrong');
     expect(errorReason({ weird: true }, 'zh-CN', translate)).toBe('Something went wrong');
+  });
+
+  it('从 err.err.message 取服务端文案（鸭子类型载荷，不必是 Error 实例）', () => {
+    expect(errorReason(apiErr('invalid_credentials', '密码错误'), 'zh-CN', translate)).toBe(
+      '密码错误'
+    );
   });
 });

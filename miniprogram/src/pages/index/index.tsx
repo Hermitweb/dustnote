@@ -48,6 +48,7 @@ import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
 import { PickSheet, type PickItem } from '../../components/PickSheet';
 import { SearchIndex } from '../../lib/search-index';
 import { t, useLanguage } from '../../lib/i18n';
+import { errorText } from '../../lib/error-text';
 import { parseServerDate } from '../../lib/date-parse';
 
 interface Note {
@@ -413,7 +414,7 @@ function IndexBody() {
       await Taro.setClipboardData({ data: shareUrl });
       Taro.showToast({ title: t('editor.share_link_copied'), icon: 'success' });
     } catch (err: any) {
-      const msg = err?.err?.message || err?.message || t('common.unknown_error');
+      const msg = errorText(err);
       Taro.showToast({
         title: t('editor.share_failed_msg', { msg }),
         icon: 'none',

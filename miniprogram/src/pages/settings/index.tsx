@@ -29,6 +29,7 @@ import { savePendingMigration, loadPendingMigration } from '../../lib/migration'
 import { clearStandaloneMasterKey } from '../../lib/standalone-session';
 import { setup2fa, enable2fa, disable2fa, get2faStatus } from '../../lib/totp-client';
 import { t, setLanguage, useLanguage, type Language } from '../../lib/i18n';
+import { errorText } from '../../lib/error-text';
 import { parseServerDate } from '../../lib/date-parse';
 import { isPrivateHost } from '../../lib/net-utils';
 import {
@@ -278,7 +279,7 @@ export default function Settings() {
       }
     } catch (err) {
       Taro.showToast({
-        title: err instanceof Error ? err.message : t('settings.pwd_failed'),
+        title: errorText(err),
         icon: 'none',
         duration: 3000,
       });
@@ -490,7 +491,7 @@ export default function Settings() {
     } catch (err) {
       Taro.hideLoading();
       Taro.showToast({
-        title: err instanceof Error ? err.message : t('settings.import_failed'),
+        title: errorText(err),
         icon: 'none',
         duration: 3000,
       });
@@ -727,7 +728,7 @@ export default function Settings() {
         });
       }
     } catch (err) {
-      Taro.showToast({ title: (err as Error).message || t('common.error'), icon: 'none' });
+      Taro.showToast({ title: errorText(err) || t('common.error'), icon: 'none' });
     } finally {
       setTotpBusy(false);
     }

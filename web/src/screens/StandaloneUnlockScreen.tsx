@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
 import { isTauri } from '../lib/platform';
 import { graceRemainingSec } from '../lib/grace-unlock';
+import { errorText } from '../lib/error-text';
 
 interface Props {
   onRecover: () => void;
@@ -55,7 +56,7 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
     try {
       await unlockStandalone(password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'unknown');
+      setError(errorText(err));
       setPassword('');
     } finally {
       setSubmitting(false);

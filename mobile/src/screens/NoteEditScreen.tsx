@@ -30,6 +30,7 @@ import { FTextInput } from '../components/FTextInput';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
+import { errorText } from '../lib/error-text';
 import type { RootStackParamList } from '../App';
 import {
   decryptString,
@@ -353,10 +354,10 @@ export function NoteEditScreen() {
           );
           setOfflineQueued(true);
         } catch {
-          Alert.alert(t('editor.save_failed'), (err as Error).message);
+          Alert.alert(t('editor.save_failed'), errorText(err));
         }
       } else {
-        Alert.alert(t('editor.save_failed'), (err as Error).message);
+        Alert.alert(t('editor.save_failed'), errorText(err));
       }
     } finally {
       setSaving(false);
@@ -408,7 +409,7 @@ export function NoteEditScreen() {
             await repo.deleteNote(noteId);
             navigation.goBack();
           } catch (err) {
-            Alert.alert(t('editor.delete_failed'), (err as Error).message);
+            Alert.alert(t('editor.delete_failed'), errorText(err));
           }
         },
       },
@@ -426,7 +427,7 @@ export function NoteEditScreen() {
       });
       setNote({ ...note, isPinned: next, version });
     } catch (err) {
-      Alert.alert(t('editor.operation_failed'), (err as Error).message);
+      Alert.alert(t('editor.operation_failed'), errorText(err));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note, noteId, saving, repo, t]);
@@ -441,7 +442,7 @@ export function NoteEditScreen() {
       });
       setNote({ ...note, isFavorite: next, version });
     } catch (err) {
-      Alert.alert(t('editor.operation_failed'), (err as Error).message);
+      Alert.alert(t('editor.operation_failed'), errorText(err));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note, noteId, saving, repo, t]);
@@ -492,7 +493,7 @@ export function NoteEditScreen() {
       const shareUrl = `${baseUrl}/share/${data.token}#${toBase64Url(shareKey)}`;
       await Share.share({ message: shareUrl, title: title || t('editor.share_title') });
     } catch (err) {
-      Alert.alert(t('editor.share_failed'), (err as Error).message);
+      Alert.alert(t('editor.share_failed'), errorText(err));
     }
   }, [masterKey, note, mode, title, content, noteId, t]);
 
@@ -512,7 +513,7 @@ export function NoteEditScreen() {
               setShowTemplates(false);
               Alert.alert(t('templates.applied'));
             } catch (err) {
-              Alert.alert(t('templates.apply_failed'), (err as Error).message);
+              Alert.alert(t('templates.apply_failed'), errorText(err));
             }
           },
         },
@@ -541,7 +542,7 @@ export function NoteEditScreen() {
       const data = (await r.json()) as { versions: NoteVersionMeta[] };
       setVersions(data.versions ?? []);
     } catch (err) {
-      Alert.alert(t('history.load_failed'), (err as Error).message);
+      Alert.alert(t('history.load_failed'), errorText(err));
       setShowHistory(false);
     } finally {
       setHistoryLoading(false);
@@ -601,7 +602,7 @@ export function NoteEditScreen() {
               setShowHistory(false);
               Alert.alert(t('history.restore_success'));
             } catch (err) {
-              Alert.alert(t('history.restore_failed'), (err as Error).message);
+              Alert.alert(t('history.restore_failed'), errorText(err));
             }
           },
         },
@@ -642,7 +643,7 @@ export function NoteEditScreen() {
           },
         ]);
       } catch (err) {
-        Alert.alert(t('history.load_failed'), (err as Error).message);
+        Alert.alert(t('history.load_failed'), errorText(err));
       }
     },
     [masterKey, noteId, t]
@@ -660,7 +661,7 @@ export function NoteEditScreen() {
       const snapshot = await repo.loadAll();
       setFolders(snapshot.folders ?? []);
     } catch (err) {
-      Alert.alert(t('folders.move_failed'), (err as Error).message);
+      Alert.alert(t('folders.move_failed'), errorText(err));
       setShowFolders(false);
     } finally {
       setFoldersLoading(false);
@@ -681,7 +682,7 @@ export function NoteEditScreen() {
             : (folders.find((f) => f.id === folderId)?.name ?? '');
         Alert.alert(t('folders.move_success'), folderName);
       } catch (err) {
-        Alert.alert(t('folders.move_failed'), (err as Error).message);
+        Alert.alert(t('folders.move_failed'), errorText(err));
       }
     },
     [note, noteId, repo, folders, t]

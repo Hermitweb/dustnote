@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
 import { UNFILED_ID } from '../lib/store-types';
 import type { Template } from '@dustnote/shared';
+import { errorText } from '../lib/error-text';
 
 interface TemplatePickerProps {
   onClose: () => void;
@@ -39,7 +40,7 @@ export function TemplatePicker({ onClose }: TemplatePickerProps) {
       await createNoteFromTemplate(tpl.id, target);
       onClose();
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err));
     } finally {
       setCreating(false);
     }
@@ -51,7 +52,7 @@ export function TemplatePicker({ onClose }: TemplatePickerProps) {
     try {
       await deleteTemplate(id);
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err));
     }
   };
 

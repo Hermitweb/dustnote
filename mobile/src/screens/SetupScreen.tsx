@@ -16,6 +16,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard';
 import logoImage from '../assets/logo.png';
 import { useTranslation } from 'react-i18next';
+import { errorText } from '../lib/error-text';
 import { useAuthStore } from '../state/auth';
 import { theme, useColors } from '../theme';
 
@@ -52,7 +53,7 @@ export function SetupScreen() {
       const code = await setup(password);
       setRecoveryCode(code);
     } catch (err) {
-      Alert.alert(t('auth.setup_failed'), (err as Error).message);
+      Alert.alert(t('auth.setup_failed'), errorText(err));
     } finally {
       setSubmitting(false);
     }

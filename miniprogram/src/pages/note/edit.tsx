@@ -30,6 +30,7 @@ import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '.
 import { getRepo } from '../../lib/get-repo';
 import { useModeStore } from '../../lib/mode-store';
 import { t, useLanguage } from '../../lib/i18n';
+import { errorText } from '../../lib/error-text';
 import { parseServerDate } from '../../lib/date-parse';
 import Markdown from '../../lib/markdown';
 import { filterSlashCommands, resolveSlashCommand } from '../../lib/slash-commands';
@@ -286,7 +287,7 @@ ${text}`
     try {
       await doSaveAsTemplate();
     } catch (err: any) {
-      const msg = err?.err?.message || err?.message || t('common.unknown_error');
+      const msg = errorText(err);
       Taro.showToast({
         title: t('editor.share_failed_msg', { msg }),
         icon: 'none',
@@ -428,7 +429,7 @@ ${text}`
           setSaveStatus('error');
         }
       } else {
-        const msg = err?.err?.message || err?.message || t('common.unknown_error');
+        const msg = errorText(err);
         console.error('[save]', err);
         Taro.showToast({
           title: t('editor.save_failed_msg', { msg }),
@@ -597,7 +598,7 @@ ${text}`
       setShareOpen(false);
       Taro.showToast({ title: t('editor.share_link_copied'), icon: 'success' });
     } catch (err: any) {
-      const msg = err?.err?.message || err?.message || t('common.unknown_error');
+      const msg = errorText(err);
       Taro.showToast({
         title: t('editor.share_failed_msg', { msg }),
         icon: 'none',
@@ -695,7 +696,7 @@ ${text}`
       if (confirm.confirm) await onRestoreVersion(v);
     } catch (err) {
       Taro.showToast({
-        title: err instanceof Error ? err.message : t('common.operation_failed'),
+        title: errorText(err),
         icon: 'none',
       });
     }
@@ -736,7 +737,7 @@ ${text}`
     } catch (err) {
       Taro.showToast({
         title: t('editor.restore_failed_msg', {
-          msg: err instanceof Error ? err.message : t('common.unknown_error'),
+          msg: errorText(err),
         }),
         icon: 'none',
       });
