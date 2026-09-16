@@ -33,6 +33,22 @@ async function ensureBackupBeforeDestructiveMigration(
   db: DatabaseType,
   m: Migration
 ): Promise<void> {
+  // 全新部署（空库跑全量迁移）没有可保护的数据：跳过门槛。否则备份目录
+  // 不可写会让**首次部署直接起不来**——为保护一个空库而拒绝启动是坏失败模式。
+  try {
+    const row = db.prepare(`SELECT COUNT(*) AS c FROM users`).get() as { c: number } | undefined;
+    if (!row || row.c === 0) {
+      logger.info(
+        { migrationId: m.id, migrationName: m.name },
+        '空库（无用户数据）,跳过破坏性迁移的备份门槛'
+      );
+      return;
+    }
+  } catch {
+    // users 表尚不存在（迁移 1 之前）→ 同样是空库,跳过
+    return;
+  }
+
   const backupDir = config.backupDir ?? join(process.cwd(), 'backups');
   if (!existsSync(backupDir)) mkdirSync(backupDir, { recursive: true });
   const todayPrefix = `db-${new Date().toISOString().slice(0, 10)}`;

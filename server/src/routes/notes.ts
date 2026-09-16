@@ -167,11 +167,16 @@ notesRouter.post('/notes', (req, res) => {
 
   const db = getDb();
   // F4：folderId 属主校验——FK 只保证 folders 表里存在该 id,不保证属于当前
-  // 用户。不校验的话可把笔记挂到他人 folder id（FK 通过、读路径原样带回）,
-  // 传不存在的 id 则 FK 违约冒泡成 500（应为 400）
-  if (folderId != null && !ownsFolder(db, user.userId, folderId)) {
-    res.status(400).json({ error: 'invalid_folder' });
-    return;
+  // 用户。非法/已删除的 folderId **归一为 null 而不是 400**：返回 400 会让
+  // 客户端离线队列把该 op 当作不可恢复的 4xx 直接删除（笔记永久丢失）,
+  // 而归一为 null 笔记仍能创建,落在「未分类」里对用户可见可再归档。
+  let effectiveFolderId = folderId ?? null;
+  if (effectiveFolderId != null && !ownsFolder(db, user.userId, effectiveFolderId)) {
+    logger.warn(
+      { userId: user.userId, noteId: id, folderId: effectiveFolderId },
+      'folderId 非法或不属于当前用户,已归一为 null（笔记落入未分类）'
+    );
+    effectiveFolderId = null;
   }
   const result = db.prepare(
     `
@@ -187,15 +192,20 @@ notesRouter.post('/notes', (req, res) => {
     isPinned ? 1 : 0,
     isFavorite ? 1 : 0,
     clientUpdatedAt,
-    folderId ?? null
+    effectiveFolderId
   );
 
   // 幂等重放：响应丢失后重试/多端竞争时同一 id 已存在,收敛到服务端现状返回,
   // 客户端据此放弃本地版本——否则按 5xx 退避重试 8 次后被离线队列静默丢弃
   if (result.changes === 0) {
     const priorRows = db
-      .prepare('SELECT user_id, server_updated_at, version FROM notes WHERE id = ?')
-      .all(id) as { user_id: string; server_updated_at: string; version: number }[];
+      .prepare('SELECT user_id, server_updated_at, version, folder_id FROM notes WHERE id = ?')
+      .all(id) as {
+      user_id: string;
+      server_updated_at: string;
+      version: number;
+      folder_id: string | null;
+    }[];
     const prior = priorRows[0];
     // 跨用户 id 撞车(uuid,概率可忽略)按 409 拒绝,不把他人行回给当前用户
     if (!prior || prior.user_id !== user.userId) {
@@ -206,6 +216,9 @@ notesRouter.post('/notes', (req, res) => {
       id,
       serverUpdatedAt: prior.server_updated_at,
       version: prior.version,
+      // folderId 回传服务端现状（F15：重放是 no-op,客户端不应把本地
+      // 乐观值当成已生效）
+      folderId: prior.folder_id,
       replay: true,
     });
     return;
@@ -222,6 +235,7 @@ notesRouter.post('/notes', (req, res) => {
     id,
     serverUpdatedAt: note.server_updated_at,
     version: 1,
+    folderId: effectiveFolderId,
   });
 });
 
@@ -270,10 +284,17 @@ notesRouter.patch('/notes/:id', (req, res) => {
     return;
   }
 
-  // F4：移动目标文件夹必须属于当前用户（FK 只保证存在,不保证属主）
-  if (data.folderId != null && !ownsFolder(db, user.userId, data.folderId)) {
-    res.status(400).json({ error: 'invalid_folder' });
-    return;
+  // F4：移动目标文件夹必须属于当前用户（FK 只保证存在,不保证属主）。
+  // 非法/已删除目标**归一为 null 而不是 400**——400 会让客户端离线队列把
+  // 该 op 当不可恢复 4xx 直接删除（移动操作连同笔记状态一起丢）,归一为
+  // null 则笔记留在「未分类」,用户可见可再归档。
+  let patchFolderId = data.folderId;
+  if (patchFolderId != null && !ownsFolder(db, user.userId, patchFolderId)) {
+    logger.warn(
+      { userId: user.userId, noteId: id, folderId: patchFolderId },
+      'PATCH folderId 非法或不属于当前用户,已归一为 null'
+    );
+    patchFolderId = null;
   }
 
   if (existing.version !== data.version) {
@@ -320,7 +341,8 @@ notesRouter.patch('/notes/:id', (req, res) => {
   }
   if (data.folderId !== undefined) {
     updates.push('folder_id = ?');
-    params.push(data.folderId);
+    // 用归一后的值（F4：非法目标落 null 而非 400 丢 op）
+    params.push(patchFolderId ?? null);
   }
   updates.push('client_updated_at = ?');
   params.push(data.clientUpdatedAt);
@@ -366,10 +388,10 @@ notesRouter.patch('/notes/:id', (req, res) => {
   const updated = db
     .prepare(
       `
-    SELECT server_updated_at, version FROM notes WHERE id = ?
+    SELECT server_updated_at, version, folder_id FROM notes WHERE id = ?
   `
     )
-    .get(id) as { server_updated_at: string; version: number };
+    .get(id) as { server_updated_at: string; version: number; folder_id: string | null };
 
   broadcastNoteChanged(user.userId, { id, op: 'update' });
 
@@ -377,6 +399,9 @@ notesRouter.patch('/notes/:id', (req, res) => {
     id,
     serverUpdatedAt: updated.server_updated_at,
     version: updated.version,
+    // F4/F15：回传生效的 folderId——非法目标被归一为 null 时,客户端乐观
+    // 更新里记的还是原目标,不回传就会与服务端分叉到下次 loadAll
+    folderId: updated.folder_id,
   });
 });
 

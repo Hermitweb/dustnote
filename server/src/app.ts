@@ -170,6 +170,16 @@ export function createApp(): Application {
       keyGenerator: (req) => (req.user?.userId ?? req.ip) as string,
       skip: (req) => !/^(POST|PUT|PATCH|DELETE)$/.test(req.method),
       message: { error: 'too_many_writes', message: '写入过于频繁，请稍后再试' },
+      // Retry-After：让客户端按限流窗口精确退避,而不是靠指数猜测
+      // （M3：429 是可恢复错误,客户端必须知道等多久,否则会反复撞墙或丢 op）
+      handler: (req, res, _next, options) => {
+        const info = (req as unknown as { rateLimit?: { resetTime?: Date } }).rateLimit;
+        const retryAfterSec = info?.resetTime
+          ? Math.max(1, Math.ceil((info.resetTime.getTime() - Date.now()) / 1000))
+          : Math.ceil(options.windowMs / 1000);
+        res.setHeader('Retry-After', String(retryAfterSec));
+        res.status(429).json(options.message);
+      },
     })
   );
 
