@@ -306,18 +306,26 @@ function IndexBody() {
     } else setSelectedIds(new Set(visibleNotes.map((x) => x.id)));
   }, [selectedIds.size, visibleNotes]);
 
+  // F8：未决面板的 resolver——理论竞态下第二个入口覆盖面板时,
+  // 先把前一个 Promise 以 null 收掉,避免悬空协程
+  const pendingPickResolverRef = useRef<((v: string | null) => void) | null>(null);
+
   const pickFolderFromList = (folderList: Folder[]): Promise<string | null> =>
     new Promise((resolve) => {
+      pendingPickResolverRef.current?.(null);
+      pendingPickResolverRef.current = resolve;
       setPickSheet({
         title: t('index.pick_folder'),
         items: folderList.map((f) => ({ key: f.id, label: `📁 ${f.name}` })),
         // 选定/关闭都必须清 pickSheet——此前只 resolve Promise 不清状态,
         // 面板永远留在屏幕上且无法关闭(模板新建与 FAB 新建共用此入口)
         onPick: (key) => {
+          pendingPickResolverRef.current = null;
           setPickSheet(null);
           resolve(key);
         },
         onClose: () => {
+          pendingPickResolverRef.current = null;
           setPickSheet(null);
           resolve(null);
         },

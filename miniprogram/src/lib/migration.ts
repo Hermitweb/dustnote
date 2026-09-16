@@ -221,6 +221,12 @@ export async function consumePendingMigration(
       ? await importToStandalone(repo, slot, oldKey, currentMasterKey)
       : await importToOnline(repo, slot, oldKey, currentMasterKey);
 
-  clearPendingMigration();
+  // H-C：failed>0 时不清槽——联机路径 importToOnline 已把 folderMap 落盘,
+  // 此前无条件清槽 + auth store 用陈旧 slot 引用回写,会把 folderMap 抹掉,
+  // 失败重试时整棵文件夹树被复制一遍。槽的去留由 auth store 按 mode 决定
+  // （联机保留重试 / 单机确定性失败放弃,见 M-E）。
+  if (result.failed === 0) {
+    clearPendingMigration();
+  }
   return result;
 }

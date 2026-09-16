@@ -691,12 +691,22 @@ async function runPendingMigration(): Promise<void> {
     const result = await consumePendingMigration(getRepo(), masterKey, oldKey);
     if (!result) return;
     if (result.failed > 0) {
-      // C1b：部分失败必须披露并保留槽——笔记逐条上传可能撞限流/网络抖动,
-      // 此前失败条数被静默丢弃、槽被无条件清除,失败的笔记无声丢失
-      try {
-        await persistWrappedOldMasterKey(slot, masterKey, oldKey);
-      } catch {
-        /* ignore */
+      // C1b：部分失败必须披露。槽的去留按模式分流（H-C/M-E）：
+      if (mode === 'standalone') {
+        // M-E：单机的 failed 全部来自确定性解密失败（无网络因素）,保留槽
+        // 重试无意义,且 importToStandalone 的覆写式导入会清掉用户迁移后
+        // 新建的数据——放弃槽,只披露丢失条数
+        clearPendingMigration();
+      } else {
+        // H-C：联机失败保留槽待重试,但必须重读「新鲜」槽再回写——
+        // importToOnline 已把 folderMap 落盘,用函数入口处的陈旧 slot
+        // 引用回写会把 folderMap 抹掉,重试时复制整棵文件夹树
+        try {
+          const freshSlot = loadPendingMigration();
+          if (freshSlot) await persistWrappedOldMasterKey(freshSlot, masterKey, oldKey);
+        } catch {
+          /* ignore */
+        }
       }
       Taro.showToast({
         title: t('settings.migrated_failed', { count: result.imported, failed: result.failed }),
@@ -714,7 +724,9 @@ async function runPendingMigration(): Promise<void> {
     });
   } catch {
     try {
-      await persistWrappedOldMasterKey(slot, masterKey, oldKey);
+      // 异常中断：同样用新鲜槽回写（H-C 同根因——陈旧引用丢 folderMap）
+      const freshSlot = loadPendingMigration();
+      if (freshSlot) await persistWrappedOldMasterKey(freshSlot, masterKey, oldKey);
     } catch {
       /* ignore */
     }

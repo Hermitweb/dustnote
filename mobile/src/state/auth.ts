@@ -55,7 +55,7 @@ import {
 } from '@dustnote/shared';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api, setAccessToken, setRefreshToken, refreshAccessTokenSilently } from '../api';
+import { api, setAccessToken, setRefreshToken, refreshAccessTokenSilently, setAuthExpiredHandler } from '../api';
 import i18n from '../lib/i18n';
 import { useModeStore } from '../lib/mode-store';
 import {
@@ -66,6 +66,7 @@ import {
   clearLockoutState,
 } from '../lib/local-auth-storage';
 import {
+  clearPendingMigration,
   consumePendingMigration,
   loadPendingMigration,
   persistWrappedOldMasterKey,
@@ -798,6 +799,12 @@ async function runPendingMigration(): Promise<void> {
   try {
     const res = await consumePendingMigration(masterKey, oldKey);
     if (res) {
+      if (res.failed > 0 && useModeStore.getState().mode === 'standalone') {
+        // M-E：单机部分失败=确定性解密失败（无网络因素）,保留槽每次解锁重跑
+        // importToStandalone 的覆写式导入会清掉迁移后新建的数据——放弃槽,
+        // 只披露丢失条数;联机路径的槽由 consumePendingMigration 保留待重试
+        await clearPendingMigration().catch(() => undefined);
+      }
       const msg =
         res.failed > 0
           ? i18n.t('auth.migration_complete_partial', { imported: res.imported, failed: res.failed })
@@ -816,3 +823,15 @@ async function runPendingMigration(): Promise<void> {
     );
   }
 }
+
+/**
+ * 401 终态接管（H-E）：请求刷新无法恢复（无 RT / RT 过期或设备被吊销）时,
+ * 回到解锁页并提示——生物解锁提速（c3e98df）后不再有前置安全网,若不接管
+ * 用户会困在已解锁界面（每次操作都失败且无出路）。镜像小程序 authExpiredFetch 语义。
+ */
+setAuthExpiredHandler(() => {
+  const st = useAuthStore.getState();
+  if (st.authState !== 'unlocked') return;
+  st.lock();
+  Alert.alert(i18n.t('auth.session_expired_title'), i18n.t('auth.session_expired_body'));
+});

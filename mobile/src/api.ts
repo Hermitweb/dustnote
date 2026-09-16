@@ -49,16 +49,29 @@ export function setAccessToken(token: string | null): void {
 
 /** 自管 refresh token（RN 无法依赖 HTTP-only cookie,服务端 /auth/refresh 兼容 X-Refresh-Token header） */
 export async function setRefreshToken(token: string | null): Promise<void> {
-  if (token) {
-    await Keychain.setGenericPassword('refresh', token, {
-      service: REFRESH_KEYCHAIN_SERVICE,
-      accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-    });
-    // 迁移完成清掉 AsyncStorage 里的旧明文副本
-    await AsyncStorage.removeItem(REFRESH_TOKEN_KEY).catch(() => undefined);
-  } else {
+  // M-C：Keychain 写失败必须降级到 AsyncStorage 而不是向上抛——此前写路径无
+  // 降级（读路径有）,Keychain 不可用的设备上每次密码解锁/刷新都会整体失败
+  try {
+    if (token) {
+      await Keychain.setGenericPassword('refresh', token, {
+        service: REFRESH_KEYCHAIN_SERVICE,
+        accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      });
+      // 迁移完成清掉 AsyncStorage 里的旧明文副本
+      await AsyncStorage.removeItem(REFRESH_TOKEN_KEY).catch(() => undefined);
+      return;
+    }
     await Keychain.resetGenericPassword({ service: REFRESH_KEYCHAIN_SERVICE }).catch(() => undefined);
     await AsyncStorage.removeItem(REFRESH_TOKEN_KEY).catch(() => undefined);
+    return;
+  } catch {
+    /* Keychain 不可用：落到 AsyncStorage 兜底（读路径会优先 Keychain 再回落此处） */
+  }
+  try {
+    if (token) await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
+    else await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
+  } catch {
+    /* 两处都不可用：静默放弃（下次刷新会失败并触发会话过期接管） */
   }
 }
 
@@ -192,13 +205,29 @@ const requestImpl: RequestMethod = async function (
   } catch (err) {
     // access token 过期（15 分钟 TTL）且本地有 refresh token：静默续签后重放一次。
     // 锁屏超 15 分钟后生物解锁复用旧 token 的场景即由此自愈（v2.5.18）。
+    // H-E：排除 /auth/ 自身（unlock 密码错误也是 401,不能触发会话过期接管）
     const status = (err as { status?: number }).status;
-    if (status === 401 && (await getRefreshToken())) {
-      if (await refreshAccessTokenSilently()) {
+    if (status === 401 && !path.startsWith('/auth/')) {
+      const hasRt = await getRefreshToken();
+      if (hasRt && (await refreshAccessTokenSilently())) {
         return await (await fresh()).request(method, path, body, init);
       }
+      // 终态失败：无 refresh token 或刷新被服务端判定过期/吊销（RT 已被清）。
+      // 生物解锁提速（c3e98df）后不再有「回解锁页」的前置安全网,若无人接管,
+      // 用户会困在已解锁界面每次操作都失败——交回 auth store 处理（H-E）
+      onAuthExpired?.();
     }
     throw err;
   }
 };
 (api as unknown as { request: RequestMethod }).request = requestImpl;
+
+/**
+ * 401 终态处理器（H-E）：由 auth store 在模块加载时注入。
+ * 触发条件：请求 401 且刷新无法恢复（无 RT / RT 过期或设备被吊销）。
+ * 用回调注入而非直接 import auth-store,避免 api ↔ auth 循环依赖。
+ */
+let onAuthExpired: (() => void) | null = null;
+export function setAuthExpiredHandler(fn: (() => void) | null): void {
+  onAuthExpired = fn;
+}

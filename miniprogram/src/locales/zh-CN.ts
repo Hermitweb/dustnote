@@ -326,6 +326,7 @@ const zhCN = {
     unsupported_ok: '我知道了',
     err_empty_server: '请输入服务器地址',
     err_server_prefix: '地址需以 http:// 或 https:// 开头',
+    warn_plain_http: '当前使用明文 HTTP 连接公网地址,数据在链路上可被窃听,建议配置 HTTPS。局域网自托管可忽略此提示。',
     ok_initialized: '连接成功（服务器已初始化）',
     ok_uninitialized: '连接成功（服务器未初始化）',
     err_connect: '连接失败',

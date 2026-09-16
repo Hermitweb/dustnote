@@ -330,6 +330,7 @@ const en: typeof zhCN = {
     unsupported_ok: 'I understand',
     err_empty_server: 'Enter a server address',
     err_server_prefix: 'The address must start with http:// or https://',
+    warn_plain_http: 'Plain HTTP over a public network can be intercepted; HTTPS is recommended. Ignore this if self-hosting on a LAN.',
     ok_initialized: 'Connected (server initialized)',
     ok_uninitialized: 'Connected (server not initialized)',
     err_connect: 'Connection failed',

@@ -45,6 +45,7 @@ import { Linking } from 'react-native';
 import RNShare from 'react-native-share';
 import DocumentPicker from 'react-native-document-picker';
 import { APP_VERSION } from '../lib/version';
+import { isPrivateAddress } from '../lib/net-utils';
 import { checkUpdateOnce, resetUpdateCache } from '../lib/use-update-check';
 import { savePendingMigration, clearPendingMigration } from '../lib/migration';
 import { clearLocalAuthBlob, clearLockoutState } from '../lib/local-auth-storage';
@@ -632,6 +633,15 @@ export function SettingsScreen() {
     if (switchTarget === 'online' && !switchServerUrl.trim()) {
       Alert.alert(t('common.hint'), t('settings.err_server_required'));
       return;
+    }
+    // F9（对齐 ModeSelectScreen 的 M16）：公网明文 HTTP 提示——模式切换是
+    // 服务器地址的第二入口,此前只有首装流程有警告
+    if (
+      switchTarget === 'online' &&
+      /^http:\/\//i.test(switchServerUrl.trim()) &&
+      !isPrivateAddress(switchServerUrl.trim())
+    ) {
+      Alert.alert(t('common.hint'), t('mode_select.warn_plain_http'));
     }
     if (switchTarget === appMode) {
       Alert.alert(t('common.hint'), t('settings.err_same_mode'));

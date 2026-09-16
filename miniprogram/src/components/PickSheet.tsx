@@ -37,7 +37,9 @@ export function PickSheet(props: {
             </Text>
           ))}
         </ScrollView>
-        {props.onCancel && (
+        {/* M-F：取消按钮在有 onClose 时就渲染——此前只在传 onCancel 时渲染,
+            而所有调用方都只传了 cancelText,按钮从未出现过,面板只能靠遮罩关闭 */}
+        {(props.onCancel !== undefined || props.onClose !== undefined) && (
           <Text
             className="menu-item menu-item-cancel"
             onClick={() => {

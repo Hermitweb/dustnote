@@ -133,6 +133,9 @@ export class RemoteRepository implements DataRepository {
 
   async createNote(input: CreateNoteInput): Promise<string> {
     const r = await api.post<CreateNoteResponse>('/notes', {
+      // 客户端预生成 id 透传（H-D）：服务端 ON CONFLICT 幂等,迁移失败重试
+      // 不会产生重复笔记;AAD 绑定的场景也以原 id 为准
+      ...(input.id ? { id: input.id } : {}),
       ciphertext: input.ciphertext,
       keyVersion: input.keyVersion,
       isPinned: input.isPinned ?? false,

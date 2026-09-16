@@ -33,23 +33,7 @@ import { useColors } from '../theme';
 import { getDeviceId } from '../api';
 import { ApiClient, type AppMode, type ClientChannel, type ClientPlatform } from '@dustnote/shared';
 import { APP_VERSION } from '../lib/version';
-
-/** M16：判断是否内网地址（localhost/私有网段）——内网明文 HTTP 是自托管场景,只提示公网 */
-function isPrivateAddress(url: string): boolean {
-  try {
-    const host = new URL(url).hostname;
-    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
-    const m = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-    if (!m) return false;
-    const [a, b] = [Number(m[1]), Number(m[2])];
-    if (a === 10) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    return false;
-  } catch {
-    return false;
-  }
-}
+import { isPrivateAddress } from '../lib/net-utils';
 
 export function ModeSelectScreen() {
   const colors = useColors();

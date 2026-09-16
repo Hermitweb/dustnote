@@ -135,8 +135,12 @@ export function NotesListScreen() {
       const snapshot = await repo.loadAll();
       // 首次使用初始化：默认文件夹 + 引导笔记 + 未分类迁移（幂等）
       await ensureDefaultContent(repo, masterKey, snapshot);
-      // 在主线程逐条解密（v1 简化；后续可放到 worker）
+      // 在主线程逐条解密（v1 简化；后续可放到 worker）。
+      // F6：每 50 条让出一次事件循环——H3 修复后 >500 条笔记会全量加载,
+      // 连续 await 解密会把 Hermes 单线程冻住 1-4 秒（此前被服务端 500 条
+      // 截断掩盖）,分批 yield 让 UI 保持可响应
       const withPlain: NoteListItem[] = [];
+      let sinceYield = 0;
       for (const n of snapshot.notes) {
         let plain: NotePlaintext | null = null;
         if (masterKey) {
@@ -151,6 +155,10 @@ export function NotesListScreen() {
           }
         }
         withPlain.push({ ...n, plain });
+        if (++sinceYield >= 50) {
+          sinceYield = 0;
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
       }
       setNotes(withPlain);
       setFolders(snapshot.folders ?? []);

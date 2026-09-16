@@ -94,6 +94,8 @@ const en = {
     too_weak: 'Password must be at least 6 characters',
     password_required: 'Please enter your master password',
     unlock_failed: 'Unlock failed',
+    session_expired_title: 'Session expired',
+    session_expired_body: 'Your session is no longer valid (signed out elsewhere or expired). Please unlock again.',
     recover_forgot: 'Forgot password? Recover with recovery code',
     // Unlock / lockout
     locked_title: 'Account locked',

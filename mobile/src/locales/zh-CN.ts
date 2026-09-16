@@ -102,6 +102,8 @@ const zhCN = {
     too_weak: '密码至少需要 6 个字符',
     password_required: '请输入主密码',
     unlock_failed: '解锁失败',
+    session_expired_title: '会话已过期',
+    session_expired_body: '登录状态已失效（可能在其他设备退出或已过期），请重新解锁。',
     recover_forgot: '忘记密码？用恢复码找回',
     // 解锁 / 锁定
     locked_title: '账号已锁定',

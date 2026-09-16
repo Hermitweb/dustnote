@@ -51,6 +51,8 @@ export interface PendingMigration {
   wrappedOldMasterKey: Ciphertext | null;
   /** 旧模式 userId（用于解密 AAD 绑定的旧密文；standalone 为 null） */
   oldUserId: string | null;
+  /** 联机迁移的旧→新文件夹 id 映射（H-D：不持久化则失败重试会重复建文件夹） */
+  folderMap?: Record<string, string>;
 }
 
 /** 迁移时保存待迁移数据（发生在模式切换之前） */
@@ -91,6 +93,11 @@ export async function persistWrappedOldMasterKey(
     PENDING_KEY,
     JSON.stringify({ ...slot, wrappedOldMasterKey: wrapped })
   );
+}
+
+/** 把（可能更新过 folderMap 的）槽整体写回（H-D：文件夹阶段完成即落盘） */
+async function persistSlot(slot: PendingMigration): Promise<void> {
+  await AsyncStorage.setItem(PENDING_KEY, JSON.stringify(slot));
 }
 
 /** 解密备份中的一条笔记（兼容 AAD 绑定），失败返回 null */
@@ -148,8 +155,10 @@ async function importToOnline(
   newKey: Uint8Array
 ): Promise<{ imported: number; failed: number }> {
   const repo = new RemoteRepository();
-  const folderMap = new Map<string, string>();
+  // folderMap 从槽恢复：失败重试时复用上次映射,不会重复建文件夹（H-D）
+  const folderMap = new Map<string, string>(Object.entries(slot.folderMap ?? {}));
   for (const folder of slot.backup.folders ?? []) {
+    if (folderMap.has(folder.id)) continue;
     const parentId = folder.parentId ? (folderMap.get(folder.parentId) ?? null) : null;
     try {
       const newId = await repo.createFolder({
@@ -162,6 +171,8 @@ async function importToOnline(
       /* 单条失败不影响整体迁移 */
     }
   }
+  // 文件夹阶段完成即落盘映射：后续笔记导入失败重试时跳过文件夹阶段
+  await persistSlot({ ...slot, folderMap: Object.fromEntries(folderMap) });
 
   let imported = 0;
   let failed = 0;
@@ -175,6 +186,9 @@ async function importToOnline(
     }
     try {
       await repo.createNote({
+        // 保留原 id（H-D）：服务端 POST /notes 已幂等（ON CONFLICT 收敛）,
+        // 失败重试不会产生重复笔记
+        id: note.id,
         ciphertext: await reEncrypt(json, newKey),
         keyVersion: 1,
         isPinned: note.isPinned,
@@ -234,6 +248,11 @@ export async function consumePendingMigration(
       ? await importToStandalone(slot, oldKey, currentMasterKey)
       : await importToOnline(slot, oldKey, currentMasterKey);
 
-  await clearPendingMigration();
+  // H-D：failed>0 时不清槽——联机路径 importToOnline 已把 folderMap 落盘,
+  // 此前无条件清槽导致失败笔记永久丢失（且重试会重复建文件夹）。
+  // 槽的去留由 auth store 按 mode 决定（联机保留重试 / 单机确定性失败放弃）。
+  if (result.failed === 0) {
+    await clearPendingMigration();
+  }
   return result;
 }
