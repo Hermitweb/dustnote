@@ -357,6 +357,8 @@ const en: typeof zhCN = {
     err_connect: 'Connection failed',
     err_timeout: 'Connection timed out (10s). Check the address and your network.',
     err_network: 'Network unreachable. Check that the address is correct.',
+    bootstrap_failed:
+      'The preset server address is currently unreachable. Enter a new server address below to continue online, or try again later; you can change it anytime in Settings → Server address.',
   },
   setup: {
     title: 'Create master password',

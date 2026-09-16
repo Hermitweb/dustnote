@@ -21,6 +21,8 @@ import {
   DEPLOY_DEFAULT_SERVER_URL,
   isDeployDefaultApplied,
   markDeployDefaultApplied,
+  registerCanonicalServerUrl,
+  resolveDeployServerUrl,
 } from '../../lib/deployment';
 import { hasLocalAuthSync } from '../../lib/local-auth-storage';
 import { ApiClient } from '@dustnote/shared';
@@ -114,6 +116,12 @@ export default function ModeSelect() {
   const darkClass = useThemeDarkClass();
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const lang = useLanguage();
+  // 部署引导解析中（新机首启）：避免选择 UI 闪现后被自动跳转打断
+  const [resolvingDeploy, setResolvingDeploy] = useState(
+    !!DEPLOY_DEFAULT_SERVER_URL && !isDeployDefaultApplied() && !useModeStore.getState().initialized
+  );
+  // 引导地址失效（预置地址连不上）：显示提示 + 手动输入，本轮不落库，下次启动重试
+  const [bootstrapFailed, setBootstrapFailed] = useState(false);
 
   // 语言切换后同步原生导航栏标题
   useEffect(() => {
@@ -123,21 +131,35 @@ export default function ModeSelect() {
   // 启动时检测 WebCrypto 可用性（决定单机模式是否可选）
   const cryptoAvailable = isWebCryptoAvailable();
 
-  // 部署预置（一次性）：已发布包首次启动跳过模式选择与地址输入,直接以联机模式
-  // + 预置地址初始化（地址持久化到 mode-store,设置页可改）。服务器此刻不可达
-  // 也照常落库——解锁页会自然报错,服务器恢复即通,不阻塞首启。
-  // 不在此处 reLaunch：initialize() 后 modeInitialized 变化会触发下方
-  // 「已选过模式自动跳转」effect,由它统一导航。
+  // 部署预置（一次性）：已发布包新机首启先到预置引导地址取「服务端登记的规范
+  // 地址」（首次激活的设备已 POST 登记,见 lib/deployment.ts）,取到即以联机模式
+  // 落库,直达解锁/初始化流程——新机免「选模式 + 输地址」；引导地址可达但尚无
+  // 登记 → 回退用引导地址本身（它就是这台服务器）。引导地址不可达 → 显示地址
+  // 失效提示,本轮不落库,下次启动自动重试。落库后由下方「已选过模式自动跳转」
+  // effect 统一导航,这里不 reLaunch。
   useEffect(() => {
     if (modeInitialized) return;
     if (!DEPLOY_DEFAULT_SERVER_URL || isDeployDefaultApplied()) return;
-    markDeployDefaultApplied();
-    setMode('online');
-    setServerUrl(DEPLOY_DEFAULT_SERVER_URL.replace(/\/+$/, ''));
-    initialize();
-    // AuthProvider 仅在 App 挂载时跑过一次 init（那时 mode 未定）,
-    // 这里必须手动重跑鉴权初始化,否则 authState 停留在 unknown
-    void useAuthStore.getState().init();
+    let cancelled = false;
+    void (async () => {
+      const r = await resolveDeployServerUrl(DEPLOY_DEFAULT_SERVER_URL);
+      if (cancelled) return;
+      setResolvingDeploy(false);
+      if (!r.ok) {
+        setBootstrapFailed(true);
+        return;
+      }
+      markDeployDefaultApplied();
+      setMode('online');
+      setServerUrl(r.serverUrl);
+      initialize();
+      // AuthProvider 仅在 App 挂载时跑过一次 init（那时 mode 未定）,
+      // 这里必须手动重跑鉴权初始化,否则 authState 停留在 unknown
+      void useAuthStore.getState().init();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [modeInitialized, setMode, setServerUrl, initialize]);
 
   // 已选过模式时自动跳转到对应流程（避免每次启动都显示模式选择页）
@@ -171,6 +193,8 @@ export default function ModeSelect() {
     setMode('standalone');
     setServerUrl(null);
     initialize();
+    // 用户手动完成了选择：部署引导不再自动应用（否则 resetMode 后会被强拉回联机）
+    markDeployDefaultApplied();
     if (hasLocalAuthSync()) {
       Taro.reLaunch({ url: '/pages/standalone-unlock/index' });
     } else {
@@ -219,6 +243,11 @@ export default function ModeSelect() {
       setMode('online');
       setServerUrl(trimmed);
       initialize();
+      // 用户手动完成了选择：部署引导不再自动应用（否则 resetMode 后会被强拉回联机）
+      markDeployDefaultApplied();
+      // 首次激活：把连接成功的地址登记到服务端（先到先得），其它新设备经引导
+      // 地址即可取到。失败静默——服务端未跑新版本/网络抖动都不阻塞激活
+      void registerCanonicalServerUrl(trimmed);
       // AuthProvider 仅在 App 挂载时跑过一次 init（那时 mode 还是 null），
       // 这里必须手动重跑鉴权初始化，否则 authState 停留在 unknown，
       // index 页没有 unknown 守卫会直接渲染列表页
@@ -230,8 +259,8 @@ export default function ModeSelect() {
     }
   };
 
-  // 已初始化时不渲染选择 UI（避免跳转前闪烁）
-  if (modeInitialized) {
+  // 已初始化或部署引导解析中时不渲染选择 UI（避免跳转前闪烁）
+  if (modeInitialized || resolvingDeploy) {
     return (
       <View className="hero">
         <Text className="hero-subtitle">{t('common.loading')}</Text>
@@ -246,6 +275,15 @@ export default function ModeSelect() {
         <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
         <Text className="hero-title">{t('mode_select.welcome')}</Text>
         <Text className="hero-subtitle">{t('mode_select.subtitle')}</Text>
+
+        {/* 部署引导地址失效提示：预置地址连不上,引导用户改用新地址或去设置修改 */}
+        {bootstrapFailed && (
+          <View className="mint-card mt-m" style={{ width: '100%', maxWidth: '560rpx' }}>
+            <Text className="text-sm error-text" style={{ display: 'block' }}>
+              {t('mode_select.bootstrap_failed')}
+            </Text>
+          </View>
+        )}
 
         {/* 单机模式入口 */}
         <View
