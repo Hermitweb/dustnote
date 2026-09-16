@@ -66,10 +66,17 @@ export function ModeSelectScreen() {
       Alert.alert(t('common.hint'), t('mode_select.err_url_format'));
       return;
     }
-    // M16：明文 HTTP 且非内网地址时提示——公网明文传输意味着主密码派生
-    // 凭据与全部密文可被链路窃听。内网(localhost/私有段)自托管是产品场景,仅提示不阻断
+    // M16/F13：明文 HTTP 且非内网地址时提示——公网明文传输意味着主密码派生
+    // 凭据与全部密文可被链路窃听。内网自托管是产品场景,仅提示不阻断。
+    // 阻塞等待确认:非阻塞 Alert 会被紧随的「连接成功/失败」弹窗顶掉
     if (/^http:\/\//i.test(trimmed) && !isPrivateAddress(trimmed)) {
-      Alert.alert(t('common.hint'), t('mode_select.warn_plain_http'));
+      const proceed = await new Promise<boolean>((resolve) => {
+        Alert.alert(t('common.hint'), t('mode_select.warn_plain_http'), [
+          { text: t('common.cancel'), style: 'cancel', onPress: () => resolve(false) },
+          { text: t('common.confirm'), onPress: () => resolve(true) },
+        ]);
+      });
+      if (!proceed) return;
     }
     setTesting(true);
     try {

@@ -26,24 +26,7 @@ import { clearStandaloneMasterKey } from '../../lib/standalone-session';
 import { setup2fa, enable2fa, disable2fa, get2faStatus } from '../../lib/totp-client';
 import { t, setLanguage, useLanguage, type Language } from '../../lib/i18n';
 import { parseServerDate } from '../../lib/date-parse';
-
-/** F9：内网地址判定（localhost/私有网段）——weapp 无完整 URL 解析,正则取 host */
-function isPrivateHost(url: string): boolean {
-  const m = url.match(/^https?:\/\/([^/:?]+)/i);
-  if (!m) return false;
-  const host = m[1]!.toLowerCase();
-  if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]') {
-    return true;
-  }
-  const ip = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if (!ip) return false;
-  const a = Number(ip[1]);
-  const b = Number(ip[2]);
-  if (a === 10) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  return false;
-}
+import { isPrivateHost } from '../../lib/net-utils';
 import {
   cacheMasterKeyForBiometric,
   isBiometricEnabled,

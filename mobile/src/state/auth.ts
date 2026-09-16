@@ -69,7 +69,9 @@ import {
   clearPendingMigration,
   consumePendingMigration,
   loadPendingMigration,
+  markMigrationReported,
   persistWrappedOldMasterKey,
+  MAX_MIGRATION_ATTEMPTS,
 } from '../lib/migration';
 
 export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked';
@@ -247,7 +249,6 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
   lock() {
     const k = get().masterKey;
-    if (k) k.fill(0);
     // 不清除 AsyncStorage 中的 token 和 userId —— 生物识别解锁需要它们
     // token 会随 HTTP-only cookie 过期自动失效，无需手动清除
     set({
@@ -256,6 +257,20 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       // 单机模式锁定时也清空内存中的 blob（保留持久化层），下次重新从存储加载
       localAuthBlob: null,
     });
+    // M5：密钥清零**推迟**到状态切换之后 5 秒。此前是原地 fill(0) 立即执行,
+    // 而 H-E 把 lock() 的触发面从「用户显式动作」扩大到「任意请求终态失败」——
+    // 在途的加密闭包（自动保存/离线队列 flush）若仍持有同一个 Uint8Array,
+    // 就会用全零密钥加密并 PATCH 上行,造成不可逆的密文损坏。
+    // 先置 null 阻断新操作,延迟清零兼顾内存卫生与在途写入。
+    if (k) {
+      setTimeout(() => {
+        try {
+          k.fill(0);
+        } catch {
+          /* ignore */
+        }
+      }, 5_000);
+    }
   },
 
   setAccessToken(token: string) {
@@ -776,11 +791,36 @@ async function buildLocalAuthBlobForMasterKey(
  * 消费模式切换遗留的待迁移数据（新模式 setup / unlock / recover 成功后调用）。
  * 无待迁移数据时快速返回；导入成功后清零 pending masterKey。
  */
+// M6：单飞守卫——unlockWithBiometric 等处用 void 调用,与 await 版并发时
+// 两边各读一次盘、互相用陈旧快照回写,会把 importToOnline 刚落盘的 folderMap
+// 抹掉（H-C 症状复发：重试复制整棵文件夹树）
+let migrationInFlight: Promise<void> | null = null;
+
 async function runPendingMigration(): Promise<void> {
+  if (migrationInFlight) return migrationInFlight;
+  migrationInFlight = doRunPendingMigration().finally(() => {
+    migrationInFlight = null;
+  });
+  return migrationInFlight;
+}
+
+async function doRunPendingMigration(): Promise<void> {
   const { masterKey, pendingMasterKey } = useAuthStore.getState();
   if (!masterKey) return;
   const slot = await loadPendingMigration();
   if (!slot) return;
+
+  // H2：已放弃自动重试的槽只提示一次,不再每轮解锁重跑导入/弹窗
+  if ((slot.attempts ?? 0) >= MAX_MIGRATION_ATTEMPTS) {
+    if (!slot.reportShown) {
+      await markMigrationReported();
+      Alert.alert(
+        i18n.t('auth.migration_title'),
+        i18n.t('auth.migration_gave_up', { failed: (slot.failedIds ?? []).length })
+      );
+    }
+    return;
+  }
 
   // 内存中没有旧 masterKey 时，尝试从 slot 解封（上次导入失败已持久化包装）
   let oldKey: Uint8Array | null = pendingMasterKey;
@@ -793,12 +833,16 @@ async function runPendingMigration(): Promise<void> {
   }
   if (!oldKey) return; // 无旧 key，无法解密备份，等待下次解锁重试
 
-  // 先把旧 masterKey 用当前 masterKey 包装持久化：即使导入中途 App 被杀，重启后仍可重试
-  await persistWrappedOldMasterKey(slot, masterKey, oldKey).catch(() => undefined);
+  // 先把旧 masterKey 用当前 masterKey 包装持久化：即使导入中途 App 被杀，重启后仍可重试。
+  // M6/H-C：回写前**重读一次盘**——本函数入口读到的 slot 可能已被并发的
+  // importToOnline 更新过（folderMap/账本）,用陈旧引用回写会抹掉它们
+  const freshForWrap = (await loadPendingMigration()) ?? slot;
+  await persistWrappedOldMasterKey(freshForWrap, masterKey, oldKey).catch(() => undefined);
 
   try {
     const res = await consumePendingMigration(masterKey, oldKey);
     if (res) {
+      if (res.exhausted) return; // 已在上方提示过,静默返回
       if (res.failed > 0 && useModeStore.getState().mode === 'standalone') {
         // M-E：单机部分失败=确定性解密失败（无网络因素）,保留槽每次解锁重跑
         // importToStandalone 的覆写式导入会清掉迁移后新建的数据——放弃槽,

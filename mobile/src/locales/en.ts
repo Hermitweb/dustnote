@@ -173,6 +173,8 @@ const en = {
       'Migrated {{imported}} notes; {{failed}} skipped due to decryption failure.',
     migration_incomplete:
       'Migration incomplete ({{reason}}). It will retry automatically on next unlock.',
+    migration_gave_up:
+      '{{failed}} notes still failed after several retries (possibly corrupted ciphertext or over the server size limit). Automatic retry has stopped. Your data in the original mode is untouched — switch back to view or re-export it.',
     // Two-factor (unlock screen)
     totp_required_title: 'Two-factor code required',
     totp_required_detail: 'Please enter your two-factor code',

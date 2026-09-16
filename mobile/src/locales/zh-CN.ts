@@ -173,6 +173,8 @@ const zhCN = {
     migration_complete_detail: '已迁移 {{count}} 条笔记。',
     migration_complete_partial: '已迁移 {{imported}} 条笔记，{{failed}} 条因解密失败跳过。',
     migration_incomplete: '迁移未完成（{{reason}}），将在下次解锁时自动重试。',
+    migration_gave_up:
+      '有 {{failed}} 条笔记多次重试仍未迁移成功（可能是密文损坏或超出服务端大小上限），已停止自动重试。原模式数据未改动，可切回原模式查看或重新导出。',
     // 两步验证（解锁页）
     totp_required_title: '需要两步验证码',
     totp_required_detail: '请输入你的两步验证码',

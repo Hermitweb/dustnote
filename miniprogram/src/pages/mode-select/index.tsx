@@ -22,6 +22,7 @@ import { ApiClient } from '@dustnote/shared';
 import { taroFetch } from '../../lib/taro-fetch';
 import { APP_VERSION, useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
+import { isPrivateHost } from '../../lib/net-utils';
 
 /**
  * 检测当前运行时是否可支撑单机模式（本地 AES-GCM + HKDF）
@@ -168,6 +169,18 @@ export default function ModeSelect() {
   /** 选定联机模式：测试连接通过后写入 mode-store，根据服务器是否已初始化跳转 */
   const chooseOnline = async () => {
     if (testing) return;
+    // F14：首装/切换模式是服务器地址的**主入口**,此前只有设置页有明文 HTTP
+    // 警告——公网明文链路上密文与派生凭据可被窃听,阻塞确认后再继续
+    const trimmedForWarn = serverUrl.trim();
+    if (/^http:\/\//i.test(trimmedForWarn) && !isPrivateHost(trimmedForWarn)) {
+      const modal = await Taro.showModal({
+        title: t('common.hint'),
+        content: t('mode_select.warn_plain_http'),
+        confirmText: t('common.confirm'),
+        cancelText: t('common.cancel'),
+      });
+      if (!modal.confirm) return;
+    }
     setTesting(true);
     setTestResult(null);
     try {

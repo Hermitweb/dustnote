@@ -47,31 +47,57 @@ export function setAccessToken(token: string | null): void {
   else AsyncStorage.removeItem('dustnote_access_token').catch(() => undefined);
 }
 
+/**
+ * M8：refresh token 的「权威存储」标记。
+ * Keychain 写失败降级到 AsyncStorage 后,若读路径仍优先 Keychain,里面残留的
+ * 上一枚（已轮换作废）RT 会长期遮蔽 AS 里的新鲜 RT → 每次刷新 401 → 清 RT
+ * → 反复踢回解锁页。标记存在时读路径只认 AsyncStorage。
+ */
+const RT_BACKEND_KEY = 'dustnote_refresh_backend';
+
 /** 自管 refresh token（RN 无法依赖 HTTP-only cookie,服务端 /auth/refresh 兼容 X-Refresh-Token header） */
 export async function setRefreshToken(token: string | null): Promise<void> {
   // M-C：Keychain 写失败必须降级到 AsyncStorage 而不是向上抛——此前写路径无
   // 降级（读路径有）,Keychain 不可用的设备上每次密码解锁/刷新都会整体失败
-  try {
-    if (token) {
+  if (token) {
+    try {
       await Keychain.setGenericPassword('refresh', token, {
         service: REFRESH_KEYCHAIN_SERVICE,
         accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       });
-      // 迁移完成清掉 AsyncStorage 里的旧明文副本
+      // Keychain 成为权威：清掉 AS 副本与降级标记
       await AsyncStorage.removeItem(REFRESH_TOKEN_KEY).catch(() => undefined);
+      await AsyncStorage.removeItem(RT_BACKEND_KEY).catch(() => undefined);
       return;
+    } catch {
+      /* Keychain 不可用：落 AS 兜底 */
     }
-    await Keychain.resetGenericPassword({ service: REFRESH_KEYCHAIN_SERVICE }).catch(() => undefined);
-    await AsyncStorage.removeItem(REFRESH_TOKEN_KEY).catch(() => undefined);
+    try {
+      await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
+      await AsyncStorage.setItem(RT_BACKEND_KEY, 'as');
+      // 尽力清掉 Keychain 里的陈旧值（失败也不影响：标记已让读路径忽略它）
+      await Keychain.resetGenericPassword({ service: REFRESH_KEYCHAIN_SERVICE }).catch(
+        () => undefined
+      );
+    } catch {
+      /* 两处都不可用：静默放弃（下次刷新失败会走 transient/rejected 分类） */
+    }
     return;
-  } catch {
-    /* Keychain 不可用：落到 AsyncStorage 兜底（读路径会优先 Keychain 再回落此处） */
   }
+
+  // 清除：两个存储都要清干净。Keychain reset 失败时留标记,让读路径忽略
+  // 其中残留的已吊销 token（否则每次请求都白跑一次刷新）
+  let keychainCleared = true;
   try {
-    if (token) await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
-    else await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
+    await Keychain.resetGenericPassword({ service: REFRESH_KEYCHAIN_SERVICE });
   } catch {
-    /* 两处都不可用：静默放弃（下次刷新会失败并触发会话过期接管） */
+    keychainCleared = false;
+  }
+  await AsyncStorage.removeItem(REFRESH_TOKEN_KEY).catch(() => undefined);
+  if (keychainCleared) {
+    await AsyncStorage.removeItem(RT_BACKEND_KEY).catch(() => undefined);
+  } else {
+    await AsyncStorage.setItem(RT_BACKEND_KEY, 'as').catch(() => undefined);
   }
 }
 
@@ -94,6 +120,12 @@ export async function buildClientHeaders(
 }
 
 async function getRefreshToken(): Promise<string | null> {
+  // M8：降级标记存在时 AsyncStorage 是权威——不读 Keychain,避免其中残留的
+  // 已轮换 token 遮蔽新鲜值
+  const backend = await AsyncStorage.getItem(RT_BACKEND_KEY).catch(() => null);
+  if (backend === 'as') {
+    return AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+  }
   // 先读 Keychain（M10 后的正式位置）;读不到再回退 AsyncStorage 旧位置并
   // 迁移——升级用户的首个刷新周期完成无感搬迁
   try {
@@ -111,25 +143,36 @@ async function getRefreshToken(): Promise<string | null> {
       });
       await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
     } catch {
-      /* 迁移失败保留旧位置,下次再试 */
+      /* 迁移失败：标记 AS 为权威,下次直接读 AS（不再反复尝试迁移） */
+      await AsyncStorage.setItem(RT_BACKEND_KEY, 'as').catch(() => undefined);
     }
   }
   return legacy;
 }
 
-let refreshInFlight: Promise<boolean> | null = null;
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
 
 /**
  * 用 refresh token 静默换新 access token（服务端轮换 refresh token）。
- * 并发 401 只触发一次刷新（refreshInFlight 去重）；刷新失败返回 false
- * （调用方把 401 原样抛出，由上层引导重新登录）。
+ * 并发 401 只触发一次刷新（refreshInFlight 去重）。
  */
-export async function refreshAccessTokenSilently(): Promise<boolean> {
+/**
+ * 刷新结果的三态（H1）：调用方必须区分「终态失效」与「瞬时失败」——
+ * 此前统一返回 boolean,把网络抖动/5xx/429 也当成会话吊销,导致弱网下
+ * 用户被强制锁屏（且 refresh 与 unlock 共用限流桶,可能连锁 429 硬锁死）。
+ * - ok：拿到新 access token
+ * - rejected：服务端判定过期/吊销（RT 已清）→ 该回解锁页
+ * - transient：网络/超时/5xx/429 → RT 保留,原样上抛让页面显示网络错误
+ */
+export type RefreshOutcome = 'ok' | 'rejected' | 'transient';
+
+export async function refreshAccessTokenSilently(): Promise<RefreshOutcome> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
     try {
       const refresh = await getRefreshToken();
-      if (!refresh) return false;
+      // 没有 RT = 无从续签,属终态（调用方据此回解锁页）
+      if (!refresh) return 'rejected' as const;
       const dId = await getDeviceId();
       const client = new ApiClient({
         baseUrl: resolveBaseUrl(),
@@ -147,14 +190,15 @@ export async function refreshAccessTokenSilently(): Promise<boolean> {
       );
       setAccessToken(r.accessToken);
       if (r.refreshToken) await setRefreshToken(r.refreshToken);
-      return true;
+      return 'ok' as const;
     } catch (err) {
-      // 分类处理:仅服务端判定过期/吊销(401/403)才清 refresh token;
-      // 网络抖动/超时保留 token,避免一次断网把用户踢回密码登录
+      // 分类处理:仅服务端判定过期/吊销(401/403)才清 refresh token 并视为终态;
+      // 网络抖动/超时/5xx/429 保留 token,判为瞬时失败——一次断网不该把用户
+      // 踢回密码登录（H1）
       const status = (err as { status?: number })?.status;
-      if (status !== 401 && status !== 403) return false;
+      if (status !== 401 && status !== 403) return 'transient' as const;
       await setRefreshToken(null);
-      return false;
+      return 'rejected' as const;
     } finally {
       refreshInFlight = null;
     }
@@ -208,14 +252,24 @@ const requestImpl: RequestMethod = async function (
     // H-E：排除 /auth/ 自身（unlock 密码错误也是 401,不能触发会话过期接管）
     const status = (err as { status?: number }).status;
     if (status === 401 && !path.startsWith('/auth/')) {
-      const hasRt = await getRefreshToken();
-      if (hasRt && (await refreshAccessTokenSilently())) {
+      // H1：三态判定——只有「终态失效」才交回 auth store 锁屏；瞬时失败
+      // （网络/超时/5xx/429）原样上抛,由页面显示网络错误。此前把任何
+      // false 都当吊销,弱网下会误锁屏,且 refresh 与 unlock 共用限流桶
+      // 可能连锁 429 把用户硬锁 15 分钟。
+      const outcome = await refreshAccessTokenSilently();
+      if (outcome === 'ok') {
         return await (await fresh()).request(method, path, body, init);
       }
-      // 终态失败：无 refresh token 或刷新被服务端判定过期/吊销（RT 已被清）。
-      // 生物解锁提速（c3e98df）后不再有「回解锁页」的前置安全网,若无人接管,
-      // 用户会困在已解锁界面每次操作都失败——交回 auth store 处理（H-E）
-      onAuthExpired?.();
+      if (outcome === 'rejected') {
+        // 终态：无 RT 或服务端判定过期/吊销（RT 已清）。生物解锁提速
+        // （c3e98df）后不再有「回解锁页」的前置安全网,若无人接管,用户会
+        // 困在已解锁界面每次操作都失败——交回 auth store 处理（H-E）
+        try {
+          onAuthExpired?.();
+        } catch {
+          /* 回调异常不得替换掉原始 API 错误 */
+        }
+      }
     }
     throw err;
   }

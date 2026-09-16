@@ -634,18 +634,25 @@ export function SettingsScreen() {
       Alert.alert(t('common.hint'), t('settings.err_server_required'));
       return;
     }
-    // F9（对齐 ModeSelectScreen 的 M16）：公网明文 HTTP 提示——模式切换是
-    // 服务器地址的第二入口,此前只有首装流程有警告
+    if (switchTarget === appMode) {
+      Alert.alert(t('common.hint'), t('settings.err_same_mode'));
+      return;
+    }
+    // F9/F13（对齐 ModeSelectScreen 的 M16）：公网明文 HTTP 提示。
+    // 必须放在同模式检查之后,且**阻塞等待确认**——非阻塞 Alert 会被紧随的
+    // 成功弹窗顶掉,用户根本读不到警告
     if (
       switchTarget === 'online' &&
       /^http:\/\//i.test(switchServerUrl.trim()) &&
       !isPrivateAddress(switchServerUrl.trim())
     ) {
-      Alert.alert(t('common.hint'), t('mode_select.warn_plain_http'));
-    }
-    if (switchTarget === appMode) {
-      Alert.alert(t('common.hint'), t('settings.err_same_mode'));
-      return;
+      const proceed = await new Promise<boolean>((resolve) => {
+        Alert.alert(t('common.hint'), t('mode_select.warn_plain_http'), [
+          { text: t('common.cancel'), style: 'cancel', onPress: () => resolve(false) },
+          { text: t('common.confirm'), onPress: () => resolve(true) },
+        ]);
+      });
+      if (!proceed) return;
     }
     setBusy(true);
     try {

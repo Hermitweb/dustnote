@@ -306,19 +306,19 @@ function IndexBody() {
     } else setSelectedIds(new Set(visibleNotes.map((x) => x.id)));
   }, [selectedIds.size, visibleNotes]);
 
-  // F8：未决面板的 resolver——理论竞态下第二个入口覆盖面板时,
-  // 先把前一个 Promise 以 null 收掉,避免悬空协程
+  // F8/F11：未决面板的统一 resolver 槽——**所有**半屏面板入口（选文件夹、
+  // 选模板）共用它,新面板打开时先把上一个 Promise 以 null 收掉,避免悬空协程
   const pendingPickResolverRef = useRef<((v: string | null) => void) | null>(null);
 
-  const pickFolderFromList = (folderList: Folder[]): Promise<string | null> =>
+  /** 统一半屏选择面板入口（选定/关闭都必须清 pickSheet——此前只 resolve
+   *  Promise 不清状态,面板永远留在屏幕上且无法关闭） */
+  const openPickSheet = (spec: { title: string; items: PickItem[] }): Promise<string | null> =>
     new Promise((resolve) => {
       pendingPickResolverRef.current?.(null);
       pendingPickResolverRef.current = resolve;
       setPickSheet({
-        title: t('index.pick_folder'),
-        items: folderList.map((f) => ({ key: f.id, label: `📁 ${f.name}` })),
-        // 选定/关闭都必须清 pickSheet——此前只 resolve Promise 不清状态,
-        // 面板永远留在屏幕上且无法关闭(模板新建与 FAB 新建共用此入口)
+        title: spec.title,
+        items: spec.items,
         onPick: (key) => {
           pendingPickResolverRef.current = null;
           setPickSheet(null);
@@ -331,6 +331,12 @@ function IndexBody() {
         },
         cancelText: t('common.cancel'),
       });
+    });
+
+  const pickFolderFromList = (folderList: Folder[]): Promise<string | null> =>
+    openPickSheet({
+      title: t('index.pick_folder'),
+      items: folderList.map((f) => ({ key: f.id, label: `📁 ${f.name}` })),
     });
 
   const batchPatch = async (field: 'isPinned' | 'isFavorite', val: boolean) => {
@@ -961,16 +967,12 @@ function IndexBody() {
               // 选模板:预设 + 服务端自定义(联机)
               const customItems = serverTemplates.map((tp) => ({ key: `c:${tp.id}`, label: `🗂 ${tp.name}` }));
               const presetItems = PRESET_TEMPLATES.map((tp, i) => ({ key: `p:${i}`, label: `${tp.icon} ${tp.name}` }));
-              const pick = await new Promise<string | null>((resolve) => {
-                setPickSheet({
-                  title: t('index.pick_template'),
-                  items: [...presetItems, ...customItems],
-                  onPick: (key) => resolve(key),
-                  onClose: () => resolve(null),
-                  cancelText: t('common.cancel'),
-                });
+              // F11：走统一的 openPickSheet（与选文件夹共用 resolver 槽）——
+              // 否则本 Promise 不在守卫内,被其他入口覆盖时会永久悬空
+              const pick = await openPickSheet({
+                title: t('index.pick_template'),
+                items: [...presetItems, ...customItems],
               });
-              setPickSheet(null);
               if (!pick) return;
               let tplName = '';
               let content = '';

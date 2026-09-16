@@ -37,19 +37,19 @@ export function PickSheet(props: {
             </Text>
           ))}
         </ScrollView>
-        {/* M-F：取消按钮在有 onClose 时就渲染——此前只在传 onCancel 时渲染,
-            而所有调用方都只传了 cancelText,按钮从未出现过,面板只能靠遮罩关闭 */}
-        {(props.onCancel !== undefined || props.onClose !== undefined) && (
-          <Text
-            className="menu-item menu-item-cancel"
-            onClick={() => {
-              props.onCancel?.();
-              props.onClose();
-            }}
-          >
-            {props.cancelText ?? '取消'}
-          </Text>
-        )}
+        {/* F12：取消按钮**无条件渲染**——onClose 是必填 prop,此前写成
+            `onCancel || onClose` 的条件恒真（误导）;而更早的版本只在传
+            onCancel 时渲染,所有调用方都只传 cancelText,按钮从未出现过。
+            onCancel 为兼容保留:存在时先调它再 onClose（当前无调用方使用） */}
+        <Text
+          className="menu-item menu-item-cancel"
+          onClick={() => {
+            props.onCancel?.();
+            props.onClose();
+          }}
+        >
+          {props.cancelText ?? '取消'}
+        </Text>
       </View>
     </View>
   );

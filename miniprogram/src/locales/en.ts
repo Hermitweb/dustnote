@@ -209,6 +209,8 @@ const en: typeof zhCN = {
     migrated_count: 'Migrated {{count}} notes',
     migrated_failed: 'Migrated {{count}}, {{failed}} failed - auto-retry on next unlock',
     migration_pending: 'Pending migration found but old key missing; switch back to re-export',
+    migrated_failed_title: 'Migration incomplete',
+    migration_gave_up: '{{failed}} notes still failed after several retries (corrupted ciphertext or over the server size limit); automatic retry stopped. Your original data is untouched.',
     import_backup: '📥 Import backup',
     share_mgmt: '🔗 Share management',
     device_mgmt: '💻 Devices',

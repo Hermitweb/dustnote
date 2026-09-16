@@ -68,6 +68,7 @@ export function TrashScreen() {
       const snapshot = await repo.loadAll();
       const deleted = snapshot.notes.filter((n) => n.deletedAt);
       const withPlain: Array<NoteRow & { plain: NotePlaintext | null }> = [];
+      let sinceYield = 0;
       for (const n of deleted) {
         let plain: NotePlaintext | null = null;
         if (masterKey) {
@@ -82,6 +83,11 @@ export function TrashScreen() {
           }
         }
         withPlain.push({ ...n, plain });
+        // F9：与列表页同款——每 50 条让出事件循环,回收站大时不再整体冻结
+        if (++sinceYield >= 50) {
+          sinceYield = 0;
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
       }
       // 按删除时间倒序（serverUpdatedAt 作为近似）
       withPlain.sort((a, b) => b.serverUpdatedAt.localeCompare(a.serverUpdatedAt));

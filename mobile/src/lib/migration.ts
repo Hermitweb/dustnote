@@ -53,7 +53,22 @@ export interface PendingMigration {
   oldUserId: string | null;
   /** 联机迁移的旧→新文件夹 id 映射（H-D：不持久化则失败重试会重复建文件夹） */
   folderMap?: Record<string, string>;
+  /**
+   * H2/H3 迁移账本：已成功导入的笔记 id。重试时跳过这些 id——
+   * ① 不再每次解锁全量重传（千条笔记=数十秒+整库流量）；
+   * ② 用户已永久删除的笔记不会被按备份复活（原 id POST 会重建行）。
+   */
+  importedIds?: string[];
+  /** 确定性失败的笔记 id（解密失败/超长被服务端拒），用于「未完成迁移」报告 */
+  failedIds?: string[];
+  /** 已尝试轮数；超过 MAX_MIGRATION_ATTEMPTS 后停止自动重试 */
+  attempts?: number;
+  /** 放弃后是否已提示过用户（避免每次解锁重复弹窗） */
+  reportShown?: boolean;
 }
+
+/** 自动重试上限（H2）：超过后保留槽作为「未完成迁移报告」,不再每轮解锁重跑 */
+export const MAX_MIGRATION_ATTEMPTS = 3;
 
 /** 迁移时保存待迁移数据（发生在模式切换之前） */
 export async function savePendingMigration(
@@ -98,6 +113,16 @@ export async function persistWrappedOldMasterKey(
 /** 把（可能更新过 folderMap 的）槽整体写回（H-D：文件夹阶段完成即落盘） */
 async function persistSlot(slot: PendingMigration): Promise<void> {
   await AsyncStorage.setItem(PENDING_KEY, JSON.stringify(slot));
+}
+
+/**
+ * H2：标记「未完成迁移报告已提示过」——放弃自动重试后,不能每次解锁都弹窗。
+ * 槽仍保留（failedIds 可供设置页展示与手动重试）。
+ */
+export async function markMigrationReported(): Promise<void> {
+  const slot = await loadPendingMigration();
+  if (!slot || slot.reportShown) return;
+  await persistSlot({ ...slot, reportShown: true }).catch(() => undefined);
 }
 
 /** 解密备份中的一条笔记（兼容 AAD 绑定），失败返回 null */
@@ -174,14 +199,31 @@ async function importToOnline(
   // 文件夹阶段完成即落盘映射：后续笔记导入失败重试时跳过文件夹阶段
   await persistSlot({ ...slot, folderMap: Object.fromEntries(folderMap) });
 
+  // H2/H3：账本——已导入的 id 跳过（不重传、不让已永久删除的笔记复活）
+  const doneIds = new Set<string>(slot.importedIds ?? []);
+  const failedIds = new Set<string>(slot.failedIds ?? []);
   let imported = 0;
   let failed = 0;
+  let sincePersist = 0;
+  const flushLedger = async () => {
+    sincePersist = 0;
+    // 账本落盘失败不致命：最坏情况是重试时重传最近若干条（服务端幂等收敛）
+    await persistSlot({
+      ...slot,
+      folderMap: Object.fromEntries(folderMap),
+      importedIds: Array.from(doneIds),
+      failedIds: Array.from(failedIds),
+    }).catch(() => undefined);
+  };
+
   for (const note of slot.backup.notes) {
     // 已软删的笔记跳过（与服务端 importBackup 行为一致，不恢复回收站垃圾）
     if (note.deletedAt) continue;
+    if (doneIds.has(note.id)) continue; // 上一轮已成功
     const json = await tryDecryptNote(note.ciphertext, oldKey, slot.oldUserId, note.id);
     if (json === null) {
       failed++;
+      failedIds.add(note.id);
       continue;
     }
     try {
@@ -196,6 +238,10 @@ async function importToOnline(
         folderId: note.folderId ? (folderMap.get(note.folderId) ?? null) : null,
       });
       imported++;
+      doneIds.add(note.id);
+      failedIds.delete(note.id);
+      // 每 25 条落一次账本：进程被杀时最多重传 25 条（幂等,无副作用）
+      if (++sincePersist >= 25) await flushLedger();
     } catch {
       failed++;
     }
@@ -215,6 +261,9 @@ async function importToOnline(
       /* 偏好设置失败不阻塞迁移 */
     }
   }
+  // 收尾落账本：本轮成功的 id 必须持久化,否则下轮重试会重传（并可能复活
+  // 用户已永久删除的笔记）
+  await flushLedger();
   return { imported, failed };
 }
 
@@ -228,14 +277,25 @@ async function importToOnline(
 export async function consumePendingMigration(
   currentMasterKey: Uint8Array,
   oldMasterKey: Uint8Array | null
-): Promise<{ imported: number; failed: number } | null> {
+): Promise<{ imported: number; failed: number; exhausted?: boolean } | null> {
   const slot = await loadPendingMigration();
   if (!slot) return null;
 
+  // H2：自动重试上限——超过后不再重跑导入,槽保留为「未完成迁移报告」
+  // （failedIds 可展示）,由 auth store 提示一次并停止每次解锁的弹窗/重传
+  const attempts = (slot.attempts ?? 0) + 1;
+  if (attempts > MAX_MIGRATION_ATTEMPTS) {
+    return { imported: 0, failed: (slot.failedIds ?? []).length, exhausted: true };
+  }
+  // 用带 attempts 的「活槽」贯穿本轮：importToOnline 的账本落盘是 {...slot}
+  // 展开,传旧引用会把 attempts 抹掉
+  const liveSlot: PendingMigration = { ...slot, attempts };
+  await persistSlot(liveSlot).catch(() => undefined);
+
   let oldKey = oldMasterKey;
-  if (!oldKey && slot.wrappedOldMasterKey) {
+  if (!oldKey && liveSlot.wrappedOldMasterKey) {
     try {
-      oldKey = await unwrapKey(currentMasterKey, slot.wrappedOldMasterKey);
+      oldKey = await unwrapKey(currentMasterKey, liveSlot.wrappedOldMasterKey);
     } catch {
       oldKey = null;
     }
@@ -245,10 +305,10 @@ export async function consumePendingMigration(
   const mode = useModeStore.getState().mode;
   const result =
     mode === 'standalone'
-      ? await importToStandalone(slot, oldKey, currentMasterKey)
-      : await importToOnline(slot, oldKey, currentMasterKey);
+      ? await importToStandalone(liveSlot, oldKey, currentMasterKey)
+      : await importToOnline(liveSlot, oldKey, currentMasterKey);
 
-  // H-D：failed>0 时不清槽——联机路径 importToOnline 已把 folderMap 落盘,
+  // H-D：failed>0 时不清槽——联机路径 importToOnline 已把 folderMap/账本落盘,
   // 此前无条件清槽导致失败笔记永久丢失（且重试会重复建文件夹）。
   // 槽的去留由 auth store 按 mode 决定（联机保留重试 / 单机确定性失败放弃）。
   if (result.failed === 0) {

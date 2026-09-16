@@ -64,7 +64,9 @@ import {
   consumePendingMigration,
   clearPendingMigration,
   loadPendingMigration,
+  markMigrationReported,
   persistWrappedOldMasterKey,
+  MAX_MIGRATION_ATTEMPTS,
 } from '../lib/migration';
 import { taroFetch } from '../lib/taro-fetch';
 import {
@@ -627,16 +629,19 @@ export function getApi(): ApiClient {
       ? taroFetch(url, init)
       : fetch(url, init));
     if (res.status === 401 && !String(url).includes('/auth/')) {
-      const newToken = await refreshAccessToken();
-      if (newToken) {
+      const outcome = await refreshAccessToken();
+      if (outcome.status === 'ok') {
         const replayInit = {
           ...init,
-          headers: { ...init.headers, Authorization: 'Bearer ' + newToken },
+          headers: { ...init.headers, Authorization: 'Bearer ' + outcome.token },
         };
         res = await (process.env.TARO_ENV === 'weapp'
           ? taroFetch(url, replayInit)
           : fetch(url, replayInit));
-      } else {
+      } else if (outcome.status === 'rejected') {
+        // H1：只有终态失效（无 RT / 401/403 已清 RT）才锁定回解锁页;
+        // 瞬时失败（网络/5xx/429）原样返回 401 响应,由页面提示网络问题,
+        // 避免弱网误锁屏与「刷新 429→锁屏→重登也 429」的硬锁死
         try {
           useAuthStore.getState().lock();
           Taro.showToast({ title: t('common.login_expired'), icon: 'none' });
@@ -663,11 +668,37 @@ const TOKEN_KEY = 'dustnote_access_token';
 
 /** 消费待迁移数据（对齐安卓端 runPendingMigration）：新模式 setup/unlock/recover
  *  成功后调用。导入失败把旧 masterKey 用当前 key 包装写回槽，下次解锁自动重试。 */
+// M6：单飞守卫——多个鉴权成功入口可能并发调用,两边各读一次盘并用陈旧快照
+// 回写会抹掉 importToOnline 刚落盘的 folderMap（H-C 症状复发）
+let migrationInFlight: Promise<void> | null = null;
+
 async function runPendingMigration(): Promise<void> {
+  if (migrationInFlight) return migrationInFlight;
+  migrationInFlight = doRunPendingMigration().finally(() => {
+    migrationInFlight = null;
+  });
+  return migrationInFlight;
+}
+
+async function doRunPendingMigration(): Promise<void> {
   const { masterKey, pendingMasterKey } = useAuthStore.getState();
   if (!masterKey) return;
   const slot = loadPendingMigration();
   if (!slot) return;
+
+  // H2：已放弃自动重试的槽只提示一次,不再每轮解锁重跑导入/弹窗
+  if ((slot.attempts ?? 0) >= MAX_MIGRATION_ATTEMPTS) {
+    if (!slot.reportShown) {
+      markMigrationReported();
+      Taro.showModal({
+        title: t('settings.migrated_failed_title'),
+        content: t('settings.migration_gave_up', { failed: (slot.failedIds ?? []).length }),
+        showCancel: false,
+      });
+    }
+    return;
+  }
+
   let oldKey = pendingMasterKey;
   if (!oldKey && slot.wrappedOldMasterKey) {
     try {
@@ -690,17 +721,23 @@ async function runPendingMigration(): Promise<void> {
   try {
     const result = await consumePendingMigration(getRepo(), masterKey, oldKey);
     if (!result) return;
+    if (result.exhausted) return; // 已在上方提示过,静默返回
     if (result.failed > 0) {
       // C1b：部分失败必须披露。槽的去留按模式分流（H-C/M-E）：
       if (mode === 'standalone') {
         // M-E：单机的 failed 全部来自确定性解密失败（无网络因素）,保留槽
         // 重试无意义,且 importToStandalone 的覆写式导入会清掉用户迁移后
-        // 新建的数据——放弃槽,只披露丢失条数
+        // 新建的数据——放弃槽,只披露丢失条数。
+        // F16：放弃后旧 pendingMasterKey 已无用途,一并清零,别让旧主密钥
+        // 在整个进程生命周期常驻内存
         clearPendingMigration();
+        const k = useAuthStore.getState().pendingMasterKey;
+        if (k) k.fill(0);
+        useAuthStore.setState({ pendingMasterKey: null });
       } else {
         // H-C：联机失败保留槽待重试,但必须重读「新鲜」槽再回写——
-        // importToOnline 已把 folderMap 落盘,用函数入口处的陈旧 slot
-        // 引用回写会把 folderMap 抹掉,重试时复制整棵文件夹树
+        // importToOnline 已把 folderMap/账本落盘,用函数入口处的陈旧 slot
+        // 引用回写会把它们抹掉,重试时复制整棵文件夹树
         try {
           const freshSlot = loadPendingMigration();
           if (freshSlot) await persistWrappedOldMasterKey(freshSlot, masterKey, oldKey);
@@ -723,8 +760,17 @@ async function runPendingMigration(): Promise<void> {
       duration: 3000,
     });
   } catch {
+    if (mode === 'standalone') {
+      // M7：单机导入异常若保留槽,下次解锁会重跑覆写式导入,把用户迁移后
+      // 新建的笔记清掉——确定性流程的异常重试没有收益,直接放弃槽
+      clearPendingMigration();
+      const k = useAuthStore.getState().pendingMasterKey;
+      if (k) k.fill(0);
+      useAuthStore.setState({ pendingMasterKey: null });
+      return;
+    }
     try {
-      // 异常中断：同样用新鲜槽回写（H-C 同根因——陈旧引用丢 folderMap）
+      // 联机异常中断：用新鲜槽回写（H-C 同根因——陈旧引用丢 folderMap/账本）
       const freshSlot = loadPendingMigration();
       if (freshSlot) await persistWrappedOldMasterKey(freshSlot, masterKey, oldKey);
     } catch {
@@ -820,16 +866,28 @@ function clearPersistedRefreshToken(): void {
  * 响应体自管轮换 refresh token。成功后更新 store 并重启同步 WS；
  * 失败返回 null，由调用方走锁定回解锁页的兜底路径。
  */
-let refreshInFlight: Promise<string | null> | null = null;
+/**
+ * 刷新结果三态（H1）：只有终态失效才允许锁定回解锁页。
+ * 此前用 null 统一表示失败,把网络抖动/超时/5xx/429 也当成吊销——弱网下
+ * 用户被无故锁屏,且 refresh 与 unlock 共用限流桶可能连锁 429 硬锁死。
+ */
+type RefreshResult =
+  | { status: 'ok'; token: string }
+  | { status: 'rejected' }
+  | { status: 'transient' };
 
-function refreshAccessToken(): Promise<string | null> {
+let refreshInFlight: Promise<RefreshResult> | null = null;
+
+function refreshAccessToken(): Promise<RefreshResult> {
   if (refreshInFlight) return refreshInFlight;
-  refreshInFlight = (async () => {
+  refreshInFlight = (async (): Promise<RefreshResult> => {
     try {
       const stored = readPersistedRefreshToken();
-      if (!stored) return null;
+      // 无 RT = 无从续签,属终态
+      if (!stored) return { status: 'rejected' };
       const { serverUrl } = useModeStore.getState();
-      if (!serverUrl) return null;
+      // 未配置服务器地址属环境问题,不是会话失效——判为瞬时,不锁屏
+      if (!serverUrl) return { status: 'transient' };
       const base = serverUrl.replace(/\/+$/, '') + '/api/v1';
       const res = await (process.env.TARO_ENV === 'weapp'
         ? taroFetch(base + '/auth/refresh', {
@@ -842,10 +900,22 @@ function refreshAccessToken(): Promise<string | null> {
             headers: { 'Content-Type': 'application/json', 'X-Refresh-Token': stored },
             body: '{}',
           }));
-      if (!res.ok) return null;
+      if (!res.ok) {
+        // 仅 401/403（服务端判定过期/吊销）为终态并清掉 RT；
+        // 5xx/429 等保留 RT,判为瞬时
+        if (res.status === 401 || res.status === 403) {
+          try {
+            Taro.removeStorageSync(REFRESH_KEY);
+          } catch {
+            /* ignore */
+          }
+          return { status: 'rejected' };
+        }
+        return { status: 'transient' };
+      }
       const text = await res.text();
       const data = JSON.parse(text) as { accessToken?: string; refreshToken?: string };
-      if (!data.accessToken) return null;
+      if (!data.accessToken) return { status: 'transient' };
       persistToken(data.accessToken);
       if (data.refreshToken) persistRefreshToken(data.refreshToken);
       useAuthStore.setState({ accessToken: data.accessToken });
@@ -854,9 +924,10 @@ function refreshAccessToken(): Promise<string | null> {
       } catch {
         /* ignore */
       }
-      return data.accessToken;
+      return { status: 'ok', token: data.accessToken };
     } catch {
-      return null;
+      // 网络/超时/解析失败：瞬时,保留 RT
+      return { status: 'transient' };
     } finally {
       // 单飞窗口结束后允许下一次刷新
       setTimeout(() => {

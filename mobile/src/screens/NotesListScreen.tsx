@@ -10,7 +10,7 @@
  * 不再直接调用 api.get/post，避免单机模式下因无服务端而崩溃
  */
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -79,6 +79,14 @@ export function NotesListScreen() {
   const [folders, setFolders] = useState<Folder[]>([]);
   // 批量操作：长按笔记进入多选，底部操作栏支持全选/移动/删除
   const lastFolderRestoredRef = useRef(false);
+  // F10：解密循环的世代号——锁屏/卸载/新一次 load 都会把它顶掉,循环据此
+  // 提前退出,避免用已被清除的 masterKey 空转整表（并防止对已卸载实例 setState）
+  const loadGenRef = useRef(0);
+  useEffect(() => {
+    return () => {
+      loadGenRef.current += 1; // 卸载即让在途循环失效
+    };
+  }, []);
   const LAST_FOLDER_KEY = 'dustnote_last_folder';
   // 从模板新建:长按 FAB → 选模板 → 选文件夹 → 创建
   const [tplPickVisible, setTplPickVisible] = useState(false);
@@ -135,6 +143,8 @@ export function NotesListScreen() {
       const snapshot = await repo.loadAll();
       // 首次使用初始化：默认文件夹 + 引导笔记 + 未分类迁移（幂等）
       await ensureDefaultContent(repo, masterKey, snapshot);
+      // 本轮的世代号：期间发生锁屏/卸载/新 load 则整个循环作废（F10）
+      const gen = ++loadGenRef.current;
       // 在主线程逐条解密（v1 简化；后续可放到 worker）。
       // F6：每 50 条让出一次事件循环——H3 修复后 >500 条笔记会全量加载,
       // 连续 await 解密会把 Hermes 单线程冻住 1-4 秒（此前被服务端 500 条
@@ -142,6 +152,8 @@ export function NotesListScreen() {
       const withPlain: NoteListItem[] = [];
       let sinceYield = 0;
       for (const n of snapshot.notes) {
+        // 每轮先查世代：锁屏/卸载后不再继续空转（masterKey 可能已被清零）
+        if (loadGenRef.current !== gen) return;
         let plain: NotePlaintext | null = null;
         if (masterKey) {
           try {
@@ -158,8 +170,10 @@ export function NotesListScreen() {
         if (++sinceYield >= 50) {
           sinceYield = 0;
           await new Promise((resolve) => setTimeout(resolve, 0));
+          if (loadGenRef.current !== gen) return;
         }
       }
+      if (loadGenRef.current !== gen) return;
       setNotes(withPlain);
       setFolders(snapshot.folders ?? []);
       // 记住上次文件夹:首次加载时若用户未主动选择,恢复上次新建笔记

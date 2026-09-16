@@ -212,6 +212,8 @@ const zhCN = {
       migrated_count: '已迁移 {{count}} 条笔记',
       migrated_failed: '已迁移 {{count}} 条,失败 {{failed}} 条——下次解锁自动重试',
       migration_pending: '检测到未完成的模式迁移但缺少旧密钥,可切回原模式重新导出迁移',
+      migrated_failed_title: '迁移未完成',
+      migration_gave_up: '有 {{failed}} 条笔记多次重试仍未迁移成功（可能密文损坏或超出服务端大小上限）,已停止自动重试。原模式数据未改动,可切回原模式查看或重新导出。',
     import_backup: '📥 导入备份',
     share_mgmt: '🔗 分享管理',
     device_mgmt: '💻 设备管理',
