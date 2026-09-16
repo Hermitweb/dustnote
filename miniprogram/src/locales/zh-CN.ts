@@ -11,6 +11,24 @@
  * 注意：key 必须与 en.ts 完全对齐（en.ts 通过 typeof zhCN 校验）。
  */
 const zhCN = {
+  errors: {
+    // 服务端错误码语义桶（shared/src/error-codes.ts）——非中文界面下替代中文文案
+    auth_required: '请先登录',
+    invalid_credentials: '密码或凭据不正确',
+    totp_required: '需要两步验证码',
+    locked: '已锁定，请稍后再试',
+    rate_limited: '操作过于频繁，请稍后再试',
+    conflict: '数据已在其它设备被修改，请刷新后重试',
+    not_found: '目标不存在或已被删除',
+    invalid_input: '输入不合法',
+    client_version: '客户端版本过低，请更新后再试',
+    session_expired: '登录状态已过期，请重新登录',
+    server_error: '服务器出错了，请稍后再试',
+    generic: '操作失败，请稍后再试',
+    network: '网络错误',
+    server_unreachable: '无法连接到服务器',
+    unknown: '未知错误',
+  },
   common: {
     cancel: '取消',
     confirm: '确定',

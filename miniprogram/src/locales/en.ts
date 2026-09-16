@@ -7,6 +7,23 @@
 import type zhCN from './zh-CN';
 
 const en: typeof zhCN = {
+  errors: {
+    auth_required: 'Please sign in first',
+    invalid_credentials: 'Incorrect password or credentials',
+    totp_required: 'Two-factor code required',
+    locked: 'Locked. Please try again later',
+    rate_limited: 'Too many requests. Please try again later',
+    conflict: 'Changed on another device. Please refresh and retry',
+    not_found: 'Not found or already deleted',
+    invalid_input: 'Invalid input',
+    client_version: 'Client version too old, please update',
+    session_expired: 'Session expired, please sign in again',
+    server_error: 'Server error, please try again later',
+    generic: 'Something went wrong, please try again',
+    network: 'Network error',
+    server_unreachable: 'Cannot reach the server',
+    unknown: 'Unknown error',
+  },
   common: {
     cancel: 'Cancel',
     confirm: 'OK',

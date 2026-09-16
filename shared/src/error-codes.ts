@@ -90,3 +90,49 @@ export function apiErrorCode(err: unknown): string | null {
   const e = err as { err?: { code?: string } } | null | undefined;
   return typeof e?.err?.code === 'string' ? e.err.code : null;
 }
+
+/** 未命中任何语义桶时的兜底 key（各端词典需提供） */
+export const ERROR_GENERIC_KEY = 'errors.generic';
+
+/**
+ * 从任意异常里取原始文案。
+ * 兼容三种形态（各端历史取法不一，这里统一）：
+ * 1. 服务端异常载荷 `err.err.message`（ApiException 与鸭子类型对象都走这条）
+ * 2. 普通 `Error.message`
+ * 3. 直接给字符串
+ */
+function extractMessage(err: unknown): string {
+  if (typeof err === 'string') return err;
+  const e = err as { err?: { message?: unknown }; message?: unknown } | null | undefined;
+  const inner = e?.err?.message;
+  if (typeof inner === 'string' && inner) return inner;
+  if (typeof e?.message === 'string') return e.message;
+  return '';
+}
+
+/**
+ * 把异常翻成「面向用户的一句话」——各端展示错误时的统一入口。
+ *
+ * 策略（关键：不能为了 i18n 牺牲中文用户的信息量）：
+ * 服务端 message 只有中文，但通常比桶文案**更具体**（如「文件夹名称过长」）。
+ * 所以按界面语言分流：
+ * - 中文界面 → 原样用服务端文案；文案为空时才回退桶文案
+ * - 非中文界面 → 用桶文案（否则英文界面里蹦中文）
+ *
+ * 未知错误码（服务端新增、客户端还没归桶）在非中文界面下走 `errors.generic`
+ * 兜底文案——服务端文案是中文，直出等于没翻译；`defaultValue` 只在**该兜底键
+ * 也缺失**时生效，作为词典漏配时的最后防线。
+ *
+ * @param translate 各端注入的取词函数（通常是 i18next 的 t）
+ */
+export function errorReason(
+  err: unknown,
+  uiLang: string | null | undefined,
+  translate: (key: string, options?: { defaultValue?: string }) => string
+): string {
+  const raw = extractMessage(err);
+  const key = errorI18nKey(apiErrorCode(err)) ?? ERROR_GENERIC_KEY;
+  const isChineseUi = typeof uiLang === 'string' && uiLang.toLowerCase().startsWith('zh');
+  if (isChineseUi) return raw || translate(key);
+  return translate(key, raw ? { defaultValue: raw } : undefined);
+}

@@ -164,8 +164,11 @@ jobs:
           "
         shell: bash
       # §10/§12/§15：每次发版自动生成 CycloneDX SBOM（软件物料清单）
+      # --ignore-npm-errors：本仓库用 pnpm（hoisted 布局），cyclonedx-npm 内部走
+      # `npm ls`，npm 会把 pnpm 的链接结构判成 extraneous/invalid 并退出 254。
+      # 加该开关后仍会基于可识别的依赖树产出 BOM（代价：部分嵌套依赖可能缺失）。
       - name: Generate SBOM (CycloneDX)
-        run: npx @cyclonedx/cyclonedx-npm --output-file sbom.xml
+        run: npx @cyclonedx/cyclonedx-npm --ignore-npm-errors --output-file sbom.xml
       - uses: actions/upload-artifact@v5
         with:
           name: sbom
