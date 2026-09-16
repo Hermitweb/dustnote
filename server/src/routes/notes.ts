@@ -153,6 +153,59 @@ notesRouter.get('/notes', (req, res) => {
   });
 });
 
+// ========== GET /notes/:id - 单条获取（WS 增量同步用）==========
+
+/**
+ * 单条笔记读取（技术债清理）：WS 的 note_changed 广播此前只能触发客户端
+ * 全量 loadAll（整库拉取 + 全量解密）。客户端改为按 noteId 只拉这一条并
+ * 合并,把单笔记编辑（最高频广播）的成本从 O(全库) 降为 O(1)。
+ * 与 DELETE 语义一致：已被永久删除返回 404,客户端据此本地移除。
+ */
+notesRouter.get('/notes/:id', (req, res) => {
+  const user = req.user as AuthUser;
+  const id = req.params.id;
+  if (!id || !UUID_RE.test(id)) {
+    res.status(400).json({ error: 'missing_id' });
+    return;
+  }
+  const rows = getDb()
+    .prepare(
+      `SELECT id, ciphertext, key_version, is_pinned, is_favorite, deleted_at, version,
+              client_updated_at, server_updated_at, folder_id
+       FROM notes WHERE id = ? AND user_id = ?`
+    )
+    .all(id, user.userId) as {
+    id: string;
+    ciphertext: Buffer | string;
+    key_version: number;
+    is_pinned: number;
+    is_favorite: number;
+    deleted_at: string | null;
+    version: number;
+    client_updated_at: string;
+    server_updated_at: string;
+    folder_id: string | null;
+  }[];
+  const row = rows[0];
+  if (!row) {
+    res.status(404).json({ error: 'not_found' });
+    return;
+  }
+
+  res.json({
+    id: row.id,
+    ciphertext: String(row.ciphertext),
+    keyVersion: row.key_version,
+    isPinned: !!row.is_pinned,
+    isFavorite: !!row.is_favorite,
+    deletedAt: row.deleted_at,
+    version: row.version,
+    clientUpdatedAt: row.client_updated_at,
+    serverUpdatedAt: row.server_updated_at,
+    folderId: row.folder_id,
+  });
+});
+
 // ========== POST /notes - 新建 ==========
 
 notesRouter.post('/notes', (req, res) => {

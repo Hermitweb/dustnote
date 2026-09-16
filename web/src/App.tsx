@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from './lib/store';
 import type { ThemeId, Mode } from './lib/store';
-import { useModeStore } from './lib/mode-store';
+import { useModeStore, hasModeDefaultApplied, markModeDefaultApplied } from './lib/mode-store';
 import { isTauri } from './lib/platform';
 import { applyTheme, watchSystemTheme, applyTypography, THEMES } from './lib/theme';
 import { useUpdateCheck } from './lib/use-update-check';
@@ -77,7 +77,10 @@ function App() {
     // Web 端(应用由服务器直接托管):首次访问默认联机模式+同源地址,
     // 免去每台新机器重复选择模式/填写地址;单机模式可在 设置→切换模式 选择。
     // （B8：此副作用曾在 render 体内执行,StrictMode 下会跑两次——挪进 effect）
-    if (!isTauri()) {
+    // 死循环修复（e2e 实锤）：仅在**首访**自动选联机——用户点过「重新选择模式」
+    // （已在 resetMode 打标记）后不再自动接管,否则选择界面永远进不去
+    if (!isTauri() && !hasModeDefaultApplied()) {
+      markModeDefaultApplied();
       useModeStore.getState().setMode('online');
       useModeStore.getState().initialize();
     }
@@ -270,9 +273,15 @@ function App() {
 
   // 首次启动：模式选择
   if (!modeInitialized) {
-    // Web 端默认联机由上方 effect 完成,渲染加载态等待;桌面端弹模式选择
-    if (isTauri()) {
-      return <Suspense fallback={null}><ModeSelectDialog /></Suspense>;
+    // 会自动进默认联机（web 首访）时渲染加载态等待；否则弹模式选择
+    // ——桌面端始终弹；web 端在用户点过「重新选择模式」后也弹（死循环修复）
+    const willAutoDefault = !isTauri() && !hasModeDefaultApplied();
+    if (!willAutoDefault) {
+      return (
+        <Suspense fallback={null}>
+          <ModeSelectDialog />
+        </Suspense>
+      );
     }
     return (
       <div className="flex h-full items-center justify-center bg-surface-bg text-surface-muted">

@@ -109,3 +109,6 @@ ISSUE_*.md
 miniprogram/.swc/
 .server-data/
 .mp-debug-out.txt
+test-results/
+playwright-report/
+playwright.local.config.ts

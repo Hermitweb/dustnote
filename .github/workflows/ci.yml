@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    # dev/** 通配：工作分支形如 dev/setup-and-fixes，此前只写 [main, dev] 导致
+    # 该分支上的全部 CI（lint/typecheck/test/audit/e2e）从未运行（技术债排查发现）
+    branches: [main, dev, 'dev/**']
     paths-ignore:
       - '**.md'
       - 'docs/**'

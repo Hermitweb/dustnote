@@ -14,3 +14,5 @@ export * from './local-auth.js';
 export * from './templates.js';
 // 跨端共用工具（内网地址判定等）——单一实现,避免各端语义漂移
 export * from './net-utils.js';
+// 服务端错误码 → i18n key 映射（客户端统一取词,不再硬匹配中文文案）
+export * from './error-codes.js';

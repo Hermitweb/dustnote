@@ -32,7 +32,7 @@ import { useModeStore } from '../../lib/mode-store';
 import { getRepo } from '../../lib/get-repo';
 import { enqueueOffline, isNetworkError } from '../../lib/offline-queue';
 import { ensureDefaultContent } from '../../lib/default-content';
-import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders, encryptString, randomBytes, wrapKey, toBase64Url, type Template } from '@dustnote/shared';
+import { noteAad, PRESET_TEMPLATES, fillTemplatePlaceholders, encryptString, randomBytes, wrapKey, toBase64Url, apiErrorCode, type Template } from '@dustnote/shared';
 import { randomUuid } from '../../lib/uuid';
 import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
 import { PickSheet, type PickItem } from '../../components/PickSheet';
@@ -608,7 +608,8 @@ function IndexBody() {
       } catch (err) {
         const msg = err instanceof Error ? err.message : '';
         // 开启了两步验证的账号：解锁页追加 6 位验证码输入
-        if (msg.includes('totp_required') || msg.includes('两步验证码')) {
+        // 技术债清理：错误码优先（不再硬匹配中文文案）
+        if (apiErrorCode(err) === 'totp_required' || msg.includes('两步验证码')) {
           setShowTotp(true);
           Taro.showToast({ title: t('unlock.err_totp'), icon: 'none' });
         } else {

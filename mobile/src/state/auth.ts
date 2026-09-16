@@ -216,7 +216,6 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     try {
       const r = await api.get<{
         initialized: boolean;
-        deviceKnown: boolean;
         pwSalt: string | null;
       }>('/auth/status');
       set({ pwSalt: r.pwSalt });

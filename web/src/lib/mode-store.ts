@@ -92,10 +92,38 @@ export const useModeStore = create<ModeStore>((set, get) => ({
   },
 
   resetMode(): void {
+    // 用户显式要求重新选择：打标记,否则 reload 后又会被「首次访问默认联机」
+    // 逻辑接管 → 模式选择界面永远进不去（e2e 实锤的死循环）
+    markModeDefaultApplied();
     saveState(DEFAULT_STATE);
     set(DEFAULT_STATE);
   },
 }));
+
+/**
+ * 「首次访问默认联机」是否已应用过。
+ *
+ * web 端首访自动进联机模式（同源地址，免去选模式填地址）；但用户点
+ * 「重新选择模式」后必须能真正进到选择界面——因此用一个持久标记区分
+ * 「首访」与「用户主动重置」：标记存在时不再自动选联机。
+ */
+const MODE_DEFAULT_APPLIED_KEY = 'dustnote_mode_default_applied';
+
+export function hasModeDefaultApplied(): boolean {
+  try {
+    return localStorage.getItem(MODE_DEFAULT_APPLIED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markModeDefaultApplied(): void {
+  try {
+    localStorage.setItem(MODE_DEFAULT_APPLIED_KEY, '1');
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * 获取当前模式（非 React 上下文使用）

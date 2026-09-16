@@ -89,6 +89,12 @@ export interface DataSlice {
   searchFocusToken: number;
 
   loadAll: () => Promise<void>;
+  /**
+   * WS 增量同步（技术债清理）：只拉取变化的单条笔记并合并,避免 note_changed
+   * 广播触发全量 loadAll（整库拉取 + 全量解密）。取不到（404/网络异常）时
+   * 回退全量 loadAll 兜底。
+   */
+  applyRemoteNoteChanges: (batch: Array<[string, string]>) => Promise<void>;
   /** 首次使用初始化：默认文件夹 + 引导笔记 + 未分类笔记迁移（幂等） */
   ensureDefaultContent: () => Promise<void>;
   createNote: (folderId?: string | null) => Promise<string>;
@@ -263,6 +269,60 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
       loadAllInFlight = null;
     });
     return loadAllInFlight;
+  },
+
+  async applyRemoteNoteChanges(batch: Array<[string, string]>): Promise<void> {
+    const { mode, masterKey } = get();
+    // 单机模式没有 WS 广播来源；走到这里说明调用方判断有误,回退全量最稳
+    if (mode !== 'online') {
+      await get().loadAll();
+      return;
+    }
+    const notes = new Map(get().notes);
+    const plain = new Map(get().notesPlain);
+    let needFullReload = false;
+
+    for (const [noteId, op] of batch) {
+      if (op === 'permanent_delete') {
+        // 服务端已物理删除：本地直接移除,不必拉取（拉也只会 404）
+        notes.delete(noteId);
+        plain.delete(noteId);
+        continue;
+      }
+      try {
+        const row = await api().get<NoteRow>(`/notes/${noteId}`);
+        const prev = notes.get(noteId);
+        notes.set(noteId, row);
+        // 密文未变则复用明文（与 loadAll 的增量解密同款）
+        if (masterKey && (!prev || prev.ciphertext !== row.ciphertext || !plain.has(noteId))) {
+          try {
+            const envelope = parseEnvelope(row.ciphertext);
+            plain.set(
+              noteId,
+              await decryptNote(masterKey, envelope, noteAad(noteId, get().userId ?? ''))
+            );
+          } catch {
+            plain.set(noteId, { title: '🔒 解密失败', content: '', tags: [] });
+          }
+        }
+      } catch (err) {
+        if (err instanceof ApiException && err.err.status === 404) {
+          // 已被删除（永久删除或不再属于当前用户）：本地同步移除
+          notes.delete(noteId);
+          plain.delete(noteId);
+          continue;
+        }
+        // 网络/其他异常：交给全量兜底,保证最终一致
+        needFullReload = true;
+        break;
+      }
+    }
+
+    // 锁定中止（与 loadAll 同款）：锁后不回写明文
+    if (!get().masterKey) return;
+    set({ notes, notesPlain: plain } as Partial<StoreState>);
+    void cacheNotesLocal(notes, plain, () => get().masterKey).catch(() => undefined);
+    if (needFullReload) await get().loadAll();
   },
 
   async createNote(folderId: string | null = null): Promise<string> {

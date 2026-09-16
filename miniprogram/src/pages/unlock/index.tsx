@@ -9,6 +9,7 @@ import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore } from '../../state/auth';
+import { apiErrorCode } from '@dustnote/shared';
 import { t, useLanguage } from '../../lib/i18n';
 import {
   isBiometricEnabled,
@@ -65,7 +66,9 @@ export default function Unlock() {
       Taro.reLaunch({ url: '/pages/index/index' });
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('common.unlock_failed');
-      if (msg.includes('totp_required') || msg.includes('两步验证码')) {
+      // 技术债清理：改用服务端错误码判定（此前硬匹配 'totp_required'/中文文案,
+      // 服务端改文案即静默失效）；未知码回退文案匹配以兼容老服务端
+      if (apiErrorCode(err) === 'totp_required' || msg.includes('两步验证码')) {
         setShowTotp(true);
         Taro.showToast({ title: t('unlock.err_totp'), icon: 'none' });
       } else {

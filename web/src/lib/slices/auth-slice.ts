@@ -179,7 +179,6 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
     try {
       const r = await api().get<{
         initialized: boolean;
-        deviceKnown: boolean;
         pwSalt: string | null;
         totpEnabled: boolean;
         kdfParams?: KdfParams;

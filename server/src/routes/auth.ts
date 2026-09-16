@@ -208,27 +208,24 @@ function issueSession(
 
 // ========== GET /auth/status ==========
 
-authRouter.get('/auth/status', (req, res) => {
-  const db = getDb();
+authRouter.get('/auth/status', (_req, res) => {
   const user = loadUser();
-  const client = getRequestClient(req);
 
-  let deviceKnown = false;
-  if (client.deviceId && user) {
-    deviceKnown = !!db.prepare('SELECT 1 FROM devices WHERE id = ?').get(client.deviceId);
-  }
+  // 注：曾返回 deviceKnown（该 deviceId 是否已注册）。它是**匿名可探测**的
+  // 设备存在性 oracle，且三端客户端从未真正使用该字段——已移除（技术债清理）。
 
   // 读取实际存储的 KDF 参数（web=argon2id, mobile=pbkdf2）
   let kdfParams = KDF_PARAMS;
   if (user) {
     try {
       kdfParams = JSON.parse(user.kdf_params);
-    } catch { /* fallback to default */ }
+    } catch {
+      /* fallback to default */
+    }
   }
 
   res.json({
     initialized: !!user,
-    deviceKnown,
     // 派生 KEK 需要盐，客户端在输入密码前就得拿到。盐不是秘密。
     pwSalt: user ? user.pw_salt.toString('base64') : null,
     totpEnabled: user ? !!user.totp_enabled : false,

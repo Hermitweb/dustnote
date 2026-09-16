@@ -17,6 +17,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
 import ReactNativeBiometrics from 'react-native-biometrics';
 import { useAuthStore } from '../state/auth';
+import { apiErrorCode } from '@dustnote/shared';
 import { useColors } from '../theme';
 
 const rnb = new ReactNativeBiometrics();
@@ -47,8 +48,11 @@ export function UnlockScreen() {
       await unlock(password, showTotp ? totpCode : undefined);
     } catch (err) {
       const msg = (err as Error).message;
-      // 如果服务端返回 totp_required，自动展开 TOTP 输入框
-      if (msg.includes('totp_required') || msg.includes('两步验证码')) {
+      // 技术债清理：改用服务端错误码判定（此前字符串硬匹配 'totp_required'
+      // 或中文文案——服务端改文案即静默失效）；未知码仍回退文案匹配以兼容
+      // 老服务端
+      const code = apiErrorCode(err);
+      if (code === 'totp_required' || msg.includes('两步验证码')) {
         setShowTotp(true);
         Alert.alert(t('auth.totp_required_title'), t('auth.totp_required_detail'));
       } else {

@@ -30,6 +30,28 @@ function scheduleLoadAll(): void {
   }, LOAD_DEBOUNCE_MS);
 }
 
+// 单笔记增量同步（技术债清理）：note_changed 不再触发全量 loadAll,而是按
+// noteId 只拉变化的那几条并合并——单笔记编辑是最常见的广播来源,全量拉取
+// + 整库解密的成本与其不成比例。同一窗口内按 id 去重（后到的 op 覆盖）。
+const pendingNoteChanges = new Map<string, string>();
+let noteChangeTimer: number | null = null;
+
+function scheduleNoteChanges(noteId: string, op: string): void {
+  pendingNoteChanges.set(noteId, op);
+  if (noteChangeTimer !== null) return;
+  noteChangeTimer = window.setTimeout(() => {
+    noteChangeTimer = null;
+    const batch = Array.from(pendingNoteChanges.entries());
+    pendingNoteChanges.clear();
+    useStore
+      .getState()
+      .applyRemoteNoteChanges(batch)
+      .catch(() => {
+        /* 兜底已在 action 内部处理（异常回退全量 loadAll） */
+      });
+  }, LOAD_DEBOUNCE_MS);
+}
+
 function wsUrl(): string {
   // 桌面端 webview origin 是 tauri://localhost，不能用 location.host；
   // 必须从 mode-store 读用户配置的 serverUrl 拼绝对地址，否则桌面端联机模式 WS 永远连不上。
@@ -95,9 +117,10 @@ export function startSyncWs(): void {
         op?: string;
       };
       if (msg.type === 'note_changed' && msg.noteId) {
-        // 触发重新拉取（防抖合并，避免消息风暴）
-        scheduleLoadAll();
+        // 技术债清理：按 noteId 增量同步（不再整库 loadAll）
+        scheduleNoteChanges(msg.noteId, msg.op ?? 'update');
       } else if (msg.type === 'share_changed' && msg.shareId) {
+        // 分享变更影响份额列表/编辑器弹层,非高频且无单条读取端点,保持全量
         scheduleLoadAll();
       }
     } catch {
@@ -154,4 +177,10 @@ export function stopSyncWs(): void {
     clearTimeout(loadDebounceTimer);
     loadDebounceTimer = null;
   }
+  // 增量同步的待处理批次也要清（否则 stop 后仍会拉取旧 server 的单条）
+  if (noteChangeTimer !== null) {
+    clearTimeout(noteChangeTimer);
+    noteChangeTimer = null;
+  }
+  pendingNoteChanges.clear();
 }
