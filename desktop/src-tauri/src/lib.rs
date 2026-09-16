@@ -17,6 +17,10 @@ use tauri_plugin_autostart::MacosLauncher;
 #[cfg(desktop)]
 use tauri_plugin_global_shortcut::ShortcutState;
 
+// 桌面快捷方式中文名（Windows）：中文系统首启把 DustNote.lnk 重命名为「尘渊笔记.lnk」
+#[cfg(target_os = "windows")]
+mod desktop_shortcut;
+
 /// 系统托盘句柄（供 set_tray_tooltip 命令更新 tooltip，展示同步状态）
 struct TrayState(Mutex<Option<TrayIcon>>);
 
@@ -284,6 +288,11 @@ pub fn run() {
         .setup(|app| {
             // 不设原生菜单栏（用户要求去掉 File/Edit/View/Help 行）：
             // 退出走托盘右键/窗口关闭；新建笔记走界面按钮
+
+            // 桌面快捷方式中文名（Windows，见 desktop_shortcut.rs）：
+            // NSIS 模板用 productName 建快捷方式不随系统语言，中文系统首启改名
+            #[cfg(target_os = "windows")]
+            desktop_shortcut::maybe_rename_desktop_shortcut(app.handle());
 
             // 禁用 webview 右键菜单：三重防御
             //   1. Rust eval 注入 document 级 contextmenu preventDefault（此处，SPA 永久生效）

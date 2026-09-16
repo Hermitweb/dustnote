@@ -50,7 +50,8 @@
       "nsis": {
         "installMode": "both",
         "languages": ["SimpChinese", "English"],
-        "displayLanguageSelector": false
+        "displayLanguageSelector": false,
+        "installerHooks": "./installer-hooks.nsh"
       }
     }
   }
