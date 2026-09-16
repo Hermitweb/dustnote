@@ -117,8 +117,20 @@ jobs:
       #   git-clone     @tarojs/cli > download-git-repo
       #   html-minifier @tarojs/webpack5-runner（包已废弃）
       #   image-size ×2 desktop vite>less 与 mobile metro 传递依赖，<=2.0.2 全线无修复
+      #   xmldom ×13    mobile > @react-native-voice/voice > @expo/config-plugins
+      #                 > @expo/plist > xmldom。原包已废弃（无修复版本）；@expo/plist
+      #                 只在 expo config-plugin 阶段（构建期）执行，不进入 Metro 运行时包。
+      #                 后续可考虑 override 别名到维护中的 @xmldom/xmldom，但会改动
+      #                 Android 预构建链路，需真机构建验证后再做（勿盲改）。
       # 上述漏洞均位于构建期工具链（image-size 除外，但同样无修复版本可升），
       # 不进入发往用户的运行时产物。
+      #
+      # 2026-09 新增（有补丁 → 已用 pnpm.overrides 修复，不豁免）：
+      #   @xmldom/xmldom  web > mammoth（.docx 导入）**运行时路径** → override ^0.8.15
+      #   browserslist    desktop > autoprefixer          → override ^4.28.7
+      #   fast-uri        小程序构建链 > ajv              → override 3.1.5 → ^3.1.6
+      #   js-yaml ×2      eslint / 小程序构建链          → override 抬到 3.15.2 / 4.3.2
+      #   svgo            小程序构建链                    → override 2.8.3 → 2.8.4
       - name: Security Audit
         run: |
           set +e
@@ -134,6 +146,12 @@ jobs:
               'GHSA-8jmw-wjr8-2x66', // git-clone：download-git-repo 链路
               'GHSA-pfq8-rq6v-vf5m', // html-minifier：webpack5-runner
               'GHSA-w3rx-r6r6-pgpr', 'GHSA-5p2g-fcmc-qvqq', // image-size：less/metro
+              // xmldom：已废弃无修复版本，仅经 @expo/plist 在构建期执行
+              'GHSA-crh6-fp67-6883', 'GHSA-wh4c-j3r5-mjhp', 'GHSA-2v35-w6hq-6mfw',
+              'GHSA-f6ww-3ggp-fr8h', 'GHSA-x6wf-f3px-wcqx', 'GHSA-j759-j44w-7fr8',
+              'GHSA-w2rr-34g9-rvrj', 'GHSA-4w3w-2rp5-g8jm', 'GHSA-c7q8-3ch8-vqpv',
+              'GHSA-27p8-2357-5qqv', 'GHSA-8344-3jmq-59r6', 'GHSA-965w-775f-mr7g',
+              'GHSA-93r5-fhx6-vmg9',
             ]);
             const bad = Object.values(audit.advisories || {})
               .filter(a => (a.severity === 'high' || a.severity === 'critical') && !ignored.has(a.github_advisory_id));
@@ -420,7 +438,15 @@ jobs:
         with:
           node-version: '22'
           cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
+      # 与其他「要真跑运行时」的 job（test / build-server / native-compat）一致：
+      # 不能加 --ignore-scripts —— 本 job 的 webServer 会真启后端，而 better-sqlite3
+      # 的原生二进制由 install 脚本（prebuild-install）产出，跳过脚本会 import 失败、
+      # 后端 exit 1、webServer 起不来（此前该 job 从未运行过，问题被掩盖）
+      - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec playwright test
