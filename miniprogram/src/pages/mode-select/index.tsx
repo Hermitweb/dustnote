@@ -17,6 +17,11 @@ import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useModeStore } from '../../lib/mode-store';
+import {
+  DEPLOY_DEFAULT_SERVER_URL,
+  isDeployDefaultApplied,
+  markDeployDefaultApplied,
+} from '../../lib/deployment';
 import { hasLocalAuthSync } from '../../lib/local-auth-storage';
 import { ApiClient } from '@dustnote/shared';
 import { taroFetch } from '../../lib/taro-fetch';
@@ -100,8 +105,11 @@ export default function ModeSelect() {
   const modeInitialized = useModeStore((s) => s.initialized);
   const currentMode = useModeStore((s) => s.mode);
 
-  // 回填已保存的联机地址：从设置/切换模式再次进入时无需重填
-  const [serverUrl, setServerUrlInput] = useState(useModeStore.getState().serverUrl ?? '');
+  // 回填已保存的联机地址：从设置/切换模式再次进入时无需重填；
+  // 已部署包无已存地址时预填部署预置值（用户可改）
+  const [serverUrl, setServerUrlInput] = useState(
+    (useModeStore.getState().serverUrl ?? DEPLOY_DEFAULT_SERVER_URL) || ''
+  );
   const [testing, setTesting] = useState(false);
   const darkClass = useThemeDarkClass();
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -114,6 +122,23 @@ export default function ModeSelect() {
 
   // 启动时检测 WebCrypto 可用性（决定单机模式是否可选）
   const cryptoAvailable = isWebCryptoAvailable();
+
+  // 部署预置（一次性）：已发布包首次启动跳过模式选择与地址输入,直接以联机模式
+  // + 预置地址初始化（地址持久化到 mode-store,设置页可改）。服务器此刻不可达
+  // 也照常落库——解锁页会自然报错,服务器恢复即通,不阻塞首启。
+  // 不在此处 reLaunch：initialize() 后 modeInitialized 变化会触发下方
+  // 「已选过模式自动跳转」effect,由它统一导航。
+  useEffect(() => {
+    if (modeInitialized) return;
+    if (!DEPLOY_DEFAULT_SERVER_URL || isDeployDefaultApplied()) return;
+    markDeployDefaultApplied();
+    setMode('online');
+    setServerUrl(DEPLOY_DEFAULT_SERVER_URL.replace(/\/+$/, ''));
+    initialize();
+    // AuthProvider 仅在 App 挂载时跑过一次 init（那时 mode 未定）,
+    // 这里必须手动重跑鉴权初始化,否则 authState 停留在 unknown
+    void useAuthStore.getState().init();
+  }, [modeInitialized, setMode, setServerUrl, initialize]);
 
   // 已选过模式时自动跳转到对应流程（避免每次启动都显示模式选择页）
   useEffect(() => {
