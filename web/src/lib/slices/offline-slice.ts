@@ -12,6 +12,7 @@ import {
   parseEnvelope,
   resolveConflict,
   toMergeable,
+  RATE_LIMIT_MAX_RETRIES,
   type NoteMetadata,
 } from '@dustnote/client-core';
 import type { StoreState } from '../store';
@@ -101,8 +102,9 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
               } else if (status === 429) {
                 // 429 = 写限流:可恢复——保留+退避重试。此前落入「其余 4xx 丢弃」
-                // 分支,离线批量重放超限时后半段 op 被静默永久删除(审计 C1)
-                await bumpRetries(op.id);
+                // 分支,离线批量重放超限时后半段 op 被静默永久删除(审计 C1)。
+                // 独立重试阈值(发现6):限流是瞬态且与 op 无关,不与 5xx 共用 8 次
+                await bumpRetries(op.id, RATE_LIMIT_MAX_RETRIES);
                 const delayMs = await getRetryDelayForOp(op.id);
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
               } else {
@@ -142,7 +144,9 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
 
   async clearLocalData(): Promise<void> {
     await clearCache();
-    await caches.delete('dustnote-runtime');
+    await caches.delete('dustnote-runtime-v2');
+    // M-A：旧键也要清（v2.5.40 之前旧 SW 写入的 /api/ 明文响应仍在里面）
+    await caches.delete('dustnote-runtime').catch(() => undefined);
     const { clear: clearQueue } = await import('../offline-queue');
     await clearQueue();
     clearLocalAuthBlob();

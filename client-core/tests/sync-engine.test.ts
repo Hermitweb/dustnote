@@ -1,6 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SyncEngine, type SyncEngineHooks } from '../src/sync-engine.js';
-import { OfflineQueue, MemoryQueueStorage, type QueuedOp } from '../src/offline-queue.js';
+import {
+  SyncEngine,
+  RATE_LIMIT_MAX_RETRIES,
+  type SyncEngineHooks,
+} from '../src/sync-engine.js';
+import {
+  OfflineQueue,
+  MemoryQueueStorage,
+  MAX_RETRIES,
+  type QueuedOp,
+} from '../src/offline-queue.js';
 
 /** 构造一个 ApiException 鸭子类型（与 web ApiException 结构一致） */
 function apiErr(status: number, data?: unknown): unknown {
@@ -98,6 +107,36 @@ describe('SyncEngine.flush', () => {
     expect(replay).toHaveBeenCalledTimes(2);
     expect(await queue.size()).toBe(1); // 第一条保留
     expect(summary.remaining).toBe(1);
+  });
+
+  it('429 → 保留并退避（不落入其余 4xx 丢弃分支，审计 C1 回归锁定）', async () => {
+    const { queue, replay } = await setup([
+      { method: 'POST', path: '/notes', body: {} },
+      { method: 'PATCH', path: '/notes/2', body: {} },
+    ]);
+    // 第一条 429（写限流），第二条成功——429 必须保留而非删除
+    replay.mockRejectedValueOnce(apiErr(429)).mockResolvedValueOnce(undefined);
+    const engine = new SyncEngine(queue, { replayOp: replay });
+
+    const summary = await engine.flush();
+
+    expect(replay).toHaveBeenCalledTimes(2);
+    const remaining = await queue.peekAll();
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]!.path).toBe('/notes'); // 429 那条仍在队列
+    expect(summary.remaining).toBe(1);
+  });
+
+  it('429 使用独立重试阈值（高于 5xx 的 8 次，9 次 bump 后仍在队列）', async () => {
+    // 直接验证阈值语义而非跑 9 轮真实 flush（429 分支内联退避 sleep 会拖满超时）
+    expect(RATE_LIMIT_MAX_RETRIES).toBeGreaterThan(MAX_RETRIES);
+    const { queue } = await setup([{ method: 'POST', path: '/notes', body: {} }]);
+    const op = (await queue.peekAll())[0]!;
+    for (let i = 0; i < 9; i++) {
+      await queue.bumpRetries(op.id, RATE_LIMIT_MAX_RETRIES);
+    }
+    // 9 次（> 5xx 的 8 次阈值）后 op 仍在——限流不该因重试次数耗尽而丢数据
+    expect(await queue.peekAll()).toHaveLength(1);
   });
 
   it('TypeError (network down) → stops, keeps remaining', async () => {

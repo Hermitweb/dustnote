@@ -65,12 +65,25 @@ export class RemoteRepository implements DataRepository {
 
   async loadAll(): Promise<RepositorySnapshot> {
     const a = this.api();
-    const [notesRes, foldersRes, tagsRes] = await Promise.all([
-      a.get<{ notes: NoteRow[] }>('/notes?includeDeleted=1'),
+    // 游标分页循环（H-B）：服务端单页上限 500,必须拉到 hasMore=false 才算
+    // 全量——此前单发一次,导出备份/清空回收站在 >500 条笔记时静默截断
+    type NotesPage = { notes: NoteRow[]; hasMore?: boolean; nextCursor?: string | null };
+    const [firstPage, foldersRes, tagsRes] = await Promise.all([
+      a.get<NotesPage>('/notes?includeDeleted=1'),
       a.get<{ folders: Folder[] }>('/folders'),
       a.get<{ tags: Tag[] }>('/tags'),
     ]);
-    for (const n of notesRes.notes) this.lastVersions.set(n.id, n.version);
+    let allNotes = firstPage.notes;
+    let cursor: string | null = firstPage.nextCursor ?? null;
+    // 防御性上限：500 条/页 × 200 页,防服务端异常导致死循环
+    for (let page = 0; page < 200 && cursor; page++) {
+      const next = await a.get<NotesPage>(
+        `/notes?includeDeleted=1&cursor=${encodeURIComponent(cursor)}`
+      );
+      allNotes = allNotes.concat(next.notes);
+      cursor = next.nextCursor ?? null;
+    }
+    for (const n of allNotes) this.lastVersions.set(n.id, n.version);
     // preferences 单独获取（可能不存在）
     let preferences: Preferences | null = null;
     try {
@@ -79,7 +92,7 @@ export class RemoteRepository implements DataRepository {
       preferences = null;
     }
     return {
-      notes: notesRes.notes,
+      notes: allNotes,
       folders: foldersRes.folders,
       tags: tagsRes.tags,
       preferences,

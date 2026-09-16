@@ -31,6 +31,13 @@ export interface NotePlaintext {
   tags: string[];
 }
 
+/**
+ * 「未分类」虚拟节点 id（H8）：folderId=null 的笔记在文件夹树的入口。
+ * 不存在于 folders 表——**任何写路径收到它必须先归一为 null**
+ * （H-A 回归教训：曾泄漏进 createNote 落库成不可见笔记）。
+ */
+export const UNFILED_ID = '__unfiled__';
+
 export interface Folder {
   id: string;
   name: string;

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useStore, type NoteRow } from '../lib/store';
+import { UNFILED_ID } from '../lib/store-types';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { TemplatePicker } from './TemplatePicker';
 import { SearchIndex, highlightMatches, type SearchHit } from '../lib/search';
@@ -13,9 +14,6 @@ import { exportAsMarkdown, downloadBlob, parseNoteFile, detectFormat } from '../
 type CtxTarget =
   | { type: 'folder'; id: string; name: string; parentId: string | null; depth: number }
   | { type: 'note'; id: string; name: string; folderId: string | null };
-
-/** 「未分类」虚拟节点 id（H8）：folderId=null 的笔记的树内入口,不存在于 folders 表 */
-const UNFILED_ID = '__unfiled__';
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -172,6 +170,9 @@ export function Sidebar() {
       toast.error(
         t('sidebar.batch_done_failed', { label: labels[action], count: ok, failed })
       );
+      // 发现7：失败 op 的本地乐观更新不回滚,立即 loadAll 用服务端现状校正,
+      // 消除「移动失败的笔记在目标文件夹继续显示」的分叉窗口
+      void useStore.getState().loadAll().catch(() => undefined);
     } else {
       toast.success(t('sidebar.batch_done', { label: labels[action], count: ok }));
     }
@@ -454,8 +455,10 @@ export function Sidebar() {
             }
           }
         }
+        // 统计将被波及的笔记数（含全部后代文件夹;含回收站内笔记——
+        // 它们的 folderId 同样被置 null,恢复后会出现在「未分类」,少报会误导）
         const noteCount = Array.from(notes.values()).filter(
-          (n) => !n.deletedAt && n.folderId != null && descIds.has(n.folderId)
+          (n) => n.folderId != null && descIds.has(n.folderId)
         ).length;
         setFolderDeleteConfirm({ id: target.id, name: target.name, noteCount });
         return;
@@ -592,12 +595,23 @@ export function Sidebar() {
               <button
                 onClick={() => {
                   // 笔记必须归属文件夹：未选中文件夹时不创建（收藏/回收站/搜索
-                  // 视图下 selectedFolderId 也为 null，同样引导先选文件夹）
-                  if (!selectedFolderId) {
+                  // 视图下 selectedFolderId 也为 null，同样引导先选文件夹）。
+                  // 「未分类」视图下归一为 null → data-slice 回退首文件夹
+                  // （H-A：虚拟 id 曾直接透传，单机模式落库成不可见笔记）
+                  const target = selectedFolderId === UNFILED_ID ? null : selectedFolderId;
+                  if (!target) {
+                    if (selectedFolderId === UNFILED_ID) {
+                      void createNote().catch((err: unknown) =>
+                        toast.error(err instanceof Error ? err.message : String(err))
+                      );
+                      return;
+                    }
                     toast.info(t('sidebar.select_folder_first'));
                     return;
                   }
-                  void createNote(selectedFolderId);
+                  void createNote(target).catch((err: unknown) =>
+                    toast.error(err instanceof Error ? err.message : String(err))
+                  );
                 }}
                 className="flex-1 rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
               >

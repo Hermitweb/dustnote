@@ -252,6 +252,11 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     if (effectiveFolderId == null) {
       const first = [...get().folders.values()].find((f) => !f.parentId) ?? [...get().folders.values()][0];
       effectiveFolderId = first ? first.id : null;
+    } else if (!get().folders.some((f) => f.id === effectiveFolderId)) {
+      // 深度防御（H-A）：虚拟 id（如 UNFILED_ID）或已删除的文件夹 id
+      // 一律回退首文件夹,绝不落库——单机模式无 FK 校验会持久化成不可见笔记
+      const first = [...get().folders.values()].find((f) => !f.parentId) ?? [...get().folders.values()][0];
+      effectiveFolderId = first ? first.id : null;
     }
 
     const noteId = randomUuid();
@@ -304,6 +309,10 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     // 未选文件夹时 TemplatePicker 传 null,服务端与本地都落无归属笔记
     let effectiveFolderId = folderId;
     if (effectiveFolderId == null) {
+      const first = [...get().folders.values()].find((f) => !f.parentId) ?? [...get().folders.values()][0];
+      effectiveFolderId = first ? first.id : null;
+    } else if (!get().folders.some((f) => f.id === effectiveFolderId)) {
+      // 深度防御（H-A）：虚拟/已删 id 回退首文件夹,与 createNote 同款
       const first = [...get().folders.values()].find((f) => !f.parentId) ?? [...get().folders.values()][0];
       effectiveFolderId = first ? first.id : null;
     }
@@ -590,9 +599,12 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
 
   /**
    * 首次使用初始化（幂等，解锁并 loadAll 后调用一次）：
-   * 1. 无任何文件夹时创建默认文件夹「关于尘渊笔记」+ 引导笔记
+   * 1. 真·全新账号（0 文件夹且 0 笔记）时创建默认文件夹「关于尘渊笔记」+ 引导笔记
    * 2. 历史未分类笔记（folderId=null 且未删除）迁入默认文件夹
-   *    ——「未分类」分组已从产品移除，笔记必须归属文件夹
+   *
+   * 发现4（2026-09-11 审计）：迁移条件收紧为「0 文件夹且 0 笔记」——用户删光
+   * 自己全部文件夹（删除确认弹窗承诺「可在侧栏『未分类』中找到并重新归档」）
+   * 后，下次解锁不应再被强制迁入新建的默认文件夹。
    */
   async ensureDefaultContent(): Promise<void> {
     if (ensureInFlight) return ensureInFlight;
@@ -600,6 +612,9 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
       const { folders, notes, masterKey } = get();
       if (!masterKey) return;
       if (folders.length > 0) return;
+      // 0 文件夹但有存量笔记：用户主动清空了文件夹树,未分类笔记
+      // 由侧栏「未分类」虚拟节点承载,不再强制迁移
+      if (notes.size > 0) return;
 
       const folderId = await get().createFolder(DEFAULT_FOLDER_NAME);
       // 迁移历史未分类笔记（先迁移再建引导笔记，避免引导笔记被重复处理）
@@ -652,11 +667,19 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
       return;
     }
     set({ folders: get().folders.filter((f) => !descIds.has(f.id)) } as Partial<StoreState>);
+    // 被删文件夹正被选中时回退到「全部」视图,否则 folderScope 过滤后列表空白
+    if (descIds.has(get().selectedFolderId ?? '')) {
+      set({ selectedFolderId: null } as Partial<StoreState>);
+    }
     const ok = await runOrEnqueue({ method: 'DELETE', path: `/folders/${id}` }, async () => { await api().delete(`/folders/${id}`); }, () => get().refreshPendingCount());
     if (!ok) set({ isOnline: false } as Partial<StoreState>);
     const newNotes = new Map(get().notes); let changed = false;
     for (const [nid, n] of newNotes) { if (n.folderId && descIds.has(n.folderId)) { newNotes.set(nid, { ...n, folderId: null }); changed = true; } }
     if (changed) set({ notes: newNotes } as Partial<StoreState>);
+    // M-B：notes 的 IndexedDB 缓存也要回写——只 cacheFolders 的话,删文件夹后
+    // 离线重启会读到指向已删文件夹的 stale 笔记,既不进任何 scope 也不满足
+    // 未分类的 null 判定,仅搜索可达
+    void cacheNotesLocal(get().notes, get().notesPlain, () => get().masterKey).catch(() => undefined);
     void cacheFolders(get().folders).catch(() => undefined);
   },
 

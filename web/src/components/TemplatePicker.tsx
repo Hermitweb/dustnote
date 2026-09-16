@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
+import { UNFILED_ID } from '../lib/store-types';
 import type { Template } from '@dustnote/shared';
 
 interface TemplatePickerProps {
@@ -32,7 +33,10 @@ export function TemplatePicker({ onClose }: TemplatePickerProps) {
     setCreating(true);
     setError(null);
     try {
-      await createNoteFromTemplate(tpl.id, selectedFolderId);
+      // 「未分类」视图下归一为 null → data-slice 回退首文件夹
+      // （H-A：虚拟 id 曾直接透传，单机模式落库成不可见笔记）
+      const target = selectedFolderId === UNFILED_ID ? null : selectedFolderId;
+      await createNoteFromTemplate(tpl.id, target);
       onClose();
     } catch (err) {
       setError((err as Error).message);

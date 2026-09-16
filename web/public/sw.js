@@ -20,7 +20,10 @@
 const SW_VERSION = 'dustnote-v2.5.40-001';
 const CACHE_PREFIX = 'dustnote';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${SW_VERSION}`;
-const RUNTIME_CACHE = `${CACHE_PREFIX}-runtime`;
+// 键名 v2（审计 M-A）：旧 SW 曾把 /api/ 明文响应（明文文件夹名/wrappedMasterKey）
+// 写进 'dustnote-runtime'。改名后 activate 的清理规则会把旧键整体删除,
+// 存量用户的敏感历史缓存随本版 SW 更新清空;新 SW 本身不再读写 /api/。
+const RUNTIME_CACHE = `${CACHE_PREFIX}-runtime-v2`;
 
 // 需要预缓存的静态资源（install 时缓存）
 // 注意：当前预缓存列表不含 JS/CSS bundle（构建后文件名带 hash 无法手动维护）。

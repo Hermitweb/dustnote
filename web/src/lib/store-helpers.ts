@@ -89,7 +89,9 @@ async function refreshAccessToken(): Promise<string | null> {
           }
         };
         if (locks?.request) {
-          return await locks.request('dustnote-refresh', doRefresh);
+          // 发现5：沙箱 iframe 等环境 locks.request 会 reject（SecurityError）——
+          // 兜底为 null（与 doRefresh 内部失败同语义），不让锁异常打断原请求
+          return await locks.request('dustnote-refresh', doRefresh).catch(() => null);
         }
         return await doRefresh();
       } finally {

@@ -81,6 +81,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * 429 的独立重试阈值（发现6）：限流是瞬态且与 op 内容无关，不该与 5xx
+ * 共用 8 次阈值——给足限流窗口恢复的轮次（配合指数退避）
+ */
+export const RATE_LIMIT_MAX_RETRIES = 30;
+
 export class SyncEngine {
   private inFlight = false;
 
@@ -140,7 +146,10 @@ export class SyncEngine {
             // 429 写限流：可恢复——保留 + 退避后继续。此前落入「其余 4xx 丢弃」
             // 分支，离线批量重放/模式迁移超过限流阈值时后半段 op 被静默永久
             // 删除（审计 C1）。mp/mobile 共用此引擎。
-            await this.queue.bumpRetries(op.id);
+            // 独立重试阈值（发现6）：限流是瞬态且与 op 本身无关，不该与
+            // 5xx 共用 8 次阈值——WS 重连风暴频繁触发 flush 时 8 次 429
+            // 仍可能耗尽；给 30 次 + 指数退避留足限流窗口恢复时间。
+            await this.queue.bumpRetries(op.id, RATE_LIMIT_MAX_RETRIES);
             const delay = await this.queue.getRetryDelayForOp(op.id);
             if (delay > 0) await sleep(delay);
           } else if (status !== undefined && status >= 400 && status < 500) {
