@@ -381,6 +381,31 @@ jobs:
           sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
+      # 与 release.yml 同款（完整理由见该文件同名步骤）：pnpm hoisted 布局下
+      # ① RN gradle 插件按 mobile/node_modules/react-native/sdks/hermesc 找
+      #    编译器（缺它 createBundleDebugJsAndAssets 直接失败）；
+      # ② Metro/autolinking 需要 react 与 react-native* 系链接到与根 node_modules
+      #    同一份 hoisted 副本（pnpm junction 是另一份 → 双 React 实例启动崩溃）；
+      # ③ @dustnote 工作区包供 Metro 解析。此前本 job 缺这步,首次运行即暴露。
+      - name: Symlink react-native into mobile/node_modules (pnpm hoisted layout)
+        run: |
+          mkdir -p mobile/node_modules
+          if [ -e "node_modules/react" ]; then
+            rm -f "mobile/node_modules/react"
+            ln -s "$(pwd)/node_modules/react" "mobile/node_modules/react"
+          fi
+          for pkg in node_modules/react-native node_modules/react-native-* \
+                     node_modules/@react-native node_modules/@react-native-*; do
+            [ -e "$pkg" ] || continue
+            name=$(basename "$pkg")
+            rm -f "mobile/node_modules/$name" && ln -s "$(pwd)/$pkg" "mobile/node_modules/$name"
+          done
+          mkdir -p mobile/node_modules/@dustnote
+          for ws_pkg in shared client-core; do
+            [ -d "$ws_pkg" ] || continue
+            rm -f "mobile/node_modules/@dustnote/$ws_pkg"
+            ln -s "$(pwd)/$ws_pkg" "mobile/node_modules/@dustnote/$ws_pkg"
+          done
       - name: Build Android Debug APK
         working-directory: mobile/android
         env:
