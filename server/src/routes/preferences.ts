@@ -36,7 +36,7 @@ preferencesRouter.get('/preferences', (req, res) => {
   if (!row) {
     db.prepare(`INSERT INTO preferences (user_id) VALUES (?)`).run(user.userId);
     row = {
-      theme: 'mint-dawn',
+      theme: 'mist-blue',
       mode: 'auto',
       font: 'system',
       density: 'standard',

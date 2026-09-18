@@ -858,7 +858,7 @@ export function SettingsScreen() {
                 await repo.permanentDeleteNote(n.id);
               }
               const defaultPrefs: Preferences = {
-                theme: 'mint-dawn',
+                theme: 'mist-blue',
                 mode: 'auto',
                 font: 'system',
                 density: 'standard',

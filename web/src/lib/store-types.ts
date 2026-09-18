@@ -76,7 +76,7 @@ export interface PendingConflict {
 }
 
 export const DEFAULT_PREFS: Preferences = {
-  theme: 'mint-dawn',
+  theme: 'mist-blue',
   mode: 'auto',
   font: 'system',
   density: 'standard',
