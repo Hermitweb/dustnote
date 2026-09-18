@@ -329,7 +329,7 @@ export function Sidebar() {
           <span
             className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border text-[10px] font-bold ${
               checked
-                ? 'border-mint-600 bg-mint-600 text-white'
+                ? 'border-mint-600 bg-mint-600 text-on-accent'
                 : 'border-surface-border text-transparent'
             }`}
           >
@@ -610,7 +610,7 @@ export function Sidebar() {
                   const target = selectedFolderId === UNFILED_ID ? null : selectedFolderId;
                   void createNote(target).catch((err: unknown) => toast.error(errorText(err)));
                 }}
-                className="flex-1 rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
+                className="flex-1 rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-on-accent transition-colors hover:bg-mint-700"
               >
                 {t('app_bar.new_note')}
               </button>
@@ -716,7 +716,7 @@ export function Sidebar() {
                   />
                   <button
                     onClick={() => void doCreateFolder(null)}
-                    className="rounded bg-mint-600 px-2 py-1 text-xs font-medium text-white hover:bg-mint-700"
+                    className="rounded bg-mint-600 px-2 py-1 text-xs font-medium text-on-accent hover:bg-mint-700"
                   >
                     ✓
                   </button>
@@ -812,7 +812,7 @@ export function Sidebar() {
                         />
                         <button
                           onClick={() => void doCreateFolder(f.id)}
-                          className="rounded bg-mint-600 px-2 py-1 text-xs font-medium text-white hover:bg-mint-700"
+                          className="rounded bg-mint-600 px-2 py-1 text-xs font-medium text-on-accent hover:bg-mint-700"
                         >
                           ✓
                         </button>
@@ -993,7 +993,7 @@ export function Sidebar() {
                             onClick={() => toggleSelect(n.id)}
                             className={`ml-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${
                               checked
-                                ? 'border-mint-600 bg-mint-600 text-white'
+                                ? 'border-mint-600 bg-mint-600 text-on-accent'
                                 : 'border-surface-border hover:border-mint-400'
                             }`}
                           >
@@ -1461,7 +1461,7 @@ export function Sidebar() {
             <div className="mt-3 flex gap-2">
               <button
                 onClick={() => void confirmRename()}
-                className="flex-1 rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-white hover:bg-mint-700"
+                className="flex-1 rounded-lg bg-mint-600 px-3 py-2 text-sm font-semibold text-on-accent hover:bg-mint-700"
               >
                 {t('common.confirm')}
               </button>

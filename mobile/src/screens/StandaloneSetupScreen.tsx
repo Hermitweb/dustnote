@@ -213,12 +213,12 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     strengthCell: { width: 36, height: 4, borderRadius: 2, marginRight: 4 },
     strengthText: { fontSize: 12, color: c.muted, marginLeft: 8 },
     button: {
-      backgroundColor: c.mint600,
+      backgroundColor: c.accentFill,
       borderRadius: 8,
       padding: 16,
       alignItems: 'center',
     },
-    buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
+    buttonText: { color: c.onAccent, fontSize: 16, fontWeight: '600' },
     codeBox: {
       backgroundColor: c.mint50,
       borderRadius: 8,

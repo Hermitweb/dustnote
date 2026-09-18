@@ -934,11 +934,13 @@ export function SettingsScreen() {
                 key={opt.mode}
                 style={[
                   styles.modeChip,
-                  active && { backgroundColor: colors.mint600, borderColor: colors.mint600 },
+                  active && { backgroundColor: colors.accentFill, borderColor: colors.accentFill },
                 ]}
                 onPress={() => setMode(opt.mode)}
               >
-                <Text style={[styles.modeChipText, active && { color: 'white' }]}>{opt.label}</Text>
+                <Text style={[styles.modeChipText, active && { color: colors.onAccent }]}>
+                  {opt.label}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -954,11 +956,11 @@ export function SettingsScreen() {
                 key={opt.lang}
                 style={[
                   styles.modeChip,
-                  active && { backgroundColor: colors.mint600, borderColor: colors.mint600 },
+                  active && { backgroundColor: colors.accentFill, borderColor: colors.accentFill },
                 ]}
                 onPress={() => setLanguage(opt.lang)}
               >
-                <Text style={[styles.modeChipText, active && { color: 'white' }]}>
+                <Text style={[styles.modeChipText, active && { color: colors.onAccent }]}>
                   {t(opt.key)}
                 </Text>
               </TouchableOpacity>
@@ -1228,8 +1230,8 @@ export function SettingsScreen() {
               style={[
                 styles.switchModeChip,
                 switchTarget === 'standalone' && {
-                  backgroundColor: colors.mint600,
-                  borderColor: colors.mint600,
+                  backgroundColor: colors.accentFill,
+                  borderColor: colors.accentFill,
                 },
               ]}
               onPress={() => setSwitchTarget('standalone')}
@@ -1237,7 +1239,7 @@ export function SettingsScreen() {
               <Text
                 style={[
                   styles.switchModeChipText,
-                  switchTarget === 'standalone' && { color: 'white' },
+                  switchTarget === 'standalone' && { color: colors.onAccent },
                 ]}
               >
                 📱 {t('settings.switch_mode_short_standalone')}
@@ -1247,14 +1249,17 @@ export function SettingsScreen() {
               style={[
                 styles.switchModeChip,
                 switchTarget === 'online' && {
-                  backgroundColor: colors.mint600,
-                  borderColor: colors.mint600,
+                  backgroundColor: colors.accentFill,
+                  borderColor: colors.accentFill,
                 },
               ]}
               onPress={() => setSwitchTarget('online')}
             >
               <Text
-                style={[styles.switchModeChipText, switchTarget === 'online' && { color: 'white' }]}
+                style={[
+                  styles.switchModeChipText,
+                  switchTarget === 'online' && { color: colors.onAccent },
+                ]}
               >
                 🌐 {t('settings.switch_mode_short_online')}
               </Text>
@@ -1597,7 +1602,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       minHeight: 120,
     },
     modalButton: {
-      backgroundColor: c.mint600,
+      backgroundColor: c.accentFill,
       borderRadius: 8,
       padding: 16,
       alignItems: 'center',

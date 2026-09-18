@@ -269,7 +269,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
           <button
             onClick={() => setShowRestoreConfirm(true)}
             disabled={!selectedId || restoring}
-            className="rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
+            className="rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-on-accent hover:bg-mint-700 disabled:opacity-50"
           >
             {restoring ? t('history.restoring') : t('history.restore')}
           </button>

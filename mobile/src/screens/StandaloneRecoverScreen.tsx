@@ -177,7 +177,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       color: c.fg,
     },
     button: {
-      backgroundColor: c.mint600,
+      backgroundColor: c.accentFill,
       borderRadius: 8,
       padding: 16,
       alignItems: 'center',

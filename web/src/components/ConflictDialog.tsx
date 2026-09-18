@@ -133,7 +133,7 @@ export function ConflictDialog() {
             <button
               onClick={() => void handleChoice('local')}
               disabled={resolving !== null}
-              className="flex-1 rounded-lg bg-mint-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
+              className="flex-1 rounded-lg bg-mint-600 px-4 py-2.5 text-sm font-semibold text-on-accent hover:bg-mint-700 disabled:opacity-50"
             >
               {resolving === 'local' ? t('conflict.resolving') : t('conflict.use_local')}
             </button>

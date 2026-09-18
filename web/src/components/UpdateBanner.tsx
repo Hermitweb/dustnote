@@ -42,7 +42,7 @@ export function UpdateBanner({ result }: { result: CheckUpdateResult }) {
         </div>
         <a
           href={url}
-          className="rounded-lg bg-mint-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-mint-700"
+          className="rounded-lg bg-mint-600 px-3 py-1.5 text-xs font-semibold text-on-accent transition-colors hover:bg-mint-700"
         >
           {t('update.now')}
         </a>

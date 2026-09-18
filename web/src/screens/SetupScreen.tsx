@@ -54,7 +54,7 @@ export function SetupScreen() {
               /* 自动跳转主界面 */
               window.location.reload();
             }}
-            className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
+            className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-on-accent transition-colors hover:bg-mint-700"
           >
             {t('auth.recovery_code_done')}
           </button>
@@ -109,7 +109,7 @@ export function SetupScreen() {
           <button
             type="submit"
             disabled={submitting || password.length < 6 || password !== confirm}
-            className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700 disabled:opacity-50"
+            className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-on-accent transition-colors hover:bg-mint-700 disabled:opacity-50"
           >
             {submitting ? '...' : t('auth.setup_btn')}
           </button>

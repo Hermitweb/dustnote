@@ -246,7 +246,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       marginTop: 16,
       paddingHorizontal: 24,
       paddingVertical: 10,
-      backgroundColor: c.mint600,
+      backgroundColor: c.accentFill,
       borderRadius: 8,
     },
     retryText: { color: 'white', fontSize: 14, fontWeight: '600' },

@@ -102,7 +102,7 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => void save()}
               disabled={saving}
-              className="rounded bg-mint-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
+              className="rounded bg-mint-600 px-4 py-1.5 text-xs font-semibold text-on-accent hover:bg-mint-700 disabled:opacity-50"
             >
               {saving ? t('common.loading') : `⌘↵ ${t('common.save')}`}
             </button>

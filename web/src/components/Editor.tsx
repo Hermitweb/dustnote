@@ -1026,7 +1026,7 @@ function ShareDialog({
               <button
                 onClick={() => void create()}
                 disabled={submitting}
-                className="flex-1 rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
+                className="flex-1 rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-on-accent hover:bg-mint-700 disabled:opacity-50"
               >
                 {t('editor.share_btn')}
               </button>
@@ -1047,7 +1047,7 @@ function ShareDialog({
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }}
-                className="rounded-lg bg-mint-600 px-3 py-2 text-xs text-white"
+                className="rounded-lg bg-mint-600 px-3 py-2 text-xs text-on-accent"
               >
                 {copied ? `✅ ${t('editor.copied')}` : t('editor.copy_key')}
               </button>

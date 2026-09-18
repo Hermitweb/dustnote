@@ -241,7 +241,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       marginBottom: 12,
     },
     cardActive: {
-      borderColor: c.mint600,
+      borderColor: c.accentFill,
       borderWidth: 2,
       backgroundColor: c.mint50,
     },
@@ -286,7 +286,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       padding: 10,
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: c.mint600,
+      borderColor: c.accentFill,
       alignItems: 'center',
     },
     testButtonText: {
@@ -295,7 +295,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       fontWeight: '600',
     },
     confirmButton: {
-      backgroundColor: c.mint600,
+      backgroundColor: c.accentFill,
       borderRadius: 8,
       padding: 16,
       alignItems: 'center',

@@ -244,7 +244,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     restoreBtn: {
       flex: 1,
       borderRadius: 8,
-      backgroundColor: c.mint600,
+      backgroundColor: c.accentFill,
       paddingVertical: 8,
       alignItems: 'center',
     },
