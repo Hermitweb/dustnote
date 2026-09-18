@@ -79,7 +79,7 @@ export default function ConflictDialog(): React.JSX.Element | null {
   // H5 端路由把 .taro_router 的最后一个子元素视作「当前页」：空 View 会渲染成
   // <taro-view-core> 成为 router 的 last-child，导致真页面（非 last-child）被
   // enhanceAnimation 的 display:none 规则隐藏 → 白屏。返回 null 不产生 DOM。
-  if (!current) return null;;
+  if (!current) return null;
 
   const onChoose = async (choice: 'local' | 'server' | 'merged'): Promise<void> => {
     setResolving(choice);

@@ -10,7 +10,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text } from '@tarojs/components';
 import { FInput } from '../../components/FInput';
 import Taro from '@tarojs/taro';
-import { Icon } from '../../components/Icon';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
 import { getCurrentMode } from '../../lib/mode-store';
@@ -124,9 +123,7 @@ export default function Share() {
   if (!token) {
     return (
       <View className="empty-state">
-        <View className="empty-state-icon">
-          <Icon name="alert" size={36} />
-        </View>
+        <Text className="empty-state-icon">⚠️</Text>
         <Text className="empty-state-text">{t('share.invalid_link')}</Text>
       </View>
     );
@@ -153,9 +150,7 @@ export default function Share() {
   if (error) {
     return (
       <View className="empty-state">
-        <View className="empty-state-icon">
-          <Icon name="alert" size={36} />
-        </View>
+        <Text className="empty-state-icon">⚠️</Text>
         <Text className="empty-state-text">{error}</Text>
       </View>
     );

@@ -171,7 +171,7 @@ export default function StandaloneUnlock() {
             style={{ opacity: bioEntering ? 0.5 : 1 }}
             onClick={() => void onBiometric()}
           >
-            {bioEntering ? t('common.unlocking') : t('unlock.biometric_btn')}
+            {bioEntering ? t('common.unlocking') : `🔒 ${t('unlock.biometric_btn')}`}
           </View>
         )}
 

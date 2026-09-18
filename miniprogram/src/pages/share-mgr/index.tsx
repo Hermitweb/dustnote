@@ -5,7 +5,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { Icon } from '../../components/Icon';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { getApi, useAuthStore, decryptNote, parseEnvelope } from '../../state/auth';
 import { unwrapKey, toBase64Url, noteAad, type Ciphertext } from '@dustnote/shared';
@@ -195,7 +194,7 @@ export default function Shares() {
           {selecting ? (
             <>
               <Text className="topbar-back" onClick={exitSelect}>
-                <Icon name="close" size={16} />
+                ✕
               </Text>
               <Text className="topbar-title" onClick={toggleAll}>
                 {hasAllSelected
@@ -223,9 +222,7 @@ export default function Shares() {
           {loading && <View className="loading">{t('common.loading')}</View>}
           {!loading && shares.length === 0 && (
             <View className="empty-state">
-              <View className="empty-state-icon">
-                <Icon name="share" size={36} />
-              </View>
+              <Text className="empty-state-icon">🔗</Text>
               <Text className="empty-state-text">{t('share_mgr.empty')}</Text>
             </View>
           )}
@@ -249,7 +246,7 @@ export default function Shares() {
                       className={`checkbox${checked ? ' checkbox-checked' : ''}`}
                       onClick={() => toggleSelect(s.id)}
                     >
-                      {checked && <Icon name="check" size={12} color="#FFFFFF" />}
+                      {checked && <Text className="checkbox-mark">✓</Text>}
                     </View>
                   )}
                   <Text

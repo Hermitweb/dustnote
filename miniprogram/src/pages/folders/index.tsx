@@ -14,7 +14,6 @@ import React, { useState } from 'react';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import { FInput } from '../../components/FInput';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { Icon } from '../../components/Icon';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { getRepo } from '../../lib/get-repo';
 import { t, useLanguage } from '../../lib/i18n';
@@ -266,7 +265,9 @@ export default function Folders() {
                 moveTargets.map((f) => (
                   <View key={f.id} className="settings-row" onClick={() => void handleMove(f.id)}>
                     <View className="settings-row-label">
-                      <Text>{f.name}</Text>
+                      <Text>
+                        {BRANCH_ICON[f.branch ?? 'work'] ?? '📁'} {f.name}
+                      </Text>
                     </View>
                   </View>
                 ))}
@@ -316,7 +317,7 @@ export default function Folders() {
                     className={`folder-chip${parentSel === f.id ? ' folder-chip-active' : ''}`}
                     onClick={() => setParentSel(f.id)}
                   >
-                    <Icon name="folder" size={15} /> {f.name}
+                    📁 {f.name}
                   </Text>
                 ))}
               </View>
@@ -332,9 +333,7 @@ export default function Folders() {
               {loading && <View className="loading">{t('common.loading')}</View>}
               {!loading && folders.length === 0 && (
                 <View className="empty-state">
-                  <View className="empty-state-icon">
-                    <Icon name="folder" size={36} />
-                  </View>
+                  <Text className="empty-state-icon">📁</Text>
                   <Text className="empty-state-text">{t('folders.empty')}</Text>
                 </View>
               )}
@@ -354,12 +353,10 @@ export default function Folders() {
                       onClick={() => hasChildren && toggleExpanded(f.id)}
                     >
                       {hasChildren ? (
-                        <Text className="folder-caret">
-                          <Icon name={isExpanded ? 'chevron-down' : 'chevron-right'} size={14} />
-                        </Text>
+                        <Text className="folder-caret">{isExpanded ? '▼' : '▶'}</Text>
                       ) : null}
                       <Text className="folder-row-name">
-                        {f.name}
+                        📁 {f.name}
                         {hasChildren ? ` (${children.length})` : ''}
                       </Text>
                     </View>
@@ -383,7 +380,7 @@ export default function Folders() {
                             });
                           }}
                         >
-                          <Icon name="plus" size={17} />
+                          ➕
                         </Text>
                       )}
                       <Text
@@ -393,13 +390,13 @@ export default function Folders() {
                           setRenameText(f.name);
                         }}
                       >
-                        <Icon name="edit" size={17} />
+                        ✏️
                       </Text>
                       <Text className="folder-row-btn" onClick={() => setMovingId(f.id)}>
-                        <Icon name="folder" size={17} />
+                        📁
                       </Text>
                       <Text className="folder-row-btn" onClick={() => void handleDelete(f)}>
-                        <Icon name="trash" size={17} color="#E07B6C" />
+                        🗑️
                       </Text>
                     </View>
                   </View>

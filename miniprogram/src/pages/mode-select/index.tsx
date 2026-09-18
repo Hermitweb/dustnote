@@ -15,7 +15,6 @@ import { View, Text, Image } from '@tarojs/components';
 import { FInput } from '../../components/FInput';
 import logoUrl from '../../assets/logo.png';
 import Taro from '@tarojs/taro';
-import { Icon } from '../../components/Icon';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useModeStore } from '../../lib/mode-store';
 import {
@@ -299,7 +298,7 @@ export default function ModeSelect() {
           <View className="row" style={{ justifyContent: 'center' }}>
             <Text className="text-lg fw-bold">{t('mode_select.standalone')}</Text>
             <Text className="text-mint" style={{ marginLeft: '8rpx' }}>
-              {cryptoAvailable ? '›' : ''}
+              {cryptoAvailable ? '›' : '🔒'}
             </Text>
           </View>
           <Text className="hint mt-s" style={{ display: 'block' }}>
@@ -341,6 +340,7 @@ export default function ModeSelect() {
               className={`text-xs mt-s ${testResult.ok ? 'success-text' : 'error-text'}`}
               style={{ display: 'block' }}
             >
+              {testResult.ok ? '✓ ' : '✗ '}
               {testResult.message}
             </Text>
           )}

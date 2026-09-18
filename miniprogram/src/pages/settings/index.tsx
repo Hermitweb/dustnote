@@ -10,7 +10,6 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import { FInput } from '../../components/FInput';
 import Taro from '@tarojs/taro';
-import { Icon } from '../../components/Icon';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import {
   useAuthStore,
@@ -800,13 +799,7 @@ export default function Settings() {
               <View className="settings-row-label">
                 <Text>{t('settings.biometric_row')}</Text>
               </View>
-              <View className="settings-row-value">
-                <Icon
-                  name={bioOn ? 'check' : 'chevron-right'}
-                  size={15}
-                  color={bioOn ? '#1E8C5C' : undefined}
-                />
-              </View>
+              <Text className="settings-row-value">{bioOn ? '✓' : '›'}</Text>
             </View>
           )}
           {mode === 'online' && (
