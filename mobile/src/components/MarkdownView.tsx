@@ -113,7 +113,7 @@ function InlineText({
                 style={{ color: colors.accent, textDecorationLine: 'underline', fontWeight: '500' }}
                 onPress={() => onWikilink?.(s.url ?? '')}
               >
-                📄 {s.text}
+                {s.text}
               </Text>
             );
           default:

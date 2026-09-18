@@ -622,12 +622,12 @@ export function SettingsScreen() {
   // ========== 模式切换 ==========
   // v2.4.4 修复「迁移后密文不可解密」：
   // 旧流程在 importBackup 后 lock() 清空 masterKey，新模式 setup/unlock 生成新 masterKey，
-  // 导入的密文绑定旧 masterKey → 全部 🔒 解密失败。
+  // 导入的密文绑定旧 masterKey → 全部解密失败。
   // 新流程（延迟迁移，DM-7 原子化）：
   // 1. 导出备份 → 把旧 masterKey 副本放入内存 pending + 备份持久化到 AsyncStorage
   // 2. 切换模式 + lock()（所有可能失败的步骤都发生在切换之前 → 失败可回滚到原模式）
   // 3. 新模式 setup / unlock / recover 成功后（auth store 内）自动导入待迁移数据，
-  //    并用新模式 masterKey 重加密 —— 迁移后所有笔记可正常解密，不出现「🔒 解密失败」。
+  //    并用新模式 masterKey 重加密 —— 迁移后所有笔记可正常解密，不出现「解密失败」。
   const onSwitchModeConfirm = async () => {
     if (!masterKey) {
       Alert.alert(t('common.hint'), t('common.unlock_required'));

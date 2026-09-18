@@ -4,7 +4,7 @@
  * 背景：
  * 旧流程「导出备份 → 切换模式 → clearBusinessData → importBackup → lock()」存在严重缺陷：
  * lock() 清空内存 masterKey 后，新模式的 setup/unlock 会生成一把**新的** masterKey，
- * 而备份里的 NoteRow 密文绑定的是**旧** masterKey → 迁移后全部笔记 🔒 解密失败。
+ * 而备份里的 NoteRow 密文绑定的是**旧** masterKey → 迁移后全部笔记解密失败。
  *
  * 方案（延迟迁移 + 重加密，对所有场景都正确）：
  * 1. 迁移时（SettingsScreen）只做低风险步骤：
@@ -23,7 +23,7 @@
  * - 迁移目标模式的 masterKey 成为唯一权威密钥，新模式下新建的笔记、服务端已有的
  *   旧笔记（联机账户已存在时）全部可用同一把密钥解密，不会出现混密钥。
  * - 不需要改服务端 wrappedMasterKey（无需 rewrap 接管），单机模式也不需要改 LocalAuthBlob。
- * - 迁移后所有笔记（旧 + 新 + 服务端已有的）都可正常解密，不出现「🔒 解密失败」。
+ * - 迁移后所有笔记（旧 + 新 + 服务端已有的）都可正常解密，不出现「解密失败」。
  *
  * 本文件只保留**平台 I/O**（AsyncStorage、加解密管线、repo 调用）与槽的读写；
  * 账本记账、轮数门禁、槽去留判定等策略统一在 @dustnote/shared/migration

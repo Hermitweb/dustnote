@@ -50,7 +50,14 @@ export type IconName =
   | 'refresh'
   | 'download'
   | 'zoom-in'
-  | 'list';
+  | 'list'
+  | 'calendar'
+  | 'clock-plus'
+  | 'check-square'
+  | 'code'
+  | 'quote'
+  | 'minus'
+  | 'table';
 
 export function Icon(props: {
   name: IconName;

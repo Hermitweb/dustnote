@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { Icon, type IconName } from './Icon';
 import type { SlashCommand } from '../lib/slash-commands';
 import type { ThemeColors } from '../theme';
 
@@ -29,7 +30,7 @@ export function SlashCommandMenu({ commands, visible, onSelect, colors }: Props)
             style={[styles.item, { borderBottomColor: colors.border }]}
             onPress={() => onSelect(item)}
           >
-            <Text style={styles.icon}>{item.icon}</Text>
+            <Icon name={item.icon as IconName} size={16} color={colors.muted} />
             <Text style={[styles.label, { color: colors.fg }]}>{item.label}</Text>
           </TouchableOpacity>
         )}

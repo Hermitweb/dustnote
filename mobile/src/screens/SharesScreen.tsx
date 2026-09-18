@@ -22,6 +22,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { Icon } from '../components/Icon';
 import { errorText } from '../lib/error-text';
 import { decryptString, unwrapKey, toBase64Url, noteAad, type Ciphertext } from '@dustnote/shared';
 import { api } from '../api';
@@ -161,7 +162,7 @@ export function SharesScreen() {
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <Text style={styles.errorEmoji}>⚠️</Text>
+          <Icon name="alert" size={34} />
           <Text style={styles.hint}>{t('share.load_failed_detail', { reason: error })}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={() => void load()}>
             <Text style={styles.retryText}>{t('common.retry')}</Text>
@@ -173,7 +174,7 @@ export function SharesScreen() {
           keyExtractor={(item) => item.id}
           ListEmptyComponent={
             <View style={styles.center}>
-              <Text style={styles.emptyEmoji}>🔗</Text>
+              <Icon name="link" size={34} />
               <Text style={styles.hint}>{t('share.empty')}</Text>
             </View>
           }

@@ -30,6 +30,7 @@ import { FTextInput } from '../components/FTextInput';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
+import { Icon } from '../components/Icon';
 import { errorText } from '../lib/error-text';
 import type { RootStackParamList } from '../App';
 import {
@@ -634,7 +635,7 @@ export function NoteEditScreen() {
         const pt = JSON.parse(json) as { title: string; content: string };
         // 轻量预览：标题 + 前 600 字内容（移动端全屏预览页较重，恢复走独立按钮）
         const body = pt.content.length > 600 ? `${pt.content.slice(0, 600)}…` : pt.content;
-        Alert.alert(`📄 ${pt.title || t('editor.untitled')}`, body, [
+        Alert.alert(pt.title || t('editor.untitled'), body, [
           { text: t('common.close') },
           {
             text: t('history.restore'),
@@ -693,7 +694,7 @@ export function NoteEditScreen() {
   if (loadError) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: colors.fg }}>⚠️ {loadError}</Text>
+        <Text style={{ color: colors.fg }}>{loadError}</Text>
       </View>
     );
   }
@@ -756,24 +757,26 @@ export function NoteEditScreen() {
               }}
               disabled={saving}
             >
-              <Text style={styles.toolbarBtn}>
-                {listening ? (voiceText ? `🎙 ${voiceText.slice(-18)}` : '🎙 …') : '🎤'}
-              </Text>
+              <Icon name="mic" size={19} color={listening ? colors.mint600 : colors.muted} />
             </TouchableOpacity>
           )}
           {/* 收藏/置顶(高频,保留在工具栏) */}
           {!decryptFailed && (
             <TouchableOpacity onPress={() => void togglePin()} disabled={saving}>
-              <Text style={[styles.toolbarBtn, note?.isPinned && { color: colors.mint600 }]}>
-                📌
-              </Text>
+              <Icon
+                name={note?.isPinned ? 'bookmark-filled' : 'bookmark'}
+                size={19}
+                color={note?.isPinned ? colors.mint600 : colors.muted}
+              />
             </TouchableOpacity>
           )}
           {!decryptFailed && (
             <TouchableOpacity onPress={() => void toggleFavorite()} disabled={saving}>
-              <Text style={[styles.toolbarBtn, note?.isFavorite && { color: colors.mint600 }]}>
-                ⭐
-              </Text>
+              <Icon
+                name={note?.isFavorite ? 'star-filled' : 'star'}
+                size={19}
+                color={note?.isFavorite ? colors.mint600 : colors.muted}
+              />
             </TouchableOpacity>
           )}
           {/* 低频操作(移动/历史/分享/删除)收进「…」更多菜单(小屏防拥挤) */}
@@ -800,9 +803,7 @@ export function NoteEditScreen() {
                 </Text>
                 {backlinks.map((bl) => (
                   <TouchableOpacity key={bl.id} onPress={() => onBacklinkTap(bl.id)}>
-                    <Text style={[styles.backlinkItem, { color: colors.mint600 }]}>
-                      📄 {bl.title}
-                    </Text>
+                    <Text style={[styles.backlinkItem, { color: colors.mint600 }]}>{bl.title}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -879,7 +880,7 @@ export function NoteEditScreen() {
                   void onLoadFolders();
                 }}
               >
-                <Text style={styles.menuItemText}>📁 {t('editor.move')}</Text>
+                <Text style={styles.menuItemText}>{t('editor.move')}</Text>
               </TouchableOpacity>
             )}
             {mode === 'online' && !decryptFailed && (
@@ -901,7 +902,7 @@ export function NoteEditScreen() {
                   void onShare();
                 }}
               >
-                <Text style={styles.menuItemText}>🔗 {t('editor.share')}</Text>
+                <Text style={styles.menuItemText}>{t('editor.share')}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -1020,7 +1021,7 @@ export function NoteEditScreen() {
             </View>
           ) : folders.length === 0 ? (
             <View style={styles.center}>
-              <Text style={{ fontSize: 40, marginBottom: 8 }}>📁</Text>
+              <Icon name="folder" size={34} />
               <Text style={{ color: colors.muted }}>{t('folders.move_empty')}</Text>
             </View>
           ) : (
@@ -1034,7 +1035,7 @@ export function NoteEditScreen() {
                     style={[styles.templateRow, active && { backgroundColor: colors.accentSoft }]}
                     onPress={() => void onMoveToFolder(item.id)}
                   >
-                    <Text style={styles.templateIcon}>📁</Text>
+                    <Icon name="folder" size={18} />
                     <View style={styles.templateInfo}>
                       <Text style={styles.templateName}>{item.name}</Text>
                     </View>
