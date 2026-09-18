@@ -2,7 +2,7 @@
  * 半屏选择面板(替代 showActionSheet)
  *
  * wx.showActionSheet 的 itemList 硬上限 6 项;模板(7 预设+自定义)与
- * 文件夹列表随时超限。本组件无条目数限制,支持取消按钮与危险项。
+ * 文件夹列表随时超限。本组件无条目数限制,支持取消按钮与危险项、条目图标。
  *
  * 动效：进入 = CSS 挂载动画（menu-overlay/menu-sheet 的 animation）；
  * 退出 = 组件内 closing 状态先播滑出动画,200ms 后再触发 onClose/onPick——
@@ -11,11 +11,13 @@
  */
 import { useState, useRef, useEffect } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
+import { Icon, type IconName } from './Icon';
 
 export interface PickItem {
   key: string;
   label: string;
   danger?: boolean;
+  icon?: IconName;
 }
 
 /** 退出动画时长,与 app.scss 的 .menu-sheet-closing 过渡保持一致 */
@@ -71,7 +73,12 @@ export function PickSheet(props: {
               className={`menu-item${it.danger ? ' menu-item-danger' : ''}`}
               onClick={() => dismiss(() => props.onPick(it.key))}
             >
-              {it.label}
+              <View className="menu-item-row">
+                {it.icon && (
+                  <Icon name={it.icon} size={20} color={it.danger ? '#E07B6C' : undefined} />
+                )}
+                <Text className="menu-item-label">{it.label}</Text>
+              </View>
             </Text>
           ))}
         </ScrollView>

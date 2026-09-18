@@ -13,6 +13,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import { FInput, FTextarea } from '../../components/FInput';
+import { Icon } from '../../components/Icon';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { startVoice, stopVoice } from '../../lib/voice';
@@ -836,13 +837,20 @@ ${text}`
               {preview ? t('editor.edit') : t('editor.preview')}
             </Text>
             <Text className="icon-btn" onClick={toggleVoice}>
-              {listening ? (voiceText ? `🎙${voiceText.slice(-6)}` : '🎙') : '🎤'}
+              {listening ? (
+                <>
+                  <Icon name="mic" size={19} color="#1E8C5C" />
+                  {voiceText ? voiceText.slice(-6) : ''}
+                </>
+              ) : (
+                <Icon name="mic" size={19} />
+              )}
             </Text>
             <Text className="mint-btn mint-btn-sm" onClick={onManualSave}>
               {t('editor.save')}
             </Text>
             <Text className="icon-btn" onClick={() => setMenuOpen(true)}>
-              ⋯
+              <Icon name="more" size={19} />
             </Text>
           </View>
         </View>
@@ -871,7 +879,7 @@ ${text}`
                       className="backlink-item"
                       onClick={() => onBacklinkTap(bl.id)}
                     >
-                      📄 {bl.title}
+                      {bl.title}
                     </Text>
                   ))}
                 </View>
@@ -1016,7 +1024,12 @@ ${text}`
                   void togglePinned();
                 }}
               >
-                📌 {note?.isPinned ? t('editor.unpin') : t('editor.pin')}
+                <View className="menu-item-row">
+                  <Icon name={note?.isPinned ? 'bookmark-filled' : 'bookmark'} size={19} />
+                  <Text className="menu-item-label">
+                    {note?.isPinned ? t('editor.unpin') : t('editor.pin')}
+                  </Text>
+                </View>
               </Text>
               <Text
                 className="menu-item"
@@ -1025,7 +1038,12 @@ ${text}`
                   void toggleFavorite();
                 }}
               >
-                {note?.isFavorite ? `⭐ ${t('editor.unfavorite')}` : `⭐ ${t('editor.favorite')}`}
+                <View className="menu-item-row">
+                  <Icon name={note?.isPinned ? 'star-filled' : 'star'} size={19} />
+                  <Text className="menu-item-label">
+                    {note?.isFavorite ? t('editor.unfavorite') : t('editor.favorite')}
+                  </Text>
+                </View>
               </Text>
               <Text
                 className="menu-item"
@@ -1034,7 +1052,10 @@ ${text}`
                   onEditTags();
                 }}
               >
-                🏷 {t('editor.edit_tags')}
+                <View className="menu-item-row">
+                  <Icon name="tag" size={19} />
+                  <Text className="menu-item-label">{t('editor.edit_tags')}</Text>
+                </View>
               </Text>
               <Text
                 className="menu-item"
@@ -1043,7 +1064,10 @@ ${text}`
                   void onMoveFolder();
                 }}
               >
-                📁 {t('editor.move')}
+                <View className="menu-item-row">
+                  <Icon name="folder" size={19} />
+                  <Text className="menu-item-label">{t('editor.move')}</Text>
+                </View>
               </Text>
               <Text
                 className="menu-item"
@@ -1052,7 +1076,10 @@ ${text}`
                   openApplyTemplate();
                 }}
               >
-                📋 {t('editor.apply_template')}
+                <View className="menu-item-row">
+                  <Icon name="layers" size={19} />
+                  <Text className="menu-item-label">{t('editor.apply_template')}</Text>
+                </View>
               </Text>
               {mode === 'online' && (
                 <Text
@@ -1062,7 +1089,10 @@ ${text}`
                     void openHistory();
                   }}
                 >
-                  🕘 {t('editor.history')}
+                  <View className="menu-item-row">
+                    <Icon name="clock" size={19} />
+                    <Text className="menu-item-label">{t('editor.history')}</Text>
+                  </View>
                 </Text>
               )}
               {mode === 'online' && (
@@ -1073,7 +1103,10 @@ ${text}`
                     openShare();
                   }}
                 >
-                  🔗 {t('editor.share')}
+                  <View className="menu-item-row">
+                    <Icon name="share" size={19} />
+                    <Text className="menu-item-label">{t('editor.share')}</Text>
+                  </View>
                 </Text>
               )}
               {mode === 'online' && (
@@ -1084,7 +1117,10 @@ ${text}`
                     void saveAsTemplate();
                   }}
                 >
-                  🗂 {t('editor.save_as_template')}
+                  <View className="menu-item-row">
+                    <Icon name="copy" size={19} />
+                    <Text className="menu-item-label">{t('editor.save_as_template')}</Text>
+                  </View>
                 </Text>
               )}
               <Text
@@ -1094,7 +1130,10 @@ ${text}`
                   onDelete();
                 }}
               >
-                🗑️ {t('common.delete')}
+                <View className="menu-item-row">
+                  <Icon name="trash" size={19} />
+                  <Text className="menu-item-label">{t('common.delete')}</Text>
+                </View>
               </Text>
             </View>
           </View>

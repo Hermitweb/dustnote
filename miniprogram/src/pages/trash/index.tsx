@@ -7,6 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
+import { Icon } from '../../components/Icon';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore, decryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
@@ -166,7 +167,9 @@ export default function Trash() {
           {loading && <View className="loading">{t('common.loading')}</View>}
           {!loading && notes.length === 0 && (
             <View className="empty-state">
-              <Text className="empty-state-icon">🗑️</Text>
+              <View className="empty-state-icon">
+                <Icon name="trash" size={36} />
+              </View>
               <Text className="empty-state-text">{t('trash.empty')}</Text>
             </View>
           )}
@@ -174,8 +177,8 @@ export default function Trash() {
             <View key={n.id} className="note-row">
               <View className="note-row-head">
                 <View className="note-icons">
-                  {n.isPinned ? <Text>📌</Text> : null}
-                  {n.isFavorite ? <Text>⭐</Text> : null}
+                  {n.isPinned ? <Icon name="bookmark-filled" size={14} color="#F5A65B" /> : null}
+                  {n.isFavorite ? <Icon name="star-filled" size={14} color="#E8B86B" /> : null}
                 </View>
                 <Text className="note-title">{titles[n.id] || t('common.unnamed_note')}</Text>
               </View>

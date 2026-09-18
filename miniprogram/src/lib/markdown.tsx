@@ -81,11 +81,11 @@ function renderInline(
             if (onWikilink) {
               onWikilink(title);
             } else {
-              Taro.showToast({ title: `📄 ${title}`, icon: 'none' });
+              Taro.showToast({ title, icon: 'none' });
             }
           }}
         >
-          📄 {display}
+          {display}
         </Text>
       );
     } else if (m[5]) {

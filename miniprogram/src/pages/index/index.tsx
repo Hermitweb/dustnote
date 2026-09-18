@@ -16,6 +16,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Image } from '@tarojs/components';
 import { FInput } from '../../components/FInput';
+import { Icon } from '../../components/Icon';
 import logoUrl from '../../assets/logo.png';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
@@ -349,7 +350,7 @@ function IndexBody() {
   const pickFolderFromList = (folderList: Folder[]): Promise<string | null> =>
     openPickSheet({
       title: t('index.pick_folder'),
-      items: folderList.map((f) => ({ key: f.id, label: `📁 ${f.name}` })),
+      items: folderList.map((f) => ({ key: f.id, label: f.name, icon: 'folder' as const })),
     });
 
   const batchPatch = async (field: 'isPinned' | 'isFavorite', val: boolean) => {
@@ -679,7 +680,7 @@ function IndexBody() {
           {selecting ? (
             <>
               <Text className="topbar-back" onClick={exitSelect}>
-                ✕
+                <Icon name="close" size={15} />
               </Text>
               <Text className="topbar-title" onClick={toggleAll}>
                 {hasAll
@@ -698,10 +699,10 @@ function IndexBody() {
                   className="icon-btn"
                   onClick={() => Taro.navigateTo({ url: '/pages/settings/index' })}
                 >
-                  ⚙️
+                  <Icon name="settings" size={21} />
                 </Text>
                 <Text className="icon-btn" onClick={() => lock()}>
-                  🔒
+                  <Icon name="lock" size={21} />
                 </Text>
               </View>
             </>
@@ -718,7 +719,7 @@ function IndexBody() {
             />
             {searchQuery ? (
               <Text className="search-clear" onClick={() => setSearchQuery('')}>
-                ✕
+                <Icon name="close" size={15} />
               </Text>
             ) : null}
           </View>
@@ -773,7 +774,7 @@ function IndexBody() {
               <View className="folder-tabs-inner">
                 {subFoldersOf(selectedFolderId, folders as Folder[]).map((f) => (
                   <Text key={f.id} className="folder-chip" onClick={() => selectFolder(f.id)}>
-                    📁 {f.name}
+                    <Icon name="folder" size={15} /> {f.name}
                   </Text>
                 ))}
               </View>
@@ -822,7 +823,9 @@ function IndexBody() {
           {loading && <View className="loading">{t('common.loading')}</View>}
           {!loading && loadError && (
             <View className="empty-state">
-              <Text className="empty-state-icon">⚠️</Text>
+              <View className="empty-state-icon">
+                <Icon name="alert" size={36} />
+              </View>
               <Text className="empty-state-text">{t('common.load_failed')}</Text>
               <Text className="empty-state-retry" onClick={() => void load()}>
                 {t('common.retry')}
@@ -831,9 +834,14 @@ function IndexBody() {
           )}
           {!loading && !loadError && visibleNotes.length === 0 && (
             <View className="empty-state">
-              <Text className="empty-state-icon">
-                {viewMode === 'trash' ? '🗑️' : viewMode === 'favorite' ? '⭐' : '📝'}
-              </Text>
+              <View className="empty-state-icon">
+                <Icon
+                  name={
+                    viewMode === 'trash' ? 'trash' : viewMode === 'favorite' ? 'star' : 'file-text'
+                  }
+                  size={36}
+                />
+              </View>
               <Text className="empty-state-text">
                 {viewMode === 'trash'
                   ? t('index.empty_trash')
@@ -857,12 +865,12 @@ function IndexBody() {
                       className={`checkbox${checked ? ' checkbox-checked' : ''}`}
                       onClick={() => toggleSelect(n.id)}
                     >
-                      {checked && <Text className="checkbox-mark">✓</Text>}
+                      {checked && <Icon name="check" size={12} color="#FFFFFF" />}
                     </View>
                   )}
                   <View className="note-icons">
-                    {n.isPinned ? <Text>📌</Text> : null}
-                    {n.isFavorite ? <Text>⭐</Text> : null}
+                    {n.isPinned ? <Icon name="bookmark-filled" size={14} color="#F5A65B" /> : null}
+                    {n.isFavorite ? <Icon name="star-filled" size={14} color="#E8B86B" /> : null}
                   </View>
                   <Text
                     className="note-title"
@@ -903,7 +911,7 @@ function IndexBody() {
                       className="mint-btn mint-btn-sm mint-btn-ghost"
                       onClick={() => void pinSingle(n)}
                     >
-                      {n.isPinned ? `📌 ${t('index.unpin')}` : `📌 ${t('index.pin')}`}
+                      {n.isPinned ? `${t('index.unpin')}` : `${t('index.pin')}`}
                     </Text>
                     <Text
                       className="mint-btn mint-btn-sm mint-btn-ghost"
@@ -924,7 +932,7 @@ function IndexBody() {
                         className="mint-btn mint-btn-sm mint-btn-ghost"
                         onClick={() => void shareFromList(n)}
                       >
-                        🔗 {t('index.share')}
+                        t('index.share')
                       </Text>
                     )}
                     <Text
@@ -951,30 +959,36 @@ function IndexBody() {
             <View className="batch-bar-actions">
               {viewMode !== 'trash' && (
                 <>
-                  <Text className="batch-btn" onClick={batchMove}>
+                  <View className="batch-btn" onClick={batchMove}>
+                    <Icon name="folder" size={15} />
                     {t('index.batch_move')}
-                  </Text>
-                  <Text className="batch-btn" onClick={() => batchPatch('isPinned', true)}>
+                  </View>
+                  <View className="batch-btn" onClick={() => batchPatch('isPinned', true)}>
+                    <Icon name="bookmark" size={15} />
                     {t('index.batch_pin')}
-                  </Text>
-                  <Text className="batch-btn" onClick={() => batchPatch('isFavorite', true)}>
+                  </View>
+                  <View className="batch-btn" onClick={() => batchPatch('isFavorite', true)}>
+                    <Icon name="star" size={15} />
                     {t('index.batch_favorite')}
-                  </Text>
+                  </View>
                 </>
               )}
               {viewMode === 'trash' ? (
                 <>
-                  <Text className="batch-btn" onClick={batchRestore}>
+                  <View className="batch-btn" onClick={batchRestore}>
+                    <Icon name="refresh" size={15} />
                     {t('index.batch_restore')}
-                  </Text>
-                  <Text className="batch-btn batch-btn-danger" onClick={batchPermDelete}>
+                  </View>
+                  <View className="batch-btn batch-btn-danger" onClick={batchPermDelete}>
+                    <Icon name="trash" size={15} />
                     {t('index.batch_perm_delete')}
-                  </Text>
+                  </View>
                 </>
               ) : (
-                <Text className="batch-btn batch-btn-danger" onClick={batchDelete}>
+                <View className="batch-btn batch-btn-danger" onClick={batchDelete}>
+                  <Icon name="trash" size={15} />
                   {t('index.batch_delete')}
-                </Text>
+                </View>
               )}
             </View>
           </View>
@@ -992,11 +1006,13 @@ function IndexBody() {
                 // 选模板:预设 + 服务端自定义(联机)
                 const customItems = serverTemplates.map((tp) => ({
                   key: `c:${tp.id}`,
-                  label: `🗂 ${tp.name}`,
+                  label: tp.name,
+                  icon: 'layers' as const,
                 }));
                 const presetItems = PRESET_TEMPLATES.map((tp, i) => ({
                   key: `p:${i}`,
-                  label: `${tp.icon} ${tp.name}`,
+                  label: tp.name,
+                  icon: 'file-text' as const,
                 }));
                 // F11：走统一的 openPickSheet（与选文件夹共用 resolver 槽）——
                 // 否则本 Promise 不在守卫内,被其他入口覆盖时会永久悬空
@@ -1058,7 +1074,7 @@ function IndexBody() {
               }
             }}
           >
-            <Text>📄</Text>
+            <Icon name="layers" size={22} />
           </View>
         )}
 
@@ -1139,7 +1155,7 @@ function IndexBody() {
               }
             }}
           >
-            <Text>+</Text>
+            <Icon name="plus" size={26} color="#FFFFFF" />
           </View>
         )}
 
