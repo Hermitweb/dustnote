@@ -12,7 +12,6 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Icon } from './Icon';
 import i18n from '../lib/i18n';
 import { getStorageUsage, cleanupCache } from '../lib/db';
 import { exportDiagnostics } from '../lib/diagnostics';
@@ -113,7 +112,7 @@ export function DiagnosticsPanel() {
           onClick={() => void exportDiagnostics()}
           className="flex-1 rounded-lg border border-surface-border px-3 py-1.5 text-xs text-surface-fg hover:bg-surface-bg"
         >
-          <Icon name="list" size={13} /> {t('settings.export_diagnostics')}
+          📋 {t('settings.export_diagnostics')}
         </button>
         <button
           onClick={() => void handleCleanup()}

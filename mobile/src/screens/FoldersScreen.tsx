@@ -31,7 +31,6 @@ import {
 } from 'react-native';
 import { FTextInput } from '../components/FTextInput';
 import { useTranslation } from 'react-i18next';
-import { Icon } from '../components/Icon';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
 import { useColors } from '../theme';
@@ -180,7 +179,7 @@ export function FoldersScreen() {
     ]);
   };
 
-  // 行内「＋」的创建子文件夹 Modal（在该文件夹下新建）
+  // 行内 ➕ 的创建子文件夹 Modal（在该文件夹下新建）
   const [createModal, setCreateModal] = useState<{ parentId: string } | null>(null);
   const [createName, setCreateName] = useState('');
 
@@ -279,7 +278,7 @@ export function FoldersScreen() {
         <Text style={styles.metaLabel}>{t('folders.create_in')}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
           <Chip
-            label={t('folders.parent_top')}
+            label={`📁 ${t('folders.parent_top')}`}
             active={parentSel === null}
             onPress={() => setParentSel(null)}
             styles={styles}
@@ -287,7 +286,7 @@ export function FoldersScreen() {
           {parentCandidates.map((f) => (
             <Chip
               key={f.id}
-              label={f.name}
+              label={`📁 ${f.name}`}
               active={parentSel === f.id}
               onPress={() => setParentSel(f.id)}
               styles={styles}
@@ -306,7 +305,7 @@ export function FoldersScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Icon name="folder" size={34} />
+            <Text style={styles.emptyEmoji}>📁</Text>
             <Text style={styles.emptyText}>{t('folders.empty')}</Text>
           </View>
         }
@@ -332,7 +331,7 @@ export function FoldersScreen() {
                     {isExpanded ? '▼' : '▶'}
                   </Text>
                 ) : null}
-                <Icon name="folder" size={18} />
+                <Text style={styles.rowIcon}>📁</Text>
                 <Text style={styles.rowName} numberOfLines={1}>
                   {item.name}
                   {hasChildren ? ` (${folders.filter((f) => f.parentId === item.id).length})` : ''}
@@ -347,7 +346,7 @@ export function FoldersScreen() {
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
-                <Icon name="plus" size={16} />
+                <Text style={styles.rowActionText}>➕</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.rowAction}
@@ -357,7 +356,7 @@ export function FoldersScreen() {
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
-                <Icon name="edit" size={16} />
+                <Text style={styles.rowActionText}>✏️</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.rowAction}
@@ -366,14 +365,14 @@ export function FoldersScreen() {
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
-                <Icon name="folder" size={16} />
+                <Text style={styles.rowActionText}>📁</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.rowAction}
                 onPress={() => handleDelete(item)}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
-                <Icon name="trash" size={16} color="#E07B6C" />
+                <Text style={styles.rowActionText}>🗑️</Text>
               </TouchableOpacity>
             </View>
           );
@@ -446,7 +445,7 @@ export function FoldersScreen() {
             )}
             <ScrollView style={{ maxHeight: 300 }}>
               <TouchableOpacity style={styles.moveRow} onPress={() => void handleMove(null)}>
-                <Icon name="folder" size={17} />
+                <Text style={styles.moveRowIcon}>📁</Text>
                 <Text style={styles.moveRowName}>{t('folders.parent_top')}</Text>
               </TouchableOpacity>
               {moveTargets.map((f) => (
@@ -455,7 +454,7 @@ export function FoldersScreen() {
                   style={styles.moveRow}
                   onPress={() => void handleMove(f.id)}
                 >
-                  <Icon name="folder" size={17} />
+                  <Text style={styles.moveRowIcon}>{BRANCH_ICON[f.branch ?? 'work'] ?? '📁'}</Text>
                   <Text style={styles.moveRowName}>{f.name}</Text>
                 </TouchableOpacity>
               ))}
@@ -463,7 +462,7 @@ export function FoldersScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
-      {/* 行内「＋」的创建子文件夹 Modal */}
+      {/* 行内 ➕ 的创建子文件夹 Modal */}
       <Modal visible={createModal !== null} transparent animationType="fade">
         <TouchableOpacity style={styles.modalMask} onPress={() => setCreateModal(null)}>
           <View style={styles.modalCard}>

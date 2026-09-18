@@ -10,7 +10,6 @@ import { useTranslation } from 'react-i18next';
 import { isValidRecoveryCode } from '@dustnote/shared';
 import { useStore } from '../lib/store';
 import { errorText } from '../lib/error-text';
-import { Icon } from '../components/Icon';
 
 interface Props {
   onBack: () => void;
@@ -58,7 +57,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
       <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 shadow-xl">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-mint-100 text-3xl dark:bg-mint-900/30">
-            <Icon name="lock" size={26} className="text-mint-600" />
+            🔑
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('auth.recover_title')}</h1>
           <p className="mt-2 text-sm text-surface-muted">{t('auth.recover_standalone_subtitle')}</p>

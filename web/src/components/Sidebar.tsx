@@ -5,7 +5,6 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { TemplatePicker } from './TemplatePicker';
 import { SearchIndex, highlightMatches, type SearchHit } from '../lib/search';
 import { toast } from '../lib/toast';
-import { Icon } from './Icon';
 import { Logo } from './Logo';
 import { ConfirmDialog } from './ConfirmDialog';
 import JSZip from 'jszip';
@@ -335,8 +334,8 @@ export function Sidebar() {
           >
             ✓
           </span>
-          <Icon name="file-text" size={12} className="text-surface-muted" />
-          {n.isPinned && <Icon name="bookmark-filled" size={12} className="text-amber-500" />}
+          <span className="text-xs">📄</span>
+          {n.isPinned && <span className="text-xs">📌</span>}
           <span className="truncate text-surface-fg">{plain?.title ?? '...'}</span>
         </div>
       );
@@ -354,8 +353,8 @@ export function Sidebar() {
             : 'text-surface-fg hover:bg-surface-bg'
         }`}
       >
-        <Icon name="file-text" size={12} className="text-surface-muted" />
-        {n.isPinned && <Icon name="bookmark-filled" size={12} className="text-amber-500" />}
+        <span className="text-xs">📄</span>
+        {n.isPinned && <span className="text-xs">📌</span>}
         <span className="truncate">{plain?.title ?? '...'}</span>
       </button>
     );
@@ -620,7 +619,7 @@ export function Sidebar() {
                 title={t('templates.open')}
                 aria-label={t('templates.open')}
               >
-                <Icon name="layers" size={16} />
+                📋
               </button>
             </div>
           )}
@@ -639,7 +638,7 @@ export function Sidebar() {
           <div className="mb-2 px-1">
             <div className="relative">
               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-surface-muted">
-                <Icon name="search" size={13} />
+                🔍
               </span>
               <input
                 ref={searchInputRef}
@@ -774,7 +773,7 @@ export function Sidebar() {
                             : 'text-surface-fg'
                         }`}
                       >
-                        {f.icon ? <span>{f.icon}</span> : <Icon name="folder" size={14} />}
+                        <span>{f.icon ?? '📁'}</span>
                         <span className="truncate">{f.name}</span>
                         {fNotes.length > 0 && (
                           <span className="text-xs text-surface-muted">{fNotes.length}</span>
@@ -863,11 +862,7 @@ export function Sidebar() {
                                       : 'text-surface-fg'
                                   }`}
                                 >
-                                  {c.icon ? (
-                                    <span>{c.icon}</span>
-                                  ) : (
-                                    <Icon name="folder" size={14} />
-                                  )}
+                                  <span>{c.icon ?? '📁'}</span>
                                   <span className="truncate">{c.name}</span>
                                   {subNotes.length > 0 && (
                                     <span className="text-xs text-surface-muted">
@@ -905,7 +900,7 @@ export function Sidebar() {
                       className="flex h-7 flex-1 items-center gap-1.5 overflow-hidden px-2 text-left text-sm text-surface-fg"
                       title={t('editor.unfiled')}
                     >
-                      <Icon name="file-text" size={14} />
+                      <span>📝</span>
                       <span className="truncate">{t('editor.unfiled')}</span>
                       <span className="ml-auto text-xs text-surface-muted">{unfiledCount}</span>
                     </button>
@@ -932,7 +927,7 @@ export function Sidebar() {
                             if (isUnfiledScope)
                               return `${t('editor.unfiled')} (${visibleNotes.length})`;
                             const f = folders.find((x) => x.id === selectedFolderId);
-                            return `${f ? f.name : t('sidebar.notes')} (${visibleNotes.length})`;
+                            return `${f ? `${f.icon ?? '📁'} ${f.name}` : t('sidebar.notes')} (${visibleNotes.length})`;
                           })()}
                 </span>
                 {!isTrash && visibleNotes.length > 0 && (
@@ -1009,12 +1004,8 @@ export function Sidebar() {
                           }`}
                         >
                           <div className="flex items-center gap-1.5">
-                            {n.isPinned && (
-                              <Icon name="bookmark-filled" size={12} className="text-amber-500" />
-                            )}
-                            {n.isFavorite && (
-                              <Icon name="star-filled" size={12} className="text-amber-400" />
-                            )}
+                            {n.isPinned && <span className="text-xs">📌</span>}
+                            {n.isFavorite && <span className="text-xs">⭐</span>}
                             {plain ? (
                               <HighlightedTitle
                                 title={plain.title}
@@ -1047,7 +1038,7 @@ export function Sidebar() {
                             }}
                             className="rounded bg-surface-bg p-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
                           >
-                            <Icon name="trash" size={13} />
+                            🗑️
                           </button>
                         </div>
                       )}
@@ -1078,7 +1069,7 @@ export function Sidebar() {
                   : 'text-surface-fg hover:bg-surface-bg'
               }`}
             >
-              <Icon name="list" size={13} className="min-w-fit" />
+              <span className="min-w-fit">📋</span>
               <span className="min-w-fit whitespace-nowrap">{t('sidebar.all')}</span>
             </button>
             <button
@@ -1089,7 +1080,7 @@ export function Sidebar() {
                   : 'text-surface-fg hover:bg-surface-bg'
               }`}
             >
-              <Icon name="star" size={13} className="min-w-fit" />
+              <span className="min-w-fit">⭐</span>
               <span className="min-w-fit whitespace-nowrap">{t('sidebar.favorites')}</span>
             </button>
             <button
@@ -1100,7 +1091,7 @@ export function Sidebar() {
                   : 'text-surface-fg hover:bg-surface-bg'
               }`}
             >
-              <Icon name="trash" size={13} className="min-w-fit" />
+              <span className="min-w-fit">🗑️</span>
               <span className="min-w-fit whitespace-nowrap">
                 {t('sidebar.trash')}
                 {trashCount > 0 ? ` (${trashCount})` : ''}
@@ -1205,7 +1196,7 @@ export function Sidebar() {
                     }}
                     className="block w-full truncate rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
                   >
-                    {f.name}
+                    {f.icon ?? '📁'} {f.name}
                   </button>
                 ))}
               </div>
@@ -1498,7 +1489,7 @@ export function Sidebar() {
                     onClick={() => void doMoveTarget(f.id)}
                     className="block w-full truncate rounded px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
                   >
-                    {f.name}
+                    {f.icon ?? '📁'} {f.name}
                   </button>
                 ))}
             </div>

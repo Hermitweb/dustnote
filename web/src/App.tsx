@@ -1,6 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Icon } from './components/Icon';
 import { useStore } from './lib/store';
 import type { ThemeId, Mode } from './lib/store';
 import { useModeStore, hasModeDefaultApplied, markModeDefaultApplied } from './lib/mode-store';
@@ -333,7 +332,7 @@ function App() {
     return (
       <div className="flex h-full items-center justify-center bg-surface-bg p-6">
         <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
-          <Icon name="alert" size={36} className="mb-4 text-amber-500" />
+          <div className="mb-4 text-4xl">⚠️</div>
           <h2 className="mb-2 text-lg font-semibold text-surface-fg">无法连接到服务器</h2>
           <p className="mb-1 text-sm text-surface-muted">请确认服务器已启动且地址正确。</p>
           {serverError && (
@@ -434,7 +433,7 @@ function App() {
                   title={t('shares.title')}
                   aria-label={t('shares.title')}
                 >
-                  <Icon name="share" size={16} />
+                  🔗
                 </button>
               </>
             )}
@@ -444,7 +443,7 @@ function App() {
               title={t('app_bar.settings')}
               aria-label={t('app_bar.settings')}
             >
-              <Icon name="settings" size={16} />
+              ⚙️
             </button>
             <button
               onClick={lock}
@@ -452,7 +451,7 @@ function App() {
               title={t('app_bar.lock')}
               aria-label={t('app_bar.lock')}
             >
-              <Icon name="lock" size={16} />
+              🔒
             </button>
           </div>
         </header>

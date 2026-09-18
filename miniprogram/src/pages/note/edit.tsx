@@ -91,24 +91,6 @@ export default function NoteEdit() {
   const [listening, setListening] = useState(false);
   const [voiceText, setVoiceText] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
-  // ⋯ 菜单退出动画：menuOpen 置 false 前先播滑出（menu-sheet-closing）,
-  // 200ms 后再真正卸载;期间 overlay 仍遮挡屏幕
-  const [menuClosing, setMenuClosing] = useState(false);
-  const menuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (menuCloseTimer.current) clearTimeout(menuCloseTimer.current);
-    },
-    []
-  );
-  const closeMenu = () => {
-    if (!menuOpen || menuClosing) return;
-    setMenuClosing(true);
-    menuCloseTimer.current = setTimeout(() => {
-      setMenuClosing(false);
-      setMenuOpen(false);
-    }, 200);
-  };
   // 应用模板选择弹层（对齐安卓端工具栏模板按钮）
   const [tplPick, setTplPick] = useState<Parameters<typeof PickSheet>[0] | null>(null);
   const [note, setNote] = useState<NoteData | null>(null);
@@ -1011,16 +993,13 @@ ${text}`
           </View>
         )}
 
-        {(menuOpen || menuClosing) && (
-          <View className={`menu-overlay${menuClosing ? ' menu-overlay-closing' : ''}`}>
-            <View
-              className={`menu-sheet${menuClosing ? ' menu-sheet-closing' : ''}`}
-              onClick={(e) => e.stopPropagation()}
-            >
+        {menuOpen && (
+          <View className="menu-overlay" onClick={() => setMenuOpen(false)}>
+            <View className="menu-sheet" onClick={(e) => e.stopPropagation()}>
               <Text
                 className="menu-item"
                 onClick={() => {
-                  closeMenu();
+                  setMenuOpen(false);
                   void togglePinned();
                 }}
               >
@@ -1034,7 +1013,7 @@ ${text}`
               <Text
                 className="menu-item"
                 onClick={() => {
-                  closeMenu();
+                  setMenuOpen(false);
                   void toggleFavorite();
                 }}
               >
@@ -1048,7 +1027,7 @@ ${text}`
               <Text
                 className="menu-item"
                 onClick={() => {
-                  closeMenu();
+                  setMenuOpen(false);
                   onEditTags();
                 }}
               >
@@ -1060,7 +1039,7 @@ ${text}`
               <Text
                 className="menu-item"
                 onClick={() => {
-                  closeMenu();
+                  setMenuOpen(false);
                   void onMoveFolder();
                 }}
               >
@@ -1072,7 +1051,7 @@ ${text}`
               <Text
                 className="menu-item"
                 onClick={() => {
-                  closeMenu();
+                  setMenuOpen(false);
                   openApplyTemplate();
                 }}
               >
@@ -1085,7 +1064,7 @@ ${text}`
                 <Text
                   className="menu-item"
                   onClick={() => {
-                    closeMenu();
+                    setMenuOpen(false);
                     void openHistory();
                   }}
                 >
@@ -1099,7 +1078,7 @@ ${text}`
                 <Text
                   className="menu-item"
                   onClick={() => {
-                    closeMenu();
+                    setMenuOpen(false);
                     openShare();
                   }}
                 >
@@ -1113,7 +1092,7 @@ ${text}`
                 <Text
                   className="menu-item"
                   onClick={() => {
-                    closeMenu();
+                    setMenuOpen(false);
                     void saveAsTemplate();
                   }}
                 >
@@ -1126,7 +1105,7 @@ ${text}`
               <Text
                 className="menu-item menu-item-danger"
                 onClick={() => {
-                  closeMenu();
+                  setMenuOpen(false);
                   onDelete();
                 }}
               >

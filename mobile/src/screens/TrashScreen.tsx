@@ -28,7 +28,6 @@ import {
 } from 'react-native';
 import { noteAad, type NoteRow } from '@dustnote/shared';
 import { useTranslation } from 'react-i18next';
-import { Icon } from '../components/Icon';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
@@ -170,14 +169,14 @@ export function TrashScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Icon name="trash" size={34} />
+            <Text style={styles.emptyEmoji}>🗑️</Text>
             <Text style={styles.emptyText}>{t('trash.empty')}</Text>
           </View>
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.cardTitle} numberOfLines={1}>
-              {item.plain?.title ?? '解密失败'}
+              {item.plain?.title ?? '🔒'}
             </Text>
             <Text style={styles.cardMeta}>
               {new Date(item.serverUpdatedAt).toLocaleString('zh-CN')}

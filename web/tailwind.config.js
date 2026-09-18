@@ -5,16 +5,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 主题色（与 theme-system.md 对齐；青瓷绿，与小程序端/app.scss 同一色系）
+        // 主题色（与 theme-system.md 对齐）
         mint: {
-          50: '#f1f9f4',
-          100: '#e3f3ea',
-          200: '#c2e6d5',
-          300: '#8fd3b3',
-          400: '#4fbb8d',
-          500: '#2fa871',
-          600: '#1e8c5c',
-          700: '#156b46',
+          50: '#f0fdf4',
+          100: '#dcfce7',
+          200: '#bbf7d0',
+          300: '#86efac',
+          400: '#4ade80',
+          500: '#22c55e',
+          600: '#16a34a',
+          700: '#15803d',
         },
         // 灰阶
         surface: {

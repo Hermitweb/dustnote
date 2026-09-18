@@ -15,7 +15,6 @@ import { wikilinkExtension, extractWikilinks, buildBacklinkIndex } from '../lib/
 import { filterSlashCommands, resolveSlashCommand, type SlashCommand } from '../lib/slash-commands';
 import { storeImage } from '../lib/image-store';
 import { toast } from '../lib/toast';
-import { Icon, type IconName } from './Icon';
 const NoteHistoryDialog = lazy(() =>
   import('./NoteHistoryDialog').then((m) => ({ default: m.NoteHistoryDialog }))
 );
@@ -442,7 +441,7 @@ export function Editor() {
     return (
       <main className="flex flex-1 items-center justify-center bg-surface-bg text-surface-muted">
         <div className="text-center">
-          <Icon name="file-text" size={44} className="mb-2 opacity-40" />
+          <div className="mb-2 text-5xl opacity-50">📝</div>
           <p>{t('editor.empty')}</p>
         </div>
       </main>
@@ -501,7 +500,7 @@ export function Editor() {
               onClick={() => wrapSelection('*', '*', t('editor.fmt_italic_text'))}
             />
             <FmtBtn
-              icon="link"
+              label="🔗"
               title={t('editor.format_link')}
               disabled={mode === 'preview'}
               onClick={() => wrapSelection('[', '](url)', t('editor.fmt_link_text'))}
@@ -545,7 +544,7 @@ export function Editor() {
                 className="rounded p-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
                 title={t('editor.perm_delete')}
               >
-                <Icon name="trash" size={13} /> {t('editor.perm_delete')}
+                🗑️ {t('editor.perm_delete')}
               </button>
             </>
           ) : (
@@ -559,14 +558,14 @@ export function Editor() {
                 className={`rounded p-1.5 text-xs ${note.isPinned ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40' : 'text-surface-muted hover:bg-surface-bg'}`}
                 title={t('editor.pin')}
               >
-                <Icon name={note.isPinned ? 'bookmark-filled' : 'bookmark'} size={15} />
+                📌
               </button>
               <button
                 onClick={() => void updateNote(note.id, { isFavorite: !note.isFavorite })}
                 className={`rounded p-1.5 text-xs ${note.isFavorite ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40' : 'text-surface-muted hover:bg-surface-bg'}`}
                 title={t('editor.favorite')}
               >
-                <Icon name={note.isFavorite ? 'star-filled' : 'star'} size={15} />
+                ⭐
               </button>
               {/* 移动到文件夹 */}
               <div className="relative">
@@ -575,7 +574,7 @@ export function Editor() {
                   className="rounded p-1.5 text-xs text-surface-muted hover:bg-surface-bg"
                   title={t('editor.move_folder')}
                 >
-                  <Icon name="folder" size={15} />
+                  📁
                 </button>
                 {showMoveMenu && (
                   <>
@@ -595,7 +594,7 @@ export function Editor() {
                           }}
                           className={`block w-full truncate px-3 py-1.5 text-left text-xs hover:bg-surface-bg ${note.folderId === f.id ? 'font-semibold text-mint-600' : 'text-surface-fg'}`}
                         >
-                          {f.name}
+                          {f.icon ?? '📁'} {f.name}
                         </button>
                       ))}
                       {folders.length === 0 && (
@@ -612,7 +611,7 @@ export function Editor() {
                 className="rounded p-1.5 text-xs text-surface-muted hover:bg-surface-bg"
                 title={t('editor.share')}
               >
-                <Icon name="share" size={15} />
+                🔗
               </button>
               {appMode === 'online' && (
                 <button
@@ -629,7 +628,7 @@ export function Editor() {
                   className="rounded p-1.5 text-xs text-surface-muted hover:bg-surface-bg"
                   title={t('templates.save_as')}
                 >
-                  <Icon name="layers" size={15} />
+                  📋
                 </button>
               )}
               {/* B-9 剪贴板/URL 插入 */}
@@ -651,7 +650,7 @@ export function Editor() {
                 className="rounded p-1.5 text-xs text-surface-muted hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30"
                 title={t('editor.delete')}
               >
-                <Icon name="trash" size={15} />
+                🗑️
               </button>
             </>
           )}
@@ -740,7 +739,7 @@ export function Editor() {
                         onMouseEnter={() => setSlashIndex(i)}
                         className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${i === slashIndex ? 'bg-mint-100 text-mint-800 dark:bg-mint-900/30 dark:text-mint-300' : 'text-surface-fg hover:bg-surface-bg'}`}
                       >
-                        <Icon name={cmd.icon as IconName} size={15} />
+                        <span className="text-base">{cmd.icon}</span>
                         <div className="flex-1 truncate">
                           <div className="font-medium">
                             {i18n.language === 'en' ? cmd.labelEn : cmd.label}
@@ -794,7 +793,7 @@ export function Editor() {
                           onClick={() => selectNote(bl.sourceId)}
                           className="block w-full truncate rounded px-2 py-1 text-left text-sm text-mint-600 hover:bg-surface-bg dark:text-mint-400"
                         >
-                          {bl.sourceTitle}
+                          📄 {bl.sourceTitle}
                         </button>
                       ))}
                     </div>
@@ -858,14 +857,11 @@ export function Editor() {
 
 function FmtBtn({
   label,
-  icon,
   title,
   onClick,
   disabled,
 }: {
-  label?: string;
-  /** 传 icon 时用线条图标代替文字（如链接） */
-  icon?: IconName;
+  label: string;
   title: string;
   onClick: () => void;
   disabled?: boolean;
@@ -878,7 +874,7 @@ function FmtBtn({
       title={title}
       type="button"
     >
-      {icon ? <Icon name={icon} size={14} /> : label}
+      {label}
     </button>
   );
 }

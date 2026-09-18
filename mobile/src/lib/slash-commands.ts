@@ -10,21 +10,21 @@ export interface SlashCommand {
 }
 
 export const SLASH_COMMANDS: SlashCommand[] = [
-  { id: 'date', label: '插入日期', icon: 'calendar', insert: '{{date}}' },
-  { id: 'datetime', label: '日期时间', icon: 'clock-plus', insert: '{{date}} {{time}}' },
-  { id: 'heading', label: '标题', icon: 'file-text', insert: '## ' },
-  { id: 'list', label: '列表', icon: 'layers', insert: '- ' },
-  { id: 'todo', label: '待办', icon: 'check-square', insert: '- [ ] ' },
-  { id: 'code', label: '代码块', icon: 'code', insert: '```\n\n```' },
-  { id: 'quote', label: '引用', icon: 'quote', insert: '> ' },
-  { id: 'divider', label: '分割线', icon: 'minus', insert: '\n---\n' },
+  { id: 'date', label: '插入日期', icon: '📅', insert: '{{date}}' },
+  { id: 'datetime', label: '日期时间', icon: '🕐', insert: '{{date}} {{time}}' },
+  { id: 'heading', label: '标题', icon: '📝', insert: '## ' },
+  { id: 'list', label: '列表', icon: '📋', insert: '- ' },
+  { id: 'todo', label: '待办', icon: '✅', insert: '- [ ] ' },
+  { id: 'code', label: '代码块', icon: '💻', insert: '```\n\n```' },
+  { id: 'quote', label: '引用', icon: '💬', insert: '> ' },
+  { id: 'divider', label: '分割线', icon: '➖', insert: '\n---\n' },
   {
     id: 'table',
     label: '表格',
-    icon: 'table',
+    icon: '📊',
     insert: '| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| | | |',
   },
-  { id: 'link', label: '双向链接', icon: 'link', insert: '[[' },
+  { id: 'link', label: '双向链接', icon: '🔗', insert: '[[' },
 ];
 
 export function resolveSlashCommand(insert: string): string {
