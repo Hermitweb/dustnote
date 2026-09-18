@@ -110,7 +110,7 @@ export class AppErrorBoundary extends Component<Props, State> {
             </button>
             <button
               onClick={this.handleReload}
-              className="flex-1 rounded-lg bg-mint-600 px-4 py-2.5 text-sm font-semibold text-on-accent hover:bg-mint-700"
+              className="flex-1 rounded-lg bg-mint-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-mint-700"
             >
               {i18n.t('error_boundary.reload')}
             </button>

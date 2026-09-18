@@ -600,7 +600,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 <button
                   onClick={() => void handleChangePassword()}
                   disabled={pwBusy}
-                  className="w-full rounded-lg bg-mint-600 px-3 py-2 text-sm font-medium text-on-accent hover:bg-mint-700 disabled:opacity-50"
+                  className="w-full rounded-lg bg-mint-600 px-3 py-2 text-sm font-medium text-white hover:bg-mint-700 disabled:opacity-50"
                 >
                   {pwBusy ? t('common.loading') : t('settings.change_password_btn')}
                 </button>
@@ -721,7 +721,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <button
                 onClick={() => setSwitchConfirm(appMode === 'standalone' ? 'online' : 'standalone')}
                 disabled={switchBusy}
-                className="w-full rounded-lg bg-mint-600 px-3 py-2 text-sm font-medium text-on-accent hover:bg-mint-700 disabled:opacity-50"
+                className="w-full rounded-lg bg-mint-600 px-3 py-2 text-sm font-medium text-white hover:bg-mint-700 disabled:opacity-50"
               >
                 {appMode === 'standalone'
                   ? t('settings.switch_to_online')
@@ -797,7 +797,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     setApiSaved(true);
                     setTimeout(() => setApiSaved(false), 1500);
                   }}
-                  className="rounded-lg bg-mint-600 px-3 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-mint-700"
+                  className="rounded-lg bg-mint-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-mint-700"
                 >
                   {apiSaved ? '✅' : t('settings.save_btn')}
                 </button>
@@ -912,7 +912,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                       </span>
                       <button
                         onClick={() => void handleDownloadUpdate()}
-                        className="rounded bg-mint-600 px-3 py-1 text-xs font-medium text-on-accent hover:bg-mint-700"
+                        className="rounded bg-mint-600 px-3 py-1 text-xs font-medium text-white hover:bg-mint-700"
                       >
                         {t('settings.download')}
                       </button>
@@ -990,7 +990,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <div className="mt-1">{t('settings.tech_stack')}</div>
               {pwaInstall.canInstall && (
                 <button
-                  className="mt-2 rounded-md bg-mint-500 px-3 py-1.5 text-xs font-medium text-on-accent hover:bg-mint-600"
+                  className="mt-2 rounded-md bg-mint-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-mint-600"
                   onClick={() => void pwaInstall.install()}
                 >
                   {t('settings.install_pwa')}

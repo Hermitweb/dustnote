@@ -45,12 +45,7 @@ interface ThemePalette {
   fg: string;
   muted: string;
   border: string;
-  /** 主色·文字档：浅底上可读（霓虹原色在白底约 1.3:1，不可作文字） */
   accent: string;
-  /** 主色·填充档：按钮/FAB 等大色块（默认主题为 #12D91E 亮绿） */
-  accentFill: string;
-  /** 填充上的文字色：霓虹绿亮度过高，填充上必须用深色 */
-  onAccent: string;
   accentSoft: string;
 }
 
@@ -62,10 +57,8 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#1C211D',
       muted: '#5C645D',
       border: '#E7E9E2',
-      accent: '#0A7A12',
-      accentFill: '#12D91E',
-      onAccent: '#08260A',
-      accentSoft: '#E9FFEA',
+      accent: '#1E8C5C',
+      accentSoft: '#E3F3EA',
     },
     dark: {
       bg: '#111412',
@@ -73,10 +66,8 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#E9EDE9',
       muted: '#8C968E',
       border: '#262B27',
-      accent: '#7CFF85',
-      accentFill: '#12D91E',
-      onAccent: '#08260A',
-      accentSoft: '#0F2A12',
+      accent: '#45C088',
+      accentSoft: '#14251D',
     },
   },
   'mist-blue': {
@@ -86,8 +77,6 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#0F172A',
       muted: '#475569',
       border: '#CBD5E1',
-      accentFill: '#3B82F6',
-      onAccent: '#FFFFFF',
       accent: '#3B82F6',
       accentSoft: '#DBEAFE',
     },
@@ -97,8 +86,6 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#E2E8F0',
       muted: '#94A3B8',
       border: '#334155',
-      accentFill: '#60A5FA',
-      onAccent: '#FFFFFF',
       accent: '#60A5FA',
       accentSoft: '#1E3A8A',
     },
@@ -110,8 +97,6 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#1D2924',
       muted: '#576056',
       border: '#D7DED1',
-      accentFill: '#657B4E',
-      onAccent: '#FFFFFF',
       accent: '#657B4E',
       accentSoft: '#E6EEDA',
     },
@@ -121,8 +106,6 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#DCE6D7',
       muted: '#94A390',
       border: '#323C32',
-      accentFill: '#94B871',
-      onAccent: '#FFFFFF',
       accent: '#94B871',
       accentSoft: '#374E29',
     },
@@ -134,8 +117,6 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#3F2719',
       muted: '#78604E',
       border: '#E9DCC6',
-      accentFill: '#B45309',
-      onAccent: '#FFFFFF',
       accent: '#B45309',
       accentSoft: '#FEF3C7',
     },
@@ -145,8 +126,6 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#F0E6D7',
       muted: '#B4A082',
       border: '#3C3226',
-      accentFill: '#D97706',
-      onAccent: '#FFFFFF',
       accent: '#D97706',
       accentSoft: '#5A320C',
     },
@@ -158,8 +137,6 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#4C2132',
       muted: '#9C6E7C',
       border: '#F5D7E2',
-      accentFill: '#DB507C',
-      onAccent: '#FFFFFF',
       accent: '#DB507C',
       accentSoft: '#FCE8F0',
     },
@@ -169,8 +146,6 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#F0D7DE',
       muted: '#B48C98',
       border: '#3C2832',
-      accentFill: '#F472B6',
-      onAccent: '#FFFFFF',
       accent: '#F472B6',
       accentSoft: '#701A3C',
     },
@@ -182,8 +157,6 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#171717',
       muted: '#737373',
       border: '#E5E5E5',
-      accentFill: '#171717',
-      onAccent: '#FFFFFF',
       accent: '#171717',
       accentSoft: '#F5F5F5',
     },
@@ -193,8 +166,6 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#F0F0F0',
       muted: '#8C8C8C',
       border: '#323232',
-      accentFill: '#F0F0F0',
-      onAccent: '#FFFFFF',
       accent: '#F0F0F0',
       accentSoft: '#3C3C3C',
     },
@@ -231,19 +202,16 @@ export type ThemeColors = ThemePalette & {
 // ========== 旧静态导出（供未迁移的屏幕使用，例如 SetupScreen） ==========
 // 注意：固定为 mint-dawn 亮/暗色，不会随主题切换变化
 export const accent = {
-  mint50: '#E9FFEA',
-  mint100: '#D6FFD9',
-  mint200: '#C9FFCD',
-  mint300: '#8CFF94',
-  mint400: '#4FFF58',
-  /** 主色·文字档（浅底可读）；霓虹填充见 accentFill */
-  mint500: '#12D91E',
-  mint600: '#0A7A12',
-  mint700: '#0A7A12',
-  mint800: '#0A7A12',
-  mint900: '#08260A',
-  accentFill: '#12D91E',
-  onAccent: '#08260A',
+  mint50: '#F0FAF5',
+  mint100: '#DCEDC8',
+  mint200: '#C5E6BB',
+  mint300: '#A8E6CF',
+  mint400: '#82D3B0',
+  mint500: '#5FBC93',
+  mint600: '#4FB783',
+  mint700: '#3D9068',
+  mint800: '#2F6B4F',
+  mint900: '#1F4636',
   warn: COMMON_ACCENT.warn,
   danger: COMMON_ACCENT.danger,
   success: COMMON_ACCENT.success,
@@ -347,8 +315,6 @@ export function useColors(): ThemeColors {
     return {
       ...palette,
       accent: palette.accent,
-      accentFill: palette.accentFill,
-      onAccent: palette.onAccent,
       accentSoft: palette.accentSoft,
       mint50: palette.accentSoft,
       mint100: palette.accentSoft,

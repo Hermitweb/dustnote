@@ -1161,11 +1161,11 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       width: 36,
       height: 36,
       borderRadius: 8,
-      backgroundColor: c.accentFill,
+      backgroundColor: c.mint600,
       justifyContent: 'center',
       alignItems: 'center',
     },
-    tagAddBtnText: { color: c.onAccent, fontSize: 22, fontWeight: '300' },
+    tagAddBtnText: { color: 'white', fontSize: 22, fontWeight: '300' },
     // Modal 通用样式
     modalContainer: { flex: 1, backgroundColor: c.bg, padding: 16 },
     modalHeader: {

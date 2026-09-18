@@ -18,13 +18,11 @@ page {
   --fg-muted: #8c948c;
   --border: #e7e9e2;
   --border-strong: #d2d6cc;
-  --primary: #12d91e;
-  --primary-strong: #12d91e;
-  --primary-deep: #0a7a12;
-  --primary-press: #0bb017;
-  --primary-soft: #e9ffea;
-  --primary-glow: rgba(18, 217, 30, 0.22);
-  --on-primary: #08260a;
+  --primary: #2fa871;
+  --primary-strong: #1e8c5c;
+  --primary-deep: #156b46;
+  --primary-soft: #e3f3ea;
+  --primary-glow: rgba(30, 140, 92, 0.2);
   --accent: #f5a65b;
   --warning: #e8b86b;
   --danger: #e07b6c;
@@ -131,7 +129,7 @@ page {
   color: var(--danger);
 }
 .text-mint {
-  color: var(--primary-deep);
+  color: var(--primary-strong);
 }
 .text-sm {
   font-size: 24rpx;
@@ -233,7 +231,7 @@ page {
   align-items: center;
   justify-content: center;
   background: var(--primary-strong);
-  color: var(--on-primary);
+  color: #fff;
   border-radius: var(--radius-sm);
   padding: 20rpx 36rpx;
   font-size: 28rpx;
@@ -249,7 +247,7 @@ page {
   gap: 8rpx;
 }
 .mint-btn:active {
-  background: var(--primary-press);
+  background: var(--primary-deep);
   transform: scale(0.97);
 }
 .mint-btn-block {
@@ -272,7 +270,7 @@ page {
   color: var(--primary-deep);
 }
 .mint-btn-ghost:active {
-  background: #c9ffcd;
+  background: #d3ecdf;
 }
 .mint-btn-outline {
   background: transparent;
@@ -422,13 +420,13 @@ page {
 
 /* hero 内按钮：深绿底白字 + 大圆角 + 阴影 */
 .hero .mint-btn-block {
-  background: var(--primary-strong);
-  color: var(--on-primary);
+  background: #156b46;
+  color: #fff;
   font-weight: 700;
   font-size: 30rpx;
   padding: 24rpx;
   border-radius: var(--radius-md);
-  box-shadow: 0 4rpx 16rpx rgba(18, 217, 30, 0.3);
+  box-shadow: 0 4rpx 16rpx rgba(21, 107, 70, 0.35);
   max-width: 560rpx;
   letter-spacing: 1rpx;
   transition:
@@ -439,7 +437,7 @@ page {
 .hero .mint-btn-block:active {
   background: #0f5336;
   transform: scale(0.97);
-  box-shadow: 0 2rpx 8rpx rgba(18, 217, 30, 0.22);
+  box-shadow: 0 2rpx 8rpx rgba(21, 107, 70, 0.25);
 }
 
 /* ========== 空状态 / 加载 ========== */
@@ -559,7 +557,7 @@ page {
   border-color: var(--primary-strong);
 }
 .checkbox-mark {
-  color: var(--on-primary);
+  color: #fff;
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1;
@@ -630,8 +628,8 @@ page {
   width: 100rpx;
   height: 100rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1fe82a, #0bb017);
-  color: var(--on-primary);
+  background: linear-gradient(135deg, #2fa871, #156b46);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -645,9 +643,9 @@ page {
     box-shadow 0.2s ease;
 }
 .fab:active {
-  background: linear-gradient(135deg, #0bb017, #09a214);
+  background: linear-gradient(135deg, #1e8c5c, #0f5336);
   transform: scale(0.92);
-  box-shadow: 0 4rpx 12rpx rgba(18, 217, 30, 0.3);
+  box-shadow: 0 4rpx 12rpx rgba(30, 140, 92, 0.25);
 }
 /* 模板新建入口：FAB 上方的小圆钮 */
 .fab-tpl {
@@ -784,7 +782,7 @@ page {
   padding: 24rpx 32rpx;
 }
 .tag-hash {
-  color: var(--primary-deep);
+  color: var(--primary-strong);
   font-weight: 700;
   font-size: 28rpx;
   margin-right: 6rpx;
@@ -859,7 +857,7 @@ page {
   line-height: 1.6;
 }
 .hint-mint {
-  color: var(--primary-deep);
+  color: var(--primary-strong);
   font-size: 24rpx;
   font-weight: 500;
   transition: color 0.15s;
@@ -873,7 +871,7 @@ page {
   margin-top: 8rpx;
 }
 .success-text {
-  color: var(--primary-deep);
+  color: var(--primary-strong);
   font-size: 24rpx;
   font-weight: 500;
 }
@@ -899,7 +897,7 @@ page {
 /* ========== 分享页 ========== */
 .share-banner {
   height: 6rpx;
-  background: linear-gradient(90deg, #9cf7a2, #12d91e, #0bb017);
+  background: linear-gradient(90deg, #a7dfc2, #2fa871, #156b46);
   border-radius: 3rpx;
   margin-bottom: 32rpx;
 }
@@ -949,7 +947,7 @@ page {
   transition: color 0.2s;
 }
 .view-tab-active {
-  color: var(--primary-deep);
+  color: var(--primary-strong);
   font-weight: 700;
 }
 .view-tab-active::after {
@@ -960,7 +958,7 @@ page {
   transform: translateX(-50%);
   width: 36rpx;
   height: 4rpx;
-  background: var(--primary-deep);
+  background: var(--primary-strong);
   border-radius: 2rpx 2rpx 0 0;
   transition: width 0.2s;
 }
@@ -1006,7 +1004,7 @@ page {
 }
 .folder-chip-active {
   background: var(--primary-soft);
-  color: var(--primary-deep);
+  color: var(--primary-strong);
   border-color: var(--primary);
   font-weight: 700;
   box-shadow: 0 2rpx 8rpx var(--primary-glow);
@@ -1084,14 +1082,11 @@ page {
     --fg-muted: #8c968e;
     --border: #262b27;
     --border-strong: #3a423d;
-    --primary: #12d91e;
-    --primary-strong: #12d91e;
-    /* 暗色下亮绿本身就是高对比前景色,文字场景可直接用 */
-    --primary-deep: #7cff85;
-    --primary-press: #0bb017;
-    --primary-soft: #0f2a12;
-    --primary-glow: rgba(18, 217, 30, 0.18);
-    --on-primary: #08260a;
+    --primary: #45c088;
+    --primary-strong: #45c088;
+    --primary-deep: #7cd9ac;
+    --primary-soft: #14251d;
+    --primary-glow: rgba(69, 192, 136, 0.16);
     --danger-soft: #2d1518;
     --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);
     --shadow-sm: 0 1rpx 3rpx rgba(0, 0, 0, 0.3), 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
@@ -1111,13 +1106,11 @@ page {
   --fg-muted: #8c948c;
   --border: #e7e9e2;
   --border-strong: #d2d6cc;
-  --primary: #12d91e;
-  --primary-strong: #12d91e;
-  --primary-deep: #0a7a12;
-  --primary-press: #0bb017;
-  --primary-soft: #e9ffea;
-  --primary-glow: rgba(18, 217, 30, 0.22);
-  --on-primary: #08260a;
+  --primary: #2fa871;
+  --primary-strong: #1e8c5c;
+  --primary-deep: #156b46;
+  --primary-soft: #e3f3ea;
+  --primary-glow: rgba(30, 140, 92, 0.2);
   --danger-soft: #feecec;
   --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.03);
   --shadow-sm: 0 1rpx 3rpx rgba(0, 0, 0, 0.05), 0 1rpx 2rpx rgba(0, 0, 0, 0.03);
@@ -1145,13 +1138,11 @@ page {
   --fg-muted: #8c968e;
   --border: #262b27;
   --border-strong: #3a423d;
-  --primary: #12d91e;
-  --primary-strong: #12d91e;
-  --primary-deep: #7cff85;
-  --primary-press: #0bb017;
-  --primary-soft: #0f2a12;
-  --primary-glow: rgba(18, 217, 30, 0.18);
-  --on-primary: #08260a;
+  --primary: #45c088;
+  --primary-strong: #45c088;
+  --primary-deep: #7cd9ac;
+  --primary-soft: #14251d;
+  --primary-glow: rgba(69, 192, 136, 0.16);
   --danger-soft: #2d1518;
   --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 1rpx 3rpx rgba(0, 0, 0, 0.3), 0 1rpx 2rpx rgba(0, 0, 0, 0.2);

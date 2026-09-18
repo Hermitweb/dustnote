@@ -412,7 +412,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
               <button
                 onClick={() => fileInput.current?.click()}
                 disabled={mode !== 'main'}
-                className="rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-on-accent hover:bg-mint-700 disabled:opacity-50"
+                className="rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
               >
                 {mode === 'importing'
                   ? status || t('import_export.importing')
@@ -482,7 +482,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
                 <p className="text-xs text-surface-muted">{t('import_export.conflict_hint')}</p>
                 <button
                   onClick={() => void doImport()}
-                  className="w-full rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-on-accent hover:bg-mint-700"
+                  className="w-full rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700"
                 >
                   {t('import_export.start_import_btn', {
                     count: preview.filter((p) => p.included).length,

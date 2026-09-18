@@ -556,11 +556,11 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     createBtn: {
       width: 40,
       borderRadius: 8,
-      backgroundColor: c.accentFill,
+      backgroundColor: c.mint600,
       justifyContent: 'center',
       alignItems: 'center',
     },
-    createBtnText: { color: c.onAccent, fontSize: 22, fontWeight: '300' },
+    createBtnText: { color: 'white', fontSize: 22, fontWeight: '300' },
     metaBar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -582,9 +582,9 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderColor: c.border,
       marginRight: 8,
     },
-    chipActive: { backgroundColor: c.accentFill, borderColor: c.accentFill },
+    chipActive: { backgroundColor: c.mint600, borderColor: c.mint600 },
     chipText: { fontSize: 12, color: c.fg },
-    chipTextActive: { color: c.onAccent },
+    chipTextActive: { color: 'white' },
     row: {
       flexDirection: 'row',
       alignItems: 'center',

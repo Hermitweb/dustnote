@@ -124,7 +124,7 @@ export function SetupScreen() {
             key={i}
             style={[
               styles.strengthCell,
-              { backgroundColor: i < strength.level ? theme.accentFill : theme.borderLight },
+              { backgroundColor: i < strength.level ? theme.mint600 : theme.borderLight },
             ]}
           />
         ))}
@@ -175,8 +175,8 @@ const styles = StyleSheet.create({
   strengthBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   strengthCell: { width: 36, height: 4, borderRadius: 2, marginRight: 4 },
   strengthText: { fontSize: 12, color: theme.mutedLight, marginLeft: 8 },
-  button: { backgroundColor: theme.accentFill, borderRadius: 8, padding: 16, alignItems: 'center' },
-  buttonText: { color: theme.onAccent, fontSize: 16, fontWeight: '600' },
+  button: { backgroundColor: theme.mint600, borderRadius: 8, padding: 16, alignItems: 'center' },
+  buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
   codeBox: {
     backgroundColor: theme.mint50,
     borderRadius: 8,

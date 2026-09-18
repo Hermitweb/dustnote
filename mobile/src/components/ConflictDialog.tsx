@@ -107,7 +107,7 @@ export function ConflictDialog(): React.JSX.Element {
             <TouchableOpacity
               disabled={!!resolving}
               onPress={() => void onChoose('local')}
-              style={[styles.btn, { backgroundColor: colors.accentFill }]}
+              style={[styles.btn, { backgroundColor: colors.mint600 }]}
             >
               <Text style={styles.btnText}>
                 {resolving === 'local' ? t('conflict.resolving') : t('conflict.use_local')}
@@ -125,7 +125,7 @@ export function ConflictDialog(): React.JSX.Element {
             <TouchableOpacity
               disabled={!!resolving}
               onPress={() => void onChoose('merged')}
-              style={[styles.btn, { backgroundColor: colors.accentFill }]}
+              style={[styles.btn, { backgroundColor: colors.mint600 }]}
             >
               <Text style={styles.btnText}>
                 {resolving === 'merged'

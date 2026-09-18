@@ -23,7 +23,7 @@ export function ForceUpdateOverlay({ result }: { result: CheckUpdateResult }) {
         </p>
         <a
           href={url}
-          className="inline-flex w-full items-center justify-center rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-on-accent transition-colors hover:bg-mint-700"
+          className="inline-flex w-full items-center justify-center rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
         >
           {t('settings.download')}
         </a>

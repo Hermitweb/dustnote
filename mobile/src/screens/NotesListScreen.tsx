@@ -578,7 +578,7 @@ export function NotesListScreen() {
       {!selecting && (
         <>
           <TouchableOpacity
-            style={[styles.fabLike, tab === 'fav' && { backgroundColor: colors.accentFill }]}
+            style={[styles.fabLike, tab === 'fav' && { backgroundColor: colors.mint600 }]}
             onPress={() => setTab(tab === 'fav' ? 'all' : 'fav')}
           >
             <Text style={[styles.fabLikeText, tab === 'fav' && { color: '#fff' }]}>
@@ -893,8 +893,8 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
       marginRight: 6,
     },
     chipActive: {
-      backgroundColor: c.accentFill,
-      borderColor: c.accentFill,
+      backgroundColor: c.mint600,
+      borderColor: c.mint600,
     },
     chipText: { fontSize: 12, color: c.fg },
     chipTextActive: { color: 'white', fontWeight: '600' },
@@ -920,7 +920,7 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
       marginTop: 12,
       paddingHorizontal: 20,
       paddingVertical: 8,
-      backgroundColor: c.accentFill,
+      backgroundColor: c.mint600,
       borderRadius: 8,
     },
     retryText: { color: 'white', fontSize: l.bodyFontSize, fontWeight: '600' },
@@ -931,7 +931,7 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
       width: 56,
       height: 56,
       borderRadius: 28,
-      backgroundColor: c.accentFill,
+      backgroundColor: c.mint600,
       justifyContent: 'center',
       alignItems: 'center',
       shadowColor: '#000',
@@ -960,7 +960,7 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
     fabLikeText: { fontSize: 14, color: c.fg, fontWeight: '600' },
     fabText: { color: 'white', fontSize: 28, fontWeight: '300' },
     // ── 批量操作 ──
-    cardSelected: { borderColor: c.accentFill, borderWidth: 2 },
+    cardSelected: { borderColor: c.mint600, borderWidth: 2 },
     checkMark: { fontSize: 18, marginRight: 4 },
     batchBar: {
       position: 'absolute',
