@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Icon } from './Icon';
 import { useStore } from '../lib/store';
 import { THEMES } from '../lib/theme';
 import { ImportExportDialog } from './ImportExportDialog';
@@ -350,7 +351,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     if (!api) return;
     // 打开设置时仅检查"是否有已下载待应用的更新"（本地磁盘读取，毫秒级）。
     // 不自动发起 checkForUpdates 网络请求——国内访问 GitHub Releases 慢/不稳，
-    // 自动网络检查会让设置页打开时卡顿最多 10s。改为用户主动点"🔍 检查更新"。
+    // 自动网络检查会让设置页打开时卡顿最多 10s。改为用户主动点「检查更新」。
     void (async () => {
       try {
         const pending = await withTimeout(api.getPendingUpdate(), 5000);
@@ -766,14 +767,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   onClick={() => setShowImportExport(true)}
                   className="w-full rounded-lg border border-surface-border px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
                 >
-                  <span className="mr-2">📥📤</span>
+                  <Icon name="download" size={15} className="mr-2" />
                   {t('settings.import_export')}
                 </button>
                 <button
                   onClick={() => setShowShares(true)}
                   className="w-full rounded-lg border border-surface-border px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
                 >
-                  <span className="mr-2">🔗</span>
+                  <Icon name="share" size={15} className="mr-2" />
                   {t('settings.shares_mgmt')}
                 </button>
               </div>

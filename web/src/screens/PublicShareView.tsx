@@ -10,6 +10,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Icon } from '../components/Icon';
 import { marked } from 'marked';
 import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
 import { sanitizeHtml } from '../lib/sanitize-html';
@@ -188,7 +189,7 @@ export function PublicShareView({ token }: { token: string }) {
     return (
       <div className="flex h-screen items-center justify-center overflow-y-auto bg-mint-50 p-4 dark:bg-slate-900">
         <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl dark:bg-slate-800">
-          <div className="mb-2 text-3xl">⚠️</div>
+          <Icon name="alert" size={30} className="mb-2 text-amber-500" />
           <p className="text-slate-700 dark:text-slate-200">{state.message}</p>
           <a href="/" className="mt-4 inline-block text-sm text-mint-600 hover:underline">
             {t('public_share.back')}

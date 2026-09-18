@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Icon, type IconName } from './Icon';
 
 /** 命令分类 */
 export type CommandCategory = 'navigation' | 'operations' | 'about';
@@ -151,7 +152,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         id: 'new-note',
         titleKey: 'command_palette.new_note',
         category: 'navigation',
-        icon: '📝',
+        icon: 'file-text',
         hint: 'Ctrl+N',
         keywords: 'new note create add',
         action: () => window.dispatchEvent(new CustomEvent('app:new-note')),
@@ -160,7 +161,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         id: 'lock',
         titleKey: 'command_palette.lock',
         category: 'navigation',
-        icon: '🔒',
+        icon: 'lock',
         hint: 'Ctrl+L',
         keywords: 'lock logout sign out',
         action: () => window.dispatchEvent(new CustomEvent('app:lock')),
@@ -169,7 +170,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         id: 'settings',
         titleKey: 'command_palette.settings',
         category: 'navigation',
-        icon: '⚙️',
+        icon: 'settings',
         hint: 'Ctrl+,',
         keywords: 'settings preferences config',
         action: () => window.dispatchEvent(new CustomEvent('app:open-settings')),
@@ -178,7 +179,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         id: 'shares',
         titleKey: 'command_palette.shares',
         category: 'navigation',
-        icon: '🔗',
+        icon: 'share',
         keywords: 'share link shares',
         action: () => window.dispatchEvent(new CustomEvent('app:open-shares')),
       },
@@ -329,7 +330,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
       >
         {/* 搜索输入框 */}
         <div className="flex items-center gap-3 border-b border-surface-border px-4 py-3">
-          <span className="text-surface-muted">🔍</span>
+          <Icon name="search" size={15} className="text-surface-muted" />
           <input
             ref={inputRef}
             type="text"
@@ -387,7 +388,11 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
                         }`}
                         aria-selected={isSelected}
                       >
-                        <span className="flex-shrink-0 text-base">{entry.cmd.icon}</span>
+                        <Icon
+                          name={entry.cmd.icon as IconName}
+                          size={15}
+                          className="flex-shrink-0"
+                        />
                         <span className="flex-1 truncate">
                           {renderHighlighted(title, entry.indices)}
                         </span>

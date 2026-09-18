@@ -3,25 +3,26 @@
 @tailwind utilities;
 
 /* ========== 主题变量（运行时由 theme.ts 注入）========== */
+/* 与小程序端同一套令牌：青瓷绿主色 + 石墨中性（亮色暖纸灰 / 暗色石墨） */
 :root {
-  --mn-bg: 247 250 247;
-  --mn-fg: 30 41 59;
-  --mn-fg-muted: 100 116 139;
-  --mn-border: 226 232 240;
+  --mn-bg: 246 246 242;
+  --mn-fg: 28 33 29;
+  --mn-fg-muted: 92 100 93;
+  --mn-border: 231 233 226;
   --mn-card: 255 255 255;
-  --mn-accent: 22 163 74;
-  --mn-accent-soft: 220 252 231;
+  --mn-accent: 30 140 92;
+  --mn-accent-soft: 227 243 234;
   /* 排版变量：由 theme.ts 的 applyTypography 按 preferences.font/density 运行时注入 */
   --mn-font: 'Manrope', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
   --mn-line-height: 1.6;
 }
 
 [data-mode='dark'] {
-  --mn-bg: 15 23 42;
-  --mn-fg: 226 232 240;
-  --mn-fg-muted: 148 163 184;
-  --mn-border: 51 65 85;
-  --mn-card: 30 41 59;
+  --mn-bg: 17 20 18;
+  --mn-fg: 233 237 233;
+  --mn-fg-muted: 140 150 142;
+  --mn-border: 38 43 39;
+  --mn-card: 26 31 28;
 }
 
 html,
@@ -36,39 +37,84 @@ body {
   font-family: var(--mn-font);
   background-color: rgb(var(--mn-bg));
   color: rgb(var(--mn-fg));
-  transition: background-color 250ms ease, color 250ms ease;
+  transition:
+    background-color 250ms ease,
+    color 250ms ease;
 }
 
 /* Tailwind 颜色变量桥接 */
-.bg-surface-bg { background-color: rgb(var(--mn-bg)); }
-.bg-surface-card { background-color: rgb(var(--mn-card)); }
-.bg-mint-50 { background-color: rgb(var(--mn-accent-soft) / 0.4); }
-.text-surface-fg { color: rgb(var(--mn-fg)); }
-.text-surface-muted { color: rgb(var(--mn-fg-muted)); }
-.border-surface-border { border-color: rgb(var(--mn-border)); }
-.bg-mint-600 { background-color: rgb(var(--mn-accent)); }
-.bg-mint-700 { background-color: rgb(var(--mn-accent) / 0.85); }
-.text-mint-700 { color: rgb(var(--mn-accent)); }
-.text-mint-600 { color: rgb(var(--mn-accent)); }
-.border-mint-500 { border-color: rgb(var(--mn-accent)); }
-.hover\:bg-mint-700:hover { background-color: rgb(var(--mn-accent) / 0.85); }
-.hover\:text-mint-700:hover { color: rgb(var(--mn-accent)); }
-.text-mint-300 { color: rgb(var(--mn-accent)); }
-.bg-mint-100 { background-color: rgb(var(--mn-accent-soft) / 0.6); }
-.bg-mint-900\/30 { background-color: rgb(var(--mn-accent) / 0.15); }
+.bg-surface-bg {
+  background-color: rgb(var(--mn-bg));
+}
+.bg-surface-card {
+  background-color: rgb(var(--mn-card));
+}
+.bg-mint-50 {
+  background-color: rgb(var(--mn-accent-soft) / 0.4);
+}
+.text-surface-fg {
+  color: rgb(var(--mn-fg));
+}
+.text-surface-muted {
+  color: rgb(var(--mn-fg-muted));
+}
+.border-surface-border {
+  border-color: rgb(var(--mn-border));
+}
+.bg-mint-600 {
+  background-color: rgb(var(--mn-accent));
+}
+.bg-mint-700 {
+  background-color: rgb(var(--mn-accent) / 0.85);
+}
+.text-mint-700 {
+  color: rgb(var(--mn-accent));
+}
+.text-mint-600 {
+  color: rgb(var(--mn-accent));
+}
+.border-mint-500 {
+  border-color: rgb(var(--mn-accent));
+}
+.hover\:bg-mint-700:hover {
+  background-color: rgb(var(--mn-accent) / 0.85);
+}
+.hover\:text-mint-700:hover {
+  color: rgb(var(--mn-accent));
+}
+.text-mint-300 {
+  color: rgb(var(--mn-accent));
+}
+.bg-mint-100 {
+  background-color: rgb(var(--mn-accent-soft) / 0.6);
+}
+.bg-mint-900\/30 {
+  background-color: rgb(var(--mn-accent) / 0.15);
+}
 
 /* Markdown 渲染样式 */
 .prose {
   line-height: var(--mn-line-height, 1.7);
 }
-.prose h1, .prose h2, .prose h3, .prose h4 {
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
   font-weight: 700;
   margin: 1em 0 0.5em;
 }
-.prose h1 { font-size: 1.875rem; }
-.prose h2 { font-size: 1.5rem; }
-.prose h3 { font-size: 1.25rem; }
-.prose p { margin: 0.5em 0; }
+.prose h1 {
+  font-size: 1.875rem;
+}
+.prose h2 {
+  font-size: 1.5rem;
+}
+.prose h3 {
+  font-size: 1.25rem;
+}
+.prose p {
+  margin: 0.5em 0;
+}
 .prose code {
   background: rgb(var(--mn-border) / 0.5);
   padding: 0.125em 0.375em;
@@ -85,12 +131,18 @@ body {
   background: transparent;
   padding: 0;
 }
-.prose ul, .prose ol {
+.prose ul,
+.prose ol {
   padding-left: 1.5em;
   margin: 0.5em 0;
 }
-.prose li { margin: 0.25em 0; }
-.prose a { color: rgb(var(--mn-accent)); text-decoration: underline; }
+.prose li {
+  margin: 0.25em 0;
+}
+.prose a {
+  color: rgb(var(--mn-accent));
+  text-decoration: underline;
+}
 .prose blockquote {
   border-left: 3px solid rgb(var(--mn-accent));
   padding-left: 1em;
@@ -122,7 +174,9 @@ mark {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }

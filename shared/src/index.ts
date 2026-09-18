@@ -18,3 +18,5 @@ export * from './net-utils.js';
 export * from './error-codes.js';
 // 模式切换迁移的策略层（账本/轮数门禁/清槽判定）——三端单一实现,可单测
 export * from './migration.js';
+// 图标形状单一来源（web 内联 SVG / 小程序 PNG 遮罩 / 安卓 PNG tintColor）
+export * from './icons.js';
