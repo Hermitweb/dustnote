@@ -47,7 +47,7 @@ interface ThemePalette {
   border: string;
   /** 主色·文字档：浅底上可读（霓虹原色在白底约 1.3:1，不可作文字） */
   accent: string;
-  /** 主色·填充档：按钮/FAB 等大色块（默认主题为 #1FFF26 霓虹绿） */
+  /** 主色·填充档：按钮/FAB 等大色块（默认主题为 #12D91E 亮绿） */
   accentFill: string;
   /** 填充上的文字色：霓虹绿亮度过高，填充上必须用深色 */
   onAccent: string;
@@ -63,7 +63,7 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       muted: '#5C645D',
       border: '#E7E9E2',
       accent: '#0A7A12',
-      accentFill: '#1FFF26',
+      accentFill: '#12D91E',
       onAccent: '#08260A',
       accentSoft: '#E9FFEA',
     },
@@ -74,7 +74,7 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       muted: '#8C968E',
       border: '#262B27',
       accent: '#7CFF85',
-      accentFill: '#1FFF26',
+      accentFill: '#12D91E',
       onAccent: '#08260A',
       accentSoft: '#0F2A12',
     },
@@ -242,7 +242,7 @@ export const accent = {
   mint700: '#0A7A12',
   mint800: '#0A7A12',
   mint900: '#08260A',
-  accentFill: '#1FFF26',
+  accentFill: '#12D91E',
   onAccent: '#08260A',
   warn: COMMON_ACCENT.warn,
   danger: COMMON_ACCENT.danger,

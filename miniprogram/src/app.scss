@@ -18,12 +18,12 @@ page {
   --fg-muted: #8c948c;
   --border: #e7e9e2;
   --border-strong: #d2d6cc;
-  --primary: #1fff26;
-  --primary-strong: #1fff26;
+  --primary: #12d91e;
+  --primary-strong: #12d91e;
   --primary-deep: #0a7a12;
-  --primary-press: #12d91e;
+  --primary-press: #0bb017;
   --primary-soft: #e9ffea;
-  --primary-glow: rgba(31, 255, 38, 0.22);
+  --primary-glow: rgba(18, 217, 30, 0.22);
   --on-primary: #08260a;
   --accent: #f5a65b;
   --warning: #e8b86b;
@@ -428,7 +428,7 @@ page {
   font-size: 30rpx;
   padding: 24rpx;
   border-radius: var(--radius-md);
-  box-shadow: 0 4rpx 16rpx rgba(31, 255, 38, 0.3);
+  box-shadow: 0 4rpx 16rpx rgba(18, 217, 30, 0.3);
   max-width: 560rpx;
   letter-spacing: 1rpx;
   transition:
@@ -439,7 +439,7 @@ page {
 .hero .mint-btn-block:active {
   background: #0f5336;
   transform: scale(0.97);
-  box-shadow: 0 2rpx 8rpx rgba(31, 255, 38, 0.22);
+  box-shadow: 0 2rpx 8rpx rgba(18, 217, 30, 0.22);
 }
 
 /* ========== 空状态 / 加载 ========== */
@@ -630,7 +630,7 @@ page {
   width: 100rpx;
   height: 100rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1fff26, #12d91e);
+  background: linear-gradient(135deg, #1fe82a, #0bb017);
   color: var(--on-primary);
   display: flex;
   align-items: center;
@@ -645,9 +645,9 @@ page {
     box-shadow 0.2s ease;
 }
 .fab:active {
-  background: linear-gradient(135deg, #12d91e, #0bb017);
+  background: linear-gradient(135deg, #0bb017, #09a214);
   transform: scale(0.92);
-  box-shadow: 0 4rpx 12rpx rgba(31, 255, 38, 0.3);
+  box-shadow: 0 4rpx 12rpx rgba(18, 217, 30, 0.3);
 }
 /* 模板新建入口：FAB 上方的小圆钮 */
 .fab-tpl {
@@ -899,7 +899,7 @@ page {
 /* ========== 分享页 ========== */
 .share-banner {
   height: 6rpx;
-  background: linear-gradient(90deg, #b6ffbb, #1fff26, #12d91e);
+  background: linear-gradient(90deg, #9cf7a2, #12d91e, #0bb017);
   border-radius: 3rpx;
   margin-bottom: 32rpx;
 }
@@ -1084,13 +1084,13 @@ page {
     --fg-muted: #8c968e;
     --border: #262b27;
     --border-strong: #3a423d;
-    --primary: #1fff26;
-    --primary-strong: #1fff26;
+    --primary: #12d91e;
+    --primary-strong: #12d91e;
     /* 暗色下亮绿本身就是高对比前景色,文字场景可直接用 */
     --primary-deep: #7cff85;
-    --primary-press: #12d91e;
+    --primary-press: #0bb017;
     --primary-soft: #0f2a12;
-    --primary-glow: rgba(31, 255, 38, 0.18);
+    --primary-glow: rgba(18, 217, 30, 0.18);
     --on-primary: #08260a;
     --danger-soft: #2d1518;
     --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);
@@ -1111,12 +1111,12 @@ page {
   --fg-muted: #8c948c;
   --border: #e7e9e2;
   --border-strong: #d2d6cc;
-  --primary: #1fff26;
-  --primary-strong: #1fff26;
+  --primary: #12d91e;
+  --primary-strong: #12d91e;
   --primary-deep: #0a7a12;
-  --primary-press: #12d91e;
+  --primary-press: #0bb017;
   --primary-soft: #e9ffea;
-  --primary-glow: rgba(31, 255, 38, 0.22);
+  --primary-glow: rgba(18, 217, 30, 0.22);
   --on-primary: #08260a;
   --danger-soft: #feecec;
   --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.03);
@@ -1145,12 +1145,12 @@ page {
   --fg-muted: #8c968e;
   --border: #262b27;
   --border-strong: #3a423d;
-  --primary: #1fff26;
-  --primary-strong: #1fff26;
+  --primary: #12d91e;
+  --primary-strong: #12d91e;
   --primary-deep: #7cff85;
-  --primary-press: #12d91e;
+  --primary-press: #0bb017;
   --primary-soft: #0f2a12;
-  --primary-glow: rgba(31, 255, 38, 0.18);
+  --primary-glow: rgba(18, 217, 30, 0.18);
   --on-primary: #08260a;
   --danger-soft: #2d1518;
   --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);

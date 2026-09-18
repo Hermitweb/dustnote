@@ -11,9 +11,9 @@
   --mn-border: 231 233 226;
   --mn-card: 255 255 255;
   /* 主色三分：accent=文字/图标（浅底上可读）；accent-fill=填充（霓虹绿）；
-     accent-fg=填充上的文字（#1FFF26 亮度过高，填充上必须用深色，白字约 1.3:1 不可读） */
+     accent-fg=填充上的文字（#12D91E 亮度过高，填充上必须用深色，白字约 1.3:1 不可读） */
   --mn-accent: 10 122 18;
-  --mn-accent-fill: 31 255 38;
+  --mn-accent-fill: 18 217 30;
   --mn-accent-fg: 8 38 10;
   --mn-accent-soft: 233 255 234;
   /* 排版变量：由 theme.ts 的 applyTypography 按 preferences.font/density 运行时注入 */
@@ -29,7 +29,7 @@
   --mn-card: 26 31 28;
   /* 暗色下亮绿本身即高对比前景色；填充上的文字仍取深色 */
   --mn-accent: 124 255 133;
-  --mn-accent-fill: 31 255 38;
+  --mn-accent-fill: 18 217 30;
   --mn-accent-fg: 8 38 10;
   --mn-accent-soft: 15 42 18;
 }
@@ -94,7 +94,7 @@ body {
 .text-mint-300 {
   color: rgb(var(--mn-accent));
 }
-/* 霓虹填充上的文字色（#1FFF26 上白字不可读,必须用深色） */
+/* 霓虹填充上的文字色（#12D91E 上白字不可读,必须用深色） */
 .text-on-accent {
   color: rgb(var(--mn-accent-fg));
 }
