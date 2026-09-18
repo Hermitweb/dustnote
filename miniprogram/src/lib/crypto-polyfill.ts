@@ -96,6 +96,10 @@ let poolEverFilled = false;
  */
 export function ensureRandomReady(timeoutMs = 8000): Promise<void> {
   if (poolEverFilled) return Promise.resolve();
+  // 浏览器/H5 运行时自带同步的 crypto.getRandomValues（密码学安全），
+  // randomBytes 直接走该原生路径，无需等待 wx 随机池；wx API 在 H5 不存在，
+  // 若不短路这里，H5 端所有长期密钥材料生成都会超时失败。
+  if (typeof globalThis.crypto?.getRandomValues === 'function') return Promise.resolve();
   return new Promise((resolve, reject) => {
     const start = Date.now();
     const timer = setInterval(() => {

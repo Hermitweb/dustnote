@@ -73,6 +73,17 @@ export default {
       chain.plugins.delete('webpackbar');
       // 关闭 webpack 5 默认的体积警告；Taro 应用包含 React/Taro 运行时，初始包较大属正常
       chain.performance.hints(false);
+      // 与 mini 分支同因（见上方注释）：pnpm workspace 的 junction 让 react 被解析成
+      // 两份拷贝 → 运行时 "Cannot read properties of null (reading 'useRef')"。
+      // H5 构建同样必须关闭 symlinks 跟随 + 显式别名到根 node_modules 唯一实例。
+      chain.resolve.symlinks(false);
+      chain.resolve.alias
+        .set('react', path.resolve(__dirname, '..', '..', 'node_modules', 'react'))
+        .set(
+          'react/jsx-runtime',
+          path.resolve(__dirname, '..', '..', 'node_modules', 'react', 'jsx-runtime')
+        )
+        .set('react-dom', path.resolve(__dirname, '..', '..', 'node_modules', 'react-dom'));
       // 忽略 @tarojs/components 中无法移除的 webpackExports 魔法注释警告
       chain.merge({ ignoreWarnings: [/webpackExports/] });
       chain.module
