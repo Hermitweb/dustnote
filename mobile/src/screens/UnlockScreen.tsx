@@ -20,6 +20,8 @@ import ReactNativeBiometrics from 'react-native-biometrics';
 import { useAuthStore } from '../state/auth';
 import { apiErrorCode } from '@dustnote/shared';
 import { useColors } from '../theme';
+import { GlassScreen } from '../components/GlassScreen';
+import { GlassSurface } from '../components/GlassSurface';
 
 const rnb = new ReactNativeBiometrics();
 
@@ -93,78 +95,94 @@ export function UnlockScreen() {
   const styles = makeStyles(colors);
 
   return (
-    <View style={styles.container}>
-      <Image source={logoImage} style={styles.logo} />
-      <Text style={styles.title}>{t('auth.unlock_title')}</Text>
-      <Text style={styles.subtitle}>{t('auth.unlock_subtitle')}</Text>
+    <GlassScreen>
+      <View style={styles.container}>
+        <GlassSurface style={styles.card}>
+          <Image source={logoImage} style={styles.logo} />
+          <Text style={styles.title}>{t('auth.unlock_title')}</Text>
+          <Text style={styles.subtitle}>{t('auth.unlock_subtitle')}</Text>
 
-      <FTextInput
-        style={styles.input}
-        placeholder={t('auth.unlock_password')}
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        autoFocus
-        onSubmitEditing={onUnlock}
-        placeholderTextColor={colors.muted}
-        accessibilityLabel={t('auth.unlock_password')}
-        accessibilityRole="text"
-      />
+          <FTextInput
+            style={styles.input}
+            placeholder={t('auth.unlock_password')}
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            autoFocus
+            onSubmitEditing={onUnlock}
+            placeholderTextColor={colors.muted}
+            accessibilityLabel={t('auth.unlock_password')}
+            accessibilityRole="text"
+          />
 
-      {showTotp && (
-        <FTextInput
-          style={styles.input}
-          placeholder={t('auth.totp_code_placeholder')}
-          keyboardType="number-pad"
-          maxLength={6}
-          value={totpCode}
-          onChangeText={setTotpCode}
-          onSubmitEditing={onUnlock}
-          placeholderTextColor={colors.muted}
-        />
-      )}
+          {showTotp && (
+            <FTextInput
+              style={styles.input}
+              placeholder={t('auth.totp_code_placeholder')}
+              keyboardType="number-pad"
+              maxLength={6}
+              value={totpCode}
+              onChangeText={setTotpCode}
+              onSubmitEditing={onUnlock}
+              placeholderTextColor={colors.muted}
+            />
+          )}
 
-      <TouchableOpacity
-        style={[styles.button, submitting && { opacity: 0.5 }]}
-        disabled={submitting}
-        onPress={onUnlock}
-      >
-        <Text style={styles.buttonText}>
-          {submitting ? t('auth.unlocking_short') : t('auth.unlock_btn')}
-        </Text>
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, submitting && { opacity: 0.5 }]}
+            disabled={submitting}
+            onPress={onUnlock}
+          >
+            <Text style={styles.buttonText}>
+              {submitting ? t('auth.unlocking_short') : t('auth.unlock_btn')}
+            </Text>
+          </TouchableOpacity>
 
-      {hasBiometricCache && (
-        <TouchableOpacity
-          style={[styles.bioButton, bioBusy && { opacity: 0.5 }]}
-          disabled={bioBusy}
-          onPress={onBiometric}
-        >
-          <Text style={styles.bioButtonText}>
-            {bioBusy ? t('auth.unlocking_short') : t('auth.unlock_biometric')}
-          </Text>
-        </TouchableOpacity>
-      )}
+          {hasBiometricCache && (
+            <TouchableOpacity
+              style={[styles.bioButton, bioBusy && { opacity: 0.5 }]}
+              disabled={bioBusy}
+              onPress={onBiometric}
+            >
+              <Text style={styles.bioButtonText}>
+                {bioBusy ? t('auth.unlocking_short') : t('auth.unlock_biometric')}
+              </Text>
+            </TouchableOpacity>
+          )}
 
-      {/* 忘记密码：用恢复码找回 */}
-      <TouchableOpacity
-        style={styles.recoverButton}
-        onPress={() => navigation.navigate('OnlineRecover')}
-      >
-        <Text style={styles.recoverButtonText}>{t('auth.recover_forgot')}</Text>
-      </TouchableOpacity>
+          {/* 忘记密码：用恢复码找回 */}
+          <TouchableOpacity
+            style={styles.recoverButton}
+            onPress={() => navigation.navigate('OnlineRecover')}
+          >
+            <Text style={styles.recoverButtonText}>{t('auth.recover_forgot')}</Text>
+          </TouchableOpacity>
 
-      {/* 加密引擎诊断小字已按产品决策移除（v2.5.23 完成历史使命：
+          {/* 加密引擎诊断小字已按产品决策移除（v2.5.23 完成历史使命：
           定位到 Argon2id 账号纯 JS 182s 的根因）；__QCRYPTO_STATUS /
           __LAST_KDF 埋点保留供调试读取 */}
-    </View>
+        </GlassSurface>
+      </View>
+    </GlassScreen>
   );
 }
 
 // 根据当前颜色生成样式；仅在 isDark 变化时重新创建
 function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: c.bg },
+    container: { flex: 1, padding: 24, justifyContent: 'center' },
+    card: {
+      borderRadius: 20,
+      padding: 24,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: c.border,
+      shadowColor: '#0F172A',
+      shadowOpacity: 0.12,
+      shadowRadius: 24,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 6,
+    },
     emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
     logo: { width: 64, height: 64, alignSelf: 'center', marginBottom: 16 },
     title: {
