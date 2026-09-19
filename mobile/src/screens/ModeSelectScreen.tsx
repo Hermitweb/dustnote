@@ -30,6 +30,7 @@ import logoImage from '../assets/logo.png';
 import { useTranslation } from 'react-i18next';
 import { useModeStore } from '../lib/mode-store';
 import { useColors } from '../theme';
+import { GlassScreen } from '../components/GlassScreen';
 import { getDeviceId } from '../api';
 import { ApiClient, type AppMode, type ClientChannel, type ClientPlatform } from '@dustnote/shared';
 import { APP_VERSION } from '../lib/version';
@@ -142,71 +143,73 @@ export function ModeSelectScreen() {
   const styles = makeStyles(colors);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Image source={logoImage} style={styles.logo} />
-      <Text style={styles.title}>{t('mode_select.welcome')}</Text>
-      <Text style={styles.subtitle}>{t('mode_select.subtitle')}</Text>
+    <GlassScreen>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Image source={logoImage} style={styles.logo} />
+        <Text style={styles.title}>{t('mode_select.welcome')}</Text>
+        <Text style={styles.subtitle}>{t('mode_select.subtitle')}</Text>
 
-      {/* 单机模式卡片 */}
-      <TouchableOpacity
-        style={[styles.card, selected === 'standalone' && styles.cardActive]}
-        onPress={onSelectStandalone}
-      >
-        <Text style={styles.cardEmoji}>📱</Text>
-        <Text style={styles.cardTitle}>{t('mode_select.standalone_title')}</Text>
-        <Text style={styles.cardDesc}>{t('mode_select.standalone_desc')}</Text>
-        <Text style={styles.cardFeatures}>{t('mode_select.standalone_features')}</Text>
-      </TouchableOpacity>
+        {/* 单机模式卡片 */}
+        <TouchableOpacity
+          style={[styles.card, selected === 'standalone' && styles.cardActive]}
+          onPress={onSelectStandalone}
+        >
+          <Text style={styles.cardEmoji}>📱</Text>
+          <Text style={styles.cardTitle}>{t('mode_select.standalone_title')}</Text>
+          <Text style={styles.cardDesc}>{t('mode_select.standalone_desc')}</Text>
+          <Text style={styles.cardFeatures}>{t('mode_select.standalone_features')}</Text>
+        </TouchableOpacity>
 
-      {/* 联机模式卡片 */}
-      <TouchableOpacity
-        style={[styles.card, selected === 'online' && styles.cardActive]}
-        onPress={onSelectOnline}
-      >
-        <Text style={styles.cardEmoji}>🌐</Text>
-        <Text style={styles.cardTitle}>{t('mode_select.online_title')}</Text>
-        <Text style={styles.cardDesc}>{t('mode_select.online_desc')}</Text>
-        <Text style={styles.cardFeatures}>{t('mode_select.online_features')}</Text>
-      </TouchableOpacity>
+        {/* 联机模式卡片 */}
+        <TouchableOpacity
+          style={[styles.card, selected === 'online' && styles.cardActive]}
+          onPress={onSelectOnline}
+        >
+          <Text style={styles.cardEmoji}>🌐</Text>
+          <Text style={styles.cardTitle}>{t('mode_select.online_title')}</Text>
+          <Text style={styles.cardDesc}>{t('mode_select.online_desc')}</Text>
+          <Text style={styles.cardFeatures}>{t('mode_select.online_features')}</Text>
+        </TouchableOpacity>
 
-      {/* 联机模式：服务器地址输入 */}
-      {selected === 'online' && (
-        <View style={styles.serverSection}>
-          <Text style={styles.serverLabel}>{t('mode_select.server_url')}</Text>
-          <FTextInput
-            style={styles.serverInput}
-            placeholder={t('mode_select.server_url_placeholder')}
-            value={serverUrl}
-            onChangeText={setServerUrlInput}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            placeholderTextColor={colors.muted}
-          />
-          <TouchableOpacity
-            style={[styles.testButton, testing && { opacity: 0.5 }]}
-            disabled={testing}
-            onPress={onTestConnection}
-          >
-            {testing ? (
-              <ActivityIndicator size="small" color={colors.mint600} />
-            ) : (
-              <Text style={styles.testButtonText}>{t('mode_select.test_connection')}</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
+        {/* 联机模式：服务器地址输入 */}
+        {selected === 'online' && (
+          <View style={styles.serverSection}>
+            <Text style={styles.serverLabel}>{t('mode_select.server_url')}</Text>
+            <FTextInput
+              style={styles.serverInput}
+              placeholder={t('mode_select.server_url_placeholder')}
+              value={serverUrl}
+              onChangeText={setServerUrlInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              placeholderTextColor={colors.muted}
+            />
+            <TouchableOpacity
+              style={[styles.testButton, testing && { opacity: 0.5 }]}
+              disabled={testing}
+              onPress={onTestConnection}
+            >
+              {testing ? (
+                <ActivityIndicator size="small" color={colors.mint600} />
+              ) : (
+                <Text style={styles.testButtonText}>{t('mode_select.test_connection')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
-      <TouchableOpacity
-        style={[styles.confirmButton, !selected && { opacity: 0.5 }]}
-        disabled={!selected}
-        onPress={onConfirm}
-      >
-        <Text style={styles.confirmButtonText}>
-          {selected === 'online' ? t('mode_select.confirm') : t('mode_select.confirm_standalone')}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity
+          style={[styles.confirmButton, !selected && { opacity: 0.5 }]}
+          disabled={!selected}
+          onPress={onConfirm}
+        >
+          <Text style={styles.confirmButtonText}>
+            {selected === 'online' ? t('mode_select.confirm') : t('mode_select.confirm_standalone')}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </GlassScreen>
   );
 }
 
@@ -215,7 +218,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     container: {
       flexGrow: 1,
       padding: 24,
-      backgroundColor: c.bg,
+      backgroundColor: 'transparent',
     },
     emoji: { fontSize: 56, textAlign: 'center', marginTop: 32, marginBottom: 12 },
     logo: { width: 56, height: 56, alignSelf: 'center', marginTop: 32, marginBottom: 12 },

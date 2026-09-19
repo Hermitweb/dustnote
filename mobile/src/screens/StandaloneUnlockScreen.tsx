@@ -26,6 +26,7 @@ import ReactNativeBiometrics from 'react-native-biometrics';
 import type { RootStackParamList } from '../App';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
+import { GlassScreen } from '../components/GlassScreen';
 import { LOCAL_LOCKOUT_DURATION_MS } from '@dustnote/shared';
 
 const rnb = new ReactNativeBiometrics();
@@ -116,68 +117,70 @@ export function StandaloneUnlockScreen() {
   const styles = makeStyles(colors);
 
   return (
-    <View style={styles.container}>
-      <Image source={logoImage} style={styles.logo} />
-      <Text style={styles.title}>{t('auth.unlock_title_standalone')}</Text>
-      <Text style={styles.subtitle}>
-        {isLocked
-          ? t('auth.locked_retry', { seconds: remainingSec })
-          : t('auth.unlock_subtitle_standalone')}
-      </Text>
-
-      <FTextInput
-        style={[styles.input, isLocked && { opacity: 0.5 }]}
-        placeholder={t('auth.unlock_password')}
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        autoFocus
-        editable={!isLocked}
-        onSubmitEditing={onUnlock}
-        placeholderTextColor={colors.muted}
-      />
-
-      <TouchableOpacity
-        style={[styles.button, (submitting || isLocked) && { opacity: 0.5 }]}
-        disabled={submitting || isLocked}
-        onPress={onUnlock}
-      >
-        <Text style={styles.buttonText}>
-          {submitting ? t('auth.unlocking_short') : t('auth.unlock_btn')}
+    <GlassScreen>
+      <View style={styles.container}>
+        <Image source={logoImage} style={styles.logo} />
+        <Text style={styles.title}>{t('auth.unlock_title_standalone')}</Text>
+        <Text style={styles.subtitle}>
+          {isLocked
+            ? t('auth.locked_retry', { seconds: remainingSec })
+            : t('auth.unlock_subtitle_standalone')}
         </Text>
-      </TouchableOpacity>
 
-      {hasBiometricCache && !isLocked && (
+        <FTextInput
+          style={[styles.input, isLocked && { opacity: 0.5 }]}
+          placeholder={t('auth.unlock_password')}
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          autoFocus
+          editable={!isLocked}
+          onSubmitEditing={onUnlock}
+          placeholderTextColor={colors.muted}
+        />
+
         <TouchableOpacity
-          style={[styles.bioButton, bioBusy && { opacity: 0.5 }]}
-          disabled={bioBusy}
-          onPress={onBiometric}
+          style={[styles.button, (submitting || isLocked) && { opacity: 0.5 }]}
+          disabled={submitting || isLocked}
+          onPress={onUnlock}
         >
-          <Text style={styles.bioButtonText}>
-            {bioBusy ? t('auth.unlocking_short') : t('auth.unlock_biometric')}
+          <Text style={styles.buttonText}>
+            {submitting ? t('auth.unlocking_short') : t('auth.unlock_btn')}
           </Text>
         </TouchableOpacity>
-      )}
 
-      <TouchableOpacity
-        style={styles.recoverButton}
-        onPress={() => navigation.navigate('StandaloneRecover' as never)}
-      >
-        <Text style={styles.recoverButtonText}>{t('auth.recover_entry')}</Text>
-      </TouchableOpacity>
+        {hasBiometricCache && !isLocked && (
+          <TouchableOpacity
+            style={[styles.bioButton, bioBusy && { opacity: 0.5 }]}
+            disabled={bioBusy}
+            onPress={onBiometric}
+          >
+            <Text style={styles.bioButtonText}>
+              {bioBusy ? t('auth.unlocking_short') : t('auth.unlock_biometric')}
+            </Text>
+          </TouchableOpacity>
+        )}
 
-      {isLocked && (
-        <Text style={styles.lockedHint}>
-          {t('auth.locked_hint', { minutes: LOCAL_LOCKOUT_DURATION_MS / 60000 })}
-        </Text>
-      )}
-    </View>
+        <TouchableOpacity
+          style={styles.recoverButton}
+          onPress={() => navigation.navigate('StandaloneRecover' as never)}
+        >
+          <Text style={styles.recoverButtonText}>{t('auth.recover_entry')}</Text>
+        </TouchableOpacity>
+
+        {isLocked && (
+          <Text style={styles.lockedHint}>
+            {t('auth.locked_hint', { minutes: LOCAL_LOCKOUT_DURATION_MS / 60000 })}
+          </Text>
+        )}
+      </View>
+    </GlassScreen>
   );
 }
 
 function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: c.bg },
+    container: { flex: 1, padding: 24, justifyContent: 'center' },
     emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
     logo: { width: 64, height: 64, alignSelf: 'center', marginBottom: 16 },
     title: {
