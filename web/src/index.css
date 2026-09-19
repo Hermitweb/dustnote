@@ -256,12 +256,12 @@ html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-card {
 
 /* 半透明内容底：大面积滚动区/次级容器，让极光渐变透出 */
 html[data-theme='liquid-glass'] .bg-surface-bg {
-  background-color: rgb(255 255 255 / 0.34);
+  background-color: rgb(255 255 255 / 0.5);
   backdrop-filter: blur(8px) saturate(150%);
   -webkit-backdrop-filter: blur(8px) saturate(150%);
 }
 html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-bg {
-  background-color: rgb(15 23 42 / 0.4);
+  background-color: rgb(15 23 42 / 0.55);
 }
 
 /* 边框柔化：玻璃上的分隔线应为半透明高光，而非实心灰线 */
@@ -290,17 +290,17 @@ html[data-theme='liquid-glass'] body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(38% 40% at 20% 25%, rgb(59 130 246 / 0.35), transparent 70%),
-    radial-gradient(36% 38% at 80% 18%, rgb(168 85 247 / 0.3), transparent 70%),
-    radial-gradient(42% 44% at 55% 88%, rgb(45 212 191 / 0.28), transparent 70%);
+    radial-gradient(38% 40% at 20% 25%, rgb(59 130 246 / 0.26), transparent 70%),
+    radial-gradient(36% 38% at 80% 18%, rgb(168 85 247 / 0.22), transparent 70%),
+    radial-gradient(42% 44% at 55% 88%, rgb(45 212 191 / 0.2), transparent 70%);
   filter: blur(30px);
   animation: mn-aurora 26s ease-in-out infinite alternate;
 }
 html[data-theme='liquid-glass'][data-mode='dark'] body::before {
   background:
-    radial-gradient(38% 40% at 20% 25%, rgb(56 189 248 / 0.22), transparent 70%),
-    radial-gradient(36% 38% at 80% 18%, rgb(129 140 248 / 0.2), transparent 70%),
-    radial-gradient(42% 44% at 55% 88%, rgb(20 184 166 / 0.18), transparent 70%);
+    radial-gradient(38% 40% at 20% 25%, rgb(56 189 248 / 0.16), transparent 70%),
+    radial-gradient(36% 38% at 80% 18%, rgb(129 140 248 / 0.15), transparent 70%),
+    radial-gradient(42% 44% at 55% 88%, rgb(20 184 166 / 0.13), transparent 70%);
 }
 @keyframes mn-aurora {
   0% {
