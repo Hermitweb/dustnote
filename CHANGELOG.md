@@ -1166,7 +1166,7 @@ pnpm `node-linker=hoisted` 布局下存在两份不同的 React 物理副本：
 
 ### 新增 — 生产就绪度补强（GDPR + 设备管理 + 安全加固）
 
-本次发布聚焦"可上线生产产品"视角，补齐合规、安全、运维三类缺口。详见 [docs/production-readiness-audit.md](./docs/production-readiness-audit.md)。
+本次发布聚焦"可上线生产产品"视角，补齐合规、安全、运维三类缺口。详见 [docs/production-readiness-audit.md](./docs/archive/production-readiness-audit.md)。
 
 #### 1. GDPR 合规
 
@@ -1199,7 +1199,7 @@ pnpm `node-linker=hoisted` 布局下存在两份不同的 React 物理副本：
 
 #### 5. 审计报告
 
-- 新增 [docs/production-readiness-audit.md](./docs/production-readiness-audit.md)：按 production-checklist 7 维度全面评估，标注代码层就绪度 80%、基础设施就绪度 40%，列出 v2.2.1+ 改进路线
+- 新增 [docs/production-readiness-audit.md](./docs/archive/production-readiness-audit.md)：按 production-checklist 7 维度全面评估，标注代码层就绪度 80%、基础设施就绪度 40%，列出 v2.2.1+ 改进路线
 
 ### 修复
 
@@ -1363,7 +1363,7 @@ v2.1.0 落实 production-readiness.md 中全部 8 项代码层 P1 任务，让�
 - **闪退**：[MainActivity.kt](./mobile/android/app/src/main/java/com/dustnote/MainActivity.kt) `onCreate` 传 `null` 导致状态恢复崩溃 → 改传 `savedInstanceState`
 - **应用名称**：[strings.xml](./mobile/android/app/src/main/res/values/strings.xml) `app_name` 为模板默认值 "Hello App Display Name" → "DustNote"
 - **启动器图标**：adaptive icon foreground 错误引用 `@color`（颜色非合法 drawable）→ 新建 vector drawable（薄荷绿渐变 + 白色对勾，与 web/favicon 一致）；各密度 PNG 占位符重新生成
-  - 新增 [ic_launcher_foreground.xml](./mobile/android/app/src/main/res/drawable/ic_launcher_foreground.xml)、[ic_launcher_background.xml](./mobile/android/app/src/main/res/drawable/ic_launcher_background.xml)
+  - 新增 `ic_launcher_foreground.xml`、[ic_launcher_background.xml](./mobile/android/app/src/main/res/drawable/ic_launcher_background.xml)
 - **版本号**：Android `versionCode` 1→2，`versionName` "0.1.0"→"2.0.1"
 
 ### 修复 — Windows 桌面端

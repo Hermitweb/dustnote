@@ -15,7 +15,7 @@
 ## 提 PR
 
 1. Fork 仓库
-2. 从 `dev` 创建特性分支：`git checkout -b feature/your-feature`
+2. 从 `main` 创建特性分支：`git checkout -b feature/your-feature`
 3. 提交规范遵循 [Conventional Commits](https://www.conventionalcommits.org/)
    - `feat: 新增导出 PDF 功能`
    - `fix: 修复主题切换闪烁问题`
@@ -25,7 +25,8 @@
    - `pnpm lint`
    - `pnpm typecheck`
    - `pnpm test`
-5. 推送并创建 PR，**目标分支为 `dev`**
+   - `pnpm test:coverage`（覆盖率阈值门禁，CI 已强制）
+5. 推送并创建 PR，**目标分支为 `main`**
 
 ## 开发环境
 

@@ -2,7 +2,7 @@
 
 > 🌿 极简 · 清新 · 跨端 · 安全——一款 E2EE 端到端加密的个人笔记系统
 
-![Status](https://img.shields.io/badge/status-v2.5.28-blue)
+![Status](https://img.shields.io/badge/status-v2.5.40-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Node](https://img.shields.io/badge/node-20%2B-blue)
 ![E2EE](https://img.shields.io/badge/encryption-AES--256--GCM-purple)
@@ -87,13 +87,13 @@ DustNote 提供两种使用模式，无需任何配置即可选择：
 
    ```bash
    # 一条命令：从 GitHub 拉取部署包并完成部署（自动装 Docker、生成随机 JWT_SECRET、构建启动、健康检查）
-   curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/main/deploy/install.sh | bash
 
    # 中国网络：自动切换国内镜像源
-   curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash -s -- --cn
+   curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/main/deploy/install.sh | bash -s -- --cn
 
    # 公网 + 域名（Caddy 自动 HTTPS）
-   curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash -s -- --domain notes.example.com
+   curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/main/deploy/install.sh | bash -s -- --domain notes.example.com
    ```
 
 2. **客户端连接**：首次启动选择「🌐 连接服务器」→ 输入服务器地址 → 设置主密码
@@ -141,11 +141,11 @@ pnpm dev:h5
 
 ```bash
 # Linux / macOS
-curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash
-curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.sh | bash -s -- --cn --domain notes.example.com
+curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/main/deploy/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Hermitweb/dustnote/main/deploy/install.sh | bash -s -- --cn --domain notes.example.com
 
 # Windows（PowerShell）
-powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://raw.githubusercontent.com/Hermitweb/dustnote/dev/setup-and-fixes/deploy/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "iwr -UseBasicParsing https://raw.githubusercontent.com/Hermitweb/dustnote/main/deploy/install.ps1 | iex"
 ```
 
 **② 已有仓库 / 部署包：本地一键部署**：

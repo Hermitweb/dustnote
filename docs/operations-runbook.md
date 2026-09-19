@@ -40,7 +40,9 @@
 
 - 外部拨测(UptimeRobot 类)对 /api/v1/health 的可用率监控
 - 备份文件按日存在性巡检(脚本核对 backups 卷内当日 db-\*.sqlite)
-- Prometheus /metrics 端点(当前未实现)
+- Prometheus /metrics 端点（**已实现，默认关闭**：设 `METRICS_ENABLED=true` 开启，
+  `METRICS_TOKEN` 配 Bearer 鉴权；建议在反代层仅放行内网/监控器访问。
+  指标含 HTTP 耗时直方图、5xx 计数、WS 活跃连接、认证锁定、备份结果、库文件大小）
 
 ## 4. 常见故障处理
 
@@ -81,9 +83,13 @@
 
 ### 4.3 备份失败
 
-> ⚠️ **现状校准（2026-09 审计）**：备份由**服务端进程内** backup-scheduler 执行
-> （启动 60s 后一次,之后每 24h 一次,保留最近 30 份）,不走系统 cron,
-> 也**没有 backup.sh / GPG 加密**。备份文件为明文 SQLite,敏感度等同生产库。
+> ⚠️ **现状校准（2026-09 审计修订）**：备份由**服务端进程内** backup-scheduler 执行
+> （启动 60s 后一次,之后每 24h 一次,保留最近 30 份）,不走系统 cron。
+> 设置 `BACKUP_ENCRYPTION_KEY` 后,备份以 **AES-256-GCM 加密**为 `db-*.sqlite.enc`
+> （deploy.sh / deploy.ps1 已默认生成该口令）；未设置口令时明文落盘并记 WARN,
+> 敏感度等同生产库——务必设置。恢复：
+> `node dist/scripts/backup.js --decrypt <备份.enc> <输出.sqlite>`。
+> 注意：备份与主库同宿主同盘卷,仍需自行做 off-site 同步防整机故障（见 DEPLOY.md）。
 
 **症状**：日志出现「备份失败」关键字 / backups 卷内文件日期停滞
 

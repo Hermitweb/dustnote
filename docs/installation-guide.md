@@ -1,6 +1,6 @@
 # DustNote 安装与卸载指南
 
-> 版本：v2.5.41 | 更新日期：2026-09-19
+> 版本：v2.5.40 | 更新日期：2026-09-19
 
 本文档详细说明 DustNote 在各平台的安装、卸载和自动更新流程。
 
@@ -51,10 +51,10 @@ NSIS 安装包支持标准静默参数：
 
 ```powershell
 # 完全静默安装（默认当前用户模式）
-.\DustNote_2.5.28_x64-setup.exe /S
+.\DustNote_2.5.40_x64-setup.exe /S
 
 # 静默安装到自定义目录（注意：/D= 必须是最后一个参数，路径不加引号）
-.\DustNote_2.5.28_x64-setup.exe /S /D=D:\Apps\DustNote
+.\DustNote_2.5.40_x64-setup.exe /S /D=D:\Apps\DustNote
 ```
 
 > 常用参数：`/S` 静默；`/D=<目录>` 自定义路径（必须放在最后）；全机安装需以管理员身份运行。

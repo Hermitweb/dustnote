@@ -137,7 +137,7 @@ curl http://localhost:8080/api/v1/health
 
 > ⚠️ **防火墙提示**：Docker 发布的端口（`ports:` 映射）走 iptables 的 DOCKER 链，**会绕过 ufw/firewalld 的 INPUT 规则**——即使防火墙未放行 8080，外部也可能直接访问。如需限制来源，可在 `docker-compose.yml` 中把端口绑定到回环地址（`127.0.0.1:8080:8080`）再由反代对外，或在防火墙的 `DOCKER-USER` 链中配置规则。
 
-> 🔒 **容器内无 root 进程（v2.5.41 起）**：容器内 nginx 改用非特权端口 **8080**
+> 🔒 **容器内无 root 进程（v2.5.40 起）**：容器内 nginx 改用非特权端口 **8080**
 > 监听（supervisord / nginx / node 均以 `dustnote` 运行）。宿主侧端口不变
 > （默认 `8080`）。**从旧版本升级**：若你自定义过 `ports:` 映射（如 `"80:80"`），
 > 需把容器侧端口改为 `8080`（形如 `"80:8080"`）；使用默认 compose 则无需改动。
@@ -626,25 +626,32 @@ docker inspect --format='{{.State.Health.Status}}' dustnote
 
 ### 9.1 备份
 
+> ℹ️ 容器镜像**未内置 `sqlite3` CLI**（`apk add` 未含），且 WAL 模式下直接 `cp`
+> 主库文件会得到不一致快照。以下备份统一用应用自带的 **better-sqlite3 在线备份 API**
+> （SQLite Online Backup，产出含 WAL 的一致性快照）。
+
 ```bash
-# Docker 部署：通过容器备份（推荐）
-docker compose exec dustnote sqlite3 /app/server/data/dustnote.db ".backup '/tmp/dustnote-backup.db'"
+# Docker 部署：通过容器备份（推荐）——用 node + better-sqlite3 在线备份，无需 sqlite3 CLI
+docker compose exec dustnote node -e \
+  "require('better-sqlite3')('/app/server/data/dustnote.db').backup('/tmp/dustnote-backup.db').then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1)})"
 docker cp dustnote:/tmp/dustnote-backup.db ./dustnote-backup-$(date +%F).db
 
-# 或直接备份卷文件（需先停服务）
+# 或直接备份整个数据卷（需先停服务，保证 WAL 已 checkpoint）
 docker compose stop dustnote
 tar -czf dustnote-data-$(date +%F).tar.gz /var/lib/docker/volumes/dustnote-data/_data
 docker compose start dustnote
 
-# 手动部署：直接备份文件
-sqlite3 /opt/dustnote/server/data/dustnote.db ".backup '/opt/backups/dustnote-$(date +%F).db'"
+# 手动部署：用部署目录内的 better-sqlite3 在线备份（同样不依赖 sqlite3 CLI）
+( cd /opt/dustnote/server && node -e \
+  "require('better-sqlite3')('data/dustnote.db').backup('/opt/backups/dustnote-'+new Date().toISOString().slice(0,10)+'.db').then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1)})" )
 ```
 
 ### 9.2 自动定时备份（cron）
 
 ```bash
-# /etc/cron.d/dustnote-backup
-0 3 * * * root docker compose -f /opt/dustnote/docker-compose.yml exec -T dustnote sqlite3 /app/server/data/dustnote.db ".backup '/tmp/backup.db'" && docker cp dustnote:/tmp/backup.db /opt/backups/dustnote-$(date +\%F).db && find /opt/backups -name 'dustnote-*.db' -mtime +30 -delete
+# /etc/cron.d/dustnote-backup —— 用 node+better-sqlite3 在线备份（容器内无 sqlite3 CLI）；
+# 失败时记录到日志而非静默短路（注意 % 在 crontab 中需转义为 \%）
+0 3 * * * root docker compose -f /opt/dustnote/docker-compose.yml exec -T dustnote node -e "require('better-sqlite3')('/app/server/data/dustnote.db').backup('/tmp/backup.db').then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1)})" && docker cp dustnote:/tmp/backup.db /opt/backups/dustnote-$(date +\%F).db && find /opt/backups -name 'dustnote-*.db' -mtime +30 -delete || echo "dustnote off-host backup FAILED at $(date)" >> /var/log/dustnote-backup.log
 ```
 
 ### 9.3 恢复
@@ -667,8 +674,9 @@ docker compose start dustnote
 ### 10.1 Docker 部署升级
 
 ```bash
-# 1. 备份当前数据（详见 §九）
-docker compose exec dustnote sqlite3 /app/server/data/dustnote.db ".backup '/tmp/backup.db'"
+# 1. 备份当前数据（详见 §九；用 better-sqlite3 在线备份，容器内无 sqlite3 CLI）
+docker compose exec dustnote node -e \
+  "require('better-sqlite3')('/app/server/data/dustnote.db').backup('/tmp/backup.db').then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1)})"
 docker cp dustnote:/tmp/backup.db ./dustnote-backup-$(date +%F).db
 
 # 2. 下载新部署包并解压（覆盖旧文件）
@@ -691,8 +699,9 @@ curl http://localhost:8080/api/v1/health
 # 1. 停止服务
 sudo systemctl stop dustnote
 
-# 2. 备份数据
-sqlite3 /opt/dustnote/server/data/dustnote.db ".backup '/opt/backups/dustnote-$(date +%F).db'"
+# 2. 备份数据（用 better-sqlite3 在线备份，不依赖 sqlite3 CLI、WAL 一致）
+( cd /opt/dustnote/server && node -e \
+  "require('better-sqlite3')('data/dustnote.db').backup('/opt/backups/dustnote-'+new Date().toISOString().slice(0,10)+'.db').then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1)})" )
 
 # 3. 解压新部署包
 unzip -o dustnote-server-vNEW.zip -d /opt/dustnote-new
