@@ -279,3 +279,108 @@ html[data-theme='liquid-glass'] .prose code {
 html[data-theme='liquid-glass'][data-mode='dark'] .prose code {
   background: rgb(2 6 23 / 0.45);
 }
+
+/* ---------- 液态玻璃·深化（贯穿组件层） ---------- */
+
+/* 漂移极光：作为玻璃背后的"活景"，让磨砂有可透的动态内容 */
+html[data-theme='liquid-glass'] body::before {
+  content: '';
+  position: fixed;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 40% at 20% 25%, rgb(59 130 246 / 0.35), transparent 70%),
+    radial-gradient(36% 38% at 80% 18%, rgb(168 85 247 / 0.3), transparent 70%),
+    radial-gradient(42% 44% at 55% 88%, rgb(45 212 191 / 0.28), transparent 70%);
+  filter: blur(30px);
+  animation: mn-aurora 26s ease-in-out infinite alternate;
+}
+html[data-theme='liquid-glass'][data-mode='dark'] body::before {
+  background:
+    radial-gradient(38% 40% at 20% 25%, rgb(56 189 248 / 0.22), transparent 70%),
+    radial-gradient(36% 38% at 80% 18%, rgb(129 140 248 / 0.2), transparent 70%),
+    radial-gradient(42% 44% at 55% 88%, rgb(20 184 166 / 0.18), transparent 70%);
+}
+@keyframes mn-aurora {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, 2%, 0) scale(1.08);
+  }
+  100% {
+    transform: translate3d(-1%, 1%, 0) scale(1.02);
+  }
+}
+
+/* 更强的玻璃面板（后置声明覆盖上方基础玻璃，加大模糊/饱和与内高光） */
+html[data-theme='liquid-glass'] .bg-surface-card {
+  background-color: rgb(255 255 255 / 0.6);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgb(255 255 255 / 0.65);
+  box-shadow:
+    0 10px 40px rgb(15 23 42 / 0.12),
+    inset 0 1px 0 rgb(255 255 255 / 0.7),
+    inset 0 -1px 0 rgb(255 255 255 / 0.15);
+  transition: box-shadow 200ms ease;
+}
+html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-card {
+  background-color: rgb(30 41 59 / 0.55);
+  border: 1px solid rgb(148 163 184 / 0.24);
+  box-shadow:
+    0 10px 40px rgb(0 0 0 / 0.4),
+    inset 0 1px 0 rgb(255 255 255 / 0.1);
+}
+
+/* 玻璃表单场域：输入/文本域/下拉统一半透明磨砂 + 聚焦 accent 光环 */
+html[data-theme='liquid-glass'] input,
+html[data-theme='liquid-glass'] textarea,
+html[data-theme='liquid-glass'] select {
+  background-color: rgb(255 255 255 / 0.5);
+  border-color: rgb(255 255 255 / 0.6);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+}
+html[data-theme='liquid-glass'][data-mode='dark'] input,
+html[data-theme='liquid-glass'][data-mode='dark'] textarea,
+html[data-theme='liquid-glass'][data-mode='dark'] select {
+  background-color: rgb(2 6 23 / 0.35);
+  border-color: rgb(148 163 184 / 0.25);
+}
+html[data-theme='liquid-glass'] input:focus,
+html[data-theme='liquid-glass'] textarea:focus,
+html[data-theme='liquid-glass'] select:focus {
+  outline: none;
+  border-color: rgb(var(--mn-accent) / 0.6);
+  box-shadow: 0 0 0 3px rgb(var(--mn-accent) / 0.25);
+}
+
+/* 选区与滚动条玻璃化 */
+html[data-theme='liquid-glass'] ::selection {
+  background: rgb(var(--mn-accent) / 0.3);
+}
+html[data-theme='liquid-glass'] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+html[data-theme='liquid-glass'] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+html[data-theme='liquid-glass'] ::-webkit-scrollbar-thumb {
+  background-color: rgb(15 23 42 / 0.18);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+html[data-theme='liquid-glass'][data-mode='dark'] ::-webkit-scrollbar-thumb {
+  background-color: rgb(226 232 240 / 0.22);
+}
+
+/* reduced-motion：极光停摆，仅保留静态渐变，避免不适 */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme='liquid-glass'] body::before {
+    animation: none;
+  }
+}
