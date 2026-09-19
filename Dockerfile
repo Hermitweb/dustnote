@@ -41,7 +41,9 @@ RUN pnpm --filter @dustnote/web build
 # 生产依赖独立部署（flatten node_modules；--prod 剔除 devDependencies，减小镜像体积）
 RUN pnpm --filter @dustnote/server deploy --prod /prod-server
 
-# ─── Stage 2: 运行 ───
+# ─── Stage 2: 运行（全容器非 root，审计 SEC-008）───
+# 基础镜像 digest 固定：运行 `pnpm pin-digests`（需本机 docker）把 FROM 行
+# 改写为 node:22-alpine@sha256:...，防上游 tag 被重指带来的供应链漂移
 FROM node:22-alpine
 RUN apk add --no-cache nginx supervisor tini curl
 
@@ -51,13 +53,13 @@ COPY --from=builder /prod-server /app/server
 # Web 静态
 COPY --from=builder /app/web/dist /app/web-dist
 
-# 创建数据目录
-RUN mkdir -p /app/server/data
-
-# §3.9/§15：应用进程以非 root 运行（supervisord 保持 root 以绑定 80 端口，
-# 但 server 子进程降权为 dustnote，数据目录归其所有，避免以 root 写库）
-RUN adduser -D -h /app dustnote && chown -R dustnote:dustnote /app/server
-RUN chmod 700 /app/server/data 2>/dev/null || true
+# §3.9/§15 + 审计 SEC-008：容器内不保留任何 root 进程——
+# supervisor/nginx/node 全部以 dustnote 运行，nginx 监听 8080（非特权端口，
+# 无需 CAP_NET_BIND_SERVICE；容器外映射见 docker-compose.yml = ${PORT}:8080）。
+RUN adduser -D -h /app dustnote \
+  && mkdir -p /app/server/data /run/nginx \
+  && chown -R dustnote:dustnote /app/server /run/nginx /var/lib/nginx /var/log/nginx \
+  && chmod 700 /app/server/data
 
 # 环境
 ENV NODE_ENV=production PORT=3210
@@ -65,10 +67,10 @@ ENV DB_PATH=/app/server/data/dustnote.db
 ENV WEB_ORIGIN=http://localhost
 
 # nginx + supervisor
-RUN mkdir -p /run/nginx
 COPY deploy/nginx.conf /etc/nginx/http.d/default.conf
 COPY deploy/supervisord.conf /etc/supervisord.conf
 
-EXPOSE 80
+USER dustnote
+EXPOSE 8080
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]

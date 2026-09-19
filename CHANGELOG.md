@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### 变更（部署加固，审计 SEC-008）
+
+- **容器内不再有 root 进程**：nginx 改用非特权端口 8080 监听，supervisord /
+  nginx / node 全部以 `dustnote` 用户运行。宿主侧默认端口不变（8080）；
+  自定义过 `ports:` 映射的部署需把容器侧端口由 `80` 改为 `8080`。
+- 基础镜像支持 digest 固定（`pnpm pin-digests`），防上游 tag 重指。
+
 ### 计划中
 
 - iOS 客户端正式构建（待 macOS 硬件 + Apple 签名）

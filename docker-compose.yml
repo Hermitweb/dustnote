@@ -30,10 +30,13 @@ services:
     mem_limit: 1g
     memswap_limit: 1g
     ports:
-      # 一体化 nginx 监听 80，web 与 /api/v1 共用此端口
+      # 一体化 nginx 容器内监听 8080（审计 SEC-008：非特权端口，容器内无 root），
+      # web 与 /api/v1 共用此端口；宿主侧端口由 PORT 控制，默认不变。
+      # ⚠️ 从旧版本升级：容器内端口已由 80 改为 8080，若你自定义过 ports 映射
+      # （如 "80:80"），需同步把容器侧改为 8080（形如 "80:8080"）。
       # 注意：Docker 发布端口绕过 ufw/firewalld 的 INPUT 规则；如需仅本机访问、
-      # 由外部反代对外，改为 '- "127.0.0.1:${PORT:-8080}:80"'
-      - '${PORT:-8080}:80'
+      # 由外部反代对外，改为 '- "127.0.0.1:${PORT:-8080}:8080"'
+      - '${PORT:-8080}:8080'
     volumes:
       # 持久化 SQLite 数据库（一体化镜像数据目录为 /app/server/data）
       - dustnote-data:/app/server/data

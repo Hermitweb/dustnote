@@ -135,7 +135,26 @@ curl http://localhost:8080/api/v1/health
 
 浏览器访问 `http://<服务器IP>:8080` 即可使用。
 
-> ⚠️ **防火墙提示**：Docker 发布的端口（`ports:` 映射）走 iptables 的 DOCKER 链，**会绕过 ufw/firewalld 的 INPUT 规则**——即使防火墙未放行 8080，外部也可能直接访问。如需限制来源，可在 `docker-compose.yml` 中把端口绑定到回环地址（`127.0.0.1:8080:80`）再由反代对外，或在防火墙的 `DOCKER-USER` 链中配置规则。
+> ⚠️ **防火墙提示**：Docker 发布的端口（`ports:` 映射）走 iptables 的 DOCKER 链，**会绕过 ufw/firewalld 的 INPUT 规则**——即使防火墙未放行 8080，外部也可能直接访问。如需限制来源，可在 `docker-compose.yml` 中把端口绑定到回环地址（`127.0.0.1:8080:8080`）再由反代对外，或在防火墙的 `DOCKER-USER` 链中配置规则。
+
+> 🔒 **容器内无 root 进程（v2.5.41 起）**：容器内 nginx 改用非特权端口 **8080**
+> 监听（supervisord / nginx / node 均以 `dustnote` 运行）。宿主侧端口不变
+> （默认 `8080`）。**从旧版本升级**：若你自定义过 `ports:` 映射（如 `"80:80"`），
+> 需把容器侧端口改为 `8080`（形如 `"80:8080"`）；使用默认 compose 则无需改动。
+>
+> 验证容器内确实无 root：`docker compose exec dustnote ps -o user,args -A | head`
+
+### 基础镜像 digest 固定（供应链加固）
+
+`Dockerfile` / `docker-compose.yml` 中的基础镜像（`node:22-alpine`、`caddy:2-alpine`）
+支持锁定到 manifest digest，避免上游 tag 被重指导致构建结果漂移：
+
+```bash
+pnpm pin-digests          # 需本机 docker；解析并写回 tag@sha256:<digest>
+pnpm pin-digests --dry-run
+```
+
+升级基础镜像时改回浮动 tag 后重跑即可；Dependabot 的 docker 生态更新会同步 digest。
 
 ### 3.2 生产部署（HTTPS，公网 VPS）
 
@@ -185,8 +204,8 @@ docker compose logs -f caddy
                 │  dustnote-data (SQLite 卷)        │
                 └─────────────────────────────────┘
 
-- HTTP 模式：宿主机 :8080 → 容器 :3210
-- TLS 模式：Caddy :80/:443 → dustnote:3210（自动 HTTPS）
+- HTTP 模式：宿主机 :8080 → 容器 :8080（nginx 静态 + 反代）→ 127.0.0.1:3210（node）
+- TLS 模式：Caddy :80/:443 → dustnote:8080（容器内 nginx，自动 HTTPS）
 ```
 
 ### 3.4 常用运维命令
