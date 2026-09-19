@@ -14,7 +14,7 @@ import { useEffect } from 'react';
 import Taro from '@tarojs/taro';
 import { useThemeStore, currentEffectiveTheme } from '../state/theme';
 
-const BG = { light: '#FAFCF9', dark: '#0b1120' } as const;
+const BG = { light: '#EAEFF8', dark: '#0b1120' } as const;
 const FG = { light: '#1F2D26', dark: '#e8edf4' } as const;
 
 let sysListenerBound = false;

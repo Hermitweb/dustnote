@@ -5,13 +5,13 @@
 
 /* ========== 设计令牌（CSS 变量） ========== */
 page {
-  --bg: #fafcf9;
-  --bg-elevated: #ffffff;
-  --bg-sunken: #f1f6f2;
+  --bg: #eaeff8;
+  --bg-elevated: rgba(255, 255, 255, 0.72);
+  --bg-sunken: #e7ecf6;
   --fg: #1f2d26;
   --fg-secondary: #5c6b63;
   --fg-muted: #8b9690;
-  --border: #e3ebe6;
+  --border: rgba(148, 163, 184, 0.35);
   --border-strong: #c5d5ca;
   --primary: #5fbc93;
   --primary-strong: #4fb783;
@@ -47,7 +47,10 @@ page {
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
 
-  background: var(--bg);
+  background:
+    radial-gradient(120% 80% at 12% -10%, rgba(95, 188, 147, 0.22), transparent 60%),
+    radial-gradient(110% 70% at 110% 6%, rgba(111, 168, 199, 0.22), transparent 55%),
+    var(--bg);
   color: var(--fg);
   font-family:
     -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
@@ -1075,12 +1078,12 @@ page {
 @media (prefers-color-scheme: dark) {
   page {
     --bg: #0b1120;
-    --bg-elevated: #151d2e;
+    --bg-elevated: rgba(21, 29, 46, 0.72);
     --bg-sunken: #060b16;
     --fg: #e8edf4;
     --fg-secondary: #a8b5c8;
     --fg-muted: #9aa7b5;
-    --border: #263040;
+    --border: rgba(148, 163, 184, 0.2);
     --border-strong: #354558;
     --primary: #5fbc93;
     --primary-strong: #5fbc93;
@@ -1098,13 +1101,13 @@ page {
 
 /* 手动浅色(系统深色时反制 @media 深色变量) */
 .theme-light {
-  --bg: #fafcf9;
-  --bg-elevated: #ffffff;
-  --bg-sunken: #f1f6f2;
+  --bg: #eaeff8;
+  --bg-elevated: rgba(255, 255, 255, 0.72);
+  --bg-sunken: #e7ecf6;
   --fg: #1f2d26;
   --fg-secondary: #5c6b63;
   --fg-muted: #8b9690;
-  --border: #e3ebe6;
+  --border: rgba(148, 163, 184, 0.35);
   --border-strong: #c5d5ca;
   --primary: #5fbc93;
   --primary-strong: #4fb783;
@@ -1131,12 +1134,12 @@ page {
    覆盖 @media 仅跟系统的局限,实现 light/dark 手动切换 */
 .theme-dark {
   --bg: #0b1120;
-  --bg-elevated: #151d2e;
+  --bg-elevated: rgba(21, 29, 46, 0.72);
   --bg-sunken: #060b16;
   --fg: #e8edf4;
   --fg-secondary: #a8b5c8;
   --fg-muted: #9aa7b5;
-  --border: #263040;
+  --border: rgba(148, 163, 184, 0.2);
   --border-strong: #354558;
   --primary: #5fbc93;
   --primary-strong: #5fbc93;
