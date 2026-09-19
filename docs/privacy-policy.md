@@ -82,3 +82,9 @@ DustNote 不向 14 岁以下未成年人提供服务。如发现误注册，请�
 ## 11. 适用法律
 
 本政策适用中华人民共和国《个人信息保护法》与欧盟 GDPR（如适用）。
+
+## 12. 相关文件
+
+- 服务条款：[terms-of-service.md](./terms-of-service.md)
+- Cookie 政策：[cookie-policy.md](./cookie-policy.md)
+- 安全策略与漏洞报告：[SECURITY.md](../SECURITY.md)

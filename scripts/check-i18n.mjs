@@ -151,13 +151,116 @@ const defined = collectDefinedKeys();
 
 const missing = [...used].filter((k) => !defined.has(k));
 
+let failed = false;
 if (missing.length === 0) {
-  console.log(`✓ i18n 校验通过：${used.size} 个 key 全部已定义`);
-  process.exit(0);
+  console.log(`✓ web i18n 校验通过：${used.size} 个 key 全部已定义`);
 } else {
-  console.error(`✗ i18n 校验失败：${missing.length} 个 key 未定义：`);
+  failed = true;
+  console.error(`✗ web i18n 校验失败：${missing.length} 个 key 未定义：`);
   for (const k of missing.sort()) {
     console.error(`  - ${k}`);
   }
-  process.exit(1);
 }
+
+// ========== 4. 审计 ARCH-008：mobile / miniprogram 词典中英对称性 ==========
+// 词典文件是「import + 单个 export 对象字面量」的 TS，提取 export 后第一个
+// 对象的叶子 key 集合，比对 zh-CN 与 en 的对称性（此前两端的键漂移无门禁）。
+function extractLeafKeys(filePath) {
+  const raw = readFileSync(filePath, 'utf8');
+  // 词典结构为「import + 注释 + const zhCN = { ... }; export default zhCN」：
+  // 剥掉块注释/行注释/import 行后，取第一个「= {」对象字面量
+  const src = raw
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .replace(/^import[^;\n]*;?\s*$/gm, '');
+  const eq = src.search(/=\s*\{/);
+  if (eq < 0) throw new Error('未找到导出的对象字面量');
+  const start = src.indexOf('{', eq);
+  const keys = new Set();
+
+  function scan(startIdx, prefix) {
+    let p = startIdx + 1;
+    while (p < src.length) {
+      while (p < src.length && /[\s,]/.test(src[p])) p++;
+      if (src[p] === '}') return p + 1;
+      if (src[p] === '/' && src[p + 1] === '/') {
+        while (p < src.length && src[p] !== '\n') p++;
+        continue;
+      }
+      let key = '';
+      if (src[p] === "'" || src[p] === '"') {
+        const q = src[p];
+        p++;
+        while (p < src.length && src[p] !== q) {
+          key += src[p];
+          p++;
+        }
+        p++;
+      } else {
+        while (p < src.length && /[a-zA-Z0-9_]/.test(src[p])) {
+          key += src[p];
+          p++;
+        }
+      }
+      while (p < src.length && /\s/.test(src[p])) p++;
+      if (src[p] !== ':') {
+        // 无法识别的片段：跳到逗号/闭括号
+        while (p < src.length && src[p] !== ',' && src[p] !== '}') p++;
+        continue;
+      }
+      p++;
+      while (p < src.length && /\s/.test(src[p])) p++;
+      const full = prefix ? `${prefix}.${key}` : key;
+      if (src[p] === '{') {
+        p = scan(p, full);
+      } else {
+        keys.add(full);
+        if (src[p] === "'" || src[p] === '"') {
+          const q = src[p];
+          p++;
+          while (p < src.length && src[p] !== q) {
+            if (src[p] === '\\') p++; // 跳过转义
+            p++;
+          }
+          p++;
+        } else {
+          while (p < src.length && src[p] !== ',' && src[p] !== '}') p++;
+        }
+      }
+      while (p < src.length && /[\s,]/.test(src[p])) p++;
+    }
+    return p;
+  }
+
+  scan(start, '');
+  return keys;
+}
+
+const PARITY_TARGETS = [
+  { name: 'mobile', zh: 'mobile/src/locales/zh-CN.ts', en: 'mobile/src/locales/en.ts' },
+  { name: 'miniprogram', zh: 'miniprogram/src/locales/zh-CN.ts', en: 'miniprogram/src/locales/en.ts' },
+];
+
+for (const t of PARITY_TARGETS) {
+  try {
+    const zh = extractLeafKeys(t.zh);
+    const en = extractLeafKeys(t.en);
+    const onlyZh = [...zh].filter((k) => !en.has(k));
+    const onlyEn = [...en].filter((k) => !zh.has(k));
+    if (onlyZh.length === 0 && onlyEn.length === 0) {
+      console.log(`✓ ${t.name} 词典中英对称：${zh.size} 个 key`);
+    } else {
+      failed = true;
+      console.error(
+        `✗ ${t.name} 词典中英不对称：zh 独有 ${onlyZh.length} 个，en 独有 ${onlyEn.length} 个`
+      );
+      for (const k of onlyZh.slice(0, 10)) console.error(`  - 仅 zh: ${k}`);
+      for (const k of onlyEn.slice(0, 10)) console.error(`  - 仅 en: ${k}`);
+    }
+  } catch (err) {
+    failed = true;
+    console.error(`✗ ${t.name} 词典解析失败：${err.message}`);
+  }
+}
+
+process.exit(failed ? 1 : 0);

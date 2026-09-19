@@ -114,8 +114,7 @@ export function getManifestForChannel(
       // 审计 LIFE-024：mandatory 由 FORCE_UPDATE_VERSION 推导——
       // 通道版本达到强制升级线时置 true，未配置强制线则恒为 false
       mandatory:
-        config.forceUpdateVersion != null &&
-        compareSemver(version, config.forceUpdateVersion) >= 0,
+        config.forceUpdateVersion != null && compareSemver(version, config.forceUpdateVersion) >= 0,
       // v2.0.0 引入单机/联机双模式架构，旧版客户端（0.x）无法连接
       minServerVersion: config.serverVersion,
       artifacts: getStaticArtifacts(),

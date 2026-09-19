@@ -105,7 +105,8 @@ export function createApp(): Application {
     res.on('finish', () => {
       const templated = req.route?.path ? `${req.baseUrl}${req.route.path}` : undefined;
       const route =
-        templated ?? (req.path.startsWith('/api/') ? req.path.split('/').slice(0, 4).join('/') : req.path);
+        templated ??
+        (req.path.startsWith('/api/') ? req.path.split('/').slice(0, 4).join('/') : req.path);
       if (res.statusCode >= 500) http5xxTotal.inc();
       end({ method: req.method, route, status: String(res.statusCode) });
     });

@@ -24,6 +24,9 @@ const STATIC_CACHE = `${CACHE_PREFIX}-static-${SW_VERSION}`;
 // 写进 'dustnote-runtime'。改名后 activate 的清理规则会把旧键整体删除,
 // 存量用户的敏感历史缓存随本版 SW 更新清空;新 SW 本身不再读写 /api/。
 const RUNTIME_CACHE = `${CACHE_PREFIX}-runtime-v2`;
+// 审计 LIFE-019：运行缓存条目上限——长会话下 Cache Storage 无界增长会
+// 挤占用户磁盘配额；超出后按插入顺序淘汰最旧条目（近似 LRU）
+const RUNTIME_CACHE_MAX_ENTRIES = 200;
 
 // 需要预缓存的静态资源（install 时缓存）
 // 注意：当前预缓存列表不含 JS/CSS bundle（构建后文件名带 hash 无法手动维护）。
@@ -104,6 +107,19 @@ self.addEventListener('fetch', (event) => {
 // 缓存策略实现
 // ====================================================================
 
+/** 超出上限时淘汰最旧的运行缓存条目（Cache keys() 按插入序返回） */
+async function trimRuntimeCache() {
+  try {
+    const cache = await caches.open(RUNTIME_CACHE);
+    const keys = await cache.keys();
+    if (keys.length <= RUNTIME_CACHE_MAX_ENTRIES) return;
+    const stale = keys.slice(0, keys.length - RUNTIME_CACHE_MAX_ENTRIES);
+    await Promise.all(stale.map((key) => cache.delete(key)));
+  } catch (err) {
+    console.warn('[SW] trim runtime cache failed:', err);
+  }
+}
+
 /** network-first：先尝试网络，失败时返回缓存 */
 async function networkFirst(request, fallbackUrl) {
   try {
@@ -112,6 +128,7 @@ async function networkFirst(request, fallbackUrl) {
     if (networkResponse && networkResponse.ok) {
       const cache = await caches.open(RUNTIME_CACHE);
       cache.put(request, networkResponse.clone());
+      void trimRuntimeCache();
     }
     return networkResponse;
   } catch {
@@ -136,6 +153,7 @@ async function staleWhileRevalidate(request) {
     .then((response) => {
       if (response && response.ok) {
         cache.put(request, response.clone());
+        void trimRuntimeCache();
       }
       return response;
     })

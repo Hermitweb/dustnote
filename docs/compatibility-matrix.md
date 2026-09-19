@@ -1,19 +1,19 @@
 # DustNote 兼容性矩阵
 
-> 适用版本：v2.0.0
-> 更新日期：2026-07-26
+> 适用版本：v2.5.x
+> 更新日期：2026-09-19
 
 ## 0. 双模式架构（v2.0.0 新增）
 
 DustNote v2.0.0 引入**单机/联机双模式架构**。两种模式对各端能力的要求不同：
 
-| 能力                  | 单机模式                                                        | 联机模式                             |
-| --------------------- | --------------------------------------------------------------- | ------------------------------------ |
-| 主密码 setup/unlock   | 本地 Argon2id + 比对（无 JWT）                                  | 调 `/auth/setup`、`/auth/unlock`     |
-| 笔记/文件夹/标签 CRUD | `LocalRepository`（IndexedDB / AsyncStorage / Taro.setStorage） | `RemoteRepository`（API + 离线队列） |
-| 跨设备同步            | **不支持**                                                      | WebSocket + 离线队列                 |
-| 在线分享              | **不支持**（仅文件导出）                                        | 支持                                 |
-| 服务端依赖            | **无**                                                          | 必需                                 |
+| 能力                  | 单机模式                                                                      | 联机模式                             |
+| --------------------- | ----------------------------------------------------------------------------- | ------------------------------------ |
+| 主密码 setup/unlock   | 本地 PBKDF2-SHA256 100k 派生 + 比对（无 JWT；历史 Argon2id 账号按原参数兼容） | 调 `/auth/setup`、`/auth/unlock`     |
+| 笔记/文件夹/标签 CRUD | `LocalRepository`（IndexedDB / AsyncStorage / Taro.setStorage）               | `RemoteRepository`（API + 离线队列） |
+| 跨设备同步            | **不支持**                                                                    | WebSocket + 离线队列                 |
+| 在线分享              | **不支持**（仅文件导出）                                                      | 支持                                 |
+| 服务端依赖            | **无**                                                                        | 必需                                 |
 
 详见 [standalone-mode.md](../.trae/documents/standalone-mode.md)。
 

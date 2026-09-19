@@ -67,3 +67,8 @@ DustNote 是**单用户个人笔记系统**。服务按"现状"提供，不保�
 ## 12. 联系方式
 
 - GitHub：[Issues](https://github.com/Hermitweb/dustnote/issues)（隐私/法务事务请通过 Issue 私信联系维护者）
+
+## 相关文件
+
+- 隐私政策：[privacy-policy.md](./privacy-policy.md)
+- Cookie 政策：[cookie-policy.md](./cookie-policy.md)

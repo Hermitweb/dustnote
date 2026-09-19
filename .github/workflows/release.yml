@@ -153,7 +153,7 @@ jobs:
         # server 产物由 build-server-zip job 单独构建（正常 install）。
         run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
-      - name: Build Tauri app — Windows（x64: NSIS+MSI / ARM64: NSIS）
+      - name: Build Tauri app — Windows x64（NSIS+MSI）与 ARM64（NSIS）
         # audit LIFE-001：补齐 installation-guide 承诺的 MSI 构建目标。
         # NSIS 步同时产出裸 exe（target/release/，供 portable zip）与安装器。
         # win-arm64 条目交叉编译到 aarch64（rust-toolchain.toml 已声明 targets）；

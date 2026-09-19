@@ -34,3 +34,8 @@ Cookie 是浏览器存储的小型文本文件，用于识别你的会话。Dust
 ## 联系方式
 
 如有疑问：[GitHub Issues](https://github.com/Hermitweb/dustnote/issues)
+
+## 相关文件
+
+- 隐私政策：[privacy-policy.md](./privacy-policy.md)
+- 服务条款：[terms-of-service.md](./terms-of-service.md)
