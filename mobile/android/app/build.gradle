@@ -140,6 +140,20 @@ android {
   }
 }
 
+// SEC-001: release 构建禁止静默回退 debug 签名——正式 keystore 未配置时直接失败，
+// 避免公开 debug 签名的 APK 流入发布渠道（攻击者可签发同签名更新包覆盖安装）。
+// 本地调试 dry-run 需显式加 -PallowDebugSigningForRelease=true 豁免。
+gradle.taskGraph.whenReady { graph ->
+  def hasReleaseTask = graph.allTasks.any { it.name.toLowerCase().contains('release') }
+  if (hasReleaseTask && android.signingConfigs.findByName('release') == null
+      && !project.findProperty('allowDebugSigningForRelease')) {
+    throw new GradleException(
+      'Release keystore 未配置（DUSTNOTE_RELEASE_STORE_FILE 等未解析），' +
+      '已禁止静默回退 debug 签名；本地调试请加 -PallowDebugSigningForRelease=true'
+    )
+  }
+}
+
 dependencies {
   implementation("com.facebook.react:react-android")
 

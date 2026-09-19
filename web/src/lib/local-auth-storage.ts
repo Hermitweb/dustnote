@@ -1,7 +1,8 @@
 /**
  * 单机模式本地鉴权存储（v2.0.0）
  *
- * 持久化 LocalAuthBlob 到 localStorage；LocalLockoutState 到 sessionStorage（防止跨标签页绕过）：
+ * 持久化 LocalAuthBlob 与 LocalLockoutState 到 localStorage（锁定状态跨标签页、
+ * 跨浏览器重启仍生效——新开标签页或重启后无法绕过失败锁定）：
  * - 'dustnote_local_auth_blob'：单机模式鉴权 blob（passwordHash + salts + 双重包装的 masterKey）
  * - 'dustnote_lockout_state'：客户端锁定状态（失败计数 + 锁定截止时间）
  *
@@ -54,7 +55,7 @@ export function hasLocalAuth(): boolean {
 /** 加载锁定状态；不存在时返回初始状态 */
 export function loadLockoutState(): LocalLockoutState {
   try {
-    const raw = sessionStorage.getItem(LOCKOUT_KEY);
+    const raw = localStorage.getItem(LOCKOUT_KEY);
     if (!raw) return { ...INITIAL_LOCKOUT_STATE };
     const parsed = JSON.parse(raw) as Partial<LocalLockoutState>;
     return {
@@ -68,10 +69,10 @@ export function loadLockoutState(): LocalLockoutState {
 
 /** 保存锁定状态 */
 export function saveLockoutState(state: LocalLockoutState): void {
-  sessionStorage.setItem(LOCKOUT_KEY, JSON.stringify(state));
+  localStorage.setItem(LOCKOUT_KEY, JSON.stringify(state));
 }
 
 /** 清除锁定状态 */
 export function clearLockoutState(): void {
-  sessionStorage.removeItem(LOCKOUT_KEY);
+  localStorage.removeItem(LOCKOUT_KEY);
 }

@@ -217,7 +217,6 @@ jobs:
     name: Build Mobile Android
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    continue-on-error: true
     permissions:
       contents: write
       issues: write
@@ -292,9 +291,8 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "::warning::ANDROID_KEYSTORE_BASE64 secret not set — release APK will use debug signing (not suitable for production distribution)"
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "ANDROID_KEYSTORE_BASE64 secret not set — refusing to build a debug-signed release APK (SEC-001: 公开 debug 签名可被同签名覆盖安装)"
+            exit 1
           fi
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > mobile/android/app/dustnote-release.keystore
           # 通过环境变量暴露给 gradle（build.gradle 读取 System.env.DUSTNOTE_*）

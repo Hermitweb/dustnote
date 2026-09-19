@@ -31,6 +31,16 @@ export function initSentry(): void {
           return crumb;
         });
       }
+      // 异常消息与附加数据可能携带笔记明文（如 Error message 内嵌用户输入），
+      // 一律剥离；问题分组由异常类型 + 堆栈位置承担
+      if (event.exception?.values) {
+        for (const ex of event.exception.values) {
+          delete ex.value;
+        }
+      }
+      if (event.extra) {
+        event.extra = {};
+      }
       return event;
     },
   });

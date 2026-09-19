@@ -7,7 +7,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "start": "react-native start",
-    "test": "jest --passWithNoTests",
+    "test": "echo [skip] mobile has no unit tests yet - audit TEST-004",
     "lint": "eslint .",
     "build:android": "node scripts/build-android.js assembleRelease",
     "build:android-bundle": "node scripts/build-android.js bundleRelease",

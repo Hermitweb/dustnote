@@ -498,6 +498,9 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
               {t('import_export.export_title')}
             </h3>
             <p className="mb-2 text-xs text-surface-muted">{t('import_export.export_hint')}</p>
+            <p className="mb-2 text-xs text-amber-600 dark:text-amber-400">
+              {t('import_export.plaintext_warning')}
+            </p>
             <div className="flex gap-2">
               <button
                 onClick={() => void handleExport('md')}
@@ -554,6 +557,9 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
               {t('import_export.zip_title')}
             </h3>
             <p className="mb-2 text-xs text-surface-muted">{t('import_export.zip_hint')}</p>
+            <p className="mb-2 text-xs text-amber-600 dark:text-amber-400">
+              {t('import_export.plaintext_warning')}
+            </p>
             <button
               onClick={() => void handleExportZip()}
               disabled={mode !== 'main'}

@@ -445,6 +445,7 @@ const resources = {
         backup_fail: '备份失败：{{reason}}',
         zip_title: '批量打包导出',
         zip_hint: '将所有笔记导出为 .md 文件并打包为 ZIP',
+        plaintext_warning: '导出内容为明文（未加密），请妥善保管或自行加密后再传输',
         zip_btn: '📦 打包导出为 ZIP',
         zipping: '打包中…',
         zip_start: '正在打包 {{count}} 篇笔记…',
@@ -1138,6 +1139,8 @@ const resources = {
         backup_fail: 'Backup failed: {{reason}}',
         zip_title: 'Batch Zip Export',
         zip_hint: 'Export all notes as .md files in a ZIP archive',
+        plaintext_warning:
+          'Exported files are plaintext (unencrypted). Store them safely or encrypt before sharing',
         zip_btn: '📦 Export as ZIP',
         zipping: 'Zipping…',
         zip_start: 'Zipping {{count}} notes…',

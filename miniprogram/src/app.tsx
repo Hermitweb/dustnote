@@ -84,10 +84,7 @@ function App({ children }: { children?: ReactNode }) {
     // 当微信客户端检测到新版本的小程序时，提示用户重启
     // H5 端 getUpdateManager 虽存在但返回的对象缺 onCheckForUpdate 等方法，
     // 需同时探测方法本身（仅 weapp 有完整实现）
-    if (
-      process.env.TARO_ENV === 'weapp' &&
-      typeof Taro.getUpdateManager === 'function'
-    ) {
+    if (process.env.TARO_ENV === 'weapp' && typeof Taro.getUpdateManager === 'function') {
       const updateManager = Taro.getUpdateManager();
       updateManager.onCheckForUpdate((res) => {
         if (res.hasUpdate) {
