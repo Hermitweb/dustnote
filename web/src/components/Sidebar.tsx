@@ -18,7 +18,7 @@ type CtxTarget =
   | { type: 'note'; id: string; name: string; folderId: string | null };
 
 export function Sidebar() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const folders = useStore((s) => s.folders);
   const notes = useStore((s) => s.notes);
   const notesPlain = useStore((s) => s.notesPlain);
@@ -285,7 +285,7 @@ export function Sidebar() {
       if (sortKey === 'title') {
         const at = notesPlain.get(a.id)?.title ?? '';
         const bt = notesPlain.get(b.id)?.title ?? '';
-        return at.localeCompare(bt, 'zh-CN');
+        return at.localeCompare(bt, i18n.language || undefined);
       }
       if (sortKey === 'words') {
         const aw = (notesPlain.get(a.id)?.content ?? '').length;

@@ -91,7 +91,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const prefs = useStore((s) => s.preferences);
   const setTheme = useStore((s) => s.setTheme);
   const setMode = useStore((s) => s.setMode);
@@ -657,7 +657,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                         <div className="text-xs text-surface-muted">
                           {d.platform} ·{' '}
                           {t('settings.device_last_active', {
-                            time: new Date(d.lastActiveAt).toLocaleString('zh-CN'),
+                            time: new Date(d.lastActiveAt).toLocaleString(
+                              i18n.language || undefined
+                            ),
                           })}
                         </div>
                       </div>

@@ -40,7 +40,7 @@ interface Share {
 }
 
 export function SharesManager({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // 标题不再存服务端，用本地已解密的笔记按 noteId 反查
   const notesPlain = useStore((s) => s.notesPlain);
   const [shares, setShares] = useState<Share[]>([]);
@@ -293,7 +293,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                         </div>
                         <div className="mt-0.5 text-xs text-surface-muted">
                           {t('shares.created_at', {
-                            date: new Date(s.createdAt).toLocaleString('zh-CN'),
+                            date: new Date(s.createdAt).toLocaleString(i18n.language || undefined),
                           })}
                         </div>
                       </div>
@@ -329,7 +329,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                     {s.expiresAt && (
                       <span>
                         {t('shares.expires_at', {
-                          date: new Date(s.expiresAt).toLocaleString('zh-CN'),
+                          date: new Date(s.expiresAt).toLocaleString(i18n.language || undefined),
                         })}
                       </span>
                     )}

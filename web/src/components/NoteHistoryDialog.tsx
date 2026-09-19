@@ -34,7 +34,7 @@ interface NoteHistoryDialogProps {
 interface VersionRow extends NoteVersionMeta {}
 
 export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHistoryDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [versions, setVersions] = useState<VersionRow[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ title: string; content: string } | null>(null);
@@ -216,7 +216,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
                     {t('history.version_label', { n: v.noteVersion })}
                   </div>
                   <div className="mt-0.5 text-surface-muted">
-                    {new Date(v.createdAt).toLocaleString('zh-CN')}
+                    {new Date(v.createdAt).toLocaleString(i18n.language || undefined)}
                   </div>
                 </button>
               ))

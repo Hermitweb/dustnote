@@ -92,6 +92,52 @@ export function AboutDialog({ onClose }: Props) {
           {t('app.github_repo')}
         </a>
 
+        {/* 法律与许可文档链接（审计 DOC-002：GDPR/PIPL 收集时告知 + 商店可达要求） */}
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-surface-muted">
+          <a
+            href="https://github.com/Hermitweb/dustnote/blob/main/docs/privacy-policy.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              void openExternalUrl(
+                'https://github.com/Hermitweb/dustnote/blob/main/docs/privacy-policy.md'
+              );
+            }}
+            className="cursor-pointer underline hover:text-surface-fg"
+          >
+            隐私政策 / Privacy Policy
+          </a>
+          <a
+            href="https://github.com/Hermitweb/dustnote/blob/main/docs/terms-of-service.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              void openExternalUrl(
+                'https://github.com/Hermitweb/dustnote/blob/main/docs/terms-of-service.md'
+              );
+            }}
+            className="cursor-pointer underline hover:text-surface-fg"
+          >
+            服务条款 / Terms
+          </a>
+          <a
+            href="https://github.com/Hermitweb/dustnote/blob/main/THIRD_PARTY_NOTICES.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              void openExternalUrl(
+                'https://github.com/Hermitweb/dustnote/blob/main/THIRD_PARTY_NOTICES.md'
+              );
+            }}
+            className="cursor-pointer underline hover:text-surface-fg"
+          >
+            开源许可 / Licenses
+          </a>
+        </div>
+
         <button
           onClick={onClose}
           className="mt-3 w-full rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
