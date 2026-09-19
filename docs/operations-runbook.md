@@ -1,15 +1,15 @@
 # DustNote 运维手册（Runbook）
 
 > 适用：服务端运维
-> 紧急联系：[oncall@dustnote.app](mailto:oncall@dustnote.app)
+> 紧急联系：GitHub Issues（安全事件走 Private Vulnerability Reporting）
 
 ## 1. 应急联系方式
 
 | 角色           | 联系方式              | 响应时间 |
 | -------------- | --------------------- | -------- |
-| On-call 工程师 | oncall@dustnote.app   | 7×24     |
-| 安全事件       | security@dustnote.app | 24h      |
-| 业务方         | hello@dustnote.app    | 24h      |
+| On-call 工程师 | GitHub Issues        | 7×24     |
+| 安全事件       | Private Vulnerability Reporting | 24h      |
+| 业务方         | GitHub Issues        | 24h      |
 
 ## 2. 故障分级
 
@@ -59,7 +59,7 @@
    - 配置错误 → 检查 `.env`、Nginx
 5. 重启：`docker compose restart dustnote`
 6. 验证：`curl https://note.example.com/api/v1/health`
-7. 发事故公告：status.dustnote.app + 群通知
+7. 发事故公告：GitHub Release / 公告页 + 群通知
 
 ### 4.2 数据库损坏
 
@@ -112,7 +112,7 @@
 
 **步骤**：
 
-1. 检查 WebSocket：`wscat -c wss://api.dustnote.app/sync/ws?access_token=test`
+1. 检查 WebSocket：`wscat -c wss://<your-domain>/sync/ws?access_token=test`
 2. 检查 Nginx 配置中的 Upgrade 头
 3. 检查后端日志中的 WS 错误
 4. 检查防火墙是否放行 443 出站
@@ -161,7 +161,7 @@
 
 ```bash
 # 拉取旧版本
-docker pull ghcr.io/your-org/dustnote:v1.x.(y-1)
+docker pull ghcr.io/Hermitweb/dustnote:v1.x.(y-1)
 # 修改 docker-compose.yml 镜像 tag
 docker compose up -d
 # 验证

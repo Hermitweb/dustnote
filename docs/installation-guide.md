@@ -1,6 +1,6 @@
 # DustNote 安装与卸载指南
 
-> 版本：v2.5.28 | 更新日期：2026-09-04
+> 版本：v2.5.41 | 更新日期：2026-09-19
 
 本文档详细说明 DustNote 在各平台的安装、卸载和自动更新流程。
 
@@ -29,6 +29,7 @@ DustNote 在 Windows 上提供两种安装方式（x64 与 ARM64 各有对应安
 | 方式                       | 安装位置                                                                | 管理员权限   | 适用场景               |
 | -------------------------- | ----------------------------------------------------------------------- | ------------ | ---------------------- |
 | 安装向导 Setup.exe（推荐） | 向导中自选：仅当前用户（`%LocalAppData%`）或所有用户（`Program Files`） | 全机安装需要 | 日常安装，支持静默部署 |
+| MSI 安装包                 | 按 MSI 属性配置（默认全机）                                             | 需要         | 组策略/企业批量部署    |
 | 便携版                     | 任意目录                                                                | 不需要       | U 盘携带、免安装       |
 
 #### 方式一：安装向导 Setup.exe（推荐）
@@ -36,6 +37,7 @@ DustNote 在 Windows 上提供两种安装方式（x64 与 ARM64 各有对应安
 1. 从 [GitHub Releases](https://github.com/Hermitweb/dustnote/releases) 下载对应架构的安装包：
    - `DustNote_<版本>_x64-setup.exe`（64 位 Intel/AMD）
    - `DustNote_<版本>_arm64-setup.exe`（ARM 笔记本，如骁龙 X）
+   - `DustNote_<版本>_x64.msi`（组策略/企业批量部署）
 2. 双击运行，向导语言**跟随系统**（简体中文 / 英文）
 3. 向导中可选择安装模式（仅为我 / 为所有用户）与安装路径
 4. 安装程序自动完成以下操作：
@@ -107,7 +109,7 @@ NSIS 安装包支持标准静默参数：
 
 #### 方式一：AppImage（推荐）
 
-1. 下载 `DustNote.AppImage`
+1. 下载 `DustNote_<版本>_amd64.AppImage`（[Releases](https://github.com/Hermitweb/dustnote/releases)）
 2. 添加执行权限：
    ```bash
    chmod +x DustNote.AppImage
@@ -172,13 +174,13 @@ rm -rf ~/.local/share/dustnote/
 
 ### 安装
 
-> ⚠️ macOS 构建受限于 CI 硬件，可能不稳定。如遇问题请使用 Web 端。
+> ⚠️ 当前 macOS 构建未经过 Apple 签名和公证（Apple Silicon 原生）。
 
-1. 下载 macOS 版本的 Velopack 包
-2. 解压后将 `DustNote.app` 拖入 `/Applications/` 目录
-3. 首次启动时右键 → 打开（绕过 Gatekeeper，因未签名）
-
-> ⚠️ 当前 macOS 版本未经过 Apple 签名和公证。未来版本将加入签名支持。
+1. 下载 `DustNote_<版本>_aarch64.dmg`（Apple Silicon / M 系列芯片）
+2. 打开 DMG，将 `DustNote.app` 拖入 `/Applications/` 目录
+3. 首次启动时**右键 → 打开**（或在"系统设置 → 隐私与安全性"中点"仍要打开"），
+   因未签名，直接双击会被 Gatekeeper 拦截
+4. Intel Mac 暂无原生包，请使用 Web 版或 Docker 自托管部署
 
 ### 卸载
 
@@ -199,7 +201,7 @@ rm -rf ~/.local/share/dustnote/
 
 #### 方式一：直接安装 APK
 
-1. 下载 `DustNote_2.4.4_android.apk`
+1. 下载 `DustNote_<版本>_android.apk`
 2. 在手机上打开 APK 文件
 3. 允许「安装未知来源应用」（首次需要）
 4. 按提示完成安装

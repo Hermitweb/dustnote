@@ -265,9 +265,9 @@ ZIP 使用**导出密码**加密（与主密码不同），请妥善保管。
 ## 11. 获取帮助
 
 - 📖 详细文档：[docs/](./)
-- 💬 邮件：[hello@dustnote.app](mailto:hello@dustnote.app)
-- 🐛 反馈问题：[GitHub Issues](https://github.com/your-org/dustnote/issues)
-- 🔒 安全问题：[security@dustnote.app](mailto:security@dustnote.app)
+- 💬 邮件：[GitHub Issues](https://github.com/Hermitweb/dustnote/issues)
+- 🐛 反馈问题：[GitHub Issues](https://github.com/Hermitweb/dustnote/issues)
+- 🔒 安全问题：[GitHub Private Vulnerability Reporting](https://github.com/Hermitweb/dustnote/security/advisories/new)
 
 ---
 

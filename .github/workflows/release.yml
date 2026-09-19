@@ -153,11 +153,12 @@ jobs:
         # server 产物由 build-server-zip job 单独构建（正常 install）。
         run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm --filter @dustnote/shared build && pnpm --filter @dustnote/client-core build
-      - name: Build Tauri app + NSIS installer (license/path selection/WebView2 check/uninstaller)
+      - name: Build Tauri app — Windows（x64: NSIS+MSI / ARM64: NSIS）
+        # audit LIFE-001：补齐 installation-guide 承诺的 MSI 构建目标。
         # NSIS 步同时产出裸 exe（target/release/，供 portable zip）与安装器。
-        # macOS/Linux 缺少签名证书与 bundle 资源，硬件平台受限，允许失败（现状不变）。
-        # win-arm64 条目交叉编译到 aarch64（rust-toolchain.toml 已声明 targets）。
-        continue-on-error: ${{ matrix.os != 'windows-latest' }}
+        # win-arm64 条目交叉编译到 aarch64（rust-toolchain.toml 已声明 targets）；
+        # ARM64 不出 MSI（WiX 对交叉编译 arm64 支持不稳），维持 NSIS。
+        if: matrix.os == 'windows-latest'
         working-directory: desktop
         shell: bash
         env:
@@ -166,8 +167,25 @@ jobs:
           TARGET_ARGS=""
           if [ -n "$RUST_TARGET" ]; then
             TARGET_ARGS="--target $RUST_TARGET"
+            pnpm tauri build --bundles nsis $TARGET_ARGS
+          else
+            pnpm tauri build --bundles nsis msi $TARGET_ARGS
           fi
-          pnpm tauri build --bundles nsis $TARGET_ARGS
+      - name: Build Tauri app — macOS（app + dmg，未签名）
+        if: matrix.os == 'macos-latest'
+        working-directory: desktop
+        shell: bash
+        run: pnpm tauri build --bundles app dmg
+      - name: Build Tauri app — Linux（AppImage）
+        # audit LIFE-001：补齐 AppImage 构建目标；无 FUSE 的 CI 环境
+        # 需要 APPIMAGE_EXTRACT_AND_RUN=1 让 AppImage 工具以解压模式运行
+        if: matrix.os == 'ubuntu-22.04'
+        working-directory: desktop
+        shell: bash
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+          NO_STRIP: 'true'
+        run: pnpm tauri build --bundles appimage
       - name: Prepare staging directory
         # 仅 x64 需要（staging 供 portable zip 用）
         if: always() && matrix.rust_target == ''
@@ -211,6 +229,25 @@ jobs:
           # arm64 条目：target/aarch64-pc-windows-msvc/release/bundle/nsis；
           # x64 条目：target/release/bundle/nsis（rust_target 为空串时拼接为空）
           path: desktop/src-tauri/target/${{ matrix.rust_target != '' && format('{0}/', matrix.rust_target) || '' }}release/bundle/nsis/*.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: matrix.os == 'windows-latest' && matrix.rust_target == ''
+        with:
+          name: desktop-msi-win-x64
+          path: desktop/src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: matrix.os == 'macos-latest'
+        with:
+          name: desktop-dmg-macos
+          # macos-latest 为 Apple Silicon runner，产物在 target/release/（原生 arm64）
+          path: desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: matrix.os == 'ubuntu-22.04'
+        with:
+          name: desktop-appimage-linux
+          path: desktop/src-tauri/target/release/bundle/appimage/*.AppImage
           if-no-files-found: error
 
   build-mobile:
@@ -581,6 +618,33 @@ jobs:
             -C "$linux_integ_dir" .
           rm -rf "$linux_integ_dir"
 
+          # ---- Windows MSI（audit LIFE-001：installation-guide 承诺的安装目标）----
+          msi_src="$(ls artifacts/desktop-msi-win-x64/*.msi 2>/dev/null | head -n1 || true)"
+          if [ -n "$msi_src" ] && [ -f "$msi_src" ]; then
+            cp "$msi_src" "release-assets/DustNote_${DUSTNOTE_VERSION}_x64.msi"
+            echo "✓ Windows MSI (x64) found"
+          else
+            echo "::warning::Windows MSI (x64) not generated"
+          fi
+
+          # ---- macOS DMG（未签名：首启需右键 → 打开绕过 Gatekeeper）----
+          dmg_src="$(ls artifacts/desktop-dmg-macos/*.dmg 2>/dev/null | head -n1 || true)"
+          if [ -n "$dmg_src" ] && [ -f "$dmg_src" ]; then
+            cp "$dmg_src" "release-assets/DustNote_${DUSTNOTE_VERSION}_aarch64.dmg"
+            echo "✓ macOS DMG (Apple Silicon, unsigned) found"
+          else
+            echo "::warning::macOS DMG not generated"
+          fi
+
+          # ---- Linux AppImage ----
+          appimage_src="$(ls artifacts/desktop-appimage-linux/*.AppImage 2>/dev/null | head -n1 || true)"
+          if [ -n "$appimage_src" ] && [ -f "$appimage_src" ]; then
+            cp "$appimage_src" "release-assets/DustNote_${DUSTNOTE_VERSION}_amd64.AppImage"
+            echo "✓ Linux AppImage found"
+          else
+            echo "::warning::Linux AppImage not generated"
+          fi
+
           echo "=== Final release assets ==="
           ls -la release-assets/
       - name: Create Release
@@ -607,20 +671,22 @@ jobs:
               - 内置应用内更新检查（走自建服务器 manifest + 自托管下载直链）
             - **标准安装包 ARM64**: [DustNote_${{ steps.meta.outputs.version }}_arm64-setup.exe](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_arm64-setup.exe)
               - 适用于 Windows on ARM 设备（Surface Pro X / Snapdragon 笔记本等）
+            - **MSI 安装包 x64**（组策略/企业批量部署）: [DustNote_${{ steps.meta.outputs.version }}_x64.msi](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_x64.msi)
             - **便携版**: [DustNote_${{ steps.meta.outputs.version }}_x64-portable.zip](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_x64-portable.zip)
               - 解压后直接运行 `dustnote-desktop.exe`，无自动更新
 
-            ### macOS（实验性）
-            - 因 GitHub Actions 上无 Apple Developer 签名环境，桌面打包步骤 `continue-on-error: true`
-            - 如本 Release 缺少 macOS 资产，请使用 Web 版或 Docker 自托管部署
+            ### macOS（未签名构建）
+            - **DMG (Apple Silicon)**: [DustNote_${{ steps.meta.outputs.version }}_aarch64.dmg](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_aarch64.dmg)
+              - 无 Apple 开发者签名：首启需**右键 → 打开**（或在"系统设置 → 隐私与安全性"中允许），此后正常使用
+              - Intel Mac 暂无原生包，可用 Web 版或 Docker 自托管部署
 
-            ### Linux（实验性）
-            - 桌面打包步骤 `continue-on-error: true`，资产可能缺失
+            ### Linux
+            - **AppImage (x64)**: [DustNote_${{ steps.meta.outputs.version }}_amd64.AppImage](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_amd64.AppImage)
+              - `chmod +x` 后直接运行
             - **桌面集成包**: [DustNote_${{ steps.meta.outputs.version }}_linux-desktop-integration.tar.gz](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_linux-desktop-integration.tar.gz)
               - 包含 `.desktop` 文件、图标与安装/卸载脚本，用于将 AppImage 集成到系统应用菜单
               - 用法：解压后运行 `./install.sh`（用户级，无需 sudo）或 `./install.sh --system`（系统级）
               - 卸载：`./uninstall.sh`（加 `--purge` 同时清除用户数据）
-            - 推荐使用 Web 版或 Docker 自托管部署
 
             ### Android
             - **APK**: [DustNote_${{ steps.meta.outputs.version }}_android.apk](https://github.com/Hermitweb/dustnote/releases/download/${{ env.RELEASE_TAG }}/DustNote_${{ steps.meta.outputs.version }}_android.apk)

@@ -68,7 +68,7 @@ DustNote（"我们"）是一款个人笔记应用。本政策说明我们在你�
 
 ## 8. 未成年人
 
-DustNote 不向 14 岁以下未成年人提供服务。如发现误注册，请联系 [privacy@dustnote.app](mailto:privacy@dustnote.app) 删除。
+DustNote 不向 14 岁以下未成年人提供服务。如发现误注册，请联系 [GitHub Issues](https://github.com/Hermitweb/dustnote/issues) 删除。
 
 ## 9. 政策变更
 
@@ -76,7 +76,7 @@ DustNote 不向 14 岁以下未成年人提供服务。如发现误注册，请�
 
 ## 10. 联系方式
 
-- 邮箱：[privacy@dustnote.app](mailto:privacy@dustnote.app)
+- 邮箱：[GitHub Issues](https://github.com/Hermitweb/dustnote/issues)
 - 邮件回复时间：7 个工作日内
 
 ## 11. 适用法律

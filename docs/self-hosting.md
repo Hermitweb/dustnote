@@ -58,7 +58,7 @@ version: '3.9'
 
 services:
   dustnote:
-    image: ghcr.io/your-org/dustnote:latest
+    image: ghcr.io/Hermitweb/dustnote:latest
     container_name: dustnote
     restart: unless-stopped
     ports:

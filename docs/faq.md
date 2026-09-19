@@ -138,7 +138,7 @@ JSON 备份可恢复；其他格式（Markdown/HTML/PDF）为只读归档。
 
 ### 怎么提建议？
 
-[hello@dustnote.app](mailto:hello@dustnote.app) 或 [GitHub Issues](https://github.com/your-org/dustnote/issues)
+[GitHub Issues](https://github.com/Hermitweb/dustnote/issues)
 
 ### 多久回复？
 

@@ -108,7 +108,7 @@
 - [ ] docker-compose 已在 staging 跑通
 - [ ] Nginx 反代配置（TLS 1.3 / CSP / Upgrade）已部署
 - [ ] 健康检查 `/api/v1/health` 返回 200
-- [ ] 状态页 status.dustnote.app 已配置
+- [x] 状态页：docs/status.md（自托管无公共 SLA 承诺）
 - [ ] 告警通道（PagerDuty / 飞书）已测试
 - [ ] 监控（Prometheus + Grafana）已接入
 - [ ] 备份 cron 已配置
@@ -130,8 +130,8 @@
 
 ## 9. 用户支持
 
-- [ ] 反馈邮箱已配置（hello@dustnote.app）
-- [ ] 安全邮箱已配置（security@dustnote.app）
+- [x] 反馈通道已配置（GitHub Issues）
+- [x] GitHub Private Vulnerability Reporting 已开启（Settings → Security → Advisories）
 - [ ] 邮件自动回复已设置
 - [ ] GitHub Issues 模板已配置
 - [ ] Issue 标签体系已建立
