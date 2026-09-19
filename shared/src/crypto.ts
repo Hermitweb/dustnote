@@ -1,13 +1,16 @@
 /**
- * 跨平台加密原语：Argon2id / AES-GCM / HKDF / 编码
+ * 跨平台加密原语：PBKDF2/Argon2id / AES-GCM / HKDF / 编码
  *
  * 设计原则：
- * - 浏览器：WebCrypto API + @noble/hashes/argon2
+ * - 浏览器：WebCrypto API + @noble/hashes
  * - Node 20+：同上（WebCrypto 全局可用）
  * - 同一份代码在所有平台运行
  *
  * 安全参数：
- * - Argon2id: m=64MB, t=3, p=4（OWASP 2024 推荐）
+ * - KEK 派生默认 PBKDF2-SHA256 100000（v2.5.24 起全端统一；各端走原生/快速实现，
+ *   属"离线爆破成本 vs 移动端解锁体验"的有意取舍——Argon2id 纯 JS 在低端安卓真机
+ *   解锁实测 182s，故非默认；服务端另有 scrypt N=2^17 的 authKey 哈希兜底）
+ * - Argon2id 分支仅保留以兼容历史账号（按服务端 per-device kdf_params 派生）
  * - AES-GCM-256
  * - nonce: 12 字节随机
  * - salt: 16 字节随机

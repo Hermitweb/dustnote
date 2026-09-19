@@ -520,4 +520,39 @@ export const migrations: Migration[] = [
       db.prepare(`UPDATE meta SET value = '18' WHERE key = 'schema_version'`).run();
     },
   },
+  {
+    id: 19,
+    name: 'normalize-remaining-timestamps',
+    up: (db) => {
+      // 审计 DATA-001：迁移 15 只规范了 notes/shares/devices 的游标列，
+      // folders/users/tags/preferences/templates/audit_log/webauthn_devices 的
+      // 时间戳列仍可能因列 DEFAULT (datetime('now')) 或旧写路径落「YYYY-MM-DD HH:MM:SS」
+      // 空格旧格式（iOS new Date() 解析 Invalid Date、与 ISO 游标混存漏同步）。
+      // 幂等地把恰好 19 位的空格格式转为带 Z 的 UTC ISO。逐 (表,列) 先查
+      // table_info 再更新，避免表/列不存在导致启动失败。
+      const LEGACY_TS_GLOB =
+        '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]';
+      const targets: Array<[string, string[]]> = [
+        ['folders', ['created_at', 'updated_at']],
+        ['tags', ['created_at', 'updated_at']],
+        ['preferences', ['updated_at']],
+        ['users', ['created_at', 'updated_at']],
+        ['templates', ['created_at', 'updated_at']],
+        ['audit_log', ['created_at']],
+        ['webauthn_devices', ['created_at']],
+      ];
+      for (const [table, cols] of targets) {
+        const info = db.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>;
+        if (info.length === 0) continue; // 表不存在
+        const existing = new Set(info.map((c) => c.name));
+        for (const col of cols) {
+          if (!existing.has(col)) continue; // 列不存在
+          db.prepare(
+            `UPDATE ${table} SET ${col} = replace(${col}, ' ', 'T') || 'Z' WHERE ${col} GLOB ?`
+          ).run(LEGACY_TS_GLOB);
+        }
+      }
+      db.prepare(`UPDATE meta SET value = '19' WHERE key = 'schema_version'`).run();
+    },
+  },
 ];

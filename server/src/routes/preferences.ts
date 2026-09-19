@@ -86,7 +86,8 @@ preferencesRouter.patch('/preferences', (req, res) => {
     res.json({ ok: true });
     return;
   }
-  updates.push(`updated_at = datetime('now')`);
+  updates.push('updated_at = ?');
+  params.push(new Date().toISOString());
   params.push(user.userId);
   db.prepare(`UPDATE preferences SET ${updates.join(', ')} WHERE user_id = ?`).run(...params);
   res.json({ ok: true });

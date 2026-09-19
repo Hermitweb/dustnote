@@ -147,9 +147,10 @@ export function createFolder(req: Request, res: Response): void {
   }
 
   const id = randomUUID();
+  const createdAt = new Date().toISOString();
   db.prepare(
-    `INSERT INTO folders (id, user_id, name, parent_id, icon, depth, branch)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO folders (id, user_id, name, parent_id, icon, depth, branch, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     user.userId,
@@ -157,7 +158,8 @@ export function createFolder(req: Request, res: Response): void {
     parentId,
     parsed.data.icon ?? null,
     meta.depth,
-    meta.branch
+    meta.branch,
+    createdAt
   );
   res.status(201).json({ id });
 }
