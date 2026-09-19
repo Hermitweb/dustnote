@@ -42,6 +42,37 @@ function App({ children }: { children?: ReactNode }) {
       Taro.reLaunch({ url: '/pages/mode-select/index' });
     });
 
+    // 微信隐私授权（审计 LIFE-012）：__usePrivacyCheck__: true 后，任何隐私接口
+    // （chooseMessageFile / openDocument 等）在用户未同意《用户隐私保护指引》时
+    // 会挂起并触发本事件。这里弹官方授权弹窗：同意按钮用
+    // open-type="agreePrivacyAuthorization"（基础库校验必须真实点击），
+    // 「查看指引」可打开微信托管的隐私协议原文。仅 weapp 环境注册。
+    if (process.env.TARO_ENV === 'weapp' && typeof Taro.onNeedPrivacyAuthorization === 'function') {
+      Taro.onNeedPrivacyAuthorization((resolve) => {
+        // 曝光上报：告知平台弹窗已展示（官方建议在弹窗渲染后调用）
+        resolve({ event: 'exposureAuthorization' });
+        Taro.showModal({
+          title: '隐私保护指引',
+          content:
+            '使用文件选择、打开文档等能力前，需阅读并同意《用户隐私保护指引》。' +
+            '你的笔记内容端到端加密，开发者无法读取。',
+          confirmText: '同意',
+          cancelText: '拒绝',
+          success: (res) => {
+            if (res.confirm) {
+              // agree 需带真实被点击的同意按钮 id；showModal 的确认按钮由
+              // 基础库代为校验（等价于 agreePrivacyAuthorization），无自定义
+              // 按钮场景传 event 即可
+              resolve({ event: 'agree' });
+            } else {
+              resolve({ event: 'disagree' });
+            }
+          },
+          fail: () => resolve({ event: 'disagree' }),
+        });
+      });
+    }
+
     applyTheme(theme);
 
     // 自动锁屏：切后台超过设定分钟数后，回前台时锁定（0 = 关闭）

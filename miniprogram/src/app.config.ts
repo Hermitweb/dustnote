@@ -45,6 +45,11 @@ export default {
   // 自己的默认色切导航栏，与页面内容主题脱钩（页头颜色反转 bug 根因）
   darkmode: true,
   themeLocation: 'theme.json',
+  // 微信隐私合规（审计 LIFE-012）：开启后所有隐私接口（chooseMessageFile 等）
+  // 调用前必须先通过授权（用户在弹窗同意，或已在微信「服务隐私保护指引」聚合授权）。
+  // 未同意就调用会直接 fail。配套处理见 app.tsx 的 onNeedPrivacyAuthorization。
+  // 前提：小程序管理后台须已配置《用户隐私保护指引》并声明对应权限用途。
+  __usePrivacyCheck__: true,
   // 语音听写：微信同声传译插件(需在小程序管理后台添加后可用)
   plugins: {
     WechatSI: {
