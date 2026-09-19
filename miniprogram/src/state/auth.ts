@@ -29,7 +29,7 @@ import {
   isBiometricEnabled,
   readCachedMasterKey,
 } from '../lib/biometric';
-import { useConflictStore } from './conflict-store';
+import { conflictStore } from './conflict-store';
 import {
   type FetchFn,
   ApiClient,
@@ -246,7 +246,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     // 锁屏清掉内存中的明文残留(解密缓存/未裁决冲突),明文不跨锁屏存活
     try {
       clearPlainCache();
-      useConflictStore.setState({ pendingConflicts: [] });
+      conflictStore.setState({ pendingConflicts: [] });
     } catch {
       /* 循环依赖保护:缺失时跳过 */
     }

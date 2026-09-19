@@ -1,127 +1,40 @@
 /**
- * 冲突裁决 store（架构改进 #3 的 mobile 端落地）
+ * 冲突裁决 store（安卓端薄封装）
  *
- * 当离线队列 flush 遇到 409 且字段级合并存在歧义时，offline-queue 的
- * handleConflict 会把冲突推到这里（持久化到 AsyncStorage），由 UI 弹窗让用户裁决。
- *
- * 与 web 语义对齐：
- * - resolveConflictChoice(noteId, choice)：按所选版本（local/server/merged）
- *   以 serverVersion 为乐观锁 re-PATCH，成功后从 pending 移除。
- * - dismissConflict(noteId)：仅从 pending 移除，不联网（与 web 一致：
- *   用户选择暂不处理，本地编辑仍在，下次编辑保存会再次触发冲突）。
- *
- * 注意：mobile 没有 web 那样的中心 notes store，因此冲突检测时**不**自动
- * 把 merged 暂存到本地（web 会）。改为：检测到歧义即推 UI，由用户裁决后
- * 才 re-PATCH 选定版本。无歧义时仍走静默自动合并（见 offline-queue）。
+ * 实现已下沉到 @dustnote/client-core 的 createConflictStore（审计 ARCH-002
+ * 后续项）。本端此前的实现会把 pendingConflicts 持久化到 AsyncStorage——
+ * 其中 local/server/merged 含**解密后的笔记明文**，与 E2EE「明文不落盘」
+ * 约束冲突（AsyncStorage 未加密），已随下沉移除；冲突改为内存态，未裁决项
+ * 在应用重启后丢弃（服务端数据不受影响，重进页面会重新产生）。
  */
 
-import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useStore } from 'zustand';
+import { createConflictStore } from '@dustnote/client-core';
 import { api } from '../api';
 import { useAuthStore } from './auth';
-import { noteAad } from '@dustnote/shared';
-import { encryptNote } from '@dustnote/client-core';
-import type { FieldConflict, MergeableNote } from '@dustnote/client-core';
 
-export interface PendingConflict {
-  noteId: string;
-  /** 展示用标题（取本地版本标题） */
-  title: string;
-  conflicts: FieldConflict[];
-  merged: MergeableNote;
-  local: MergeableNote;
-  server: MergeableNote;
-  /** 服务端 current 的版本号，作为 re-PATCH 的乐观锁 */
-  serverVersion: number;
-}
+export type { PendingConflict } from '@dustnote/client-core';
 
-interface ConflictStoreState {
-  pendingConflicts: PendingConflict[];
-  enqueueConflict: (c: PendingConflict) => void;
-  resolveConflictChoice: (noteId: string, choice: 'local' | 'server' | 'merged') => Promise<void>;
-  dismissConflict: (noteId: string) => void;
-}
-
-const CONFLICT_KEY = 'dustnote:pending-conflicts';
-
-async function persist(list: PendingConflict[]): Promise<void> {
-  try {
-    await AsyncStorage.setItem(CONFLICT_KEY, JSON.stringify(list));
-  } catch {
-    /* 持久化失败不阻塞内存态 */
-  }
-}
-
-function setAndPersist(
-  set: (partial: Partial<ConflictStoreState>) => void,
-  list: PendingConflict[]
-): void {
-  set({ pendingConflicts: list });
-  void persist(list);
-}
-
-export const useConflictStore = create<ConflictStoreState>((set, get) => ({
-  pendingConflicts: [],
-
-  enqueueConflict: (c) => {
-    // 同一笔记只保留最新的 pending
-    const next = [...get().pendingConflicts.filter((x) => x.noteId !== c.noteId), c];
-    setAndPersist(set, next);
-  },
-
-  resolveConflictChoice: async (noteId, choice) => {
-    const conflict = get().pendingConflicts.find((c) => c.noteId === noteId);
-    if (!conflict) return;
-
+/** 非 React 上下文用（离线队列回调等）：conflictStore.getState().enqueueConflict(...) */
+export const conflictStore = createConflictStore({
+  getApi: () => api,
+  getAuth: () => {
     const { masterKey, userId } = useAuthStore.getState();
-    if (!masterKey) throw new Error('未解锁');
-
-    const chosen =
-      choice === 'local' ? conflict.local : choice === 'server' ? conflict.server : conflict.merged;
-
-    const { json: cipherJson } = await encryptNote(
-      masterKey,
-      chosen.plaintext,
-      noteAad(noteId, userId ?? '')
-    );
-
-    // re-PATCH 选定版本（serverVersion 乐观锁）
-    await api.request('PATCH', `/notes/${noteId}`, {
-      ciphertext: cipherJson,
-      keyVersion: 1,
-      isPinned: chosen.isPinned,
-      isFavorite: chosen.isFavorite,
-      folderId: chosen.folderId,
-      deletedAt: chosen.deletedAt,
-      clientUpdatedAt: new Date().toISOString(),
-      version: conflict.serverVersion,
-    });
-
-    // 成功后移除
-    setAndPersist(
-      set,
-      get().pendingConflicts.filter((c) => c.noteId !== noteId)
-    );
+    return { masterKey, userId };
   },
-
-  dismissConflict: (noteId) => {
-    setAndPersist(
-      set,
-      get().pendingConflicts.filter((c) => c.noteId !== noteId)
-    );
-  },
-}));
-
-// 启动时从 AsyncStorage 恢复未裁决冲突（异步，不阻塞首屏）
-void AsyncStorage.getItem(CONFLICT_KEY).then((raw) => {
-  if (raw) {
-    try {
-      const list = JSON.parse(raw) as PendingConflict[];
-      if (Array.isArray(list) && list.length > 0) {
-        useConflictStore.setState({ pendingConflicts: list });
-      }
-    } catch {
-      /* 损坏数据忽略 */
-    }
-  }
 });
+
+/** 冲突 store 的 zustand 同形门面（hook + getState/setState/subscribe） */
+type ConflictStoreHook = {
+  <T>(selector: (s: ReturnType<typeof conflictStore.getState>) => T): T;
+  getState: typeof conflictStore.getState;
+  setState: typeof conflictStore.setState;
+  subscribe: typeof conflictStore.subscribe;
+};
+
+export const useConflictStore = (<T>(
+  selector: (s: ReturnType<typeof conflictStore.getState>) => T
+): T => useStore(conflictStore, selector)) as ConflictStoreHook;
+useConflictStore.getState = conflictStore.getState;
+useConflictStore.setState = conflictStore.setState;
+useConflictStore.subscribe = conflictStore.subscribe;

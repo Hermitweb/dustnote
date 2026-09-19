@@ -31,7 +31,7 @@ import {
 } from '@dustnote/client-core';
 import { noteAad, type ApiException } from '@dustnote/shared';
 import { getApi, useAuthStore } from '../state/auth';
-import { useConflictStore } from '../state/conflict-store';
+import { conflictStore } from '../state/conflict-store';
 
 export type OfflineHttpMethod = 'PATCH' | 'POST';
 
@@ -151,7 +151,7 @@ async function handleConflict(op: QueuedOp, serverData: unknown): Promise<void> 
   }
 
   // 有歧义：推到冲突 store，由 UI 裁决（不再自动 re-PATCH）
-  useConflictStore.getState().enqueueConflict({
+  conflictStore.getState().enqueueConflict({
     noteId: ctx.noteId,
     title: ctx.local.plaintext.title || serverMergeable.plaintext.title || '',
     conflicts: result.conflicts,

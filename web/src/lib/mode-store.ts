@@ -1,34 +1,21 @@
 /**
- * 模式状态管理（v2.0.0 单机/联机双模式）
+ * 模式状态管理（web 端薄封装）
  *
- * - standalone：单机模式，无服务器，数据存储在本地 IndexedDB
- * - online：联机模式，连接服务器解锁全部功能
- *
- * 持久化到 localStorage（key: 'dustnote_mode_state'）
- * 首次启动时 initialized=false，用户选择模式后设为 true
+ * 状态机已下沉到 @dustnote/client-core 的 createModeStore（审计 ARCH-002
+ * 后续项）。这里保留 web 平台差异：localStorage 同步读写、serverUrl 同步到
+ * URL 参数（便于书签）、resetMode 时打「首访默认联机已应用」标记。
  */
 
-import { create } from 'zustand';
-import type { AppMode, ModeState } from '@dustnote/shared';
+import { useStore } from 'zustand';
+import type { ModeState } from '@dustnote/shared';
+import {
+  createModeStore,
+  MODE_STORAGE_KEY,
+  type ModeStoreState,
+  toModeState,
+} from '@dustnote/client-core';
 
-const STORAGE_KEY = 'dustnote_mode_state';
-
-interface ModeStore extends ModeState {
-  /** 设置当前模式（不会自动标记为已初始化） */
-  setMode: (mode: AppMode) => void;
-  /** 设置服务器地址（仅 online 模式有效） */
-  setServerUrl: (url: string | null) => void;
-  /** 标记模式选择完成，首次启动后调用 */
-  initialize: () => void;
-  /** 重置模式状态（注销或切换模式时调用） */
-  resetMode: () => void;
-}
-
-const DEFAULT_STATE: ModeState = {
-  mode: 'standalone',
-  serverUrl: null,
-  initialized: false,
-};
+const STORAGE_KEY = MODE_STORAGE_KEY;
 
 /** 同步服务器地址到 URL 参数（便于书签，清空数据后仍可自动连接） */
 function syncUrl(serverUrl: string | null): void {
@@ -45,20 +32,17 @@ function syncUrl(serverUrl: string | null): void {
   }
 }
 
-function loadState(): ModeState {
+function load(): Partial<ModeState> | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<ModeState>;
-      return { ...DEFAULT_STATE, ...parsed };
-    }
+    if (raw) return JSON.parse(raw) as Partial<ModeState>;
   } catch {
     /* ignore corrupted state */
   }
-  return DEFAULT_STATE;
+  return null;
 }
 
-function saveState(state: ModeState): void {
+function save(state: ModeState): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
@@ -66,41 +50,30 @@ function saveState(state: ModeState): void {
   }
 }
 
-export const useModeStore = create<ModeStore>((set, get) => ({
-  ...loadState(),
+export const modeStore = createModeStore({
+  load,
+  save,
+  onServerUrlChange: syncUrl,
+  onBeforeReset: markModeDefaultApplied,
+});
 
-  setMode(mode: AppMode): void {
-    const next = { ...get(), mode };
-    saveState(next);
-    set({ mode });
-  },
+/** zustand 同形门面：hook（可选选择器）+ getState/setState/subscribe */
+type ModeStoreHook = {
+  (): ModeStoreState;
+  <T>(selector: (s: ModeStoreState) => T): T;
+  getState: typeof modeStore.getState;
+  setState: typeof modeStore.setState;
+  subscribe: typeof modeStore.subscribe;
+};
 
-  setServerUrl(url: string | null): void {
-    const next = { ...get(), serverUrl: url };
-    saveState(next);
-    set({ serverUrl: url });
-    // 同步到 URL 参数（便于书签/分享）
-    syncUrl(url);
-  },
+function useModeStoreImpl<T>(selector?: (s: ModeStoreState) => T): T | ModeStoreState {
+  return selector ? useStore(modeStore, selector) : useStore(modeStore);
+}
 
-  initialize(): void {
-    const next = { ...get(), initialized: true };
-    saveState(next);
-    set({ initialized: true });
-    // 初始化时同步服务器地址到 URL
-    if (next.mode === 'online' && next.serverUrl) {
-      syncUrl(next.serverUrl);
-    }
-  },
-
-  resetMode(): void {
-    // 用户显式要求重新选择：打标记,否则 reload 后又会被「首次访问默认联机」
-    // 逻辑接管 → 模式选择界面永远进不去（e2e 实锤的死循环）
-    markModeDefaultApplied();
-    saveState(DEFAULT_STATE);
-    set(DEFAULT_STATE);
-  },
-}));
+export const useModeStore = useModeStoreImpl as ModeStoreHook;
+useModeStore.getState = modeStore.getState;
+useModeStore.setState = modeStore.setState;
+useModeStore.subscribe = modeStore.subscribe;
 
 /**
  * 「首次访问默认联机」是否已应用过。
@@ -131,5 +104,5 @@ export function markModeDefaultApplied(): void {
  * 获取当前模式（非 React 上下文使用）
  */
 export function getCurrentMode(): ModeState {
-  return useModeStore.getState();
+  return toModeState(modeStore.getState());
 }

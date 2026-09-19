@@ -34,7 +34,7 @@ import {
 import { noteAad, type ApiException } from '@dustnote/shared';
 import { api } from '../api';
 import { useAuthStore } from '../state/auth';
-import { useConflictStore } from '../state/conflict-store';
+import { conflictStore } from '../state/conflict-store';
 
 // 与旧实现一致：仅 PATCH / POST（DELETE 暂未走离线队列）
 export type OfflineHttpMethod = 'PATCH' | 'POST';
@@ -184,7 +184,7 @@ async function handleConflict(op: QueuedOp, serverData: unknown): Promise<void> 
   }
 
   // 有歧义：推到冲突 store，由 UI 裁决（不再自动 re-PATCH）
-  useConflictStore.getState().enqueueConflict({
+  conflictStore.getState().enqueueConflict({
     noteId: ctx.noteId,
     title: ctx.local.plaintext.title || serverMergeable.plaintext.title || '',
     conflicts: result.conflicts,

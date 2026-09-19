@@ -64,3 +64,38 @@ export {
 
 // 联机模式 Repository（三端共用单一实现，审计 ARCH-002）
 export { RemoteRepository, type RemoteRepositoryOptions } from './remote-repository.js';
+
+// i18n 运行时（语言常量 + 取词/插值/回退链）
+export {
+  type AppLanguage,
+  type DictNode,
+  type Dictionaries,
+  DEFAULT_LANGUAGE,
+  FALLBACK_LANGUAGE,
+  LANGUAGE_STORAGE_KEY,
+  SUPPORTED_LANGUAGES,
+  isAppLanguage,
+  resolveDictKey,
+  interpolate,
+  createTranslator,
+  type TranslatorOptions,
+} from './i18n-runtime.js';
+
+// 冲突裁决 store（跨端单一实现，内存态；不落盘明文）
+export {
+  type PendingConflict,
+  type ConflictChoice,
+  type ConflictStoreState,
+  type ConflictStoreDeps,
+  createConflictStore,
+} from './conflict-store.js';
+
+// 模式状态 store（跨端单一实现，持久化由平台注入）
+export {
+  type ModeStoreState,
+  type ModeStoreDeps,
+  MODE_STORAGE_KEY,
+  DEFAULT_MODE_STATE,
+  createModeStore,
+  toModeState,
+} from './mode-store.js';

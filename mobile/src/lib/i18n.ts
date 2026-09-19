@@ -5,6 +5,10 @@
  * - web：localStorage
  * - mobile：AsyncStorage（RN 异步存储）
  *
+ * 语言常量（支持集/默认语言/storage key）与回退链语义来自
+ * @dustnote/client-core 的 i18n-runtime（审计 ARCH-002 后续项），避免三端
+ * 各自硬编码出现漂移。
+ *
  * 语言切换通过 useLanguageStore.setLanguage() 触发，会同时：
  *   1. 调用 i18n.changeLanguage() 切换运行时语言（react-i18next 自动重渲染）
  *   2. 写入 AsyncStorage 持久化
@@ -16,12 +20,19 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  type AppLanguage,
+  DEFAULT_LANGUAGE,
+  FALLBACK_LANGUAGE,
+  LANGUAGE_STORAGE_KEY,
+  isAppLanguage,
+} from '@dustnote/client-core';
 import zhCN from '../locales/zh-CN';
 import en from '../locales/en';
 
-export type AppLanguage = 'zh-CN' | 'en';
+export type { AppLanguage };
 
-const LANGUAGE_KEY = 'dustnote_language';
+const LANGUAGE_KEY = LANGUAGE_STORAGE_KEY;
 
 const resources = {
   'zh-CN': { translation: zhCN },
@@ -29,11 +40,11 @@ const resources = {
 } as const;
 
 // ========== i18next 初始化 ==========
-// 默认 zh-CN；AsyncStorage 读取完成后通过 changeLanguage 切换。
+// 默认语言与回退链与核心运行时一致（中文优先）；AsyncStorage 读取完成后切换。
 void i18n.use(initReactI18next).init({
   resources,
-  lng: 'zh-CN',
-  fallbackLng: 'zh-CN',
+  lng: DEFAULT_LANGUAGE,
+  fallbackLng: FALLBACK_LANGUAGE,
   interpolation: { escapeValue: false },
   // 返回 key 本身而非空串，便于发现漏译
   returnNull: false,
@@ -41,7 +52,7 @@ void i18n.use(initReactI18next).init({
 
 // 异步加载已保存的语言偏好
 AsyncStorage.getItem(LANGUAGE_KEY).then((v) => {
-  if (v === 'zh-CN' || v === 'en') {
+  if (isAppLanguage(v)) {
     if (v !== i18n.language) {
       void i18n.changeLanguage(v);
     }
@@ -57,7 +68,7 @@ interface LanguageStoreState {
 }
 
 export const useLanguageStore = create<LanguageStoreState>((set) => ({
-  language: 'zh-CN',
+  language: DEFAULT_LANGUAGE,
   setLanguage: (language) => {
     AsyncStorage.setItem(LANGUAGE_KEY, language).catch(() => undefined);
     void i18n.changeLanguage(language);
