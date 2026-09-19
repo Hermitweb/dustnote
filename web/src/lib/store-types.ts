@@ -54,7 +54,8 @@ export type ThemeId =
   | 'dusk-forest'
   | 'caramel-warm'
   | 'sakura-pink'
-  | 'minimal-white';
+  | 'minimal-white'
+  | 'liquid-glass';
 export type Mode = 'light' | 'dark' | 'auto';
 
 export interface Preferences {
@@ -76,7 +77,7 @@ export interface PendingConflict {
 }
 
 export const DEFAULT_PREFS: Preferences = {
-  theme: 'mist-blue',
+  theme: 'liquid-glass',
   mode: 'auto',
   font: 'system',
   density: 'standard',

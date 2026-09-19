@@ -214,3 +214,68 @@ input:focus::placeholder,
 textarea:focus::placeholder {
   color: transparent;
 }
+
+/* ================= 液态玻璃主题（liquid-glass） =================
+   玻璃质感靠"背后有内容可透"体现：body 铺一层固定极光渐变作为景，
+   卡片/面板做半透明磨砂（backdrop-filter blur + saturate），暗色单独配色。
+   仅作用域于 html[data-theme='liquid-glass']，不影响其余 6 个主题。 */
+html[data-theme='liquid-glass'] body {
+  background:
+    radial-gradient(1200px 800px at 12% -10%, rgb(59 130 246 / 0.32), transparent 60%),
+    radial-gradient(1000px 720px at 110% 8%, rgb(168 85 247 / 0.22), transparent 55%),
+    radial-gradient(920px 900px at 50% 122%, rgb(45 212 191 / 0.22), transparent 60%),
+    rgb(var(--mn-bg));
+  background-attachment: fixed;
+}
+html[data-theme='liquid-glass'][data-mode='dark'] body {
+  background:
+    radial-gradient(1200px 800px at 12% -10%, rgb(56 189 248 / 0.20), transparent 60%),
+    radial-gradient(1000px 720px at 110% 8%, rgb(129 140 248 / 0.18), transparent 55%),
+    radial-gradient(920px 900px at 50% 122%, rgb(20 184 166 / 0.16), transparent 60%),
+    rgb(var(--mn-bg));
+  background-attachment: fixed;
+}
+
+/* 玻璃面板：卡片 / 弹窗 / 侧栏容器（组件统一用 .bg-surface-card） */
+html[data-theme='liquid-glass'] .bg-surface-card {
+  background-color: rgb(255 255 255 / 0.55);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgb(255 255 255 / 0.55);
+  box-shadow:
+    0 8px 32px rgb(15 23 42 / 0.1),
+    inset 0 1px 0 rgb(255 255 255 / 0.6);
+}
+html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-card {
+  background-color: rgb(30 41 59 / 0.55);
+  border: 1px solid rgb(148 163 184 / 0.22);
+  box-shadow:
+    0 8px 32px rgb(0 0 0 / 0.35),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+/* 半透明内容底：大面积滚动区/次级容器，让极光渐变透出 */
+html[data-theme='liquid-glass'] .bg-surface-bg {
+  background-color: rgb(255 255 255 / 0.34);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+}
+html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-bg {
+  background-color: rgb(15 23 42 / 0.4);
+}
+
+/* 边框柔化：玻璃上的分隔线应为半透明高光，而非实心灰线 */
+html[data-theme='liquid-glass'] .border-surface-border {
+  border-color: rgb(255 255 255 / 0.5);
+}
+html[data-theme='liquid-glass'][data-mode='dark'] .border-surface-border {
+  border-color: rgb(148 163 184 / 0.2);
+}
+
+/* 玻璃下的 markdown 代码块 / hover 面轻微半透明，避免实心白块破坏质感 */
+html[data-theme='liquid-glass'] .prose code {
+  background: rgb(255 255 255 / 0.5);
+}
+html[data-theme='liquid-glass'][data-mode='dark'] .prose code {
+  background: rgb(2 6 23 / 0.45);
+}

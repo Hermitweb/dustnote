@@ -100,7 +100,8 @@ export interface UserPreferences {
     | 'dusk-forest'
     | 'caramel-warm'
     | 'sakura-pink'
-    | 'minimal-white';
+    | 'minimal-white'
+    | 'liquid-glass';
   mode: 'light' | 'dark' | 'auto';
   font: 'system' | 'manrope' | 'lxgw';
   density: 'comfortable' | 'standard' | 'compact';
@@ -173,7 +174,8 @@ export type ThemeId =
   | 'dusk-forest'
   | 'caramel-warm'
   | 'sakura-pink'
-  | 'minimal-white';
+  | 'minimal-white'
+  | 'liquid-glass';
 
 export type AppearanceMode = 'light' | 'dark' | 'auto';
 

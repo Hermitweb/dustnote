@@ -15,6 +15,7 @@ export const THEMES: { id: ThemeId; name: string; emoji: string }[] = [
   { id: 'caramel-warm', name: '焦糖暖光', emoji: '☕' },
   { id: 'sakura-pink', name: '樱粉物语', emoji: '🌸' },
   { id: 'minimal-white', name: '极简白', emoji: '◽' },
+  { id: 'liquid-glass', name: '液态玻璃', emoji: '🫧' },
 ];
 
 const THEME_TOKENS: Record<
@@ -139,6 +140,26 @@ const THEME_TOKENS: Record<
       '--mn-card': '23 23 23',
       '--mn-accent': '240 240 240',
       '--mn-accent-soft': '60 60 60',
+    },
+  },
+  'liquid-glass': {
+    light: {
+      '--mn-bg': '228 235 248',
+      '--mn-fg': '15 23 42',
+      '--mn-fg-muted': '71 85 105',
+      '--mn-border': '255 255 255',
+      '--mn-card': '255 255 255',
+      '--mn-accent': '59 130 246',
+      '--mn-accent-soft': '219 234 254',
+    },
+    dark: {
+      '--mn-bg': '9 14 26',
+      '--mn-fg': '226 232 240',
+      '--mn-fg-muted': '148 163 184',
+      '--mn-border': '148 163 184',
+      '--mn-card': '30 41 59',
+      '--mn-accent': '125 211 252',
+      '--mn-accent-soft': '30 58 138',
     },
   },
 };

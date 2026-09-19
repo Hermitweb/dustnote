@@ -11,7 +11,15 @@ export const preferencesRouter = Router();
 
 const PrefsSchema = z.object({
   theme: z
-    .enum(['mint-dawn', 'mist-blue', 'dusk-forest', 'caramel-warm', 'sakura-pink', 'minimal-white'])
+    .enum([
+      'mint-dawn',
+      'mist-blue',
+      'dusk-forest',
+      'caramel-warm',
+      'sakura-pink',
+      'minimal-white',
+      'liquid-glass',
+    ])
     .optional(),
   mode: z.enum(['light', 'dark', 'auto']).optional(),
   font: z.enum(['system', 'manrope', 'lxgw']).optional(),
@@ -36,7 +44,7 @@ preferencesRouter.get('/preferences', (req, res) => {
   if (!row) {
     db.prepare(`INSERT INTO preferences (user_id) VALUES (?)`).run(user.userId);
     row = {
-      theme: 'mist-blue',
+      theme: 'liquid-glass',
       mode: 'auto',
       font: 'system',
       density: 'standard',
