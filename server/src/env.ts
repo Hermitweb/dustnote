@@ -30,6 +30,10 @@ export const config = {
       ? getEnvOpt('COOKIE_SECURE') === 'true'
       : getEnv('NODE_ENV', 'development') === 'production',
   port: Number.parseInt(getEnv('PORT', '3210'), 10),
+  // 审计 LIFE-009：Prometheus /metrics 默认关闭；开启后建议配 METRICS_TOKEN
+  // 并仅对内网/抓取器放行（反代层限制更佳）
+  metricsEnabled: getEnvOpt('METRICS_ENABLED') === 'true',
+  metricsToken: getEnvOpt('METRICS_TOKEN') ?? null,
   logLevel: getEnv('LOG_LEVEL', 'info'),
   dbPath: getEnv('DB_PATH', './data/dustnote.db'),
   webOrigin: getEnv('WEB_ORIGIN', 'http://localhost:5173'),

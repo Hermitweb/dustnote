@@ -91,6 +91,27 @@ export function closeDb(): void {
   }
 }
 
+/**
+ * 审计 LIFE-023：schema 水位拒绝降级启动。
+ * user_version 由 runMigrations 在迁移后写为已应用的最大迁移 id；
+ * 若库水位高于代码所知最大迁移 id，说明这是「新代码建的库 + 旧代码在跑」
+ * ——旧代码不认识新表/新列，写入会造成残缺数据，直接拒绝启动。
+ */
+export function assertSchemaNotNewerThan(db: DatabaseType, maxKnownMigrationId: number): void {
+  const dbVersion = db.pragma('user_version', { simple: true }) as number;
+  if (dbVersion > maxKnownMigrationId) {
+    throw new Error(
+      `数据库 schema 版本(${dbVersion})高于当前代码支持的版本(${maxKnownMigrationId})，` +
+        '拒绝降级启动——请先升级服务端，或恢复与代码版本匹配的数据卷备份'
+    );
+  }
+}
+
+/** 迁移全部应用后，把 user_version 写为最大迁移 id（schema 水位） */
+export function recordSchemaVersion(db: DatabaseType, maxMigrationId: number): void {
+  db.pragma(`user_version = ${maxMigrationId}`);
+}
+
 /** 执行迁移列表 */
 export async function runMigrations(db: DatabaseType, migrations: Migration[]): Promise<void> {
   db.exec(`
@@ -107,6 +128,10 @@ export async function runMigrations(db: DatabaseType, migrations: Migration[]): 
       .all()
       .map((r) => (r as { id: number }).id)
   );
+
+  // 审计 LIFE-023：库水位高于代码所知最大迁移 id → 旧代码 + 新库，拒绝启动
+  const maxKnownId = migrations.reduce((acc, m) => Math.max(acc, m.id), 0);
+  assertSchemaNotNewerThan(db, maxKnownId);
 
   for (const m of migrations) {
     if (applied.has(m.id)) {
@@ -131,4 +156,7 @@ export async function runMigrations(db: DatabaseType, migrations: Migration[]): 
       throw err;
     }
   }
+
+  // 全部迁移应用后写入 schema 水位（LIFE-023）
+  recordSchemaVersion(db, maxKnownId);
 }

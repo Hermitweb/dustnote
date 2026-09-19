@@ -352,7 +352,8 @@ async function deriveKeyInner(
     }
     // 纯 JS 回退（微信小程序等无 WebCrypto 环境）。@noble/hashes 的
     // PBKDF2 与 WebCrypto deriveBits 同为标准 PBKDF2-HMAC-SHA256，输出完全一致。
-    if (typeof console !== 'undefined') {
+    // 审计 ARCH-006：生产环境不输出 KDF 路径日志
+    if (typeof console !== 'undefined' && process.env.NODE_ENV !== 'production') {
       console.log('[KDF] path=noble-fallback iterations=' + (params.iterations ?? 100000));
     }
     return new Uint8Array(

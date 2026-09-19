@@ -10,6 +10,7 @@ import pinoHttp from 'pino-http';
 import rateLimit from 'express-rate-limit';
 import { config } from './env.js';
 import { logger } from './logger.js';
+import { register, httpDuration, http5xxTotal } from './metrics.js';
 import { setupSentryErrorHandler, captureException } from './sentry.js';
 import { versionCheckMiddleware } from './middleware/version-check.js';
 import { authMiddleware } from './middleware/auth.js';
@@ -96,6 +97,21 @@ export function createApp(): Application {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
+  // 审计 LIFE-009：HTTP 耗时/状态直方图（默认关闭，随 /metrics 开关生效；
+  // route 用「挂载前缀 + 路由模板」归一化，绝不记录具体 id，避免高基数标签）
+  app.use((req, res, next) => {
+    if (!config.metricsEnabled) return next();
+    const end = httpDuration.startTimer();
+    res.on('finish', () => {
+      const templated = req.route?.path ? `${req.baseUrl}${req.route.path}` : undefined;
+      const route =
+        templated ?? (req.path.startsWith('/api/') ? req.path.split('/').slice(0, 4).join('/') : req.path);
+      if (res.statusCode >= 500) http5xxTotal.inc();
+      end({ method: req.method, route, status: String(res.statusCode) });
+    });
+    next();
+  });
+
   // HTTP 日志
   app.use(
     pinoHttp({
@@ -134,6 +150,21 @@ export function createApp(): Application {
 
   // 健康检查（不走 version-check 也不走 auth）
   app.use('/api/v1', healthRouter);
+
+  // 审计 LIFE-009：Prometheus 抓取端点（默认 404；METRICS_ENABLED=true 开启，
+  // 配置 METRICS_TOKEN 时要求 Bearer——建议再叠一层反代内网限制）
+  app.get('/metrics', async (req, res) => {
+    if (!config.metricsEnabled) return res.status(404).end();
+    if (config.metricsToken && req.headers.authorization !== `Bearer ${config.metricsToken}`) {
+      return res.status(401).end();
+    }
+    try {
+      res.set('Content-Type', register.contentType);
+      res.end(await register.metrics());
+    } catch (err) {
+      res.status(500).end(String(err));
+    }
+  });
 
   // 客户端版本校验
   app.use('/api/v1', versionCheckMiddleware);

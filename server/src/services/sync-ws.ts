@@ -15,6 +15,7 @@
 import { WebSocketServer, type WebSocket } from 'ws';
 import { verifyToken } from '../auth/jwt.js';
 import { getDb } from '../db.js';
+import { wsConnectionsActive } from '../metrics.js';
 import { logger } from '../logger.js';
 
 interface AuthedSocket extends WebSocket {
@@ -98,6 +99,7 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
 
   wss.on('connection', (ws: AuthedSocket) => {
     logger.info({ userId: ws.userId, deviceId: ws.deviceId }, 'WS 连接已建立');
+    wsConnectionsActive.inc();
 
     let set = clientsByUser.get(ws.userId);
     // 单用户连接数限制，防止单账号开大量连接做内存 DoS
@@ -151,6 +153,7 @@ export function setupSyncWss(httpServer: import('node:http').Server): WebSocketS
     });
 
     ws.on('close', () => {
+      wsConnectionsActive.dec();
       const s = clientsByUser.get(ws.userId);
       s?.delete(ws);
       if (s && s.size === 0) clientsByUser.delete(ws.userId);

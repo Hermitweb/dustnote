@@ -22,6 +22,7 @@ import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { getDb } from '../db.js';
 import { logger } from '../logger.js';
+import { authLockoutTotal } from '../metrics.js';
 import { config } from '../env.js';
 import { KDF_PARAMS, type Ciphertext } from '@dustnote/shared';
 import { hashPassword, verifyPassword } from '../auth/password.js';
@@ -413,6 +414,7 @@ authRouter.post(
         .prepare('INSERT INTO audit_log (user_id, device_id, event, ip_hash) VALUES (?, ?, ?, ?)')
         .run(user.id, client.deviceId, 'login_failed', ipHash(req));
       if (next.lockedUntil && isLocked(next)) {
+        authLockoutTotal.inc();
         res.status(423).json({
           error: 'account_locked',
           message: `连续 ${MAX_FAILED_ATTEMPTS} 次凭据错误，账号已锁定 15 分钟`,
@@ -565,6 +567,7 @@ authRouter.post(
         '恢复码错误'
       );
       if (next.lockedUntil && isLocked(next)) {
+        authLockoutTotal.inc();
         res.status(423).json({
           error: 'account_locked',
           message: `连续 ${MAX_FAILED_ATTEMPTS} 次凭据错误，账号已锁定 15 分钟`,

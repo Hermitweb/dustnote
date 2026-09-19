@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { config } from '../env.js';
+import { compareSemver } from '@dustnote/shared';
 
 type Channel = 'nightly' | 'canary' | 'beta' | 'stable';
 type Platform = 'web' | 'desktop' | 'android' | 'ios' | 'miniprogram';
@@ -65,16 +66,23 @@ function getStaticArtifacts() {
 }
 
 // ========== 通道配置（实际可对接 CI 产物注册表）==========
-
+// 审计 LIFE-024：通道版本改由环境变量配置（UPDATE_CHANNEL_<NAME>），
+// 不再硬编码 0.1.0-* 占位——占位值会让误入灰度通道的设备收到「降级」提示
 const CHANNEL_VERSIONS: Record<Channel, string> = {
-  nightly: '0.1.0-nightly.20260627',
-  canary: '0.1.0-canary.1',
-  beta: '0.1.0-beta.1',
+  nightly: process.env.UPDATE_CHANNEL_NIGHTLY ?? '0.1.0-nightly.20260627',
+  canary: process.env.UPDATE_CHANNEL_CANARY ?? '0.1.0-canary.1',
+  beta: process.env.UPDATE_CHANNEL_BETA ?? '0.1.0-beta.1',
   stable: config.serverVersion,
 };
 
+/** 灰度切流比例（0-1），默认 1% 切到 beta；env BETA_TRAFFIC_RATIO 可调 */
+const BETA_TRAFFIC_RATIO = Math.min(
+  1,
+  Math.max(0, Number(process.env.BETA_TRAFFIC_RATIO ?? '0.01'))
+);
+
 /**
- * 灰度流量切分：1% 切到 beta（示例）
+ * 灰度流量切分：按 deviceId 哈希稳定切流到 beta
  * 实际生产中应支持多版本并存（蓝绿/金丝雀）
  */
 function pickChannelForDevice(requested: Channel, deviceId: string): Channel {
@@ -84,7 +92,7 @@ function pickChannelForDevice(requested: Channel, deviceId: string): Channel {
   const byte = hash[0] ?? 0;
   const ratio = byte / 256;
 
-  if (ratio < 0.01) return 'beta'; // 1% 灰度
+  if (ratio < BETA_TRAFFIC_RATIO) return 'beta';
   return 'stable';
 }
 
@@ -102,8 +110,12 @@ export function getManifestForChannel(
     latest: {
       version,
       releaseDate,
-      changelogUrl: `https://dustnote.app/changelog#${version}`,
-      mandatory: false,
+      changelogUrl: `https://github.com/Hermitweb/dustnote/releases/tag/v${version}`,
+      // 审计 LIFE-024：mandatory 由 FORCE_UPDATE_VERSION 推导——
+      // 通道版本达到强制升级线时置 true，未配置强制线则恒为 false
+      mandatory:
+        config.forceUpdateVersion != null &&
+        compareSemver(version, config.forceUpdateVersion) >= 0,
       // v2.0.0 引入单机/联机双模式架构，旧版客户端（0.x）无法连接
       minServerVersion: config.serverVersion,
       artifacts: getStaticArtifacts(),
