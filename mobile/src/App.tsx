@@ -38,6 +38,7 @@ import { FoldersScreen } from './screens/FoldersScreen';
 import { TrashScreen } from './screens/TrashScreen';
 import { SharesScreen } from './screens/SharesScreen';
 import { OnlineRecoverScreen } from './screens/OnlineRecoverScreen';
+import { withGlass } from './components/withGlass';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ConflictDialog } from './components/ConflictDialog';
 import { useIsDark, useColors } from './theme';
@@ -333,32 +334,32 @@ function AppInner() {
           >
             <Stack.Screen
               name="NotesList"
-              component={NotesListScreen}
+              component={withGlass(NotesListScreen)}
               options={{ title: t('app.name') }}
             />
             <Stack.Screen
               name="NoteEdit"
-              component={NoteEditScreen}
+              component={withGlass(NoteEditScreen)}
               options={{ title: t('app.editor_title') }}
             />
             <Stack.Screen
               name="Settings"
-              component={SettingsScreen}
+              component={withGlass(SettingsScreen)}
               options={{ title: t('app.settings_title') }}
             />
             <Stack.Screen
               name="Folders"
-              component={FoldersScreen}
+              component={withGlass(FoldersScreen)}
               options={{ title: t('app.folders_title') }}
             />
             <Stack.Screen
               name="Trash"
-              component={TrashScreen}
+              component={withGlass(TrashScreen)}
               options={{ title: t('app.trash_title') }}
             />
             <Stack.Screen
               name="Shares"
-              component={SharesScreen}
+              component={withGlass(SharesScreen)}
               options={{ title: t('app.shares_title') }}
             />
           </Stack.Navigator>
@@ -398,7 +399,7 @@ function AppInner() {
               {authState === 'uninitialized' && (
                 <Stack.Screen
                   name="StandaloneSetup"
-                  component={StandaloneSetupScreen}
+                  component={withGlass(StandaloneSetupScreen)}
                   options={{ title: t('app.setup_title'), headerBackVisible: false }}
                 />
               )}
@@ -411,7 +412,7 @@ function AppInner() {
                   />
                   <Stack.Screen
                     name="StandaloneRecover"
-                    component={StandaloneRecoverScreen}
+                    component={withGlass(StandaloneRecoverScreen)}
                     options={{ title: t('app.recover_title') }}
                   />
                 </>
@@ -422,7 +423,7 @@ function AppInner() {
               {authState === 'uninitialized' && (
                 <Stack.Screen
                   name="Setup"
-                  component={SetupScreen}
+                  component={withGlass(SetupScreen)}
                   options={{ title: t('app.setup_title'), headerBackVisible: false }}
                 />
               )}
@@ -435,7 +436,7 @@ function AppInner() {
               )}
               <Stack.Screen
                 name="OnlineRecover"
-                component={OnlineRecoverScreen}
+                component={withGlass(OnlineRecoverScreen)}
                 options={{ title: t('app.recover_title') }}
               />
             </>

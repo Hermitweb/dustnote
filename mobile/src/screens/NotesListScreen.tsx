@@ -855,7 +855,7 @@ export function NotesListScreen() {
 // 根据当前颜色和响应式布局生成样式；仅在 isDark / 屏幕尺寸变化时重新创建
 function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useResponsiveLayout>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.bg },
+    container: { flex: 1, backgroundColor: 'transparent' },
     searchBar: {
       flexDirection: 'row',
       padding: l.isTablet ? 16 : 12,

@@ -236,7 +236,7 @@ export function SharesScreen() {
 
 function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.bg },
+    container: { flex: 1, backgroundColor: 'transparent' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
     errorEmoji: { fontSize: 48, marginBottom: 12 },
     emptyEmoji: { fontSize: 48, marginBottom: 12 },

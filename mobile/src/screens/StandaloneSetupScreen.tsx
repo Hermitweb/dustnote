@@ -174,7 +174,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       flexGrow: 1,
       padding: 24,
       justifyContent: 'center',
-      backgroundColor: c.bg,
+      backgroundColor: 'transparent',
     },
     emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
     logo: { width: 64, height: 64, alignSelf: 'center', marginBottom: 16 },

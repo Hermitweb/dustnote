@@ -124,7 +124,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       flexGrow: 1,
       padding: 24,
       justifyContent: 'center',
-      backgroundColor: c.bg,
+      backgroundColor: 'transparent',
     },
     emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
     title: {

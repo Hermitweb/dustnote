@@ -531,7 +531,7 @@ function Chip({
 
 function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.bg },
+    container: { flex: 1, backgroundColor: 'transparent' },
     createBar: {
       flexDirection: 'row',
       padding: 12,

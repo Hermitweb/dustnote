@@ -1057,7 +1057,7 @@ export function NoteEditScreen() {
 // 根据当前颜色生成样式；仅在 isDark 变化时重新创建
 function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.bg },
+    container: { flex: 1, backgroundColor: 'transparent' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     toolbar: {
       flexDirection: 'row',

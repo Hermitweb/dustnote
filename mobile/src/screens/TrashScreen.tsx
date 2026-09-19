@@ -207,7 +207,7 @@ export function TrashScreen() {
 
 function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.bg },
+    container: { flex: 1, backgroundColor: 'transparent' },
     topTitle: { fontSize: 15, fontWeight: '600', color: c.fg },
     toolbar: {
       flexDirection: 'row',
