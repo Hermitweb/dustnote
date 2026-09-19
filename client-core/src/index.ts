@@ -61,3 +61,6 @@ export {
   type FlushSummary,
   SyncEngine,
 } from './sync-engine.js';
+
+// 联机模式 Repository（三端共用单一实现，审计 ARCH-002）
+export { RemoteRepository, type RemoteRepositoryOptions } from './remote-repository.js';

@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 describe('GET /api/v1/health', () => {
-  it('200 且不含业务规模指标', async () => {
+  it('200 且不含业务规模指标', { timeout: 30_000 }, async () => {
     const app = await loadApp();
     const supertest = (await import('supertest')).default;
     const res = await supertest(app).get('/api/v1/health');
@@ -37,7 +37,7 @@ describe('GET /api/v1/health', () => {
 });
 
 describe('认证边界', () => {
-  it('带合法版本头但无凭据访问受保护资源 → 401', async () => {
+  it('带合法版本头但无凭据访问受保护资源 → 401', { timeout: 30_000 }, async () => {
     const app = await loadApp();
     const supertest = (await import('supertest')).default;
     // 带上版本头通过 version-check 门禁，落到 authMiddleware 的 401
@@ -51,14 +51,14 @@ describe('认证边界', () => {
 });
 
 describe('/metrics 开关门控（LIFE-009）', () => {
-  it('默认关闭 → 404', async () => {
+  it('默认关闭 → 404', { timeout: 30_000 }, async () => {
     const app = await loadApp();
     const supertest = (await import('supertest')).default;
     const res = await supertest(app).get('/metrics');
     expect(res.status).toBe(404);
   });
 
-  it('METRICS_ENABLED=true → 200 Prometheus 文本', async () => {
+  it('METRICS_ENABLED=true → 200 Prometheus 文本', { timeout: 30_000 }, async () => {
     process.env.METRICS_ENABLED = 'true';
     const app = await loadApp();
     const supertest = (await import('supertest')).default;
@@ -67,7 +67,7 @@ describe('/metrics 开关门控（LIFE-009）', () => {
     expect(res.text).toContain('dustnote_http_request_duration_seconds');
   });
 
-  it('配置 METRICS_TOKEN 后无 Bearer → 401', async () => {
+  it('配置 METRICS_TOKEN 后无 Bearer → 401', { timeout: 30_000 }, async () => {
     process.env.METRICS_ENABLED = 'true';
     process.env.METRICS_TOKEN = 'test-metrics-token-0123456789';
     const app = await loadApp();

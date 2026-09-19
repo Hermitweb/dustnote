@@ -1,27 +1,18 @@
 /**
- * Web 端联机模式 DataRepository 实现（封装 ApiClient）
+ * Web 端联机模式 DataRepository（平台薄封装）
  *
- * 将 store.ts 中的 API 调用迁移到这里，统一通过 DataRepository 接口访问。
- * 离线队列逻辑仍由 store.ts 的 runOrEnqueue 处理（Repository 不感知离线）。
+ * 实现已下沉到 @dustnote/client-core 的 RemoteRepository（审计 ARCH-002：
+ * 三端各写一份已漂移，收敛为单一实现）。这里只保留 web 的平台差异：
+ * 用 mode-store 的 serverUrl + device.ts 的 deviceId 构造 ApiClient，
+ * 并在每次调用时读取最新 accessToken。
  *
  * 注意：此 Repository 处理的是密文行（ciphertext 是 JSON 字符串），
  * 加解密在 store 层完成。
  */
 
-import type {
-  DataRepository,
-  RepositorySnapshot,
-  CreateNoteInput,
-  UpdateNoteInput,
-  CreateFolderInput,
-  BackupPayload,
-  NoteRow,
-  Folder,
-  Tag,
-  Preferences,
-  Ciphertext,
-} from '@dustnote/shared';
+import type { Ciphertext } from '@dustnote/shared';
 import { ApiClient } from '@dustnote/shared';
+import { RemoteRepository as CoreRemoteRepository } from '@dustnote/client-core';
 import { getDeviceId } from './device';
 import { getCurrentMode } from './mode-store';
 
@@ -45,243 +36,10 @@ function createApiClient(accessToken: string | null): ApiClient {
   });
 }
 
-export class RemoteRepository implements DataRepository {
-  readonly kind = 'remote' as const;
-
-  /** 服务端最新版本号快照(loadAll 采集):PATCH 必带 version(缺失 400),
-   *  批量操作等调用方未显式传 version 时由此兜底 */
-  private lastVersions = new Map<string, number>();
-
-  constructor(
-    /** 获取当前 accessToken 的函数（store 持有 token，Repository 每次调用时读取最新值） */
-    private readonly getAccessToken: () => string | null
-  ) {}
-
-  private api(): ApiClient {
-    return createApiClient(this.getAccessToken());
-  }
-
-  // ========== 批量加载 ==========
-
-  async loadAll(): Promise<RepositorySnapshot> {
-    const a = this.api();
-    // 游标分页循环（H-B）：服务端单页上限 500,必须拉到 hasMore=false 才算
-    // 全量——此前单发一次,导出备份/清空回收站在 >500 条笔记时静默截断
-    type NotesPage = { notes: NoteRow[]; hasMore?: boolean; nextCursor?: string | null };
-    const [firstPage, foldersRes, tagsRes] = await Promise.all([
-      a.get<NotesPage>('/notes?includeDeleted=1'),
-      a.get<{ folders: Folder[] }>('/folders'),
-      a.get<{ tags: Tag[] }>('/tags'),
-    ]);
-    let allNotes = firstPage.notes;
-    let cursor: string | null = firstPage.nextCursor ?? null;
-    // 防御性上限：500 条/页 × 200 页,防服务端异常导致死循环
-    for (let page = 0; page < 200 && cursor; page++) {
-      const next = await a.get<NotesPage>(
-        `/notes?includeDeleted=1&cursor=${encodeURIComponent(cursor)}`
-      );
-      allNotes = allNotes.concat(next.notes);
-      cursor = next.nextCursor ?? null;
-    }
-    for (const n of allNotes) this.lastVersions.set(n.id, n.version);
-    // preferences 单独获取（可能不存在）
-    let preferences: Preferences | null = null;
-    try {
-      preferences = await a.get<Preferences>('/preferences');
-    } catch {
-      preferences = null;
-    }
-    return {
-      notes: allNotes,
-      folders: foldersRes.folders,
-      tags: tagsRes.tags,
-      preferences,
-    };
-  }
-
-  // ========== 笔记 CRUD ==========
-
-  async createNote(input: CreateNoteInput): Promise<string> {
-    const r = await this.api().post<{ id: string }>('/notes', {
-      // 客户端预生成 id（密文 AAD 绑定，§2.2）
-      id: input.id,
-      ciphertext: input.ciphertext,
-      keyVersion: input.keyVersion,
-      isPinned: input.isPinned ?? false,
-      isFavorite: input.isFavorite ?? false,
-      clientUpdatedAt: new Date().toISOString(),
-      folderId: input.folderId ?? null,
-    });
-    return r.id;
-  }
-
-  async updateNote(id: string, input: UpdateNoteInput): Promise<number> {
-    const body: Record<string, unknown> = {
-      clientUpdatedAt: new Date().toISOString(),
-    };
-    if (input.ciphertext !== undefined) body.ciphertext = input.ciphertext;
-    if (input.keyVersion !== undefined) body.keyVersion = input.keyVersion;
-    if (input.isPinned !== undefined) body.isPinned = input.isPinned;
-    if (input.isFavorite !== undefined) body.isFavorite = input.isFavorite;
-    if (input.folderId !== undefined) body.folderId = input.folderId;
-    if (input.deletedAt !== undefined) body.deletedAt = input.deletedAt;
-    // 乐观锁兜底:调用方未传 version 时用 loadAll 快照里的最新版本
-    body.version = input.version ?? this.lastVersions.get(id) ?? 0;
-
-    const r = await this.api().patch<{ version: number }>(`/notes/${id}`, body);
-    this.lastVersions.set(id, r.version);
-    return r.version;
-  }
-
-  async moveNote(id: string, folderId: string | null): Promise<void> {
-    const r = await this.api().patch<{ version: number }>(`/notes/${id}`, {
-      folderId,
-      version: this.lastVersions.get(id) ?? 0,
-      clientUpdatedAt: new Date().toISOString(),
-    });
-    this.lastVersions.set(id, r.version);
-  }
-
-  async deleteNote(id: string): Promise<void> {
-    await this.api().delete(`/notes/${id}`);
-  }
-
-  async permanentDeleteNote(id: string): Promise<void> {
-    await this.api().delete(`/notes/${id}/permanent`);
-  }
-
-  async restoreNote(id: string): Promise<void> {
-    const r = await this.api().patch<{ version: number }>(`/notes/${id}`, {
-      deletedAt: null,
-      version: this.lastVersions.get(id) ?? 0,
-      clientUpdatedAt: new Date().toISOString(),
-    });
-    this.lastVersions.set(id, r.version);
-  }
-
-  async emptyTrash(): Promise<void> {
-    // 服务端无批量清空接口，逐条永久删除
-    // 硬约束：使用顺序删除（for...of）而非 Promise.all，避免请求风暴
-    const notes = await this.loadAll();
-    const trashNotes = notes.notes.filter((n: NoteRow) => n.deletedAt);
-    for (const n of trashNotes) {
-      await this.api().delete(`/notes/${n.id}/permanent`);
-    }
-  }
-
-  // ========== 文件夹 ==========
-
-  async createFolder(input: CreateFolderInput): Promise<string> {
-    // branch/icon 为 null 时不发送，服务端 schema 不接受 null
-    const r = await this.api().post<{ id: string }>('/folders', {
-      name: input.name,
-      parentId: input.parentId ?? null,
-      ...(input.branch ? { branch: input.branch } : {}),
-      ...(input.icon ? { icon: input.icon } : {}),
-    });
-    return r.id;
-  }
-
-  async renameFolder(id: string, name: string): Promise<void> {
-    await this.api().patch(`/folders/${id}`, { name });
-  }
-
-  async moveFolder(id: string, parentId: string | null): Promise<void> {
-    await this.api().patch(`/folders/${id}`, { parentId });
-  }
-
-  async deleteFolder(id: string): Promise<void> {
-    await this.api().delete(`/folders/${id}`);
-  }
-
-  // ========== 标签 ==========
-
-  async createTag(name: string, color: string | null = null): Promise<string> {
-    const r = await this.api().post<{ id: string }>('/tags', { name, color });
-    return r.id;
-  }
-
-  async deleteTag(id: string): Promise<void> {
-    await this.api().delete(`/tags/${id}`);
-  }
-
-  // ========== 偏好设置 ==========
-
-  async getPreferences(): Promise<Preferences | null> {
-    try {
-      return await this.api().get<Preferences>('/preferences');
-    } catch {
-      return null;
-    }
-  }
-
-  async setPreferences(partial: Partial<Preferences>): Promise<void> {
-    await this.api().patch('/preferences', partial);
-  }
-
-  // ========== 备份与迁移 ==========
-
-  async exportBackup(): Promise<BackupPayload> {
-    const snapshot = await this.loadAll();
-    return {
-      version: '2.0.0',
-      exportedAt: new Date().toISOString(),
-      notes: snapshot.notes,
-      folders: snapshot.folders,
-      tags: snapshot.tags,
-      preferences: snapshot.preferences,
-      source: 'online',
-    };
-  }
-
-  async importBackup(payload: BackupPayload): Promise<void> {
-    // 联机模式：逐条创建笔记/文件夹/标签
-    // ?? [] 兜底：旧版导出可能缺字段，避免 for...of 抛 undefined
-    // 409=已存在则跳过；其他错误（4xx校验失败/5xx服务端错误/网络中断）必须抛出，
-    // 否则 switchMode 清空新数据后静默吞错会导致用户数据丢失且无感知
-    const isConflict = (e: unknown): boolean => {
-      const status = (e as { err?: { status?: number } })?.err?.status;
-      return status === 409;
-    };
-    for (const folder of payload.folders ?? []) {
-      try {
-        await this.createFolder({
-          name: folder.name,
-          parentId: folder.parentId,
-          icon: folder.icon,
-        });
-      } catch (err) {
-        if (!isConflict(err)) throw err;
-      }
-    }
-    for (const tag of payload.tags ?? []) {
-      try {
-        await this.createTag(tag.name, tag.color);
-      } catch (err) {
-        if (!isConflict(err)) throw err;
-      }
-    }
-    for (const note of payload.notes ?? []) {
-      try {
-        await this.createNote({
-          ciphertext: note.ciphertext,
-          keyVersion: note.keyVersion,
-          isPinned: note.isPinned,
-          isFavorite: note.isFavorite,
-          folderId: note.folderId,
-        });
-      } catch (err) {
-        if (!isConflict(err)) throw err;
-      }
-    }
-    if (payload.preferences) {
-      await this.setPreferences(payload.preferences);
-    }
-  }
-
-  async clearBusinessData(): Promise<void> {
-    // 联机模式由服务端管理，客户端不需要清理
-    // 注销时服务端会清理 token
+export class RemoteRepository extends CoreRemoteRepository {
+  constructor(getAccessToken: () => string | null) {
+    // 每次调用时新建 ApiClient：accessToken 会在会话中轮换，必须读最新值
+    super(() => createApiClient(getAccessToken()), { appVersion: APP_VERSION });
   }
 }
 
