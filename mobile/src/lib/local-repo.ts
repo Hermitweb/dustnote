@@ -43,7 +43,7 @@ const PREFS_KEY = 'dustnote_preferences';
 // ========== 默认值 ==========
 
 const DEFAULT_PREFS: Preferences = {
-  theme: 'mist-blue',
+  theme: 'liquid-glass',
   mode: 'auto',
   font: 'system',
   density: 'standard',

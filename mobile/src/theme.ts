@@ -25,9 +25,10 @@ export type ThemeId =
   | 'dusk-forest'
   | 'caramel-warm'
   | 'sakura-pink'
-  | 'minimal-white';
+  | 'minimal-white'
+  | 'liquid-glass';
 
-/** 6 主题元数据（与 Web 端 THEMES 一致） */
+/** 主题元数据（与 Web 端 THEMES 一致） */
 export const THEMES: { id: ThemeId; name: string; emoji: string }[] = [
   { id: 'mint-dawn', name: '尘心晨光', emoji: '🌿' },
   { id: 'mist-blue', name: '雾霭蓝调', emoji: '🌫️' },
@@ -35,6 +36,7 @@ export const THEMES: { id: ThemeId; name: string; emoji: string }[] = [
   { id: 'caramel-warm', name: '焦糖暖光', emoji: '☕' },
   { id: 'sakura-pink', name: '樱粉物语', emoji: '🌸' },
   { id: 'minimal-white', name: '极简白', emoji: '◽' },
+  { id: 'liquid-glass', name: '液态玻璃', emoji: '🫧' },
 ];
 
 // ========== 主题调色板（与 Web 端 THEME_TOKENS 一一对应，RGB→hex） ==========
@@ -170,6 +172,28 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       accentSoft: '#3C3C3C',
     },
   },
+  // 液态玻璃：RN 无 backdrop-filter，用 8 位 hex（#RRGGBBAA）半透明 card/border
+  // 叠在带色背景上做磨砂通透的近似；真·高斯模糊需引入原生 blur 库（见文档说明）。
+  'liquid-glass': {
+    light: {
+      bg: '#EAEFFA',
+      card: '#FFFFFFCC',
+      fg: '#0F172A',
+      muted: '#475569',
+      border: '#FFFFFFAA',
+      accent: '#3B82F6',
+      accentSoft: '#DBEAFE',
+    },
+    dark: {
+      bg: '#0A1020',
+      card: '#1E293BAA',
+      fg: '#E2E8F0',
+      muted: '#94A3B8',
+      border: '#94A3B833',
+      accent: '#7DD3FC',
+      accentSoft: '#1E3A8A',
+    },
+  },
 };
 
 // 通用强调色（与主题无关，所有主题共用）
@@ -263,7 +287,7 @@ interface ThemeStoreState {
 
 export const useThemeStore = create<ThemeStoreState>((set) => ({
   mode: 'auto',
-  themeId: 'mint-dawn',
+  themeId: 'liquid-glass',
   setMode: (mode) => {
     AsyncStorage.setItem(MODE_KEY, mode).catch(() => undefined);
     set({ mode });
@@ -286,7 +310,8 @@ Promise.all([AsyncStorage.getItem(MODE_KEY), AsyncStorage.getItem(THEME_ID_KEY)]
       tid === 'dusk-forest' ||
       tid === 'caramel-warm' ||
       tid === 'sakura-pink' ||
-      tid === 'minimal-white'
+      tid === 'minimal-white' ||
+      tid === 'liquid-glass'
     ) {
       useThemeStore.setState({ themeId: tid });
     }
