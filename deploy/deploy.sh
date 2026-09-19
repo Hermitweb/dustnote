@@ -143,6 +143,9 @@ else
   VERSION="$(grep -m1 '"version"' package.json 2>/dev/null | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || echo "2.5.40")"
   [[ -n "${VERSION}" ]] || VERSION="2.5.40"
   JWT_SECRET="$(openssl rand -hex 32 2>/dev/null || od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
+  # 审计 LIFE-001：默认启用备份加密口令（备份含 totp_secret / wrapped_master_key
+  # 等敏感材料，明文落盘风险高）。丢失此口令将无法解密历史备份，请离线抄录保存。
+  BACKUP_ENCRYPTION_KEY="$(openssl rand -hex 32 2>/dev/null || od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
 
   # 服务器 IP（默认路由源地址）：用于 WEB_ORIGIN 推导与最终访问地址输出
   LAN_IP="$(ip route get 1 2>/dev/null | awk '{print $7; exit}' || hostname -I 2>/dev/null | awk '{print $1}' || echo 'localhost')"
@@ -169,9 +172,13 @@ EOL_DATE_FOR_V0=
 JWT_SECRET=${JWT_SECRET}
 TRUST_PROXY=1
 LOG_LEVEL=info
+BACKUP_ENCRYPTION_KEY=${BACKUP_ENCRYPTION_KEY}
 EOF
+  # 审计 SEC-002：.env 含 JWT_SECRET/备份口令，收紧为仅属主可读写
+  chmod 600 .env
   [[ -n "${DOMAIN}" ]] && echo "DOMAIN=${DOMAIN}" >> .env
-  ok ".env 已生成（JWT_SECRET 已随机化，请妥善保存）"
+  ok ".env 已生成并设权限 600（JWT_SECRET 与备份口令已随机化）"
+  warn "备份口令 BACKUP_ENCRYPTION_KEY 已写入 .env 并用于加密每日备份——请离线抄录保存，丢失将无法解密历史备份"
 fi
 
 # ─── 构建参数（中国网络） ───

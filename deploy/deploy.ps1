@@ -91,6 +91,11 @@ if (Test-Path ".env") {
     $bytes = New-Object byte[] 32
     $rng.GetBytes($bytes)
     $JwtSecret = -join ($bytes | ForEach-Object { $_.ToString("x2") })
+    # 审计 LIFE-001：默认启用备份加密口令（备份含 totp_secret / wrapped_master_key
+    # 等敏感材料）。丢失此口令将无法解密历史备份，请离线抄录保存。
+    $bkBytes = New-Object byte[] 32
+    $rng.GetBytes($bkBytes)
+    $BackupKey = -join ($bkBytes | ForEach-Object { $_.ToString("x2") })
 
     $WebOrigin = $Origin
     if (-not $WebOrigin) {
@@ -117,11 +122,19 @@ if (Test-Path ".env") {
         "EOL_DATE_FOR_V0=",
         "JWT_SECRET=$JwtSecret",
         "TRUST_PROXY=1",
-        "LOG_LEVEL=info"
+        "LOG_LEVEL=info",
+        "BACKUP_ENCRYPTION_KEY=$BackupKey"
     )
     if ($Domain) { $envLines += "DOMAIN=$Domain" }
     $envLines | Set-Content -Path ".env" -Encoding utf8
-    Ok ".env 已生成（JWT_SECRET 已随机化，请妥善保存）"
+    # 审计 SEC-002：.env 含 JWT_SECRET/备份口令，收紧为仅当前用户可访问（失败不中断）
+    try {
+        icacls ".env" /inheritance:r /grant:r "${env:USERDOMAIN}\${env:USERNAME}:F" | Out-Null
+    } catch {
+        Warn "无法收紧 .env 文件权限，请手动确认其访问控制"
+    }
+    Ok ".env 已生成并收紧权限（JWT_SECRET 与备份口令已随机化）"
+    Warn "备份口令 BACKUP_ENCRYPTION_KEY 已写入 .env 并用于加密每日备份——请离线抄录保存，丢失将无法解密历史备份"
 }
 
 # ─── 构建参数（中国网络） ───
