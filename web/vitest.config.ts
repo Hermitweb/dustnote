@@ -31,5 +31,19 @@ export default defineConfig({
     globals: false,
     include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['./src/test-setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov', 'html'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/test-setup.ts', 'src/main.tsx', 'src/**/*.d.ts'],
+      // 审计 TEST-003：web 之前无阈值。以下为保守起步值，随测试补充逐步上调。
+      thresholds: {
+        lines: 45,
+        statements: 45,
+        functions: 45,
+        branches: 40,
+      },
+    },
   },
 });

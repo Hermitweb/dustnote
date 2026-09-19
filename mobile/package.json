@@ -7,7 +7,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "start": "react-native start",
-    "test": "echo [skip] mobile has no unit tests yet - audit TEST-004",
+    "test": "echo ::warning::@dustnote/mobile has NO unit tests yet (audit TEST-001) - app logic is untested; add vitest cases for api/store/crypto wrappers",
     "lint": "eslint .",
     "build:android": "node scripts/build-android.js assembleRelease",
     "build:android-bundle": "node scripts/build-android.js bundleRelease",

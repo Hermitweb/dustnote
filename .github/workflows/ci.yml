@@ -49,6 +49,8 @@ jobs:
         run: node scripts/check-i18n.mjs
       - name: Verify SW_VERSION matches package.json
         run: node scripts/check-sw-version.mjs
+      - name: Verify README badge version matches package.json
+        run: node scripts/check-readme-version.mjs
 
   typecheck:
     name: TypeScript Type Check
@@ -95,6 +97,11 @@ jobs:
           sudo apt-get install -y build-essential python3
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+      # 审计 TEST-002：覆盖率阈值仅在 --coverage 时生效，此前 CI 从不跑，
+      # 阈值形同虚设。在单个 matrix 节点上强制执行覆盖率门禁（低于阈值即 fail）。
+      - name: Coverage gate (enforce thresholds)
+        if: matrix.node == 22
+        run: pnpm test:coverage
 
   audit:
     name: Security Audit
@@ -205,12 +212,15 @@ jobs:
         run: ls -la web/dist/ || true
       - name: Check bundle size
         run: |
-          total=$(du -sb web/dist/ | cut -f1)
-          kb=$((total / 1024))
-          max_kb=$((5 * 1024))
-          echo "Web bundle size: ${kb} KB"
+          # 审计 TEST-004：仅统计 JS 资产（排除 .map，源码映射改由错误监控平台
+          # 单独上传，不进制品），并在超阈值时 exit 1 真正阻塞合并（此前只 warning）。
+          js_bytes=$(find web/dist -type f -name '*.js' ! -name '*.map' -printf '%s\n' 2>/dev/null | awk '{s+=$1} END {print s+0}')
+          kb=$((js_bytes / 1024))
+          max_kb=$((2 * 1024))
+          echo "Web JS bundle size: ${kb} KB (budget ${max_kb} KB)"
           if [ "$kb" -gt "$max_kb" ]; then
-            echo "::warning::Bundle size ${kb} KB exceeds ${max_kb} KB threshold"
+            echo "::error::JS bundle size ${kb} KB exceeds ${max_kb} KB budget"
+            exit 1
           fi
       - uses: actions/upload-artifact@v5
         with:
