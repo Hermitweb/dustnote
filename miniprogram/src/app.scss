@@ -64,7 +64,11 @@ page {
 /* ========== 页面容器 ========== */
 .page {
   min-height: 100vh;
-  background: var(--bg);
+  background:
+    radial-gradient(120% 80% at 12% -10%, rgba(95, 188, 147, 0.2), transparent 60%),
+    radial-gradient(110% 70% at 110% 6%, rgba(111, 168, 199, 0.22), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
   display: flex;
   flex-direction: column;
 }
@@ -1124,7 +1128,11 @@ page {
     0 10rpx 15rpx rgba(0, 0, 0, 0.05), 0 4rpx 6rpx rgba(0, 0, 0, 0.03),
     0 16rpx 48rpx rgba(0, 0, 0, 0.06);
   --shadow-fab: 0 8rpx 24rpx rgba(79, 183, 131, 0.35);
-  background: var(--bg);
+  background:
+    radial-gradient(120% 80% at 12% -10%, rgba(95, 188, 147, 0.2), transparent 60%),
+    radial-gradient(110% 70% at 110% 6%, rgba(111, 168, 199, 0.22), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--fg);
   min-height: 100vh;
   box-sizing: border-box;
@@ -1152,7 +1160,11 @@ page {
   --shadow-md: 0 4rpx 6rpx rgba(0, 0, 0, 0.3), 0 8rpx 24rpx rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 10rpx 15rpx rgba(0, 0, 0, 0.3), 0 16rpx 48rpx rgba(0, 0, 0, 0.4);
   --shadow-fab: 0 8rpx 24rpx rgba(95, 188, 147, 0.25);
-  background: var(--bg);
+  background:
+    radial-gradient(120% 80% at 12% -10%, rgba(95, 188, 147, 0.2), transparent 60%),
+    radial-gradient(110% 70% at 110% 6%, rgba(111, 168, 199, 0.22), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--fg);
   min-height: 100vh;
   box-sizing: border-box;
