@@ -72,5 +72,11 @@ COPY deploy/supervisord.conf /etc/supervisord.conf
 
 USER dustnote
 EXPOSE 8080
+
+# 审计 TEST-007：容器自带 HEALTHCHECK，覆盖不经 docker compose 的裸 `docker run`
+# 场景（compose.yml 另有等价 healthcheck）。curl 探本机 nginx 8080 的健康端点。
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl -fsS http://localhost:8080/api/v1/health >/dev/null || exit 1
+
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]

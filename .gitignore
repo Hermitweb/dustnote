@@ -104,6 +104,7 @@ _apk-audit/
 .workbuddy/
 .opencode/
 .mimosa/
+.trae/
 ISSUE_*.md
 .deploy/
 miniprogram/.swc/
@@ -112,3 +113,7 @@ miniprogram/.swc/
 test-results/
 playwright-report/
 playwright.local.config.ts
+
+# Local screenshot/debug artifacts (audit ARCH-009)
+screenshots/
+shoot.mjs

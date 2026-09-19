@@ -28,7 +28,7 @@ react {
   // 仅 Windows 本机构建生效(CI Linux 上 file() 解析盘符路径会抛错)
   if (org.apache.tools.ant.taskdefs.condition.Os.isFamily(
       org.apache.tools.ant.taskdefs.condition.Os.FAMILY_WINDOWS)) {
-    def localHermesc = file("E:/works/dustnote/node_modules/react-native/sdks/hermesc/win64-bin/hermesc.exe")
+    def localHermesc = file("../../../node_modules/react-native/sdks/hermesc/win64-bin/hermesc.exe")
     if (localHermesc.exists()) {
       hermesCommand.set(localHermesc.absolutePath)
     }
