@@ -294,7 +294,16 @@ export function Sidebar() {
       }
       return b.serverUpdatedAt.localeCompare(a.serverUpdatedAt);
     });
-  }, [notes, viewMode, notesPlain, searchResult, sortKey, folderScope, isUnfiledScope]);
+  }, [
+    notes,
+    viewMode,
+    notesPlain,
+    searchResult,
+    sortKey,
+    folderScope,
+    isUnfiledScope,
+    i18n.language,
+  ]);
 
   // ========== 文件夹层级（规范：3 层封顶） ==========
   const childFolders = (pid: string) => folders.filter((f) => f.parentId === pid);
