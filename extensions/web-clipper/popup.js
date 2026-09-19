@@ -45,9 +45,33 @@ async function init() {
 
 // 保存配置
 $('save-config').addEventListener('click', async () => {
-  const serverUrl = $('server-url').value.replace(/\/+$/, '');
+  let serverUrl = $('server-url').value.trim().replace(/\/+$/, '');
   const token = $('token').value;
   if (!serverUrl || !token) return;
+
+  // 审计 PLAT-005：强制 https，避免 bearer token 走明文通道被局域网窃取。
+  // localhost/127.0.0.1 例外（本地自托管开发场景）。
+  let origin;
+  try {
+    const parsed = new URL(serverUrl);
+    origin = parsed.origin;
+    const isLoopback = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    if (parsed.protocol !== 'https:' && !isLoopback) {
+      showStatus('仅支持 https 服务器地址（本地 localhost 除外）', 'err');
+      return;
+    }
+  } catch {
+    showStatus('服务器地址格式无效', 'err');
+    return;
+  }
+
+  // 审计 PLAT-006：不再常驻 <all_urls>，改为按需申请用户服务器 origin 的
+  // 主机权限（去掉后 fetch POST 会被阻断，故此处显式请求）。
+  const granted = await chrome.permissions.request({ origins: [origin + '/*'] }).catch(() => false);
+  if (!granted) {
+    showStatus('未获授权访问该服务器地址，无法连接', 'err');
+    return;
+  }
 
   await chrome.storage.local.set({ serverUrl, token });
   showStatus('Connected!', 'ok');

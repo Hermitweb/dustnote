@@ -180,12 +180,13 @@ export function registerUpdaterApi(): void {
       }
       // 白名单按 URL origin 归一化（字符串前缀匹配会被端口书写差异
       // 坑到：serverUrl 带 :443、manifest 不带，同一来源判为不同）。
-      // 信任模型（审计 M11 复核后的明确决策）：manifest 来自用户配置的
-      // 服务器,它同时是 hash 的信任根——服务器被攻破时白名单本就无效。
-      // 这里的防线目标是「误配置/意外重定向」而非敌意服务器,因此
-      // manifest 产物自身 origin（反代/CDN 域名,如 WEB_ORIGIN≠serverUrl
-      // 的真实部署）保持放行;originPrefix 输出带尾斜杠,
-      // `https://host.evil.com` 类前缀欺骗不成立。
+      // 审计 PLAT-001 修复：此前把 originPrefix(cachedInstallerUrl) 也加入
+      // 白名单，等于用「待校验 URL 自身的 origin」去授权它自己——Rust 侧
+      // starts_with 前缀检查对任意 URL 恒通过，白名单形同虚设。现只保留
+      // 两个独立于安装包 URL 的信任来源：GitHub Releases 前缀 + 用户配置的
+      // 服务器 origin（manifest 的出处）。若产物实际托管在与 serverUrl 不同
+      // 的 CDN/反代 origin，应由服务器清单返回该 origin 并纳入用户配置，
+      // 而非由客户端无条件放行任意 URL。
       const { serverUrl } = useModeStore.getState();
       await invoke<string>('download_and_run_installer', {
         url: cachedInstallerUrl,
@@ -193,7 +194,6 @@ export function registerUpdaterApi(): void {
         allowedPrefixes: [
           'https://github.com/Hermitweb/dustnote/releases/download/',
           originPrefix(serverUrl),
-          originPrefix(cachedInstallerUrl),
         ].filter(Boolean),
       });
       return true;
