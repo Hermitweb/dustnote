@@ -230,10 +230,10 @@ html[data-theme='liquid-glass'] body {
 }
 html[data-theme='liquid-glass'][data-mode='dark'] body {
   background:
-    radial-gradient(1200px 820px at 10% -12%, rgb(56 189 248 / 0.42), transparent 60%),
-    radial-gradient(1000px 720px at 112% 6%, rgb(129 140 248 / 0.4), transparent 55%),
-    radial-gradient(920px 900px at 50% 124%, rgb(20 184 166 / 0.36), transparent 60%),
-    radial-gradient(760px 640px at 82% 78%, rgb(244 114 182 / 0.24), transparent 62%),
+    radial-gradient(1200px 820px at 10% -12%, rgb(56 189 248 / 0.5), transparent 60%),
+    radial-gradient(1000px 720px at 112% 6%, rgb(99 102 241 / 0.48), transparent 55%),
+    radial-gradient(920px 900px at 50% 124%, rgb(37 99 235 / 0.5), transparent 60%),
+    radial-gradient(760px 640px at 82% 78%, rgb(34 211 238 / 0.34), transparent 62%),
     rgb(var(--mn-bg));
   background-attachment: fixed;
 }
@@ -300,9 +300,9 @@ html[data-theme='liquid-glass'] body::before {
 }
 html[data-theme='liquid-glass'][data-mode='dark'] body::before {
   background:
-    radial-gradient(38% 40% at 20% 25%, rgb(56 189 248 / 0.4), transparent 70%),
-    radial-gradient(36% 38% at 80% 18%, rgb(129 140 248 / 0.36), transparent 70%),
-    radial-gradient(42% 44% at 55% 88%, rgb(20 184 166 / 0.32), transparent 70%);
+    radial-gradient(38% 40% at 20% 25%, rgb(56 189 248 / 0.42), transparent 70%),
+    radial-gradient(36% 38% at 80% 18%, rgb(99 102 241 / 0.4), transparent 70%),
+    radial-gradient(42% 44% at 55% 88%, rgb(34 211 238 / 0.34), transparent 70%);
 }
 @keyframes mn-aurora {
   0% {
@@ -330,10 +330,10 @@ html[data-theme='liquid-glass'] .bg-surface-card {
   transition: box-shadow 200ms ease;
 }
 html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-card {
-  background-color: rgb(30 41 59 / 0.4);
+  background-color: rgb(23 37 84 / 0.42);
   backdrop-filter: blur(46px) saturate(200%);
   -webkit-backdrop-filter: blur(46px) saturate(200%);
-  border: 1px solid rgb(148 163 184 / 0.32);
+  border: 1px solid rgb(96 165 250 / 0.28);
   box-shadow:
     0 12px 44px rgb(0 0 0 / 0.44),
     inset 0 1px 0 rgb(255 255 255 / 0.16);

@@ -14,7 +14,7 @@ import { useEffect } from 'react';
 import Taro from '@tarojs/taro';
 import { useThemeStore, currentEffectiveTheme } from '../state/theme';
 
-const BG = { light: '#EAEFF8', dark: '#0b1120' } as const;
+const BG = { light: '#EAEFF8', dark: '#0a1128' } as const;
 const FG = { light: '#1F2D26', dark: '#e8edf4' } as const;
 
 let sysListenerBound = false;
@@ -72,7 +72,7 @@ export function ThemeVars() {
     const apply = () => {
       const opts = {
         frontColor: effective === 'dark' ? '#ffffff' : '#000000',
-        backgroundColor: effective === 'dark' ? '#0b1120' : '#FAFCF9',
+        backgroundColor: effective === 'dark' ? '#0a1128' : '#FAFCF9',
         fail: () => undefined,
       };
       try {
