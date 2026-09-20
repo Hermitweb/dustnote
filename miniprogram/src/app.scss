@@ -1592,3 +1592,53 @@ page {
   min-height: 100vh;
   background: transparent !important;
 }
+
+/* ========== 小程序玻璃增强（追平 web 完成度） ========== */
+
+/* 极光漂移：内联层放大到视口外，靠 transform 动画缓移，H5/weapp 均支持 */
+.glass-aurora {
+  animation: mn-glass-drift 24s ease-in-out infinite alternate;
+}
+@keyframes mn-glass-drift {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(2%, 2%, 0) scale(1.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-aurora {
+    animation: none;
+  }
+}
+
+/* 玻璃表面统一：高光描边 + 顶部内高光 + 柔外阴影（weapp 无模糊也显玻璃质感） */
+.mint-card,
+.modal-card,
+.menu-sheet,
+.settings-group,
+.search-box,
+.note-row,
+.mint-input,
+.view-tabs,
+.folder-tabs {
+  border: 1rpx solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 8rpx 30rpx rgba(15, 23, 42, 0.08),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.7);
+}
+.theme-dark .mint-card,
+.theme-dark .modal-card,
+.theme-dark .menu-sheet,
+.theme-dark .settings-group,
+.theme-dark .search-box,
+.theme-dark .note-row,
+.theme-dark .mint-input,
+.theme-dark .view-tabs,
+.theme-dark .folder-tabs {
+  border-color: rgba(96, 165, 250, 0.3);
+  box-shadow:
+    0 8rpx 30rpx rgba(0, 0, 0, 0.4),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.12);
+}
