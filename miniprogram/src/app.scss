@@ -176,7 +176,7 @@ page {
   /* 注意：开发者工具/真机 webview 渲染模式同样命中 @supports，
      白色玻璃在深色模式变成白条——.theme-dark 下换暗色玻璃 */
   .theme-dark .topbar {
-    background: rgba(11, 17, 32, 0.85);
+    background: rgba(148, 163, 184, 0.16);
   }
 }
 /* 无侧元素页头（返回统一走原生导航栏）：标题居中 */
@@ -1083,7 +1083,7 @@ page {
   page {
     --bg: #0a1128;
     --bg-elevated: rgba(148, 163, 184, 0.18);
-    --bg-sunken: #060b16;
+    --bg-sunken: rgba(148, 163, 184, 0.1);
     --fg: #e8edf4;
     --fg-secondary: #a8b5c8;
     --fg-muted: #9aa7b5;
@@ -1143,7 +1143,7 @@ page {
 .theme-dark {
   --bg: #0a1128;
   --bg-elevated: rgba(148, 163, 184, 0.18);
-  --bg-sunken: #060b16;
+  --bg-sunken: rgba(148, 163, 184, 0.1);
   --fg: #e8edf4;
   --fg-secondary: #a8b5c8;
   --fg-muted: #9aa7b5;
