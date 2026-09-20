@@ -263,7 +263,7 @@ html[data-theme='liquid-glass'] .bg-surface-bg {
   -webkit-backdrop-filter: blur(16px) saturate(190%);
 }
 html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-bg {
-  background-color: rgb(15 23 42 / 0.45);
+  background-color: rgb(30 41 59 / 0.42);
 }
 
 /* 边框柔化：玻璃上的分隔线应为半透明高光，而非实心灰线 */
@@ -271,7 +271,7 @@ html[data-theme='liquid-glass'] .border-surface-border {
   border-color: rgb(255 255 255 / 0.5);
 }
 html[data-theme='liquid-glass'][data-mode='dark'] .border-surface-border {
-  border-color: rgb(148 163 184 / 0.2);
+  border-color: rgb(147 197 253 / 0.26);
 }
 
 /* 玻璃下的 markdown 代码块 / hover 面轻微半透明，避免实心白块破坏质感 */
