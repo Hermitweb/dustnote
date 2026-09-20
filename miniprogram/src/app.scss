@@ -1088,18 +1088,18 @@ page {
     --fg-secondary: #a8b5c8;
     --fg-muted: #9aa7b5;
     --border: rgba(147, 197, 253, 0.34);
-    --border-strong: #354558;
-    --primary: #5fbc93;
-    --primary-strong: #5fbc93;
-    --primary-deep: #7fd0a8;
-    --primary-soft: #12231c;
-    --primary-glow: rgba(95, 188, 147, 0.15);
+    --border-strong: #2d4a6f;
+    --primary: #38bdf8;
+    --primary-strong: #38bdf8;
+    --primary-deep: #93c5fd;
+    --primary-soft: #1e3a5f;
+    --primary-glow: rgba(56, 189, 248, 0.15);
     --danger-soft: #2d1518;
     --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);
     --shadow-sm: 0 1rpx 3rpx rgba(0, 0, 0, 0.3), 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
     --shadow-md: 0 4rpx 6rpx rgba(0, 0, 0, 0.3), 0 8rpx 24rpx rgba(0, 0, 0, 0.35);
     --shadow-lg: 0 10rpx 15rpx rgba(0, 0, 0, 0.3), 0 16rpx 48rpx rgba(0, 0, 0, 0.4);
-    --shadow-fab: 0 8rpx 24rpx rgba(95, 188, 147, 0.25);
+    --shadow-fab: 0 8rpx 24rpx rgba(56, 189, 248, 0.3);
   }
 }
 
@@ -1148,20 +1148,20 @@ page {
   --fg-secondary: #a8b5c8;
   --fg-muted: #9aa7b5;
   --border: rgba(147, 197, 253, 0.34);
-  --border-strong: #354558;
-  --primary: #5fbc93;
-  --primary-strong: #5fbc93;
-  --primary-deep: #7fd0a8;
-  --primary-soft: #12231c;
-  --primary-glow: rgba(95, 188, 147, 0.15);
+  --border-strong: #2d4a6f;
+  --primary: #38bdf8;
+  --primary-strong: #38bdf8;
+  --primary-deep: #93c5fd;
+  --primary-soft: #1e3a5f;
+  --primary-glow: rgba(56, 189, 248, 0.15);
   --danger-soft: #2d1518;
   --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 1rpx 3rpx rgba(0, 0, 0, 0.3), 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4rpx 6rpx rgba(0, 0, 0, 0.3), 0 8rpx 24rpx rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 10rpx 15rpx rgba(0, 0, 0, 0.3), 0 16rpx 48rpx rgba(0, 0, 0, 0.4);
-  --shadow-fab: 0 8rpx 24rpx rgba(95, 188, 147, 0.25);
+  --shadow-fab: 0 8rpx 24rpx rgba(56, 189, 248, 0.3);
   background:
-    radial-gradient(120% 80% at 12% -10%, rgba(95, 188, 147, 0.2), transparent 60%),
+    radial-gradient(120% 80% at 12% -10%, rgba(56, 189, 248, 0.2), transparent 60%),
     radial-gradient(110% 70% at 110% 6%, rgba(111, 168, 199, 0.22), transparent 55%),
     var(--bg);
   background-attachment: fixed;
@@ -1641,4 +1641,11 @@ page {
   box-shadow:
     0 8rpx 30rpx rgba(0, 0, 0, 0.4),
     inset 0 1rpx 0 rgba(255, 255, 255, 0.12);
+}
+
+/* 暗色 FAB/模板按钮：绿色渐变 → 蓝调，与暗色 accent 统一 */
+.theme-dark .fab,
+.theme-dark .fab-tpl {
+  background: linear-gradient(135deg, #38bdf8, #2563eb);
+  box-shadow: 0 8rpx 24rpx rgba(56, 189, 248, 0.35);
 }
