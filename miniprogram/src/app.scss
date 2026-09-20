@@ -47,10 +47,7 @@ page {
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
 
-  background:
-    radial-gradient(120% 80% at 12% -10%, rgba(95, 188, 147, 0.22), transparent 60%),
-    radial-gradient(110% 70% at 110% 6%, rgba(111, 168, 199, 0.22), transparent 55%),
-    var(--bg);
+  background: var(--bg);
   color: var(--fg);
   font-family:
     -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
@@ -64,11 +61,7 @@ page {
 /* ========== 页面容器 ========== */
 .page {
   min-height: 100vh;
-  background:
-    radial-gradient(120% 80% at 12% -10%, rgba(95, 188, 147, 0.2), transparent 60%),
-    radial-gradient(110% 70% at 110% 6%, rgba(111, 168, 199, 0.22), transparent 55%),
-    var(--bg);
-  background-attachment: fixed;
+  background: transparent;
   display: flex;
   flex-direction: column;
 }
@@ -1128,11 +1121,7 @@ page {
     0 10rpx 15rpx rgba(0, 0, 0, 0.05), 0 4rpx 6rpx rgba(0, 0, 0, 0.03),
     0 16rpx 48rpx rgba(0, 0, 0, 0.06);
   --shadow-fab: 0 8rpx 24rpx rgba(79, 183, 131, 0.35);
-  background:
-    radial-gradient(120% 80% at 12% -10%, rgba(95, 188, 147, 0.2), transparent 60%),
-    radial-gradient(110% 70% at 110% 6%, rgba(111, 168, 199, 0.22), transparent 55%),
-    var(--bg);
-  background-attachment: fixed;
+  background: transparent;
   color: var(--fg);
   min-height: 100vh;
   box-sizing: border-box;
@@ -1160,11 +1149,7 @@ page {
   --shadow-md: 0 4rpx 6rpx rgba(0, 0, 0, 0.3), 0 8rpx 24rpx rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 10rpx 15rpx rgba(0, 0, 0, 0.3), 0 16rpx 48rpx rgba(0, 0, 0, 0.4);
   --shadow-fab: 0 8rpx 24rpx rgba(56, 189, 248, 0.3);
-  background:
-    radial-gradient(120% 80% at 12% -10%, rgba(56, 189, 248, 0.2), transparent 60%),
-    radial-gradient(110% 70% at 110% 6%, rgba(111, 168, 199, 0.22), transparent 55%),
-    var(--bg);
-  background-attachment: fixed;
+  background: transparent;
   color: var(--fg);
   min-height: 100vh;
   box-sizing: border-box;
