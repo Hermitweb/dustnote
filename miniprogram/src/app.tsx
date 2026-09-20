@@ -4,13 +4,14 @@
  * 注册全局状态 + 启动数据 + 全局错误兜底
  */
 
-import type { ReactNode } from 'react';
+import type { ReactNode, CSSProperties } from 'react';
+import { View } from '@tarojs/components';
 // 必须在任何加密操作前先注入安全随机源（微信小程序无 WebCrypto）
 import './lib/crypto-polyfill';
 import Taro from '@tarojs/taro';
 import { useLaunch } from '@tarojs/taro';
 import { AuthProvider } from './state/auth';
-import { useThemeStore, applyTheme } from './state/theme';
+import { useThemeStore, applyTheme, systemTheme } from './state/theme';
 import ConflictDialog from './components/ConflictDialog';
 import { useModeStore } from './lib/mode-store';
 import { useAuthStore } from './state/auth';
@@ -19,6 +20,24 @@ import './app.scss';
 
 function App({ children }: { children?: ReactNode }) {
   const theme = useThemeStore((s) => s.theme);
+
+  // 液态玻璃极光背景：改用内联样式渲染（Taro 的 `page` 令牌与 ::before 简写在 H5
+  // 会被 postcss 丢弃，内联不受影响）。页面根 .taro_page 已在 app.scss 设透明。
+  const isDark = theme === 'dark' || (theme === 'auto' && systemTheme() === 'dark');
+  const glassLayer: CSSProperties = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 0,
+    pointerEvents: 'none',
+    backgroundColor: isDark ? '#0b1120' : '#eaeff8',
+    backgroundImage:
+      'radial-gradient(120% 80% at 12% -10%, rgba(95,188,147,0.35), transparent 60%),' +
+      'radial-gradient(110% 70% at 110% 6%, rgba(111,168,199,0.40), transparent 55%),' +
+      'radial-gradient(90% 70% at 50% 115%, rgba(168,85,247,0.28), transparent 60%)',
+  };
 
   // 启动：注册全局错误兜底 + 应用主题
   useLaunch(() => {
@@ -141,8 +160,11 @@ function App({ children }: { children?: ReactNode }) {
 
   return (
     <AuthProvider>
-      {children}
-      <ConflictDialog />
+      <View style={glassLayer} />
+      <View style={{ position: 'relative', zIndex: 1 }}>
+        {children}
+        <ConflictDialog />
+      </View>
     </AuthProvider>
   );
 }

@@ -1581,3 +1581,14 @@ page {
     backdrop-filter: blur(20px) saturate(160%);
   }
 }
+
+/* ========== H5 玻璃兜底：让 Taro 页面根透明，极光由 app.tsx 内联层提供 ==========
+   实测 Taro 的 `page` 令牌与 ::before 简写在 H5 里被 postcss 丢弃/失效，故极光改由
+   app.tsx 内联样式渲染（内联不受 purging 影响）。这里只需保证 .taro_page 不铺白底。
+   weapp 无 .taro_page 节点，规则天然忽略。 */
+.taro_page {
+  position: relative;
+  z-index: 0;
+  min-height: 100vh;
+  background: transparent !important;
+}
