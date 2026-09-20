@@ -38,10 +38,10 @@ function App({ children }: { children?: ReactNode }) {
         'radial-gradient(110% 70% at 112% 6%, rgba(99,102,241,0.7), transparent 55%),' +
         'radial-gradient(90% 70% at 50% 116%, rgba(37,99,235,0.78), transparent 60%),' +
         'radial-gradient(70% 60% at 84% 78%, rgba(34,211,238,0.58), transparent 62%)'
-      : 'radial-gradient(120% 80% at 10% -12%, rgba(95,188,147,0.55), transparent 60%),' +
-        'radial-gradient(110% 70% at 112% 6%, rgba(111,168,199,0.55), transparent 55%),' +
-        'radial-gradient(90% 70% at 50% 116%, rgba(168,85,247,0.4), transparent 60%),' +
-        'radial-gradient(70% 60% at 84% 78%, rgba(251,146,60,0.32), transparent 62%)',
+      : 'radial-gradient(120% 80% at 10% -12%, rgba(56,189,248,0.5), transparent 60%),' +
+        'radial-gradient(110% 70% at 112% 6%, rgba(59,130,246,0.45), transparent 55%),' +
+        'radial-gradient(90% 70% at 50% 116%, rgba(99,102,241,0.42), transparent 60%),' +
+        'radial-gradient(70% 60% at 84% 78%, rgba(34,211,238,0.4), transparent 62%)',
   };
 
   // 启动：注册全局错误兜底 + 应用主题

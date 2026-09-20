@@ -13,11 +13,11 @@ page {
   --fg-muted: #8b9690;
   --border: rgba(148, 163, 184, 0.35);
   --border-strong: #c5d5ca;
-  --primary: #5fbc93;
-  --primary-strong: #4fb783;
-  --primary-deep: #3d9068;
-  --primary-soft: #e8f5ee;
-  --primary-glow: rgba(79, 183, 131, 0.25);
+  --primary: #3b82f6;
+  --primary-strong: #2563eb;
+  --primary-deep: #1d4ed8;
+  --primary-soft: #dbeafe;
+  --primary-glow: rgba(59, 130, 246, 0.25);
   --accent: #f5a65b;
   --warning: #e8b86b;
   --danger: #e07b6c;
@@ -31,7 +31,7 @@ page {
   --shadow-lg:
     0 10rpx 15rpx rgba(0, 0, 0, 0.05), 0 4rpx 6rpx rgba(0, 0, 0, 0.03),
     0 16rpx 48rpx rgba(0, 0, 0, 0.06);
-  --shadow-fab: 0 8rpx 24rpx rgba(79, 183, 131, 0.35);
+  --shadow-fab: 0 8rpx 24rpx rgba(59, 130, 246, 0.35);
   --radius-xs: 6rpx;
   --radius-sm: 10rpx;
   --radius-md: 16rpx;
@@ -617,7 +617,7 @@ page {
   width: 100rpx;
   height: 100rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5fbc93, #3d9068);
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   color: #fff;
   display: flex;
   align-items: center;
@@ -632,9 +632,9 @@ page {
     box-shadow 0.2s ease;
 }
 .fab:active {
-  background: linear-gradient(135deg, #3d9068, #2e6e4e);
+  background: linear-gradient(135deg, #2563eb, #1e40af);
   transform: scale(0.92);
-  box-shadow: 0 4rpx 12rpx rgba(79, 183, 131, 0.25);
+  box-shadow: 0 4rpx 12rpx rgba(59, 130, 246, 0.25);
 }
 /* 模板新建入口：FAB 上方的小圆钮 */
 .fab-tpl {
@@ -1106,11 +1106,11 @@ page {
   --fg-muted: #8b9690;
   --border: rgba(148, 163, 184, 0.35);
   --border-strong: #c5d5ca;
-  --primary: #5fbc93;
-  --primary-strong: #4fb783;
-  --primary-deep: #3d9068;
-  --primary-soft: #e8f5ee;
-  --primary-glow: rgba(79, 183, 131, 0.25);
+  --primary: #3b82f6;
+  --primary-strong: #2563eb;
+  --primary-deep: #1d4ed8;
+  --primary-soft: #dbeafe;
+  --primary-glow: rgba(59, 130, 246, 0.25);
   --danger-soft: #feecec;
   --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.03);
   --shadow-sm: 0 1rpx 3rpx rgba(0, 0, 0, 0.05), 0 1rpx 2rpx rgba(0, 0, 0, 0.03);
@@ -1120,7 +1120,7 @@ page {
   --shadow-lg:
     0 10rpx 15rpx rgba(0, 0, 0, 0.05), 0 4rpx 6rpx rgba(0, 0, 0, 0.03),
     0 16rpx 48rpx rgba(0, 0, 0, 0.06);
-  --shadow-fab: 0 8rpx 24rpx rgba(79, 183, 131, 0.35);
+  --shadow-fab: 0 8rpx 24rpx rgba(59, 130, 246, 0.35);
   background: transparent;
   color: var(--fg);
   min-height: 100vh;

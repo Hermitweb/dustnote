@@ -222,9 +222,9 @@ textarea:focus::placeholder {
 html[data-theme='liquid-glass'] body {
   background:
     radial-gradient(1200px 820px at 10% -12%, rgb(59 130 246 / 0.6), transparent 60%),
-    radial-gradient(1000px 720px at 112% 6%, rgb(168 85 247 / 0.5), transparent 55%),
-    radial-gradient(920px 900px at 50% 124%, rgb(45 212 191 / 0.48), transparent 60%),
-    radial-gradient(760px 640px at 82% 78%, rgb(251 146 60 / 0.32), transparent 62%),
+    radial-gradient(1000px 720px at 112% 6%, rgb(99 102 241 / 0.5), transparent 55%),
+    radial-gradient(920px 900px at 50% 124%, rgb(34 211 238 / 0.48), transparent 60%),
+    radial-gradient(760px 640px at 82% 78%, rgb(56 189 248 / 0.34), transparent 62%),
     rgb(var(--mn-bg));
   background-attachment: fixed;
 }
@@ -293,8 +293,8 @@ html[data-theme='liquid-glass'] body::before {
   pointer-events: none;
   background:
     radial-gradient(38% 40% at 20% 25%, rgb(59 130 246 / 0.5), transparent 70%),
-    radial-gradient(36% 38% at 80% 18%, rgb(168 85 247 / 0.44), transparent 70%),
-    radial-gradient(42% 44% at 55% 88%, rgb(45 212 191 / 0.42), transparent 70%);
+    radial-gradient(36% 38% at 80% 18%, rgb(99 102 241 / 0.44), transparent 70%),
+    radial-gradient(42% 44% at 55% 88%, rgb(34 211 238 / 0.42), transparent 70%);
   filter: blur(30px);
   animation: mn-aurora 26s ease-in-out infinite alternate;
 }
