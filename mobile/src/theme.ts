@@ -186,10 +186,10 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
     },
     dark: {
       bg: '#0A1128',
-      card: '#17255499',
+      card: '#334155B3',
       fg: '#E2E8F0',
       muted: '#94A3B8',
-      border: '#60A5FA40',
+      border: '#93C5FD66',
       accent: '#7DD3FC',
       accentSoft: '#1E3A8A',
     },

@@ -34,10 +34,10 @@ function App({ children }: { children?: ReactNode }) {
     pointerEvents: 'none',
     backgroundColor: isDark ? '#0a1128' : '#eaeff8',
     backgroundImage: isDark
-      ? 'radial-gradient(120% 80% at 10% -12%, rgba(56,189,248,0.6), transparent 60%),' +
-        'radial-gradient(110% 70% at 112% 6%, rgba(99,102,241,0.56), transparent 55%),' +
-        'radial-gradient(90% 70% at 50% 116%, rgba(37,99,235,0.6), transparent 60%),' +
-        'radial-gradient(70% 60% at 84% 78%, rgba(34,211,238,0.4), transparent 62%)'
+      ? 'radial-gradient(120% 80% at 10% -12%, rgba(56,189,248,0.78), transparent 60%),' +
+        'radial-gradient(110% 70% at 112% 6%, rgba(99,102,241,0.7), transparent 55%),' +
+        'radial-gradient(90% 70% at 50% 116%, rgba(37,99,235,0.78), transparent 60%),' +
+        'radial-gradient(70% 60% at 84% 78%, rgba(34,211,238,0.58), transparent 62%)'
       : 'radial-gradient(120% 80% at 10% -12%, rgba(95,188,147,0.55), transparent 60%),' +
         'radial-gradient(110% 70% at 112% 6%, rgba(111,168,199,0.55), transparent 55%),' +
         'radial-gradient(90% 70% at 50% 116%, rgba(168,85,247,0.4), transparent 60%),' +

@@ -1082,12 +1082,12 @@ page {
 @media (prefers-color-scheme: dark) {
   page {
     --bg: #0a1128;
-    --bg-elevated: rgba(21, 29, 46, 0.5);
+    --bg-elevated: rgba(148, 163, 184, 0.18);
     --bg-sunken: #060b16;
     --fg: #e8edf4;
     --fg-secondary: #a8b5c8;
     --fg-muted: #9aa7b5;
-    --border: rgba(148, 163, 184, 0.2);
+    --border: rgba(147, 197, 253, 0.34);
     --border-strong: #354558;
     --primary: #5fbc93;
     --primary-strong: #5fbc93;
@@ -1142,12 +1142,12 @@ page {
    覆盖 @media 仅跟系统的局限,实现 light/dark 手动切换 */
 .theme-dark {
   --bg: #0a1128;
-  --bg-elevated: rgba(21, 29, 46, 0.5);
+  --bg-elevated: rgba(148, 163, 184, 0.18);
   --bg-sunken: #060b16;
   --fg: #e8edf4;
   --fg-secondary: #a8b5c8;
   --fg-muted: #9aa7b5;
-  --border: rgba(148, 163, 184, 0.2);
+  --border: rgba(147, 197, 253, 0.34);
   --border-strong: #354558;
   --primary: #5fbc93;
   --primary-strong: #5fbc93;
