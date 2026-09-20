@@ -177,7 +177,7 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
   'liquid-glass': {
     light: {
       bg: '#EAEFFA',
-      card: '#FFFFFFCC',
+      card: '#FFFFFFA6',
       fg: '#0F172A',
       muted: '#475569',
       border: '#FFFFFFAA',
@@ -186,7 +186,7 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
     },
     dark: {
       bg: '#0A1020',
-      card: '#1E293BAA',
+      card: '#1E293B99',
       fg: '#E2E8F0',
       muted: '#94A3B8',
       border: '#94A3B833',

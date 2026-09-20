@@ -34,9 +34,10 @@ function App({ children }: { children?: ReactNode }) {
     pointerEvents: 'none',
     backgroundColor: isDark ? '#0b1120' : '#eaeff8',
     backgroundImage:
-      'radial-gradient(120% 80% at 12% -10%, rgba(95,188,147,0.35), transparent 60%),' +
-      'radial-gradient(110% 70% at 110% 6%, rgba(111,168,199,0.40), transparent 55%),' +
-      'radial-gradient(90% 70% at 50% 115%, rgba(168,85,247,0.28), transparent 60%)',
+      'radial-gradient(120% 80% at 10% -12%, rgba(95,188,147,0.55), transparent 60%),' +
+      'radial-gradient(110% 70% at 112% 6%, rgba(111,168,199,0.55), transparent 55%),' +
+      'radial-gradient(90% 70% at 50% 116%, rgba(168,85,247,0.4), transparent 60%),' +
+      'radial-gradient(70% 60% at 84% 78%, rgba(251,146,60,0.32), transparent 62%)',
   };
 
   // 启动：注册全局错误兜底 + 应用主题

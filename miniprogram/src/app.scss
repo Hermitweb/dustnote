@@ -6,7 +6,7 @@
 /* ========== 设计令牌（CSS 变量） ========== */
 page {
   --bg: #eaeff8;
-  --bg-elevated: rgba(255, 255, 255, 0.72);
+  --bg-elevated: rgba(255, 255, 255, 0.5);
   --bg-sunken: #e7ecf6;
   --fg: #1f2d26;
   --fg-secondary: #5c6b63;
@@ -1082,7 +1082,7 @@ page {
 @media (prefers-color-scheme: dark) {
   page {
     --bg: #0b1120;
-    --bg-elevated: rgba(21, 29, 46, 0.72);
+    --bg-elevated: rgba(21, 29, 46, 0.5);
     --bg-sunken: #060b16;
     --fg: #e8edf4;
     --fg-secondary: #a8b5c8;
@@ -1106,7 +1106,7 @@ page {
 /* 手动浅色(系统深色时反制 @media 深色变量) */
 .theme-light {
   --bg: #eaeff8;
-  --bg-elevated: rgba(255, 255, 255, 0.72);
+  --bg-elevated: rgba(255, 255, 255, 0.5);
   --bg-sunken: #e7ecf6;
   --fg: #1f2d26;
   --fg-secondary: #5c6b63;
@@ -1142,7 +1142,7 @@ page {
    覆盖 @media 仅跟系统的局限,实现 light/dark 手动切换 */
 .theme-dark {
   --bg: #0b1120;
-  --bg-elevated: rgba(21, 29, 46, 0.72);
+  --bg-elevated: rgba(21, 29, 46, 0.5);
   --bg-sunken: #060b16;
   --fg: #e8edf4;
   --fg-secondary: #a8b5c8;
@@ -1577,8 +1577,8 @@ page {
   .view-tabs,
   .folder-tabs,
   .batch-bar {
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
-    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(30px) saturate(200%);
+    backdrop-filter: blur(30px) saturate(200%);
   }
 }
 
