@@ -30,6 +30,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const BranchSchema = z.enum(['work', 'personal']).nullish();
 
 const FolderSchema = z.object({
+  id: z.string().regex(UUID_RE).optional(),
   name: z.string().min(1).max(64),
   parentId: z.string().nullable().optional(),
   icon: z.string().max(16).nullish(),
@@ -146,11 +147,11 @@ export function createFolder(req: Request, res: Response): void {
     return;
   }
 
-  const id = randomUUID();
+  const id = parsed.data.id ?? randomUUID();
   const createdAt = new Date().toISOString();
   db.prepare(
     `INSERT INTO folders (id, user_id, name, parent_id, icon, depth, branch, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING`
   ).run(
     id,
     user.userId,
