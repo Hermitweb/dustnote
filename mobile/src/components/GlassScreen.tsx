@@ -14,19 +14,36 @@
  */
 import React from 'react';
 import { StyleSheet, View, type ViewProps } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useIsDark } from '../theme';
 
 type GlassScreenProps = ViewProps & { children: React.ReactNode };
 
 const LIGHT = ['#EAEFF8', '#E9F1FB', '#F3ECFB'];
-const DARK = ['#0B1120', '#12233F', '#0B1120'];
+const DARK = ['#0A1128', '#12233F', '#0A1128'];
+
+// 运行时软依赖：未安装/未链接(autolink 静默失败)时降级为纯色，避免整应用启动崩溃
+let LinearGradient: React.ComponentType<Record<string, unknown>> | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const mod = require('react-native-linear-gradient') as {
+    default?: React.ComponentType<Record<string, unknown>>;
+  };
+  LinearGradient = mod.default ?? null;
+} catch {
+  LinearGradient = null;
+}
 
 export function GlassScreen({ children, style, ...rest }: GlassScreenProps) {
   const isDark = useIsDark();
+  const colors = isDark ? DARK : LIGHT;
   return (
     <View style={[styles.root, style]} {...rest}>
-      <LinearGradient colors={isDark ? DARK : LIGHT} style={StyleSheet.absoluteFill} />
+      {LinearGradient ? (
+        <LinearGradient colors={colors} style={StyleSheet.absoluteFill} />
+      ) : (
+        // 降级：纯色底（取渐变首色），保证不崩、仍有背景层次
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors[0] }]} />
+      )}
       <View style={styles.content}>{children}</View>
     </View>
   );

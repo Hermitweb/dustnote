@@ -3,7 +3,7 @@
   "name": "DustNote Web Clipper",
   "description": "Save web pages as notes to DustNote",
   "version": "1.0.0",
-  "permissions": ["activeTab", "storage"],
+  "permissions": ["activeTab", "storage", "scripting"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
