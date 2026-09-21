@@ -61,3 +61,20 @@
 ## 五、验证
 
 `pnpm typecheck` 9/9 通过；`@dustnote/server` 109 单测通过（含新增迁移19测试）；`@dustnote/web` build 通过；`@dustnote/miniprogram` build:h5 通过。工作树干净。
+
+## 六、第三类处理进展（追加）
+
+已从"四、待专项"落地以下可代码化项（提交于本分支）：
+
+- **LIFE-R01/R02**：DEPLOY §9 明确内置调度器产出加密 `.enc` 为首选、手动/cron 明文需外传前再加密；§9.3 补 `.enc` 解密恢复分支。
+- **OBS-R01**：新增 `deploy/prometheus/rules.yml` 起步告警（5xx率/端点down/备份失败或停摆/认证锁定激增/库体积），指标名对齐 `metrics.ts`。
+- **A11Y-R06**：App.tsx 启动/连接失败文案 i18n 化，zh/en 各补 5 key（check-i18n 514 key 全定义）。
+- **API-R03**：folders POST 支持客户端预生成 id + `ON CONFLICT DO NOTHING` 幂等（templates/shares 同模式可跟进）。
+
+第三类中仍待专项（需新依赖 / 大重构 / 跨端构建 / 外部资源，未盲改）：
+
+- ARCH-R01 完整 token 单一源、ARCH-R02 desktop→web exports、ARCH-R03 getDeviceId 下沉、API-R01 OpenAPI 生成、API-R03 余下 templates/shares。
+- A11Y-R04 焦点陷阱（需 react-focus-lock + 包裹 8 dialog）、A11Y-R05 weapp 减弱动效（需设置开关 JS 摘类）。
+- DEP-R01 onlyBuiltDependencies、DEP-R02 uuid selector、DEP-R04 dependabot 逐包。
+- OBS-R03 移动端崩溃上报、SEC-R05 clipper E2EE、SEC-R07 Tauri CSP 运行时注入、SEC-R08 TOTP 列加密、SEC-R09 RN 敏感存储、PLAT-R02 小程序极光层每页化。
+- 外部资源类见"三"（endpoint 验签密钥、代码签名/公证、ICP 域）。
