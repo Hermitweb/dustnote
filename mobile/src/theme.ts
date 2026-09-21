@@ -196,6 +196,13 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
   },
 };
 
+// 液态玻璃极光渐变（单一来源，供 GlassScreen 消费；ARCH-R01）。基色与
+// THEME_PALETTES['liquid-glass'] 的 bg 对齐（浅 #EAEFF8 / 深 #0A1128）。
+export const LIQUID_GLASS_GRADIENT = {
+  light: ['#EAEFF8', '#E9F1FB', '#F3ECFB'],
+  dark: ['#0A1128', '#12233F', '#0A1128'],
+} as const;
+
 // 通用强调色（与主题无关，所有主题共用）
 const COMMON_ACCENT = {
   warn: '#F5A65B',

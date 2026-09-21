@@ -14,12 +14,9 @@
  */
 import React from 'react';
 import { StyleSheet, View, type ViewProps } from 'react-native';
-import { useIsDark } from '../theme';
+import { useIsDark, LIQUID_GLASS_GRADIENT } from '../theme';
 
 type GlassScreenProps = ViewProps & { children: React.ReactNode };
-
-const LIGHT = ['#EAEFF8', '#E9F1FB', '#F3ECFB'];
-const DARK = ['#0A1128', '#12233F', '#0A1128'];
 
 // 运行时软依赖：未安装/未链接(autolink 静默失败)时降级为纯色，避免整应用启动崩溃
 let LinearGradient: React.ComponentType<Record<string, unknown>> | null = null;
@@ -35,7 +32,7 @@ try {
 
 export function GlassScreen({ children, style, ...rest }: GlassScreenProps) {
   const isDark = useIsDark();
-  const colors = isDark ? DARK : LIGHT;
+  const colors = isDark ? LIQUID_GLASS_GRADIENT.dark : LIQUID_GLASS_GRADIENT.light;
   return (
     <View style={[styles.root, style]} {...rest}>
       {LinearGradient ? (
