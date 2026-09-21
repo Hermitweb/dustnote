@@ -22,9 +22,9 @@ import { isTauri } from './lib/tauri';
 import { registerAutostartApi } from './lib/autostart';
 import { registerUpdaterApi, useUpdater } from './lib/updater';
 import { notifyUpdateAvailable } from './lib/notifications';
-// 直接复用 web 端 App 组件（vite + tsc 通过相对路径解析）
-import WebApp from '../../web/src/App';
-import { useStore } from '../../web/src/lib/store';
+// 复用 @dustnote/web 的 App 组件与 store（经包 exports，不再跨包相对深导入）
+import WebApp from '@dustnote/web';
+import { useStore } from '@dustnote/web/store';
 
 /**
  * 注册桌面端原生能力到 window，供共享的 web 组件（AboutDialog、ImportExportDialog 等）调用。

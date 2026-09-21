@@ -4,6 +4,17 @@
   "private": true,
   "description": "DustNote Web 客户端",
   "type": "module",
+  "main": "./src/App.tsx",
+  "types": "./src/App.tsx",
+  "exports": {
+    ".": "./src/App.tsx",
+    "./store": "./src/lib/store.ts",
+    "./i18n": "./src/lib/i18n.ts",
+    "./mode-store": "./src/lib/mode-store.ts",
+    "./device": "./src/lib/device.ts",
+    "./theme": "./src/lib/theme.ts",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

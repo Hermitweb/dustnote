@@ -17,6 +17,7 @@
   "dependencies": {
     "@dustnote/client-core": "workspace:*",
     "@dustnote/shared": "workspace:*",
+    "@dustnote/web": "workspace:*",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-autostart": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.7.2",

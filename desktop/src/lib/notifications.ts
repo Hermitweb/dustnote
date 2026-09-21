@@ -12,7 +12,7 @@ import {
   requestPermission,
   sendNotification,
 } from '@tauri-apps/plugin-notification';
-import i18n from '../../../web/src/lib/i18n';
+import i18n from '@dustnote/web/i18n';
 import { isTauri } from './tauri';
 
 /** 权限请求结果缓存：同一会话只申请一次（避免重复弹系统权限框） */

@@ -17,8 +17,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useEffect, useState } from 'react';
 import { isTauri } from './tauri';
-import { useModeStore } from '../../../web/src/lib/mode-store';
-import { getDeviceId } from '../../../web/src/lib/device';
+import { useModeStore } from '@dustnote/web/mode-store';
+import { getDeviceId } from '@dustnote/web/device';
 
 /** 更新检查结果（对应 Rust 侧结构；保持与旧 Velopack 版接口形状一致） */
 export interface UpdateCheckResult {
