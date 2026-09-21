@@ -10,9 +10,29 @@
  */
 
 import Taro from '@tarojs/taro';
+import { createDeviceIdStore } from '@dustnote/client-core';
 import { useModeStore } from './mode-store';
 import { useAuthStore, APP_VERSION } from '../state/auth';
 import { flushOfflineQueue } from './offline-queue';
+
+// 统一设备 ID：缺失即生成 UUIDv4 并持久化（修复此前只读不写、缺省返回空串导致
+// 按设备撤销/灰度分流失效的问题，审计 ARCH-R03）
+const deviceIdStore = createDeviceIdStore({
+  get: (k) => {
+    try {
+      return Taro.getStorageSync(k) || null;
+    } catch {
+      return null;
+    }
+  },
+  set: (k, v) => {
+    try {
+      Taro.setStorageSync(k, v);
+    } catch {
+      /* ignore */
+    }
+  },
+});
 
 let task: Taro.SocketTask | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -23,11 +43,7 @@ let loadDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 const LOAD_DEBOUNCE_MS = 300;
 
 function getDeviceId(): string {
-  try {
-    return Taro.getStorageSync('dustnote_device_id') || '';
-  } catch {
-    return '';
-  }
+  return deviceIdStore();
 }
 
 function scheduleReload(): void {

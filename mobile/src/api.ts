@@ -12,6 +12,7 @@
  */
 
 import { ApiClient, type ClientChannel, type ClientPlatform } from '@dustnote/shared';
+import { randomUuid } from '@dustnote/client-core';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
 import { DEFAULT_BASE_URL, resolveBaseUrl } from './lib/mode-store';
@@ -27,7 +28,7 @@ export async function getDeviceId(): Promise<string> {
     deviceId = stored;
     return stored;
   }
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  const id = randomUuid();
   await AsyncStorage.setItem('dustnote_device_id', id);
   deviceId = id;
   return id;

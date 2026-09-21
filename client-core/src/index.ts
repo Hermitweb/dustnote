@@ -99,3 +99,11 @@ export {
   createModeStore,
   toModeState,
 } from './mode-store.js';
+
+// 跨端设备 ID（统一 get-or-generate UUIDv4 + 存储适配器注入，审计 ARCH-R03）
+export {
+  type DeviceIdStorage,
+  DEVICE_ID_KEY,
+  randomUuid,
+  createDeviceIdStore,
+} from './device-id.js';

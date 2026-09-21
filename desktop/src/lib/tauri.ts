@@ -4,8 +4,26 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { ApiClient } from '@dustnote/shared';
+import { createDeviceIdStore } from '@dustnote/client-core';
 
 const APP_VERSION = __APP_VERSION__;
+
+const desktopDeviceIdStore = createDeviceIdStore({
+  get: (k) => {
+    try {
+      return localStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  },
+  set: (k, v) => {
+    try {
+      localStorage.setItem(k, v);
+    } catch {
+      /* ignore */
+    }
+  },
+});
 
 export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -41,12 +59,7 @@ export function createApiClient(accessToken?: string): ApiClient {
 }
 
 export function getDeviceId(): string {
-  let id = localStorage.getItem('dustnote_device_id');
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem('dustnote_device_id', id);
-  }
-  return id;
+  return desktopDeviceIdStore();
 }
 
 export async function invokeWithTimeout<T>(
