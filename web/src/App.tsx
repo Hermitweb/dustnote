@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
+import FocusLock from 'react-focus-lock';
 import { useTranslation } from 'react-i18next';
 import { useStore } from './lib/store';
 import type { ThemeId, Mode } from './lib/store';
@@ -468,22 +469,30 @@ function App() {
 
       {showSettings && (
         <Suspense fallback={null}>
-          <SettingsDialog onClose={() => setShowSettings(false)} />
+          <FocusLock returnFocus>
+            <SettingsDialog onClose={() => setShowSettings(false)} />
+          </FocusLock>
         </Suspense>
       )}
       {showShares && (
         <Suspense fallback={null}>
-          <SharesManager onClose={() => setShowShares(false)} />
+          <FocusLock returnFocus>
+            <SharesManager onClose={() => setShowShares(false)} />
+          </FocusLock>
         </Suspense>
       )}
       {showAdmin && (
         <Suspense fallback={null}>
-          <AdminConfig onClose={() => setShowAdmin(false)} />
+          <FocusLock returnFocus>
+            <AdminConfig onClose={() => setShowAdmin(false)} />
+          </FocusLock>
         </Suspense>
       )}
       {showImportExport && (
         <Suspense fallback={null}>
-          <ImportExportDialog onClose={() => setShowImportExport(false)} />
+          <FocusLock returnFocus>
+            <ImportExportDialog onClose={() => setShowImportExport(false)} />
+          </FocusLock>
         </Suspense>
       )}
 
@@ -499,11 +508,17 @@ function App() {
         <CommandPalette />
       </Suspense>
 
-      {showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
+      {showQuickCapture && (
+        <FocusLock returnFocus>
+          <QuickCapture onClose={() => setShowQuickCapture(false)} />
+        </FocusLock>
+      )}
 
       {showAbout && (
         <Suspense fallback={null}>
-          <AboutDialog onClose={() => setShowAbout(false)} />
+          <FocusLock returnFocus>
+            <AboutDialog onClose={() => setShowAbout(false)} />
+          </FocusLock>
         </Suspense>
       )}
 
