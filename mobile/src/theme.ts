@@ -190,7 +190,7 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
       fg: '#E2E8F0',
       muted: '#94A3B8',
       border: '#93C5FD66',
-      accent: '#7DD3FC',
+      accent: '#3B82F6',
       accentSoft: '#1E3A8A',
     },
   },
