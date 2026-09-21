@@ -98,8 +98,9 @@
 
 仍**未做**（受限于构建环境或属大重构，硬改无法验证、风险高于收益）：
 
-- **ARCH-R01 完整 token 单一源**：把玻璃色抽到 shared 单一模块、三端派生。跨 3 端大重构、
-  且 web 端 index.css 大量字面量改动易回退刚调好的对比度；建议专项。已做的：修正了 mobile/mp 的实际漂移值。
+- **ARCH-R01（web 端已完成）**：web 玻璃色（surface/surface-bg/border/button/aurora）已集中到
+  theme.ts 的 `--mn-glass-*` token、index.css 改引用 var()（typecheck+build+截图验证）。
+  仍待：mobile/miniprogram 从 shared 单一模块派生内联 style（跨端大重构，需各自构建验证）。
 - **SEC-R05** clipper 端到端加密、**SEC-R07** Tauri CSP 运行时注入、**SEC-R09** RN access token/LocalAuthBlob 迁 Keychain、
   **A11Y-R05** weapp 减弱动效开关、**PLAT-R02** 小程序极光层每页化、**OBS-R03** 移动端崩溃上报、**API-R01** OpenAPI 生成：
   均需 RN/Taro/Tauri 原生构建或真机验证，本环境无法编译确认，已在"三/四"给出精确补丁方案，建议在你本地构建环境逐项落地。
