@@ -14,8 +14,8 @@
  * - 必须二次确认：客户端传 confirm=true 才执行
  * - 强烈建议客户端在删除前先 GET /account/export 全量备份
  *
- * 注：audit_log 不删除 — GDPR Article 17 允许保留合规审计日志，
- * 应由独立任务定期匿名化（去标识化）该用户的记录。
+ * 注：audit_log 不删除 — GDPR Article 17 允许保留合规审计日志；删除账户时
+ * 已在本事务内将该用户的 audit_log 就地「去标识化」（置空 user_id/ip_hash）。
  */
 
 import { Router } from 'express';
@@ -95,6 +95,11 @@ accountRouter.delete('/account', (req, res) => {
 
     // 删除前统计（审计用）
     const countsBefore = countUserData(db, userId);
+
+    // LIFE-R03：audit_log 无外键级联，删除账户时先就地「去标识化」该用户事件
+    // （置空 user_id/ip_hash，保留事件用于聚合统计），兑现"匿名化"承诺、
+    // 切断与已行使被遗忘权主体的关联，不再依赖未实现的独立任务
+    db.prepare(`UPDATE audit_log SET user_id = NULL, ip_hash = NULL WHERE user_id = ?`).run(userId);
 
     // 删除 users 行 — 所有相关表通过 ON DELETE CASCADE 自动级联
     // 包括：devices / notes / note_versions / folders / tags / note_tags /

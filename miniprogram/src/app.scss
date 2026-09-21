@@ -1,5 +1,5 @@
 /**
- * DustNote 全局样式 — 尘心绿主色，极简卡片式布局
+ * DustNote 全局样式 — 蓝调主色，极简卡片式布局
  * 小程序不支持 :root，统一用 page 选择器声明 CSS 变量
  */
 
@@ -265,7 +265,7 @@ page {
   color: var(--primary-deep);
 }
 .mint-btn-ghost:active {
-  background: #d8eee2;
+  background: var(--primary-soft);
 }
 .mint-btn-outline {
   background: transparent;
@@ -413,9 +413,9 @@ page {
   box-shadow: 0 0 0 4rpx var(--primary-glow);
 }
 
-/* hero 内按钮：深绿底白字 + 大圆角 + 阴影 */
+/* hero 内按钮：主色底白字 + 大圆角 + 阴影 */
 .hero .mint-btn-block {
-  background: #3d9068;
+  background: var(--primary-strong);
   color: #fff;
   font-weight: 700;
   font-size: 30rpx;
@@ -430,9 +430,9 @@ page {
     box-shadow var(--motion-fast) var(--ease-out);
 }
 .hero .mint-btn-block:active {
-  background: #2e6e4e;
+  background: var(--primary-deep);
   transform: scale(0.97);
-  box-shadow: 0 2rpx 8rpx rgba(61, 144, 104, 0.25);
+  box-shadow: 0 2rpx 8rpx rgba(37, 99, 235, 0.25);
 }
 
 /* ========== 空状态 / 加载 ========== */
@@ -901,7 +901,7 @@ page {
 /* ========== 分享页 ========== */
 .share-banner {
   height: 6rpx;
-  background: linear-gradient(90deg, #a8e6cf, #4fb783, #3d9068);
+  background: linear-gradient(90deg, #bfdbfe, #3b82f6, #1d4ed8);
   border-radius: 3rpx;
   margin-bottom: 32rpx;
 }

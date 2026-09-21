@@ -40,7 +40,7 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 | 设备管理              | **不支持**（UI 隐藏）                                         | 支持                               |
 | 服务端依赖            | 无                                                            | 必需                               |
 
-**模式切换**：支持 standalone ↔ online 一键迁移，数据不丢失（详见 [standalone-mode.md](./.trae/documents/standalone-mode.md)）。
+**模式切换**：支持 standalone ↔ online 一键迁移，数据不丢失（详见 docs/ 单机模式设计说明）。
 
 **关键设计**：
 
@@ -107,7 +107,7 @@ DustNote 提供两种使用模式，无需任何配置即可选择：
 - 单机 → 联机：上传数据到服务器
 - 联机 → 单机：下载数据到本地
 
-详见 [standalone-mode.md §7](./.trae/documents/standalone-mode.md)。
+详见 docs/ 单机模式设计说明 §7。
 
 ### 前置条件（开发者）
 
@@ -199,7 +199,7 @@ dustnote/
 ├── deploy/           # 部署配置 (nginx + supervisor)
 ├── Dockerfile        # 多阶段 Docker 构建
 ├── docker-compose.yml
-└── .trae/documents/  # 产品/技术文档（PRD/架构/安全等）
+└── .trae/documents/  # 本地 AI 工具产物（不随仓库发布）
 ```
 
 ## 功能
@@ -260,20 +260,8 @@ pnpm docker:up          # Docker 部署
 
 ## 文档
 
-### 产品与技术文档（`.trae/documents/`）
-
-- [产品需求文档 (PRD)](./.trae/documents/PRD.md)
-- [技术架构](./.trae/documents/tech-architecture.md)
-- [单机模式说明](./.trae/documents/standalone-mode.md)（v2.0.0 新增）
-- [安全规范](./.trae/documents/security.md)
-- [主题系统](./.trae/documents/theme-system.md)
-- [数据流与导入导出](./.trae/documents/data-flow.md)
-- [更新通道设计](./.trae/documents/update-strategy.md)
-- [Velopack 集成](./.trae/documents/integrate-velopack.md)
-- [研发路线图](./.trae/documents/roadmap.md)
-- [生产就绪状态](./.trae/documents/production-readiness.md)
-- [v1.1 中低优先级任务](./.trae/documents/v1.1-medium-low-priority.md)
-- [v2.0.0 双模式架构规划](./.trae/documents/v2.0.0-dual-mode-architecture.md)
+> 产品/技术设计文档见下方 `docs/`。历史 `.trae/documents/` 为本地 AI 工具产物，
+> 已从仓库移除追踪、不随发布提供，故不再在此链接。
 
 ### 用户与运维文档
 

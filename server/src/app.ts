@@ -117,6 +117,18 @@ export function createApp(): Application {
   app.use(
     pinoHttp({
       logger,
+      // OBS-R02：贯通 request id——复用客户端 x-request-id（白名单校验）或生成 UUID，
+      // 并回写 X-Request-Id 响应头，便于客户端/反代/应用日志三方关联
+      genReqId(req, res) {
+        const incoming = req.headers['x-request-id'];
+        const candidate = Array.isArray(incoming) ? incoming[0] : incoming;
+        const id =
+          candidate && /^[A-Za-z0-9_-]{1,64}$/.test(candidate)
+            ? candidate
+            : globalThis.crypto.randomUUID();
+        res.setHeader('X-Request-Id', id);
+        return id;
+      },
       serializers: {
         // 自定义 req 序列化：脱敏 URL 中的密码/token 等敏感查询参数，避免明文落盘日志
         req(req) {
