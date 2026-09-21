@@ -224,39 +224,26 @@ textarea:focus::placeholder {
 /* ================= 液态玻璃主题（liquid-glass） =================
    玻璃质感靠"背后有内容可透"体现：body 铺一层固定极光渐变作为景，
    卡片/面板做半透明磨砂（backdrop-filter blur + saturate），暗色单独配色。
+   颜色/透明度集中在 theme.ts 的 --mn-glass-* token（单一来源）。
    仅作用域于 html[data-theme='liquid-glass']，不影响其余 6 个主题。 */
 html[data-theme='liquid-glass'] body {
-  background:
-    radial-gradient(1200px 820px at 10% -12%, rgb(59 130 246 / 0.6), transparent 60%),
-    radial-gradient(1000px 720px at 112% 6%, rgb(99 102 241 / 0.5), transparent 55%),
-    radial-gradient(920px 900px at 50% 124%, rgb(34 211 238 / 0.48), transparent 60%),
-    radial-gradient(760px 640px at 82% 78%, rgb(56 189 248 / 0.34), transparent 62%),
-    rgb(var(--mn-bg));
-  background-attachment: fixed;
-}
-html[data-theme='liquid-glass'][data-mode='dark'] body {
-  background:
-    radial-gradient(1200px 820px at 10% -12%, rgb(56 189 248 / 0.4), transparent 60%),
-    radial-gradient(1000px 720px at 112% 6%, rgb(99 102 241 / 0.38), transparent 55%),
-    radial-gradient(920px 900px at 50% 124%, rgb(37 99 235 / 0.4), transparent 60%),
-    radial-gradient(760px 640px at 82% 78%, rgb(34 211 238 / 0.28), transparent 62%),
-    rgb(var(--mn-bg));
+  background: var(--mn-glass-aurora), rgb(var(--mn-bg));
   background-attachment: fixed;
 }
 
 /* 玻璃面板：卡片 / 弹窗 / 侧栏容器（组件统一用 .bg-surface-card） */
 html[data-theme='liquid-glass'] .bg-surface-card {
-  background-color: rgb(255 255 255 / 0.55);
+  background-color: rgb(var(--mn-glass-surface));
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgb(255 255 255 / 0.55);
+  border: 1px solid rgb(var(--mn-glass-border));
   box-shadow:
     0 8px 32px rgb(15 23 42 / 0.1),
     inset 0 1px 0 rgb(255 255 255 / 0.6);
 }
 html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-card {
-  background-color: rgb(30 41 59 / 0.55);
-  border: 1px solid rgb(148 163 184 / 0.22);
+  background-color: rgb(var(--mn-glass-surface));
+  border: 1px solid rgb(var(--mn-glass-border));
   box-shadow:
     0 8px 32px rgb(0 0 0 / 0.35),
     inset 0 1px 0 rgb(255 255 255 / 0.08);
@@ -264,12 +251,12 @@ html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-card {
 
 /* 半透明内容底：大面积滚动区/次级容器，让极光渐变透出 */
 html[data-theme='liquid-glass'] .bg-surface-bg {
-  background-color: rgb(255 255 255 / 0.42);
+  background-color: rgb(var(--mn-glass-surface-bg));
   backdrop-filter: blur(16px) saturate(190%);
   -webkit-backdrop-filter: blur(16px) saturate(190%);
 }
 html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-bg {
-  background-color: rgb(15 23 42 / 0.6);
+  background-color: rgb(var(--mn-glass-surface-bg));
 }
 
 /* 边框柔化：玻璃上的分隔线应为半透明高光，而非实心灰线 */
@@ -288,14 +275,15 @@ html[data-theme='liquid-glass'][data-mode='dark'] .prose code {
   background: rgb(2 6 23 / 0.45);
 }
 
-/* A11Y-R01：暗色主按钮白字需深底。accent 仍作文字/链接色（暗底清晰），
-   但按钮背景覆盖为深蓝，保证 text-white 达 WCAG AA。 */
-html[data-theme='liquid-glass'][data-mode='dark'] .bg-mint-600 {
-  background-color: rgb(37 99 235);
+/* A11Y-R01 + ARCH-R01：主按钮底色用 token var(--mn-glass-button)
+   （浅色=accent 蓝、深色=深蓝白字达 AA），不再硬编码分散的 rgb 值。 */
+html[data-theme='liquid-glass'] .bg-mint-600 {
+  background-color: rgb(var(--mn-glass-button));
 }
-html[data-theme='liquid-glass'][data-mode='dark'] .bg-mint-700,
-html[data-theme='liquid-glass'][data-mode='dark'] .hover\:bg-mint-700:hover {
-  background-color: rgb(30 64 175);
+html[data-theme='liquid-glass'] .bg-mint-700,
+html[data-theme='liquid-glass'] .hover\:bg-mint-700:hover {
+  background-color: rgb(var(--mn-glass-button));
+  filter: brightness(0.88);
 }
 
 /* ---------- 液态玻璃·深化（贯穿组件层） ---------- */
@@ -334,10 +322,10 @@ html[data-theme='liquid-glass'][data-mode='dark'] body::before {
 
 /* 更强的玻璃面板（后置声明覆盖上方基础玻璃，加大模糊/饱和与内高光） */
 html[data-theme='liquid-glass'] .bg-surface-card {
-  background-color: rgb(255 255 255 / 0.4);
+  background-color: rgb(var(--mn-glass-surface));
   backdrop-filter: blur(46px) saturate(240%);
   -webkit-backdrop-filter: blur(46px) saturate(240%);
-  border: 1px solid rgb(255 255 255 / 0.8);
+  border: 1px solid rgb(var(--mn-glass-border));
   box-shadow:
     0 12px 44px rgb(15 23 42 / 0.14),
     inset 0 1px 0 rgb(255 255 255 / 0.85),
@@ -346,10 +334,10 @@ html[data-theme='liquid-glass'] .bg-surface-card {
   transition: box-shadow 200ms ease;
 }
 html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-card {
-  background-color: rgb(30 41 59 / 0.74);
+  background-color: rgb(var(--mn-glass-surface));
   backdrop-filter: blur(46px) saturate(200%);
   -webkit-backdrop-filter: blur(46px) saturate(200%);
-  border: 1px solid rgb(147 197 253 / 0.42);
+  border: 1px solid rgb(var(--mn-glass-border));
   box-shadow:
     0 12px 44px rgb(0 0 0 / 0.44),
     inset 0 1px 0 rgb(255 255 255 / 0.28);

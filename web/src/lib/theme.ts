@@ -151,6 +151,12 @@ const THEME_TOKENS: Record<
       '--mn-card': '255 255 255',
       '--mn-accent': '59 130 246',
       '--mn-accent-soft': '219 234 254',
+      '--mn-glass-surface': '255 255 255 / 0.4',
+      '--mn-glass-surface-bg': '255 255 255 / 0.42',
+      '--mn-glass-border': '255 255 255 / 0.8',
+      '--mn-glass-button': '59 130 246',
+      '--mn-glass-aurora':
+        'radial-gradient(1200px 820px at 10% -12%, rgb(59 130 246 / 0.6), transparent 60%), radial-gradient(1000px 720px at 112% 6%, rgb(99 102 241 / 0.5), transparent 55%), radial-gradient(920px 900px at 50% 124%, rgb(34 211 238 / 0.48), transparent 60%), radial-gradient(760px 640px at 82% 78%, rgb(56 189 248 / 0.34), transparent 62%)',
     },
     dark: {
       '--mn-bg': '9 17 40',
@@ -160,6 +166,12 @@ const THEME_TOKENS: Record<
       '--mn-card': '23 37 84',
       '--mn-accent': '125 211 252',
       '--mn-accent-soft': '30 58 138',
+      '--mn-glass-surface': '30 41 59 / 0.74',
+      '--mn-glass-surface-bg': '15 23 42 / 0.6',
+      '--mn-glass-border': '147 197 253 / 0.42',
+      '--mn-glass-button': '37 99 235',
+      '--mn-glass-aurora':
+        'radial-gradient(1200px 820px at 10% -12%, rgb(56 189 248 / 0.4), transparent 60%), radial-gradient(1000px 720px at 112% 6%, rgb(99 102 241 / 0.38), transparent 55%), radial-gradient(920px 900px at 50% 124%, rgb(37 99 235 / 0.4), transparent 60%), radial-gradient(760px 640px at 82% 78%, rgb(34 211 238 / 0.28), transparent 62%)',
     },
   },
 };
