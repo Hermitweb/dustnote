@@ -12,7 +12,17 @@ updates:
     labels:
       - 'dependencies'
     ignore:
-      - dependency-name: '*'
+      # DEP-R04：仅对有意锁定的框架主版本忽略 major（跨主版本需专项迁移+真机回归），
+      # 其余依赖允许收到 major 升级 PR，避免 vm2/swiper 等 EOL 线被永久锁死
+      - dependency-name: 'react-native'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@react-native/*'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@tarojs/*'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-dom'
         update-types: ['version-update:semver-major']
     groups:
       eslint:

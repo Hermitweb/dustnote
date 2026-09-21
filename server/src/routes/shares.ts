@@ -41,6 +41,7 @@ const CiphertextSchema = z.object({
 });
 
 const CreateShareSchema = z.object({
+  id: z.string().uuid().optional(),
   noteId: z.string().uuid(),
   /** shareKey 加密的 {title, content} */
   ciphertext: CiphertextSchema,
@@ -86,7 +87,7 @@ sharesRouter.post('/shares', async (req, res) => {
       return;
     }
 
-    const id = randomUUID();
+    const id = parsed.data.id ?? randomUUID();
     const token = randomBytes(24).toString('base64url');
     const passwordHash = parsed.data.password ? await hashPassword(parsed.data.password) : null;
     const expiresAt = parsed.data.expiresIn
@@ -98,7 +99,7 @@ sharesRouter.post('/shares', async (req, res) => {
       db.prepare(
         `
         INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key, password_hash, expires_at, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) ON CONFLICT(id) DO NOTHING
       `
       ).run(
         id,
@@ -125,11 +126,15 @@ sharesRouter.post('/shares', async (req, res) => {
 
     logger.info({ userId: user.userId, shareId: id, hasPassword: !!passwordHash }, '分享已创建');
     broadcastShareChanged(user.userId, { id, op: 'create' });
+    // 读取持久化行返回：幂等重放时(ON CONFLICT 未插入)返回原 token/URL，而非本次新生成的 token
+    const persisted = db
+      .prepare('SELECT token, expires_at FROM shares WHERE id = ? AND user_id = ?')
+      .get(id, user.userId) as { token: string; expires_at: string | null } | undefined;
     res.status(201).json({
       id,
-      token,
-      url: `/share/${token}`,
-      expiresAt,
+      token: persisted?.token ?? token,
+      url: `/share/${persisted?.token ?? token}`,
+      expiresAt: persisted?.expires_at ?? expiresAt,
     });
   } catch (err) {
     logger.error({ err }, '创建分享失败');

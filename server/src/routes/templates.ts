@@ -16,6 +16,7 @@ import type { AuthUser } from '../middleware/auth.js';
 export const templatesRouter = Router();
 
 const TemplateSchema = z.object({
+  id: z.string().uuid().optional(),
   name: z.string().min(1).max(64),
   description: z.string().max(200).default(''),
   category: z
@@ -79,13 +80,13 @@ templatesRouter.post('/templates', (req, res) => {
     res.status(400).json({ error: 'invalid_body', message: parsed.error.message });
     return;
   }
-  const id = randomUUID();
+  const id = parsed.data.id ?? randomUUID();
   const db = getDb();
   const now = new Date().toISOString();
   db.prepare(
     `
     INSERT INTO templates (id, user_id, name, description, category, icon, content, is_preset, sort_order, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?) ON CONFLICT(id) DO NOTHING
   `
   ).run(
     id,

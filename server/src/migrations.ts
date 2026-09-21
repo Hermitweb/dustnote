@@ -10,6 +10,7 @@
 
 import type { Migration } from './db.js';
 import { logger } from './logger.js';
+import { encryptField, isEncryptedField } from './auth/field-crypto.js';
 
 export const migrations: Migration[] = [
   {
@@ -554,6 +555,29 @@ export const migrations: Migration[] = [
         }
       }
       db.prepare(`UPDATE meta SET value = '19' WHERE key = 'schema_version'`).run();
+    },
+  },
+  {
+    id: 20,
+    name: 'encrypt-totp-secrets',
+    up: (db) => {
+      // SEC-R08：把存量明文 totp_secret 就地加密（跳过 NULL 与已加密行，幂等）。
+      // 注意：加密密钥来自 FIELD_ENCRYPTION_KEY（未设则 HKDF 派生自 JWT_SECRET）；
+      // 若之后更换该密钥，本迁移加密的行将无法解密——请在首次启用前固定密钥。
+      const rows = db
+        .prepare(
+          `SELECT id, totp_secret FROM users WHERE totp_secret IS NOT NULL AND totp_secret <> ''`
+        )
+        .all() as { id: string; totp_secret: string }[];
+      const stmt = db.prepare('UPDATE users SET totp_secret = ? WHERE id = ?');
+      let n = 0;
+      for (const r of rows) {
+        if (isEncryptedField(r.totp_secret)) continue;
+        stmt.run(encryptField(r.totp_secret), r.id);
+        n++;
+      }
+      if (n > 0) logger.info({ rewrapped: n }, 'SEC-R08: 存量 totp_secret 已字段加密');
+      db.prepare(`UPDATE meta SET value = '20' WHERE key = 'schema_version'`).run();
     },
   },
 ];

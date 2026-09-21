@@ -80,10 +80,18 @@
       "esbuild@0.14.54": "~0.25.12",
       "webpack-dev-server@<5.2.6": "^5.2.6",
       "fast-xml-parser@<5.7.0": "^5.7.0",
-      "uuid@8.3.2": "^11.1.1",
+      "uuid@<9": "^11.1.1",
       "tough-cookie@<4.1.4": "^4.1.4",
       "xmldom": "npm:@xmldom/xmldom@^0.8.15"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@swc/core",
+      "@tarojs/binding",
+      "@tarojs/cli",
+      "better-sqlite3",
+      "esbuild"
+    ]
   },
   "dependencies": {
     "@babel/runtime": "^7.29.7"

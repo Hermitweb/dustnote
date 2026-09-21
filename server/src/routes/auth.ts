@@ -26,6 +26,7 @@ import { authLockoutTotal } from '../metrics.js';
 import { config } from '../env.js';
 import { KDF_PARAMS, type Ciphertext } from '@dustnote/shared';
 import { hashPassword, verifyPassword } from '../auth/password.js';
+import { encryptField, decryptField } from '../auth/field-crypto.js';
 import {
   issueAccessToken,
   issueRefreshToken,
@@ -448,7 +449,7 @@ authRouter.post(
         .get(user.id) as { totp_last_counter: number } | undefined;
       const vr = verifyTotpWithCounter(
         parsed.data.totpCode,
-        user.totp_secret,
+        decryptField(user.totp_secret),
         counterRow?.totp_last_counter ?? user.totp_last_counter
       );
       if (!vr.ok) {
@@ -844,7 +845,10 @@ authRouter.post('/auth/2fa/setup', (req, res) => {
   const uri = generateTotpUri(secret, user.userId);
 
   // 暂存密钥（未启用），等 /auth/2fa/enable 验证后才设 totp_enabled=1
-  getDb().prepare('UPDATE users SET totp_secret = ? WHERE id = ?').run(secret, user.userId);
+  // SEC-R08：字段级加密后落库（DB/备份泄露时无法直接离线生成验证码）
+  getDb()
+    .prepare('UPDATE users SET totp_secret = ? WHERE id = ?')
+    .run(encryptField(secret), user.userId);
 
   logger.info({ userId: user.userId }, '2FA 密钥已生成');
   res.json({ secret, uri });
@@ -888,7 +892,11 @@ authRouter.post('/auth/2fa/enable', (req, res) => {
 
   // 防重放：与 unlock 路径同款 verifyTotpWithCounter,命中的窗口计数器落库,
   // 同一验证码在 30 秒窗口内不能二次用于任何 TOTP 端点（审计 M7）
-  const vrEnable = verifyTotpWithCounter(parsed.data.code, u.totp_secret, u.totp_last_counter);
+  const vrEnable = verifyTotpWithCounter(
+    parsed.data.code,
+    decryptField(u.totp_secret),
+    u.totp_last_counter
+  );
   if (!vrEnable.ok) {
     res.status(401).json({ error: 'invalid_code' });
     return;
@@ -937,7 +945,11 @@ authRouter.post('/auth/2fa/disable', (req, res) => {
   }
 
   // 防重放：同 enable 端点（审计 M7）——截获的验证码不能在窗口内重放于 disable
-  const vrDisable = verifyTotpWithCounter(parsed.data.code, u.totp_secret, u.totp_last_counter);
+  const vrDisable = verifyTotpWithCounter(
+    parsed.data.code,
+    decryptField(u.totp_secret),
+    u.totp_last_counter
+  );
   if (!vrDisable.ok) {
     res.status(401).json({ error: 'invalid_code' });
     return;
