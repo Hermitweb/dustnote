@@ -78,3 +78,31 @@
 - DEP-R01 onlyBuiltDependencies、DEP-R02 uuid selector、DEP-R04 dependabot 逐包。
 - OBS-R03 移动端崩溃上报、SEC-R05 clipper E2EE、SEC-R07 Tauri CSP 运行时注入、SEC-R08 TOTP 列加密、SEC-R09 RN 敏感存储、PLAT-R02 小程序极光层每页化。
 - 外部资源类见"三"（endpoint 验签密钥、代码签名/公证、ICP 域）。
+
+## 七、第三类续做（本轮全部尝试）
+
+本轮又完成并**在本环境验证通过**的项：
+
+- **SEC-R08** TOTP 列字段加密：`auth/field-crypto.ts`(AES-256-GCM + HKDF)，enroll 写加密、
+  unlock/enable/disable 读解密、迁移20 re-wrap 存量、历史明文兼容。server 109 单测含此路径通过。
+- **API-R03** templates/shares POST 幂等（客户端预生成 id + ON CONFLICT DO NOTHING；shares 返回持久化 token）。
+- **DEP-R01** pnpm.onlyBuiltDependencies 白名单（`pnpm install` 通过、原生构建未破坏）。
+- **DEP-R02** uuid selector 改范围 `uuid@<9`，lockfile 收敛为单一 11.1.1（消除 3.4.0/7.0.3 ReDoS）。
+- **DEP-R04** dependabot 去掉 `'*'` 一刀切，仅逐包忽略框架 major。
+- **ARCH-R03** getDeviceId 下沉 client-core `createDeviceIdStore`，web/desktop/mobile/miniprogram
+  四端统一（修复小程序空串、mobile 非 UUID、desktop 无回退）；四端 typecheck 通过。
+- **A11Y-R04** 模态焦点陷阱：react-focus-lock 包裹 6 个状态守卫弹窗 + 全局 :focus-visible；
+  web typecheck+build 通过。
+
+仍**未做**（受限于构建环境或属大重构，硬改无法验证、风险高于收益）：
+
+- **ARCH-R01 完整 token 单一源**：把玻璃色抽到 shared 单一模块、三端派生。跨 3 端大重构、
+  且 web 端 index.css 大量字面量改动易回退刚调好的对比度；建议专项。已做的：修正了 mobile/mp 的实际漂移值。
+- **ARCH-R02 desktop→web exports**：需给 @dustnote/web 设计 library exports 且 desktop 全量 tauri 构建验证（本环境无 Rust 构建）。
+- **SEC-R05** clipper 端到端加密、**SEC-R07** Tauri CSP 运行时注入、**SEC-R09** RN access token/LocalAuthBlob 迁 Keychain、
+  **A11Y-R05** weapp 减弱动效开关、**PLAT-R02** 小程序极光层每页化、**OBS-R03** 移动端崩溃上报、**API-R01** OpenAPI 生成：
+  均需 RN/Taro/Tauri 原生构建或真机验证，本环境无法编译确认，已在"三/四"给出精确补丁方案，建议在你本地构建环境逐项落地。
+
+> 说明：本环境可验证 web/desktop(TS 层)/server/shared/client-core 的 typecheck、build、单测；
+> 无法运行 RN(无模拟器)、Taro weapp 真机、Tauri(Rust) 构建。对无法验证的改动我选择给精确方案而非盲改，
+> 以免把可工作的分支改到无法确认的状态。
