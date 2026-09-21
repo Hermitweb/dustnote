@@ -40,8 +40,17 @@ function wxFetchRandomBytes(length: number): Promise<Uint8Array> {
     }
     const onSuccess = (res: any) => {
       const buf = res && (res.randomValues ?? res.random);
-      if (buf) resolve(new Uint8Array(buf));
-      else reject(new Error('getRandomValues 未返回数据'));
+      if (!buf) {
+        reject(new Error('getRandomValues 未返回数据'));
+        return;
+      }
+      const out = new Uint8Array(buf);
+      // 校验长度：短填会让池"看似就绪实则不足"，必须视为失败，避免静默降级
+      if (out.length !== length) {
+        reject(new Error(`getRandomValues 返回长度不足(${out.length}<${length})`));
+        return;
+      }
+      resolve(out);
     };
     const onFail = (err: unknown) => reject(err);
     try {
@@ -124,6 +133,8 @@ function takeFromPool(n: number): Uint8Array {
     // 池永远填不上。此时退化为「时间戳+计数器+Math.random」本地兜底：
     // 熵弱于 wx 安全随机，但保证 IV 唯一性（GCM nonce 的硬性要求），
     // 让模拟器上的功能调试可以继续；生产数据以真机安全源为准。
+    // 长期密钥材料不得走此路径——调用方须先 await ensureRandomReady()。
+    console.warn('[DustNote] 安全随机池耗尽，本次走弱随机兜底（仅应为 IV/nonce）');
     return localFallbackBytes(n);
   }
   const out = new Uint8Array(n);

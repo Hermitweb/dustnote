@@ -196,8 +196,14 @@ export function verifyToken(token: string): JwtPayload | null {
     if (!ED25519_PUBLIC_KEY) return null;
     sigValid = verifyEdDSA(input, signature);
   } else {
-    // HS256
-    sigValid = verifyHS256(input, signature);
+    // HS256：迁移期需兼容旧 HS256 token（有测试锁定此行为），故 EdDSA 部署仍接受 HS256；
+    // 但 fail-closed——若 JWT_SECRET 未配置（如 EdDSA-only 部署），createHmac 会抛错，
+    // 这里捕获后拒绝而非 500。
+    try {
+      sigValid = verifyHS256(input, signature);
+    } catch {
+      return null;
+    }
   }
   if (!sigValid) return null;
 
