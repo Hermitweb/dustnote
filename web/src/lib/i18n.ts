@@ -13,6 +13,11 @@ const resources = {
         tagline: '端到端加密 · 跨端同步',
         skip_to_content: '跳转到主要内容',
         github_repo: 'GitHub 项目主页',
+        loading: '加载中…',
+        connect_failed_title: '无法连接到服务器',
+        connect_failed_hint: '请确认服务器已启动且地址正确。',
+        reselect_mode: '重新选择模式',
+        retry: '重试',
       },
       env: {
         http_notice:
@@ -698,6 +703,11 @@ const resources = {
         tagline: 'E2E Encrypted · Cross-platform Sync',
         skip_to_content: 'Skip to main content',
         github_repo: 'GitHub Project Homepage',
+        loading: 'Loading…',
+        connect_failed_title: 'Cannot reach the server',
+        connect_failed_hint: 'Please make sure the server is running and the address is correct.',
+        reselect_mode: 'Re-select mode',
+        retry: 'Retry',
       },
       env: {
         http_notice:

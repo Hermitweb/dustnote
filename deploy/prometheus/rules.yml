@@ -1,0 +1,68 @@
+# DustNote Prometheus 告警规则样例（审计 OBS-R01）
+#
+# 前提：服务端已开启 /metrics（设 METRICS_ENABLED=true，建议同时配 METRICS_TOKEN
+# 并在反代层仅放行内网/监控器）。指标名对齐 server/src/metrics.ts：
+#   dustnote_http_request_duration_seconds{method,route,status}（histogram）
+#   dustnote_http_5xx_total（counter）
+#   dustnote_ws_connections_active（gauge）
+#   dustnote_auth_lockout_total（counter）
+#   dustnote_backup_runs_total{result}（counter）
+#   dustnote_db_size_bytes（gauge）
+
+groups:
+  - name: dustnote.availability
+    rules:
+      - alert: DustnoteHigh5xxRate
+        expr: |
+          sum(rate(dustnote_http_5xx_total[5m]))
+            / clamp_min(sum(rate(dustnote_http_request_duration_seconds_count[5m])), 1) > 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: 'DustNote 5xx 比例 > 5%（持续 5 分钟）'
+          description: '服务端错误率升高，检查日志与依赖健康。'
+
+      - alert: DustnoteEndpointDown
+        expr: up{job="dustnote"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: 'DustNote /metrics 抓取失败（服务可能宕机）'
+
+  - name: dustnote.backup
+    rules:
+      - alert: DustnoteBackupFailed
+        expr: increase(dustnote_backup_runs_total{result="fail"}[25h]) > 0
+        for: 0m
+        labels: { severity: warning }
+        annotations:
+          summary: 'DustNote 最近一次备份失败'
+          description: '检查 BACKUP_ENCRYPTION_KEY、磁盘空间与 backups 卷挂载。'
+
+      # 26h 内没有任何成功备份 = 备份链路可能停摆（调度器每 24h 一次）
+      - alert: DustnoteBackupStale
+        expr: increase(dustnote_backup_runs_total{result="success"}[26h]) == 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'DustNote 超过 26 小时无成功备份'
+
+  - name: dustnote.security
+    rules:
+      - alert: DustnoteAuthLockoutSpike
+        expr: increase(dustnote_auth_lockout_total[10m]) > 5
+        for: 0m
+        labels: { severity: warning }
+        annotations:
+          summary: 'DustNote 短时认证锁定激增（疑似暴力破解）'
+
+  - name: dustnote.capacity
+    rules:
+      - alert: DustnoteDbSizeLarge
+        expr: dustnote_db_size_bytes > 1073741824 # 1 GiB
+        for: 30m
+        labels: { severity: warning }
+        annotations:
+          summary: 'DustNote SQLite 库体积偏大，注意 VACUUM/备份耗时与磁盘'
+
+# 建议同时配置外部拨测（UptimeRobot/Pingdom 类）打 /api/v1/health 作为独立可用率 SLI。

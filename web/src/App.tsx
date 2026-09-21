@@ -307,7 +307,7 @@ function App() {
           <div className="mb-2 text-3xl">
             <Logo className="mx-auto h-10 w-10" />
           </div>
-          <div className="text-sm">加载中...</div>
+          <div className="text-sm">{t('app.loading')}</div>
         </div>
       </div>
     );
@@ -321,7 +321,7 @@ function App() {
           <div className="mb-2 text-3xl">
             <Logo className="mx-auto h-10 w-10" />
           </div>
-          <div className="text-sm">加载中...</div>
+          <div className="text-sm">{t('app.loading')}</div>
         </div>
       </div>
     );
@@ -333,8 +333,10 @@ function App() {
       <div className="flex h-full items-center justify-center bg-surface-bg p-6">
         <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
           <div className="mb-4 text-4xl">⚠️</div>
-          <h2 className="mb-2 text-lg font-semibold text-surface-fg">无法连接到服务器</h2>
-          <p className="mb-1 text-sm text-surface-muted">请确认服务器已启动且地址正确。</p>
+          <h2 className="mb-2 text-lg font-semibold text-surface-fg">
+            {t('app.connect_failed_title')}
+          </h2>
+          <p className="mb-1 text-sm text-surface-muted">{t('app.connect_failed_hint')}</p>
           {serverError && (
             <p className="mb-6 break-all rounded-lg bg-surface-bg px-3 py-2 text-xs text-red-600 dark:text-red-400">
               {serverError}
@@ -348,7 +350,7 @@ function App() {
               }}
               className="flex-1 rounded-lg border border-surface-border px-4 py-2.5 text-sm font-medium text-surface-fg hover:bg-surface-bg"
             >
-              重新选择模式
+              {t('app.reselect_mode')}
             </button>
             <button
               onClick={() => {
@@ -357,7 +359,7 @@ function App() {
               }}
               className="flex-1 rounded-lg bg-mint-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-mint-700"
             >
-              重试
+              {t('app.retry')}
             </button>
           </div>
         </div>

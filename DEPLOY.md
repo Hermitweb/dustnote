@@ -624,6 +624,15 @@ docker inspect --format='{{.State.Health.Status}}' dustnote
 
 ## 九、备份与恢复
 
+> ⭐ **首选：内置加密调度器**。服务端进程内 `backup-scheduler` 每天已自动产出
+> **AES-256-GCM 加密**的 `db-*.sqlite.enc` 到 `dustnote-backups` 卷（口令来自
+> `BACKUP_ENCRYPTION_KEY`，deploy 脚本已默认生成）。off-site 备份应直接**拷贝这些 `.enc`**
+> 到对象存储/异地，无需下面的手动明文步骤。
+>
+> ⚠️ 下面 §9.1/§9.2 的手动与 cron 示例产出的是**明文** `.db`（含 `totp_secret` /
+> `wrapped_master_key` 等敏感材料），仅适合应急或无内置调度器的手动部署；**外传前务必
+> 再加密**（`age`/`openssl enc`），不要以明文长期存留。
+
 ### 9.1 备份
 
 > ℹ️ 容器镜像**未内置 `sqlite3` CLI**（`apk add` 未含），且 WAL 模式下直接 `cp`
@@ -666,6 +675,21 @@ docker cp ./dustnote-backup-2026-07-26.db dustnote:/app/server/data/dustnote.db
 # 重启
 docker compose start dustnote
 ```
+
+**从内置加密备份（`.enc`）恢复**（默认产物是加密的，需先解密）：
+
+```bash
+# 1) 用同一 BACKUP_ENCRYPTION_KEY 解密 .enc → 明文 .db
+docker compose exec -e BACKUP_ENCRYPTION_KEY="$BACKUP_ENCRYPTION_KEY" dustnote \
+  node dist/scripts/backup.js --decrypt /app/server/backups/db-2026-07-26.sqlite.enc /tmp/restore.db
+
+# 2) 停服 → 覆盖 → 重启
+docker compose stop dustnote
+docker cp /tmp/restore.db dustnote:/app/server/data/dustnote.db
+docker compose start dustnote
+```
+
+> ⚠️ 解密必须使用生成该备份时的 `BACKUP_ENCRYPTION_KEY`；口令丢失则历史加密备份不可解密。
 
 ---
 
