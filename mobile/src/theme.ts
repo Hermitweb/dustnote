@@ -176,7 +176,7 @@ const THEME_PALETTES: Record<ThemeId, { light: ThemePalette; dark: ThemePalette 
   // 叠在带色背景上做磨砂通透的近似；真·高斯模糊需引入原生 blur 库（见文档说明）。
   'liquid-glass': {
     light: {
-      bg: '#EAEFFA',
+      bg: '#EAEFF8',
       card: '#FFFFFFA6',
       fg: '#0F172A',
       muted: '#475569',
