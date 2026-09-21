@@ -304,8 +304,8 @@ authRouter.post(
          wrapped_master_key_pw, wrapped_master_key_rc,
          kdf_version, kdf_params, recovery_code_set,
          password_hash, master_salt, recovery_hash, recovery_salt, wrapped_master_key,
-         created_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, 2, ?, 1, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
+         created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, 2, ?, 1, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
       ).run(
         userId,
         Buffer.from(d.pwSalt, 'base64'),

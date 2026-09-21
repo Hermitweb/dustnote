@@ -540,6 +540,7 @@ export const migrations: Migration[] = [
         ['templates', ['created_at', 'updated_at']],
         ['audit_log', ['created_at']],
         ['webauthn_devices', ['created_at']],
+        ['note_versions', ['created_at']],
       ];
       for (const [table, cols] of targets) {
         const info = db.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>;

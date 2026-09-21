@@ -412,8 +412,8 @@ notesRouter.patch('/notes/:id', (req, res) => {
     if (data.ciphertext !== undefined) {
       const versionId = randomUUID();
       db.prepare(
-        `INSERT INTO note_versions (id, note_id, user_id, ciphertext, key_version, note_version, client_updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO note_versions (id, note_id, user_id, ciphertext, key_version, note_version, client_updated_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
       ).run(
         versionId,
         id,
@@ -712,8 +712,8 @@ notesRouter.post('/notes/:id/versions/:versionId/restore', (req, res) => {
   db.transaction(() => {
     const snapshotId = randomUUID();
     db.prepare(
-      `INSERT INTO note_versions (id, note_id, user_id, ciphertext, key_version, note_version, client_updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO note_versions (id, note_id, user_id, ciphertext, key_version, note_version, client_updated_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
     ).run(
       snapshotId,
       id,

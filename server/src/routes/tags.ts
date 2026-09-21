@@ -26,9 +26,10 @@ tagsRouter.get('/tags', (req, res) => {
   const rows = db
     .prepare(
       `
-    SELECT t.id, t.name, t.color, COUNT(nt.note_id) AS count
+    SELECT t.id, t.name, t.color, COUNT(n.id) AS count
     FROM tags t
     LEFT JOIN note_tags nt ON t.id = nt.tag_id
+    LEFT JOIN notes n ON n.id = nt.note_id AND n.deleted_at IS NULL
     WHERE t.user_id = ?
     GROUP BY t.id
     ORDER BY count DESC, t.name

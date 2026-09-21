@@ -269,6 +269,18 @@ export function createApp(): Application {
   app.use('/api/v1', foldersRouter);
   app.use('/api/v1', tagsRouter);
   app.use('/api/v1', sharesRouter);
+  // API-R02：/api/v1/export/* 也是重 IO 全量导出，与 account/export 同档限流（每用户 5/小时）
+  app.use(
+    '/api/v1/export',
+    rateLimit({
+      windowMs: 60 * 60_000,
+      limit: 5,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      keyGenerator: (req) => (req.user?.userId ?? req.ip) as string,
+      message: { error: 'too_many_exports', message: '导出过于频繁，请 1 小时后再试' },
+    })
+  );
   app.use('/api/v1', exportRouter);
   app.use('/api/v1', preferencesRouter);
   app.use('/api/v1', templatesRouter);
