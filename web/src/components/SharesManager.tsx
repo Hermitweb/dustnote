@@ -293,7 +293,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                         </div>
                         <div className="mt-0.5 text-xs text-surface-muted">
                           {t('shares.created_at', {
-                            date: new Date(s.createdAt).toLocaleString(i18n.language || undefined),
+                            date: new Date(s.createdAt).toLocaleString(i18n?.language || undefined),
                           })}
                         </div>
                       </div>
@@ -329,7 +329,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                     {s.expiresAt && (
                       <span>
                         {t('shares.expires_at', {
-                          date: new Date(s.expiresAt).toLocaleString(i18n.language || undefined),
+                          date: new Date(s.expiresAt).toLocaleString(i18n?.language || undefined),
                         })}
                       </span>
                     )}

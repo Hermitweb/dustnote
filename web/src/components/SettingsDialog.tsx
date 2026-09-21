@@ -658,7 +658,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                           {d.platform} ·{' '}
                           {t('settings.device_last_active', {
                             time: new Date(d.lastActiveAt).toLocaleString(
-                              i18n.language || undefined
+                              i18n?.language || undefined
                             ),
                           })}
                         </div>

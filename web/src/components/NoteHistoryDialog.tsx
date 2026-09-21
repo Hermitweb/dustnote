@@ -216,7 +216,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
                     {t('history.version_label', { n: v.noteVersion })}
                   </div>
                   <div className="mt-0.5 text-surface-muted">
-                    {new Date(v.createdAt).toLocaleString(i18n.language || undefined)}
+                    {new Date(v.createdAt).toLocaleString(i18n?.language || undefined)}
                   </div>
                 </button>
               ))

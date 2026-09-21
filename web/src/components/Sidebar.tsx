@@ -285,7 +285,7 @@ export function Sidebar() {
       if (sortKey === 'title') {
         const at = notesPlain.get(a.id)?.title ?? '';
         const bt = notesPlain.get(b.id)?.title ?? '';
-        return at.localeCompare(bt, i18n.language || undefined);
+        return at.localeCompare(bt, i18n?.language || undefined);
       }
       if (sortKey === 'words') {
         const aw = (notesPlain.get(a.id)?.content ?? '').length;
@@ -302,7 +302,7 @@ export function Sidebar() {
     sortKey,
     folderScope,
     isUnfiledScope,
-    i18n.language,
+    i18n?.language,
   ]);
 
   // ========== 文件夹层级（规范：3 层封顶） ==========
