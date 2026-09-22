@@ -65,8 +65,13 @@ def releaseKeyPassword = null
 // System.env.VAR 此时返回 "" 而非 null，故必须同时排除空串，
 // 否则 file("") 会抛 "path may not be null or empty string" 导致配置阶段失败。
 def envStoreFile = System.env.DUSTNOTE_STORE_FILE
+// 路径相对 android 根目录（mobile/android）解析：CI 写入的是
+// "app/dustnote-release.keystore"，keystore.properties 亦然。
+// 必须用 rootProject.file —— 本文件位于 app 模块，file() 会相对
+// app/ 再拼一层变成 app/app/...，文件不存在 → 签名配置不注册
+// （v2.5.41 发版实锤：此前被「静默回退 debug 签名」掩盖）。
 if (envStoreFile != null && envStoreFile.length() > 0) {
-  releaseStoreFile = file(envStoreFile)
+  releaseStoreFile = rootProject.file(envStoreFile)
   releaseStorePassword = System.env.DUSTNOTE_STORE_PASSWORD
   releaseKeyAlias = System.env.DUSTNOTE_KEY_ALIAS
   releaseKeyPassword = System.env.DUSTNOTE_KEY_PASSWORD
@@ -75,7 +80,7 @@ if (envStoreFile != null && envStoreFile.length() > 0) {
   if (keystorePropsFile.exists()) {
     def props = new Properties()
     keystorePropsFile.withInputStream { props.load(it) }
-    releaseStoreFile = file(props['storeFile'])
+    releaseStoreFile = rootProject.file(props['storeFile'])
     releaseStorePassword = props['storePassword']
     releaseKeyAlias = props['keyAlias']
     releaseKeyPassword = props['keyPassword']
