@@ -2,14 +2,50 @@
 
 本项目所有显著变更记录于此。格式基于 [Keep a Changelog](https://keepachangelog.com/)，版本遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.5.41] - 2026-09-21
+
+### 安全
+
+- **Android release 构建禁止静默回退 debug 签名**：gradle 守卫硬失败（本地
+  调试可 `-PallowDebugSigningForRelease=true` 豁免）+ release.yml keystore
+  缺失即失败；发布门禁 `continue-on-error` 移除，任一平台失败不再发版
+- **Web 单机锁定状态改 localStorage**：新开标签页/重启浏览器无法绕过失败锁定
+- **冲突不再落盘**：修复安卓端把含解密笔记明文的冲突记录持久化到未加密
+  AsyncStorage 的问题，统一为内存态（未裁决冲突重启后丢弃，数据无损）
+- **容器内消除 root 进程**：nginx 改非特权端口 8080，supervisord/nginx/node
+  均以 `dustnote` 运行；Caddy/compose/文档同步（自定义过 ports 映射的部署需
+  把容器侧端口 80→8080）
+- Sentry 脱敏补全（exception.value / extra 剥离）+ 隐私政策如实披露；
+  /metrics 抓取端点 Bearer 保护；安全联系切换 GitHub Private Vulnerability
+  Reporting，全仓假域名邮箱清理
+
+### 修复
+
+- **小程序 H5 无法完成主密码初始化**：H5 端等待微信随机池超时导致「创建
+  主密码」永久卡死；现走浏览器原生 crypto
+- 安卓端 emptyTrash 未分页（回收站 >500 条静默漏删）、导入备份不吞 409
+  且顺序错误、未知版本发 version=0 伪装成版本冲突
+- 全部导出的文件为明文（此前文档误称加密 ZIP）：导出 UI 增加明文警告
+- 迁移水位（PRAGMA user_version）拒绝降级启动；每日备份后 checkpoint +
+  周期 VACUUM 物理回收删除数据
+
+### 变更
+
+- **默认主题改为「雾霭蓝调」**（新账号；老用户已选主题不受影响）
+- **UI 回退**：视觉重构（新配色/图标系统/动效）整体撤销，恢复原版界面
+- 跨端架构收敛：RemoteRepository、冲突裁决、模式状态机、i18n 运行时下沉
+  @dustnote/client-core 单一实现（消除三端漂移）
+- 默认主题改动涉及四处默认值（web/desktop/mobile/服务端兜底）
+- 隐私政策/条款/cookie 政策口径与实现对齐（明文导出、立即删除、Sentry 披露）
+
+### 工程
+
+- 测试门禁：supertest 集成测试、三包覆盖率阈值、Node 20/22/24 矩阵、
+  CodeQL、mode-slice/RemoteRepository/新 store 共 35+ 新测试（全仓 388 例）
+- e2e 接入本地验证全绿；check-i18n 扩展 mobile/miniprogram 词典对称性校验
+- 基础镜像 digest 固定工具（`pnpm pin-digests`）
+
 ## [Unreleased]
-
-### 变更（部署加固，审计 SEC-008）
-
-- **容器内不再有 root 进程**：nginx 改用非特权端口 8080 监听，supervisord /
-  nginx / node 全部以 `dustnote` 用户运行。宿主侧默认端口不变（8080）；
-  自定义过 `ports:` 映射的部署需把容器侧端口由 `80` 改为 `8080`。
-- 基础镜像支持 digest 固定（`pnpm pin-digests`），防上游 tag 重指。
 
 ### 计划中
 

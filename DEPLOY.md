@@ -137,7 +137,7 @@ curl http://localhost:8080/api/v1/health
 
 > ⚠️ **防火墙提示**：Docker 发布的端口（`ports:` 映射）走 iptables 的 DOCKER 链，**会绕过 ufw/firewalld 的 INPUT 规则**——即使防火墙未放行 8080，外部也可能直接访问。如需限制来源，可在 `docker-compose.yml` 中把端口绑定到回环地址（`127.0.0.1:8080:8080`）再由反代对外，或在防火墙的 `DOCKER-USER` 链中配置规则。
 
-> 🔒 **容器内无 root 进程（v2.5.40 起）**：容器内 nginx 改用非特权端口 **8080**
+> 🔒 **容器内无 root 进程（v2.5.41 起）**：容器内 nginx 改用非特权端口 **8080**
 > 监听（supervisord / nginx / node 均以 `dustnote` 运行）。宿主侧端口不变
 > （默认 `8080`）。**从旧版本升级**：若你自定义过 `ports:` 映射（如 `"80:80"`），
 > 需把容器侧端口改为 `8080`（形如 `"80:8080"`）；使用默认 compose 则无需改动。

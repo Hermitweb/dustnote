@@ -140,8 +140,8 @@ if [[ -f .env ]]; then
   info "检测到已存在 .env，跳过生成（如需重置请删除后重跑）"
 else
   info "生成 .env 配置…"
-  VERSION="$(grep -m1 '"version"' package.json 2>/dev/null | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || echo "2.5.40")"
-  [[ -n "${VERSION}" ]] || VERSION="2.5.40"
+  VERSION="$(grep -m1 '"version"' package.json 2>/dev/null | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || echo "2.5.41")"
+  [[ -n "${VERSION}" ]] || VERSION="2.5.41"
   JWT_SECRET="$(openssl rand -hex 32 2>/dev/null || od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
   # 审计 LIFE-001：默认启用备份加密口令（备份含 totp_secret / wrapped_master_key
   # 等敏感材料，明文落盘风险高）。丢失此口令将无法解密历史备份，请离线抄录保存。
