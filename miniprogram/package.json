@@ -19,7 +19,7 @@
     "build:qq": "node scripts/build.js qq",
     "build:h5": "node scripts/build.js h5",
     "typecheck": "tsc --noEmit",
-    "test": "echo ::warning::@dustnote/miniprogram has NO unit tests yet (audit TEST-001) - app logic is untested; add vitest cases for sync/crypto/storage"
+    "test": "echo '[skip] @dustnote/miniprogram has NO unit tests yet - audit TEST-004; add vitest cases for sync/crypto/storage'"
   },
   "dependencies": {
     "@dustnote/client-core": "workspace:*",
