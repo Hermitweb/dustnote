@@ -14,7 +14,7 @@
  * 场景做了运行时兜底，因此未链接时退化为纯色半透明，不影响功能。
  */
 import React from 'react';
-import { View, type ViewProps } from 'react-native';
+import { Platform, View, type ViewProps } from 'react-native';
 import { useColors, useIsDark } from '../theme';
 
 type GlassSurfaceProps = ViewProps & {
@@ -34,11 +34,17 @@ try {
   BlurView = null;
 }
 
+// 安卓不使用原生 BlurView：该库在各 GPU / 模拟器(swiftshader)上普遍渲染成
+// 黑屏 / 花屏 / 直接崩溃（lib 内部 setupWith(decorView) 快照整窗内容含自身，
+// 反馈回路产物不可控）——v2.5.41 安卓解锁屏「崩坏」实锤。安卓统一走下方
+// 半透明降级路径（视觉与玻璃基调一致且稳定）；iOS 的 BlurView 成熟，保留真模糊。
+const USE_NATIVE_BLUR = Platform.OS === 'ios' && BlurView != null;
+
 export function GlassSurface({ intensity = 20, style, children, ...rest }: GlassSurfaceProps) {
   const colors = useColors();
   const isDark = useIsDark();
 
-  if (BlurView) {
+  if (USE_NATIVE_BLUR) {
     return (
       <BlurView
         blurType={isDark ? 'dark' : 'light'}
