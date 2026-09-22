@@ -65,6 +65,14 @@ page {
   display: flex;
   flex-direction: column;
 }
+/* weapp 手动主题实底（useThemeDarkClass 拼 page-solid，仅 weapp 构建含此类）:
+   手动暗/浅时根 View 铺当前主题底色——page 元素的 var(--bg) 只随 @media(系统)
+   切换，不随 .theme-dark/.theme-light 类；透明根会让 82% 半透明的卡片透出
+   page 元素的近白系统底（暗色列表偏白实锤）。auto 模式无此类:变量与底色都由
+   page 元素 @media 跟随系统，天然正确。 */
+.page-solid {
+  background: var(--bg);
+}
 
 /* ========== 布局工具类 ========== */
 .row {

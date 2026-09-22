@@ -29,7 +29,13 @@ function bindSystemThemeListener(): void {
   }
 }
 
-/** 各页根 View 拼接:手动深色→theme-dark;手动浅色+系统深色→theme-light;auto→'' */
+/** 各页根 View 拼接:手动深色→theme-dark;手动浅色+系统深色→theme-light;auto→''。
+ *  weapp 额外拼 page-solid:手动主题时根 View 铺 var(--bg) 实底——page/.page
+ *  在 app.scss 中全透明（背景交给极光层，而极光层在 weapp 不渲染:app 级
+ *  render 只有 H5 输出），page 元素的 var(--bg) 只受 @media（系统）影响，
+ *  手动暗色+系统浅色时会透出近白底（笔记列表偏白实锤）。auto 模式不拼:
+ *  变量与底色都由 page 元素 @media 跟随系统，天然正确。
+ *  H5 构建不拼（TARO_ENV 编译期内联）:极光层在 H5 渲染，铺实底会盖掉极光。 */
 export function useThemeDarkClass(): string {
   const theme = useThemeStore((s) => s.theme);
   const systemDark = useThemeStore((s) => s.systemDark);
@@ -41,11 +47,12 @@ export function useThemeDarkClass(): string {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (theme === 'dark') return 'theme-dark';
+  const solid = process.env.TARO_ENV === 'weapp' ? ' page-solid' : '';
+  if (theme === 'dark') return 'theme-dark' + solid;
   if (theme === 'light') {
     // 手动浅色:仅当系统为深色时需要反制类
     return currentEffectiveTheme('light', systemDark === true) === 'light' && systemDark
-      ? 'theme-light'
+      ? 'theme-light' + solid
       : '';
   }
   return '';
