@@ -454,6 +454,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Lowercase owner
+        id: owner_lc
+        run: echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v5
         with:
           context: .
@@ -462,9 +465,10 @@ jobs:
           file: Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
+          # 仓库名必须全小写（owner "Hermitweb" 经 tolower 转换）
           tags: |
-            ghcr.io/${{ github.repository_owner }}/dustnote:latest
-            ghcr.io/${{ github.repository_owner }}/dustnote:${{ github.sha }}
+            ghcr.io/${{ steps.owner_lc.outputs.owner_lc }}/dustnote:latest
+            ghcr.io/${{ steps.owner_lc.outputs.owner_lc }}/dustnote:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
