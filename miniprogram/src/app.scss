@@ -65,13 +65,10 @@ page {
   display: flex;
   flex-direction: column;
 }
-/* weapp 手动主题实底（useThemeDarkClass 拼 page-solid，仅 weapp 构建含此类）:
-   手动暗/浅时根 View 铺当前主题底色——page 元素的 var(--bg) 只随 @media(系统)
-   切换，不随 .theme-dark/.theme-light 类；透明根会让 82% 半透明的卡片透出
-   page 元素的近白系统底（暗色列表偏白实锤）。auto 模式无此类:变量与底色都由
-   page 元素 @media 跟随系统，天然正确。 */
+/* weapp 手动主题实底:规则本体在文件末尾(必须在 .theme-dark/.theme-light 之后,
+   否则同为单类选择器被它们的 background:transparent 按源序覆盖回透明) */
 .page-solid {
-  background: var(--bg);
+  min-height: 100vh;
 }
 
 /* ========== 布局工具类 ========== */
@@ -1641,4 +1638,18 @@ page {
 .theme-dark .fab-tpl {
   background: linear-gradient(135deg, #38bdf8, #2563eb);
   box-shadow: 0 8rpx 24rpx rgba(56, 189, 248, 0.35);
+}
+
+/* ========== weapp 手动主题实底（必须位于本文件末尾） ==========
+   useThemeDarkClass 在 weapp 构建给手动主题拼 page-solid 类（auto 不拼）。
+   放在末尾的原因:.theme-dark/.theme-light 块自带 background:transparent，
+   同为单类选择器，按源序会覆盖掉放在前面的 .page-solid 底色。
+   手动暗/浅时根 View（.page 或 .hero）铺当前主题底色——page 元素的
+   var(--bg) 只随 @media(系统) 切换，.theme-* 类的变量只级联自身子树，
+   透明根会让 82% 半透明卡片透出近白系统底（暗色列表偏白实锤）。
+   PageMeta pageStyle 的背景注入在冷启动不可靠（导航栏色正常、页底不生效，
+   实测），不能依赖。auto 模式无此类:变量与底色由 page 元素 @media 跟随系统。
+   H5 构建不含此类（TARO_ENV 编译期内联），极光层不受影响。 */
+.page-solid {
+  background: var(--bg);
 }

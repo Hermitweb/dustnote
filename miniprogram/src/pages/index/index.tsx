@@ -519,7 +519,7 @@ function IndexBody() {
       if (!fid) return;
       const fname = folderList.find((f) => f.id === fid)!.name;
       let ok = 0;
-      let fail = 0;
+      const fail = 0;
       for (const id of ids) {
         try {
           await repo.moveNote(id, fid);
@@ -573,8 +573,10 @@ function IndexBody() {
   // 模式未选择：显示加载中（useEffect 会重定向）
   if (!modeInitialized) {
     return (
-      <View className="hero">
-        <Text className="hero-subtitle">{t('common.loading')}</Text>
+      <View className={`page ${darkClass}`}>
+        <View className="hero">
+          <Text className="hero-subtitle">{t('common.loading')}</Text>
+        </View>
       </View>
     );
   }
@@ -582,8 +584,10 @@ function IndexBody() {
   // 单机模式未解锁：显示加载中（useEffect 会重定向到 standalone 页面）
   if (mode === 'standalone' && authState !== 'unlocked') {
     return (
-      <View className="hero">
-        <Text className="hero-subtitle">{t('common.loading')}</Text>
+      <View className={`page ${darkClass}`}>
+        <View className="hero">
+          <Text className="hero-subtitle">{t('common.loading')}</Text>
+        </View>
       </View>
     );
   }
@@ -592,8 +596,10 @@ function IndexBody() {
   // 不落入列表页造成“可看不可操作”的中间态
   if (mode === 'online' && authState === 'unknown') {
     return (
-      <View className="hero">
-        <Text className="hero-subtitle">{t('common.loading')}</Text>
+      <View className={`page ${darkClass}`}>
+        <View className="hero">
+          <Text className="hero-subtitle">{t('common.loading')}</Text>
+        </View>
       </View>
     );
   }
@@ -601,15 +607,17 @@ function IndexBody() {
   // 联机模式未初始化：显示创建主密码按钮
   if (mode === 'online' && authState === 'uninitialized') {
     return (
-      <View className="hero">
-        <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
-        <Text className="hero-title">{t('index.welcome')}</Text>
-        <Text className="hero-subtitle">{t('index.hero_subtitle')}</Text>
-        <View
-          className="mint-btn mint-btn-block mt-l"
-          onClick={() => Taro.navigateTo({ url: '/pages/setup/index' })}
-        >
-          {t('index.create_master_password')}
+      <View className={`page ${darkClass}`}>
+        <View className="hero">
+          <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
+          <Text className="hero-title">{t('index.welcome')}</Text>
+          <Text className="hero-subtitle">{t('index.hero_subtitle')}</Text>
+          <View
+            className="mint-btn mint-btn-block mt-l"
+            onClick={() => Taro.navigateTo({ url: '/pages/setup/index' })}
+          >
+            {t('index.create_master_password')}
+          </View>
         </View>
       </View>
     );
@@ -640,31 +648,33 @@ function IndexBody() {
       }
     };
     return (
-      <View className="hero">
-        <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
-        <Text className="hero-title">{t('app.name')}</Text>
-        <Text className="hero-subtitle mb-l">{t('index.unlock_subtitle')}</Text>
-        <FInput
-          className="mint-input"
-          password
-          placeholder={t('common.master_password')}
-          value={unlockPwd}
-          onInput={(e: any) => setUnlockPwd((e.detail as { value: string }).value)}
-        />
-        {showTotp && (
+      <View className={`page ${darkClass}`}>
+        <View className="hero">
+          <Image src={logoUrl} className="hero-logo" style={{ width: '64px', height: '64px' }} />
+          <Text className="hero-title">{t('app.name')}</Text>
+          <Text className="hero-subtitle mb-l">{t('index.unlock_subtitle')}</Text>
           <FInput
-            className="mint-input mt-s"
-            placeholder={t('unlock.totp_placeholder')}
-            value={totpCode}
-            onInput={(e: any) => setTotpCode((e.detail as { value: string }).value)}
+            className="mint-input"
+            password
+            placeholder={t('common.master_password')}
+            value={unlockPwd}
+            onInput={(e: any) => setUnlockPwd((e.detail as { value: string }).value)}
           />
-        )}
-        <View
-          className="mint-btn mint-btn-block mt-s"
-          style={{ opacity: unlocking ? 0.5 : 1 }}
-          onClick={doUnlock}
-        >
-          {unlocking ? t('common.unlocking') : t('common.unlock')}
+          {showTotp && (
+            <FInput
+              className="mint-input mt-s"
+              placeholder={t('unlock.totp_placeholder')}
+              value={totpCode}
+              onInput={(e: any) => setTotpCode((e.detail as { value: string }).value)}
+            />
+          )}
+          <View
+            className="mint-btn mint-btn-block mt-s"
+            style={{ opacity: unlocking ? 0.5 : 1 }}
+            onClick={doUnlock}
+          >
+            {unlocking ? t('common.unlocking') : t('common.unlock')}
+          </View>
         </View>
       </View>
     );
