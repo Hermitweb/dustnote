@@ -22,13 +22,15 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+      # pnpm 必须先于 setup-node 的 cache: 'pnpm' 安装（否则 setup-node
+      # 找不到 pnpm 可执行文件直接失败——首次运行实锤）
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '9.12.0'
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: 'pnpm'
-      - uses: pnpm/action-setup@v4
-        with:
-          version: '9.12.0'
       # CodeQL 需要真实的依赖树做数据流分析；与 e2e 同策略：
       # 装原生构建工具 + 不加 --ignore-scripts
       - name: Install native build tools
