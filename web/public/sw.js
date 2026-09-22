@@ -17,7 +17,7 @@
  * （ci.yml 的 SW 一致性步骤会把关）。
  */
 
-const SW_VERSION = 'dustnote-v2.5.41-001';
+const SW_VERSION = 'dustnote-v2.5.42-001';
 const CACHE_PREFIX = 'dustnote';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${SW_VERSION}`;
 // 键名 v2（审计 M-A）：旧 SW 曾把 /api/ 明文响应（明文文件夹名/wrappedMasterKey）

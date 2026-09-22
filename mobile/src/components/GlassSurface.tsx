@@ -38,13 +38,14 @@ try {
 // 黑屏 / 花屏 / 直接崩溃（lib 内部 setupWith(decorView) 快照整窗内容含自身，
 // 反馈回路产物不可控）——v2.5.41 安卓解锁屏「崩坏」实锤。安卓统一走下方
 // 半透明降级路径（视觉与玻璃基调一致且稳定）；iOS 的 BlurView 成熟，保留真模糊。
-const USE_NATIVE_BLUR = Platform.OS === 'ios' && BlurView != null;
+// 注意 narrowing 必须内联判断（Platform.OS === 'ios' && BlurView），
+// 经模块级布尔常量中转会让 TS 丢失 try 块内赋值的类型收窄。
 
 export function GlassSurface({ intensity = 20, style, children, ...rest }: GlassSurfaceProps) {
   const colors = useColors();
   const isDark = useIsDark();
 
-  if (USE_NATIVE_BLUR) {
+  if (Platform.OS === 'ios' && BlurView) {
     return (
       <BlurView
         blurType={isDark ? 'dark' : 'light'}

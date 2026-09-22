@@ -2,6 +2,15 @@
 
 本项目所有显著变更记录于此。格式基于 [Keep a Changelog](https://keepachangelog.com/)，版本遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.5.42] - 2026-09-22
+
+### 修复（安卓）
+
+- **解锁界面渲染崩坏**：液态玻璃卡片使用的原生 BlurView（@react-native-community/blur）
+  在安卓各 GPU/ROM 上普遍渲染成黑屏、花屏或直接崩溃——安卓端改为统一走半透明
+  主题色降级路径（视觉与玻璃基调一致且稳定），iOS 保留真模糊不受影响
+- 同批次小程序修复（暗色列表透白）已随 2.5.41 覆盖上传，不含于本版
+
 ## [2.5.41] - 2026-09-21
 
 ### 安全
