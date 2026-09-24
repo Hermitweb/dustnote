@@ -76,16 +76,19 @@ log ".env 已迁移（SERVER_VERSION=${TARGET}）"
 
 # ── 3. 先构建镜像（不动旧容器,零停机）──────────────────────────────
 log "compose build（约 5-8 分钟）..."
-cd "$NEW_DIR" && docker compose build
+NEW_PROJECT=$(basename "$NEW_DIR" | tr -d '.@')
+docker compose -f "${NEW_DIR}/docker-compose.yml" -p "$NEW_PROJECT" build
 
 # ── 4. 停机切换：down 旧（正确目录!）→ create 新 → 迁卷 → up ────────
+# 所有 compose 调用一律显式 -f + -p：**v2.5.44 实战首撞**——down 后 cwd 停在
+# 旧目录,裸的 create 在旧项目上重建了旧容器（镜像已换新版,容器名/卷名/项目
+# 名全是旧的,健康断言才暴露）。cwd 依赖就是事故源,全部锚定。
 log "停止旧版本（优雅停,WAL checkpoint）..."
-cd "$OLD_DIR" && docker compose down
-NEW_PROJECT=$(basename "$NEW_DIR" | tr -d '.@')
-docker compose create
+docker compose -f "${OLD_DIR}/docker-compose.yml" -p "$OLD_PROJECT" down
+docker compose -f "${NEW_DIR}/docker-compose.yml" -p "$NEW_PROJECT" create
 V_DATA="${NEW_PROJECT}_dustnote-data"
 V_BAK="${NEW_PROJECT}_dustnote-backups"
-docker volume inspect "$V_DATA" >/dev/null 2>&1 || die "新数据卷未创建: $V_DATA"
+docker volume inspect "$V_DATA" >/dev/null 2>&1 || die "新数据卷未创建: $V_DATA（compose -p 生效?）"
 OLD_DATA="${OLD_PROJECT}_dustnote-data"
 OLD_BAK="${OLD_PROJECT}_dustnote-backups"
 log "迁移数据卷 ${OLD_DATA} → ${V_DATA} ..."
@@ -95,7 +98,7 @@ log "迁移备份卷 ${OLD_BAK} → ${V_BAK} ..."
 docker run --rm -v "${OLD_BAK}:/src:ro" -v "${V_BAK}:/dst" alpine \
   sh -c 'cp -a /src/. /dst/ && chown -R 1001:0 /dst' || die "backups 卷迁移失败"
 log "启动新版本 ..."
-cd "$NEW_DIR" && docker compose up -d
+docker compose -f "${NEW_DIR}/docker-compose.yml" -p "$NEW_PROJECT" up -d
 
 # ── 5. 健康验证（版本必须真的是 TARGET）─────────────────────────────
 log "等待 health ..."
