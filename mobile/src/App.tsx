@@ -16,7 +16,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { StatusBar, View, Text, ActivityIndicator, AppState } from 'react-native';
+import { StatusBar, View, Text, ActivityIndicator, AppState, Pressable } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -143,6 +143,22 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+// withGlass 只在模块顶层包裹一次。若写在 JSX 里（component={withGlass(X)}），
+// 每次 AppInner 渲染都会产生新的组件类型，React 会把当前屏幕整体卸载重挂，
+// mount 副作用（整页数据 GET）全部重放——真机审计 2026-09-24：nginx 日志显示
+// 用户停留在设置页 33 秒内 tags/preferences/notes/folders/2fa-status 各重复
+// 请求 10 次，即 10 次重挂风暴；同理会打断编辑页未保存的本地状态。
+const GlassSetup = withGlass(SetupScreen);
+const GlassStandaloneSetup = withGlass(StandaloneSetupScreen);
+const GlassStandaloneRecover = withGlass(StandaloneRecoverScreen);
+const GlassOnlineRecover = withGlass(OnlineRecoverScreen);
+const GlassNotesList = withGlass(NotesListScreen);
+const GlassNoteEdit = withGlass(NoteEditScreen);
+const GlassSettings = withGlass(SettingsScreen);
+const GlassFolders = withGlass(FoldersScreen);
+const GlassTrash = withGlass(TrashScreen);
+const GlassShares = withGlass(SharesScreen);
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -156,6 +172,7 @@ function AppInner() {
   const colors = useColors();
   const { t } = useTranslation();
   const authState = useAuthStore((s) => s.authState);
+  const initFailed = useAuthStore((s) => s.initFailed);
   const init = useAuthStore((s) => s.init);
   const lock = useAuthStore((s) => s.lock);
   const mode = useModeStore((s) => s.mode);
@@ -207,6 +224,18 @@ function AppInner() {
       };
     }
   }, [hydrated, modeInitialized, mode, init]);
+
+  // 错误页状态下回到前台自动重探一次（真机审计：网络恢复后 app 不自愈，
+  // 只能杀进程重来）。手动「重试」按钮走同一 init()。
+  useEffect(() => {
+    if (!initFailed) return;
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        void useAuthStore.getState().init();
+      }
+    });
+    return () => subscription.remove();
+  }, [initFailed]);
 
   // 启动后自动检查更新（联机模式，5s 延迟避免阻塞初始化）
   useEffect(() => {
@@ -286,8 +315,56 @@ function AppInner() {
     );
   }
 
-  // 3. 已选模式但鉴权状态未知：显示加载页
+  // 3. 已选模式但鉴权状态未知：探测失败 → 错误页 + 重试；探测中 → 加载页
   if (authState === 'unknown') {
+    if (initFailed) {
+      return (
+        <SafeAreaProvider>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: bgColor,
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingHorizontal: 32,
+            }}
+          >
+            <Text style={{ color: fgColor, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>
+              {t('app.auth_check_failed')}
+            </Text>
+            <Text
+              style={{
+                marginTop: 10,
+                color: colors.muted,
+                fontSize: 14,
+                textAlign: 'center',
+                lineHeight: 21,
+              }}
+            >
+              {t('app.auth_check_failed_hint')}
+            </Text>
+            <Pressable
+              onPress={() => {
+                void init();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.retry')}
+              style={{
+                marginTop: 24,
+                paddingHorizontal: 32,
+                paddingVertical: 12,
+                borderRadius: 10,
+                backgroundColor: colors.accent,
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '600' }}>
+                {t('common.retry')}
+              </Text>
+            </Pressable>
+          </View>
+        </SafeAreaProvider>
+      );
+    }
     return (
       <SafeAreaProvider>
         <View
@@ -334,32 +411,32 @@ function AppInner() {
           >
             <Stack.Screen
               name="NotesList"
-              component={withGlass(NotesListScreen)}
+              component={GlassNotesList}
               options={{ title: t('app.name') }}
             />
             <Stack.Screen
               name="NoteEdit"
-              component={withGlass(NoteEditScreen)}
+              component={GlassNoteEdit}
               options={{ title: t('app.editor_title') }}
             />
             <Stack.Screen
               name="Settings"
-              component={withGlass(SettingsScreen)}
+              component={GlassSettings}
               options={{ title: t('app.settings_title') }}
             />
             <Stack.Screen
               name="Folders"
-              component={withGlass(FoldersScreen)}
+              component={GlassFolders}
               options={{ title: t('app.folders_title') }}
             />
             <Stack.Screen
               name="Trash"
-              component={withGlass(TrashScreen)}
+              component={GlassTrash}
               options={{ title: t('app.trash_title') }}
             />
             <Stack.Screen
               name="Shares"
-              component={withGlass(SharesScreen)}
+              component={GlassShares}
               options={{ title: t('app.shares_title') }}
             />
           </Stack.Navigator>
@@ -399,7 +476,7 @@ function AppInner() {
               {authState === 'uninitialized' && (
                 <Stack.Screen
                   name="StandaloneSetup"
-                  component={withGlass(StandaloneSetupScreen)}
+                  component={GlassStandaloneSetup}
                   options={{ title: t('app.setup_title'), headerBackVisible: false }}
                 />
               )}
@@ -412,7 +489,7 @@ function AppInner() {
                   />
                   <Stack.Screen
                     name="StandaloneRecover"
-                    component={withGlass(StandaloneRecoverScreen)}
+                    component={GlassStandaloneRecover}
                     options={{ title: t('app.recover_title') }}
                   />
                 </>
@@ -423,7 +500,7 @@ function AppInner() {
               {authState === 'uninitialized' && (
                 <Stack.Screen
                   name="Setup"
-                  component={withGlass(SetupScreen)}
+                  component={GlassSetup}
                   options={{ title: t('app.setup_title'), headerBackVisible: false }}
                 />
               )}
@@ -436,7 +513,7 @@ function AppInner() {
               )}
               <Stack.Screen
                 name="OnlineRecover"
-                component={withGlass(OnlineRecoverScreen)}
+                component={GlassOnlineRecover}
                 options={{ title: t('app.recover_title') }}
               />
             </>

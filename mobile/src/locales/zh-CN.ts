@@ -36,6 +36,9 @@ const zhCN = {
     name: '尘渊笔记',
     loading: '加载中…',
     checking_auth: '正在检查鉴权状态…',
+    auth_check_failed: '无法连接服务器',
+    auth_check_failed_hint:
+      '检查鉴权状态时网络请求失败。请确认网络连接与服务端可用后重试，回到前台也会自动重试。',
     new_note: '新笔记',
     editor_title: '编辑',
     settings_title: '设置',

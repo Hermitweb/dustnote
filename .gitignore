@@ -117,3 +117,4 @@ playwright.local.config.ts
 # Local screenshot/debug artifacts (audit ARCH-009)
 screenshots/
 shoot.mjs
+.debug/

@@ -26,6 +26,9 @@ const en = {
     name: 'DustNote',
     loading: 'Loading…',
     checking_auth: 'Checking auth status…',
+    auth_check_failed: 'Cannot reach the server',
+    auth_check_failed_hint:
+      'The auth status request failed. Check your network connection and server availability, then retry. Returning to the foreground also retries automatically.',
     new_note: 'New note',
     editor_title: 'Edit',
     settings_title: 'Settings',

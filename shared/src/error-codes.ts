@@ -94,6 +94,35 @@ export function apiErrorCode(err: unknown): string | null {
 /** 未命中任何语义桶时的兜底 key（各端词典需提供） */
 export const ERROR_GENERIC_KEY = 'errors.generic';
 
+/** 网络层错误（fetch 失败 / 客户端超时 abort）的归桶 key（各端词典需提供） */
+export const ERROR_NETWORK_KEY = 'errors.server_unreachable';
+
+// 各运行时网络层错误的原始英文文案（小写后全匹配）。这些 message 若原样透传，
+// 用户会在中文界面看到「signal is aborted without reason」之类的技术黑话
+//（真机审计 2026-09-24：弱网解锁失败弹 AbortError 英文原文）。
+const NETWORK_RAW_MESSAGES: ReadonlySet<string> = new Set([
+  'network request failed', // React Native / Android fetch
+  'failed to fetch', // Chrome / Edge / Safari web fetch
+  'networkerror when attempting to fetch resource.', // Firefox
+  'signal is aborted without reason', // AbortController 超时（RN Hermes）
+  'this operation was aborted', // DOMException AbortError（web 变体）
+  'aborted', // node-fetch 时代旧文案
+]);
+
+/**
+ * 是否为「客户端网络层」错误：无服务端错误码，且形态来自 fetch/abort/小程序
+ * request:fail。自有超时（AbortController）按 name 识别。
+ */
+export function isClientNetworkError(err: unknown): boolean {
+  const e = err as { name?: unknown; message?: unknown } | null | undefined;
+  if (e?.name === 'AbortError') return true;
+  const raw = extractMessage(err).toLowerCase();
+  if (!raw) return false;
+  // 微信小程序：errMsg 形如 request:fail timeout / request:fail 等
+  if (raw.startsWith('request:fail')) return true;
+  return NETWORK_RAW_MESSAGES.has(raw);
+}
+
 /**
  * 从任意异常里取原始文案。
  * 兼容三种形态（各端历史取法不一，这里统一）：
@@ -137,7 +166,13 @@ export function errorReason(
 ): string {
   const raw = extractMessage(err);
   const code = apiErrorCode(err);
-  if (!code) return raw || translate(ERROR_GENERIC_KEY);
+  if (!code) {
+    // 网络层错误（超时 abort / fetch 失败）没有服务端码，raw 是英文技术原文，
+    // 原样展示等于把 "signal is aborted without reason" 抛给用户——归入
+    // server_unreachable 桶（raw 文案在中文界面反而丢信息，不进 defaultValue）。
+    if (isClientNetworkError(err)) return translate(ERROR_NETWORK_KEY);
+    return raw || translate(ERROR_GENERIC_KEY);
+  }
 
   const key = errorI18nKey(code) ?? ERROR_GENERIC_KEY;
   const isChineseUi = typeof uiLang === 'string' && uiLang.toLowerCase().startsWith('zh');

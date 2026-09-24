@@ -79,6 +79,7 @@ const resources = {
         client_version: '客户端版本过低，请更新后再试',
         session_expired: '登录状态已过期，请重新登录',
         server_error: '服务器出错了，请稍后再试',
+        server_unreachable: '无法连接到服务器',
         generic: '操作失败，请稍后再试',
       },
       sidebar: {
@@ -771,6 +772,7 @@ const resources = {
         client_version: 'Client version too old, please update',
         session_expired: 'Session expired, please sign in again',
         server_error: 'Server error, please try again later',
+        server_unreachable: 'Cannot reach the server',
         generic: 'Something went wrong, please try again',
       },
       sidebar: {
