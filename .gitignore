@@ -118,3 +118,4 @@ playwright.local.config.ts
 screenshots/
 shoot.mjs
 .debug/
+.release/
