@@ -255,9 +255,14 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       set({ authState: 'needs_unlock', hasBiometricCache: hasCache });
     } catch (e) {
       // 服务端不可达：保持 unknown 并置 initFailed，让 UI 显示错误页 + 重试
-      // （仅置 unknown 会让 App.tsx 停在「正在检查鉴权状态…」永久转圈）
+      // （仅置 unknown 会让 App.tsx 停在「正在检查鉴权状态…」永久转圈）。
+      // 但只在 UI 仍停在探测页时切换：慢失败（如 30s 超时）场景 5s 看门狗已
+      // 把用户放行到解锁页，此刻把正在输密码的界面整页拽走比不切更糟——
+      // 解锁提交失败自有「无法连接到服务器」弹窗兜底（真机审计 2026-09-24）
       console.warn('[auth] /auth/status failed', e);
-      set({ authState: 'unknown', initFailed: true });
+      if (get().authState === 'unknown') {
+        set({ initFailed: true });
+      }
     }
   },
 

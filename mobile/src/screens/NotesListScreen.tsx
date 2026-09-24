@@ -205,7 +205,7 @@ export function NotesListScreen() {
       }
     } catch (err) {
       console.warn('加载失败', err);
-      setError(t('notes.load_error_detail', { reason: (err as Error).message }));
+      setError(t('notes.load_error_detail', { reason: errorText(err) }));
     } finally {
       setRefreshing(false);
     }

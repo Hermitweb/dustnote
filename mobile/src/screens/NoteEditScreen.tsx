@@ -190,7 +190,7 @@ export function NoteEditScreen() {
           }
         }
       } catch (err) {
-        setLoadError((err as Error).message);
+        setLoadError(errorText(err));
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

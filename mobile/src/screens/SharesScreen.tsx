@@ -89,7 +89,7 @@ export function SharesScreen() {
       }
       setNoteTitles(titles);
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err));
     } finally {
       setLoading(false);
     }

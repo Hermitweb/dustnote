@@ -59,7 +59,9 @@ export function UnlockScreen() {
         setShowTotp(true);
         Alert.alert(t('auth.totp_required_title'), t('auth.totp_required_detail'));
       } else {
-        Alert.alert(t('auth.unlock_failed'), msg);
+        // 弹窗走 errorText：无码网络错误归 server_unreachable 桶，
+        // 不再把 AbortError/Network request failed 英文原文直出（真机审计 2026-09-24）
+        Alert.alert(t('auth.unlock_failed'), errorText(err));
       }
     } finally {
       setSubmitting(false);
