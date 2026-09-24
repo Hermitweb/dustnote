@@ -13,8 +13,13 @@ import { describe, expect, it, vi } from 'vitest';
 
 const TEST_DB = './data/diagnostics-test.db';
 
+// 固定假版本：满足 version-check 的 semver 合法性与 ≥MIN_CLIENT_VERSION 即可。
+// 不得引用当前发版号——否则每次 bump 触发 scripts/bump-version.mjs 全仓
+// 残留自检误报（2.5.44 实战首撞即中，顺带证明自检有效）。
+const FAKE_VERSION = '2.99.0';
+
 const CLIENT_HEADERS = {
-  'X-Client-Version': '2.5.43',
+  'X-Client-Version': FAKE_VERSION,
   'X-Client-Platform': 'android',
   'X-Client-Device-Id': 'diag-test-device',
   'Content-Type': 'application/json',
@@ -39,7 +44,7 @@ function oneEvent(over: Record<string, unknown> = {}) {
     message: 'TypeError: x is not a function',
     stack: 'at foo (index.android.bundle:1:2)',
     platform: 'android',
-    clientVersion: '2.5.43',
+    clientVersion: FAKE_VERSION,
     ...over,
   };
 }

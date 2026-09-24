@@ -112,7 +112,12 @@ if (!m) {
   process.exit(1);
 }
 const nextCode = Number(m[1]) + 1;
-const gnew = gsrc.replace(/(versionCode\s+)\d+/, `$1${nextCode}`);
+let gnew = gsrc.replace(/(versionCode\s+)\d+/, `$1${nextCode}`);
+// versionName 也必须在这里改——它曾被排除在 VERSION_FILES 之外（以为
+// versionCode 段会一并处理），2.5.44 首次实战被自检抓出残留。
+if (!gnew.includes(`versionName "${NEW}"`)) {
+  gnew = gnew.replace(/versionName "\d+\.\d+\.\d+"/, `versionName "${NEW}"`);
+}
 if (!dryRun) writeFileSync(gradle, gnew);
 if (!touched.includes(gradleRel)) touched.push(gradleRel);
 console.log(`versionCode: ${m[1]} -> ${nextCode}`);
@@ -126,7 +131,11 @@ const statusAbs = join(ROOT, 'docs/status.md');
 const ssrc = readFileSync(statusAbs, 'utf8');
 let snew = ssrc.replace(/服务端 \*\*v\d+\.\d+\.\d+\*\*/, `服务端 **v${NEW}**`);
 snew = snew.replace(/(\|[^|\n]+\| )\d+\.\d+\.\d+( ?\|)/g, (_m, pre, post) => `${pre}${NEW}${post}`);
-const today = new Date().toISOString().slice(0, 10);
+// 本地日期（toISOString 是 UTC，晚间发版会写错一天——2.5.44 实战发现）
+const now = new Date();
+const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+  now.getDate()
+).padStart(2, '0')}`;
 snew = snew.replace(/最近人工核对：\d{4}-\d{2}-\d{2}/, `最近人工核对：${today}`);
 if (snew !== ssrc && !dryRun) writeFileSync(statusAbs, snew);
 if (snew !== ssrc) touched.push('docs/status.md（当前版本/渠道表/核对日期）');
@@ -135,11 +144,19 @@ console.log(`\n已替换 ${changed} 个文件（versionCode 所在文件单独�
 for (const t of touched) console.log(`  ${t}`);
 
 // ── 自检：全仓不得再有旧版本号（CHANGELOG 历史条目除外）────────────
+// RESIDUAL_ALLOW：以**散文/自测身份**合法引用任意历史版本号的文件——
+// 本脚本自己的事故复盘注释属于此类（改写会让历史叙述变成说谎）。
+// 其余文件（测试等）不得进清单：需要固定版本时用语义明确的假版本号。
+const RESIDUAL_ALLOW = ['scripts/bump-version.mjs'];
 if (!dryRun) {
   const grep = execSync(
     `git grep -l "${OLD}" -- . ":(exclude)CHANGELOG.md" ":(exclude)*.lock" || true`,
     { cwd: ROOT, encoding: 'utf8' }
-  ).trim();
+  )
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .filter((f) => !RESIDUAL_ALLOW.includes(f));
   if (grep) {
     console.error(
       `\n[FAIL] 以下文件仍残留 ${OLD}（清单外出现位置，需人工确认后补进清单或改写）:\n${grep}`

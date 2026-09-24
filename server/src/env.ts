@@ -43,9 +43,9 @@ export const config = {
    * 留空则返回首次激活的设备登记的地址（server_config 表,先到先得）。
    */
   serverPublicUrl: getEnvOpt('SERVER_PUBLIC_URL') ?? null,
-  serverVersion: getEnv('SERVER_VERSION', '2.5.43'),
+  serverVersion: getEnv('SERVER_VERSION', '2.5.44'),
   minClientVersion: getEnv('MIN_CLIENT_VERSION', '2.0.2'),
-  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.5.43'),
+  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.5.44'),
   forceUpdateVersion: getEnvOpt('FORCE_UPDATE_VERSION') ?? null,
   eolDateForV0: getEnvOpt('EOL_DATE_FOR_V0'),
   jwtSecret: getEnv('JWT_SECRET', DEFAULT_JWT_SECRET),

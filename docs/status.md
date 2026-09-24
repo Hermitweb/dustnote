@@ -1,10 +1,10 @@
 # DustNote 服务状态
 
-> 最近人工核对：2026-09-19（随每次发版更新）
+> 最近人工核对：2026-09-25（由 scripts/bump-version.mjs 随发版自动归一）
 
 ## 当前状态
 
-🟢 **所有系统正常运行** — 服务端 **v2.5.40**（dev 分支，随下次发版部署）
+🟢 **所有系统正常运行** — 服务端 **v2.5.44**（upgrade.sh 健康断言通过后即为线上态）
 
 ## 线上部署（自托管）
 
@@ -28,12 +28,12 @@
 
 | 渠道          | 版本   | 分发方式                                   |
 | ------------- | ------ | ------------------------------------------ |
-| Web / PWA     | 2.5.40 | 服务器直出，Service Worker 缓存            |
-| Windows x64   | 2.5.40 | 应用内更新 / GitHub Release                |
-| Windows ARM64 | 2.5.40 | 应用内更新 / GitHub Release                |
-| Android       | 2.5.40 | 应用内更新（manifest apk）/ GitHub Release |
-| 微信小程序    | 2.5.40 | 微信平台（体验版/审核发布）                |
-| macOS (ARM64) | 2.5.40 | GitHub Release（未签名 DMG，右键打开）     |
+| Web / PWA     | 2.5.44 | 服务器直出，Service Worker 缓存            |
+| Windows x64   | 2.5.44 | 应用内更新 / GitHub Release                |
+| Windows ARM64 | 2.5.44 | 应用内更新 / GitHub Release                |
+| Android       | 2.5.44 | 应用内更新（manifest apk）/ GitHub Release |
+| 微信小程序    | 2.5.44 | 微信平台（体验版/审核发布）                |
+| macOS (ARM64) | 2.5.44 | GitHub Release（未签名 DMG，右键打开）     |
 | iOS           | —      | 未发布                                     |
 
 ## 历史事件
