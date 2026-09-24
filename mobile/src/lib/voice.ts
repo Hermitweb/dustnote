@@ -6,11 +6,6 @@
  */
 import Voice from '@react-native-voice/voice';
 
-// 回调参数放宽:any——该库的类型定义(setter 与方法重载混用)会让
-// 严格字面量签名报 TS2559,运行时签名与 SpeechResultsEvent 一致
-type SpeechResultCb = (e: { value?: string[] }) => void;
-type SpeechErrorCb = (e: { message?: string }) => void;
-
 export interface VoiceHandlers {
   onPartial: (text: string) => void;
   onFinal: (text: string) => void;

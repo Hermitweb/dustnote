@@ -6,7 +6,7 @@
  * vi.resetModules() + 动态 import 获取独立配置；config-validate（生产
  * 强校验 + process.exit）只在 index.ts 引入，此处不会触发。
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const TEST_DB = './data/app-test.db';
 

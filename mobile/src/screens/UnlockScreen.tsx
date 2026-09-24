@@ -8,7 +8,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
 import { FTextInput } from '../components/FTextInput';
 import logoImage from '../assets/logo.png';
 import { useTranslation } from 'react-i18next';

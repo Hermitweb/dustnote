@@ -22,7 +22,6 @@ import {
   ScrollView,
   Alert,
   Modal,
-  TextInput,
   ActivityIndicator,
   Switch,
   Platform,

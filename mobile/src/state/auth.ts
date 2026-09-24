@@ -45,7 +45,6 @@ import {
   remainingLockoutMs,
   INITIAL_LOCKOUT_STATE,
   LOCAL_LOCKOUT_DURATION_MS,
-  KDF_PARAMS,
   KDF_PARAMS_MOBILE,
   KDF_VERSION,
   type Ciphertext,

@@ -24,7 +24,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
-  TextInput,
   Alert,
   Modal,
   ScrollView,
