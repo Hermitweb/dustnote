@@ -105,6 +105,7 @@ function IndexBody() {
   const masterKey = useAuthStore((s) => s.masterKey);
   const mode = useModeStore((s) => s.mode);
   const modeInitialized = useModeStore((s) => s.initialized);
+  const initFailed = useAuthStore((s) => s.initFailed);
   const [notes, setNotes] = useState<Note[]>([]);
   const [plains, setPlains] = useState<
     Record<string, { title: string; content: string; tags?: string[] }>
@@ -165,10 +166,21 @@ function IndexBody() {
   // 避免直接落到列表页出现“能看列表却无法操作”的中间态
   useEffect(() => {
     if (!modeInitialized || mode !== 'online' || authState !== 'unknown') return;
-    const timer = setTimeout(() => {
-      void useAuthStore.getState().init();
-    }, 500);
-    return () => clearTimeout(timer);
+    // 自续链式重试：不把 initFailed 放进 deps（init 挂起期间任何状态翻转都会
+    // 重触发 effect，黑洞场景下挂死请求会无限堆积）。首次 500ms，失败后 3s 退避。
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const attempt = async () => {
+      await useAuthStore.getState().init();
+      if (!cancelled && useAuthStore.getState().authState === 'unknown') {
+        timer = setTimeout(() => void attempt(), 3000);
+      }
+    };
+    timer = setTimeout(() => void attempt(), 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [modeInitialized, mode, authState]);
 
   useEffect(() => {
@@ -593,8 +605,26 @@ function IndexBody() {
   }
 
   // 联机模式鉴权状态未就绪（unknown）：显示加载中并重查（上方 useEffect），
-  // 不落入列表页造成“可看不可操作”的中间态
+  // 不落入列表页造成“可看不可操作”的中间态；探测失败时给出明确提示+重试
   if (mode === 'online' && authState === 'unknown') {
+    if (initFailed) {
+      return (
+        <View className={`page ${darkClass}`}>
+          <View className="hero">
+            <Text className="hero-title">{t('errors.server_unreachable')}</Text>
+            <Text className="hero-subtitle">{t('errors.server_unreachable_hint')}</Text>
+            <View
+              className="mint-btn mint-btn-block mt-l"
+              onClick={() => {
+                void useAuthStore.getState().init();
+              }}
+            >
+              {t('common.retry')}
+            </View>
+          </View>
+        </View>
+      );
+    }
     return (
       <View className={`page ${darkClass}`}>
         <View className="hero">
@@ -641,7 +671,9 @@ function IndexBody() {
           setShowTotp(true);
           Taro.showToast({ title: t('unlock.err_totp'), icon: 'none' });
         } else {
-          Taro.showToast({ title: msg || t('common.unlock_failed'), icon: 'none' });
+          // errorText 分桶：网络层错误显示「无法连接到服务器」而非英文技术原文
+          //（同步 mobile 2026-09-24 审计）
+          Taro.showToast({ title: errorText(err), icon: 'none' });
         }
       } finally {
         setUnlocking(false);

@@ -27,6 +27,7 @@ const zhCN = {
     generic: '操作失败，请稍后再试',
     network: '网络错误',
     server_unreachable: '无法连接到服务器',
+    server_unreachable_hint: '请确认网络连接与服务端可用，将自动重试，也可手动点击重试。',
     unknown: '未知错误',
   },
   common: {

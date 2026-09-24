@@ -22,6 +22,8 @@ const en: typeof zhCN = {
     generic: 'Something went wrong, please try again',
     network: 'Network error',
     server_unreachable: 'Cannot reach the server',
+    server_unreachable_hint:
+      'Check your network connection and server availability. Retries happen automatically; you can also retry manually.',
     unknown: 'Unknown error',
   },
   common: {

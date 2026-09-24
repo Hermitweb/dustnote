@@ -147,6 +147,9 @@ export const api = (): ApiClient => {
     deviceId: getDeviceId(),
     accessToken: _getAccessToken?.() ?? undefined,
     fetch: authFetch,
+    // 30s 超时（对齐 mobile，2026-09-24 审计）：浏览器 fetch 对 TCP 黑洞可挂
+    // 分钟级，无超时会让鉴权探测停在「加载中」迟迟不落地错误页
+    timeoutMs: 30_000,
   });
 };
 

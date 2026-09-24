@@ -123,6 +123,10 @@ interface AuthStoreState {
   masterKey: Uint8Array | null;
   /** 服务端下发的 pwSalt（base64），派生 KEK 用（联机模式） */
   pwSalt: string | null;
+  /** 联机 init() 探测 /auth/status 失败（网络/服务器不可达）。
+   *  true 时 index 页 unknown 分支显示「无法连接服务器」提示+重试按钮
+   *  （同步 mobile 2026-09-24 审计：此前失败后静默回到 unknown，UI 永显「加载中」） */
+  initFailed: boolean;
 
   // 单机模式相关
   /** 单机模式本地鉴权 blob（仅 standalone 模式有值） */
@@ -170,6 +174,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   userId: null,
   masterKey: null,
   pwSalt: null,
+  initFailed: false,
   localAuthBlob: null,
   lockoutState: { ...INITIAL_LOCKOUT_STATE },
   pendingMasterKey: null,
@@ -231,8 +236,9 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       const token = readPersistedToken();
       set({ authState: 'needs_unlock', accessToken: token });
     } catch {
-      // 服务端不可达：保持 unknown 让 UI 提示用户
-      set({ authState: 'unknown' });
+      // 服务端不可达：保持 unknown（页面有自动重查 effect）并置 initFailed，
+      // 让 UI 显示「无法连接服务器」提示+重试按钮，而不是无限「加载中」
+      set({ authState: 'unknown', initFailed: true });
     }
   },
 
