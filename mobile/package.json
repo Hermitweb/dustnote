@@ -7,7 +7,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "start": "react-native start",
-    "test": "echo '[skip] @dustnote/mobile has NO unit tests yet - audit TEST-004; add jest cases for api/store/crypto wrappers'",
+    "test": "vitest run",
     "lint": "eslint .",
     "build:android": "node scripts/build-android.js assembleRelease",
     "build:android-bundle": "node scripts/build-android.js bundleRelease",
@@ -61,7 +61,8 @@
     "jest": "^29.6.3",
     "prettier": "2.8.8",
     "react-test-renderer": "18.2.0",
-    "typescript": "5.0.4"
+    "typescript": "5.0.4",
+    "vitest": "^3.2.6"
   },
   "engines": {
     "node": ">=18"

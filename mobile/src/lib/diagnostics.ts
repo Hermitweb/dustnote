@@ -35,8 +35,23 @@ interface DiagEvent {
 }
 
 let installed = false;
-/** 内存镜像：异步写盘未完成时崩溃，至少同进程内计数不丢 */
-let memQueue: DiagEvent[] = [];
+
+/**
+ * 队列以 AsyncStorage 为唯一事实源（读-改-写）。
+ * 此前维护了一份 memQueue 镜像——它从不从存储水合，冷启动后第一次入队会
+ * 用「仅含新事件」的镜像覆写掉上一会话的回传积压（mobile vitest 首轮实锤）；
+ * 双份状态本身就是缺陷面，删除。
+ */
+async function loadQueue(): Promise<DiagEvent[]> {
+  try {
+    const raw = await AsyncStorage.getItem(QUEUE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as DiagEvent[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 function truncate(text: string, max: number): string {
   return text.replace(/https?:\/\/\S+/g, '[url]').slice(0, max);
@@ -64,12 +79,13 @@ export async function enqueueDiagEvent(
     stack: stack ? truncate(stack, 4000) : undefined,
     at: new Date().toISOString(),
   };
-  const idx = memQueue.findIndex((e) => e.kind === kind && e.message === norm);
-  if (idx >= 0) memQueue.splice(idx, 1);
-  memQueue.push(ev);
-  if (memQueue.length > MAX_QUEUE) memQueue = memQueue.slice(-MAX_QUEUE);
+  const queue = await loadQueue();
+  const idx = queue.findIndex((e) => e.kind === kind && e.message === norm);
+  if (idx >= 0) queue.splice(idx, 1);
+  queue.push(ev);
+  if (queue.length > MAX_QUEUE) queue.splice(0, queue.length - MAX_QUEUE);
   try {
-    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(memQueue));
+    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
   } catch {
     /* 存储写失败静默——诊断通道本身不得成为崩溃源 */
   }
@@ -126,10 +142,8 @@ export function flushDiagnostics(): Promise<void> {
       if (await isDisabled()) return;
       const { mode, serverUrl } = useModeStore.getState();
       if (mode !== 'online' || !serverUrl) return; // 单机模式无接收方
-      const raw = await AsyncStorage.getItem(QUEUE_KEY);
-      if (!raw) return;
-      const queue: DiagEvent[] = JSON.parse(raw);
-      if (!Array.isArray(queue) || queue.length === 0) return;
+      const queue = await loadQueue();
+      if (queue.length === 0) return;
       const batch = queue.slice(-20);
       const dev = deviceInfo();
       await api.post('/diagnostics/reports', {
@@ -144,7 +158,6 @@ export function flushDiagnostics(): Promise<void> {
         })),
       });
       const rest = queue.slice(0, -batch.length);
-      memQueue = rest;
       await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(rest));
     } catch (err) {
       // 上报失败不影响业务；保留队列下次重试（api 层错误无需分型）
