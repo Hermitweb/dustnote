@@ -198,8 +198,7 @@ dustnote/
 ├── miniprogram/      # 小程序 (Taro 3，多平台)
 ├── deploy/           # 部署配置 (nginx + supervisor)
 ├── Dockerfile        # 多阶段 Docker 构建
-├── docker-compose.yml
-└── .trae/documents/  # 本地 AI 工具产物（不随仓库发布）
+└── docker-compose.yml
 ```
 
 ## 功能
@@ -260,8 +259,7 @@ pnpm docker:up          # Docker 部署
 
 ## 文档
 
-> 产品/技术设计文档见下方 `docs/`。历史 `.trae/documents/` 为本地 AI 工具产物，
-> 已从仓库移除追踪、不随发布提供，故不再在此链接。
+> 产品/技术设计文档见下方 `docs/`。
 
 ### 用户与运维文档
 
@@ -276,6 +274,8 @@ pnpm docker:up          # Docker 部署
 - [隐私政策](./docs/privacy-policy.md)
 - [服务条款](./docs/terms-of-service.md)
 - [Cookie 政策](./docs/cookie-policy.md)
+- [发展路线图](./docs/roadmap.md)（季度更新，含现状体检与不做清单）
+- [UI 优化方案](./docs/ui-optimization.md)（设计系统地基 + 三阶段改造 + 可量化验收）
 
 ### 部署文档
 
