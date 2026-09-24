@@ -248,3 +248,52 @@ notes ──(1:N)── attachments(id, note_id, dek_wrapped_blob_meta, size, mi
 
 > 维护约定：每季度末对照本文档，把"已完成"删除、把"改变判断的新证据"追加到 §0.2，
 > 并在本文档顶部更新基线版本号。路线图失效比不精确更危险。
+
+---
+
+## 复测与进度（2026-09-25，同日）
+
+### §0.2-① 拓扑结论已被证伪（改变 R1 判断，必须纠正）
+
+§0.2-① 与 §1 P0-1 的前提"线上是 IP + 自签证书 + 明文 8080，文档全错"经本机
+当日复测不成立。当前真实拓扑（`curl` + `openssl s_client` 实测）：
+
+| 探测目标                                    | 结果                                                |
+| ------------------------------------------- | --------------------------------------------------- |
+| `http://154.217.234.125:8080/api/v1/health` | **HTTP 200**（8080 可达，非"不通"）                 |
+| `https://154.217.234.125/api/v1/health`     | HTTP 200                                            |
+| `https://napi.iniess.cn/api/v1/health`      | HTTP 200，证书 `issuer=C=US,O=Let's Encrypt,CN=YR2` |
+
+即 **`napi.iniess.cn` 已是 Let's Encrypt 受信证书 + HTTPS 可达**（`WEB_ORIGIN`
+早已切到该域名，见部署记忆）。§0.2-① 描述的"自签/不受信任"针对的是
+**裸 IP 的 443 默认 vhost**，与规范访问域名不是一回事。
+
+**对 R1 的影响**：R1「HTTPS 收口」不是从零建设，而是**收尾**——真证书已在
+`napi.iniess.cn`；待办收窄为「文档统一改用该域名、80/8080 明文入口重定向或
+关闭、评估 HSTS preload、ICP 备案」。P0-1 的"改文档地址"部分据此调整。
+（`80` 端口是否仍是个人主页 vhost 需业务确认后再决定重定向策略。）
+
+### 已完成项（本分支 fix/audit-2026-09-19 上）
+
+- **P0-4（部分）**：`OBS-R03` 诊断通道移动客户端已建 + 设置页开关**未做**；
+  采集扩到 web/desktop **未做**。mobile vitest 基建落地（`b00fe2a`），
+  顺带揪出两个生产 bug（401 静默刷新自 v2.5.18 起是死代码；诊断队列
+  memQueue 冷启动覆写丢积压）——**这把 §0.2-④ "三端零单测" 的 mobile 部分先补了**。
+- **P0-7（部分）**：`deploy/upgrade.sh` 的 `-f/-p` 锚定修复**已提交**（`91349ad`，
+  非仅工作区）；收尾回写实际可达地址**未做**。
+- **P0-6（大部分）**：7 个重复 APK issue（#2–#8）已关闭；13 处 `no-unused-vars`
+  warning 清零（FTextInput 迁移残留的 9 个 `TextInput` import + voice 死类型 +
+  KDF_PARAMS + app.test 的 beforeEach）；desktop 1 处 exhaustive-deps 已用带理由的
+  disable 注释收口。**未做**：miniprogram 的 `lint` 脚本补齐。
+- **CI 触发面**：`ci.yml` 的 `push.branches` 补 `fix/**`（此前 fix 分支上 CI 从不
+  运行，与 dev/\*\* 同源陷阱）。
+- README `.trae/documents/` 残留（§0.2 未列，属 P0-6"仓库卫生"同类）已删。
+
+### 仍待办（下一轮起点）
+
+1. P0-3 图片止血（**最大产品级数据风险**，优先级建议提至所有 R0 之首）
+2. P0-1 文档地址统一为 `napi.iniess.cn` + status 页与发版动作解耦
+3. P0-2 外部拨测 + Alertmanager 真接
+4. P0-6 余下：miniprogram lint 脚本
+5. P0-4 余下：设置页开关 + 采集扩到 web/desktop
+6. R1 供应链/签名/备案（多为外部资源，需你准备证书、账号、备案）
