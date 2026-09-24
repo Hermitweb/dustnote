@@ -580,4 +580,31 @@ export const migrations: Migration[] = [
       db.prepare(`UPDATE meta SET value = '20' WHERE key = 'schema_version'`).run();
     },
   },
+  {
+    id: 21,
+    name: 'diagnostics',
+    up: (db) => {
+      // OBS-R03：移动端崩溃/错误上报接收表（隐私模型见 routes/diagnostics.ts 头注释）。
+      // created_at 显式 ISO 格式（strftime T..Z），不依赖 datetime('now') 空格格式
+      // （服务端时间戳双格式教训 2026-09-07）。逐条 prepare().run()——exec 多语句
+      // 静态 SQL 会被 Mimosa 误判命令注入，prepare 单语句可过（2026-09-07 同款经验）。
+      db.prepare(
+        `CREATE TABLE IF NOT EXISTS diagnostics (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          kind           TEXT NOT NULL,
+          message        TEXT NOT NULL,
+          stack          TEXT,
+          platform       TEXT NOT NULL,
+          client_version TEXT NOT NULL,
+          device_model   TEXT,
+          os_version     TEXT,
+          created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        )`
+      ).run();
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_diagnostics_created ON diagnostics(created_at)`
+      ).run();
+      db.prepare(`UPDATE meta SET value = '21' WHERE key = 'schema_version'`).run();
+    },
+  },
 ];

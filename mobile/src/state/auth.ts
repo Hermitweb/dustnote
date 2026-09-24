@@ -65,6 +65,7 @@ import {
 import i18n from '../lib/i18n';
 import { errorText } from '../lib/error-text';
 import { useModeStore } from '../lib/mode-store';
+import { recordNetworkSignal } from '../lib/diagnostics';
 import {
   loadLocalAuthBlob,
   saveLocalAuthBlob,
@@ -260,6 +261,10 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       // 把用户放行到解锁页，此刻把正在输密码的界面整页拽走比不切更糟——
       // 解锁提交失败自有「无法连接到服务器」弹窗兜底（真机审计 2026-09-24）
       console.warn('[auth] /auth/status failed', e);
+      // OBS-R03：网络失败采样进诊断队列（弱网/宕机/证书问题的自动信号源）
+      recordNetworkSignal(
+        `/auth/status failed: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`
+      );
       if (get().authState === 'unknown') {
         set({ initFailed: true });
       }

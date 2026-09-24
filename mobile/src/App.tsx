@@ -43,6 +43,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ConflictDialog } from './components/ConflictDialog';
 import { useIsDark, useColors } from './theme';
 import { checkUpdateOnce } from './lib/use-update-check';
+import { installGlobalErrorHandler, flushDiagnostics } from './lib/diagnostics';
 
 // ── 加密引擎接入（v2.5.21 起多次迭代）──────────────────────────────
 // react-native-quick-crypto 此前仅在 package.json 中声明，JS 侧从未调用
@@ -109,21 +110,9 @@ import { checkUpdateOnce } from './lib/use-update-check';
 }
 
 // 全局 JS 错误兜底：ErrorBoundary 只覆盖渲染错误，不覆盖异步回调错误。
-// 生产环境记录告警日志（内容经 console 过滤，不打印敏感数据），避免崩溃静默。
-const ErrorUtilsApi = (
-  global as {
-    ErrorUtils?: { setGlobalHandler: (h: (e: unknown, isFatal: boolean) => void) => void };
-  }
-).ErrorUtils;
-if (ErrorUtilsApi) {
-  ErrorUtilsApi.setGlobalHandler((err, isFatal) => {
-    console.warn(
-      '[DustNote] uncaught error:',
-      isFatal,
-      err instanceof Error ? err.message : String(err)
-    );
-  });
-}
+// v2.5.44 起接入诊断队列（OBS-R03）：入本地队列（去重+截断），联机模式回传
+// 自建服务器 /diagnostics/reports——接收端是用户本人的服务器，不接第三方。
+installGlobalErrorHandler();
 
 export type RootStackParamList = {
   ModeSelect: undefined;
@@ -192,6 +181,18 @@ function AppInner() {
     void applyScreenshotSetting();
   }, []);
 
+  // 回前台时补投诊断队列（OBS-R03）：崩溃常发生在上一会话退出时，
+  // 本次启动/回前台再尝试回传。flushDiagnostics 内部单飞 + 全 catch，
+  // 失败静默保留到下次。
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        void flushDiagnostics();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       // Android 通常直接 inactive -> background；仅 'background' 表示完全退到后台
@@ -214,6 +215,8 @@ function AppInner() {
           useAuthStore.setState({ authState: 'needs_unlock' });
         }
       }, 5000);
+      // 启动后回传上次会话积压的诊断（若有）；与 init 并行，互不阻塞
+      void flushDiagnostics();
       void init().finally(() => {
         cancelled = true;
         clearTimeout(timeout);

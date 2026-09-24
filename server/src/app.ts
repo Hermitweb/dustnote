@@ -27,6 +27,7 @@ import { templatesRouter } from './routes/templates.js';
 import { devicesRouter } from './routes/devices.js';
 import { accountRouter } from './routes/account.js';
 import { serverConfigRouter } from './routes/server-config.js';
+import { diagnosticsIngestRouter, diagnosticsViewRouter } from './routes/diagnostics.js';
 
 /**
  * 脱敏 URL 中的敏感查询参数。
@@ -210,6 +211,20 @@ export function createApp(): Application {
   );
   app.use('/api/v1', serverConfigRouter);
 
+  // 诊断上报接收（OBS-R03，见 routes/diagnostics.ts）：崩溃多发生在鉴权链路,
+  // 接收端必须匿名可达;单独限流 10/min/IP 防滥用。查看/清空在鉴权后注册。
+  app.use(
+    '/api/v1/diagnostics',
+    rateLimit({
+      windowMs: 60_000,
+      limit: 10,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      message: { error: 'too_many_requests', message: '上报过于频繁，请稍后再试' },
+    })
+  );
+  app.use('/api/v1', diagnosticsIngestRouter);
+
   // 鉴权中间件
   app.use('/api/v1', authMiddleware);
 
@@ -314,6 +329,9 @@ export function createApp(): Application {
     })
   );
   app.use('/api/v1', accountRouter);
+
+  // 诊断上报查看/清空（OBS-R03）：仅所有者（鉴权后）可见，接收端见上方匿名注册
+  app.use('/api/v1', diagnosticsViewRouter);
 
   // 404
   app.use((_req, res) => {
