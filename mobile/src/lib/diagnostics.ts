@@ -65,6 +65,24 @@ async function isDisabled(): Promise<boolean> {
   }
 }
 
+/** 设置页读取当前诊断开关（true=上报开启） */
+export async function getDiagnosticsEnabled(): Promise<boolean> {
+  return !(await isDisabled());
+}
+
+/**
+ * 设置页切换诊断上报。关闭时一并清空已积压队列（用户行使"不把错误发出去"
+ * 的权利要立即生效，含之前攒的）。
+ */
+export async function setDiagnosticsEnabled(enabled: boolean): Promise<void> {
+  try {
+    await AsyncStorage.setItem(DISABLED_KEY, enabled ? '0' : '1');
+    if (!enabled) await AsyncStorage.removeItem(QUEUE_KEY);
+  } catch {
+    /* 写失败静默 */
+  }
+}
+
 /** 入队（去重：同 kind+message 合并计数式刷新——保留最新 stack 与时间） */
 export async function enqueueDiagEvent(
   kind: DiagKind,

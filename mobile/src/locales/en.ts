@@ -290,6 +290,9 @@ const en = {
   },
   settings: {
     allow_screenshot: 'Allow screenshots (off = black screenshots)',
+    diagnostics_toggle: 'Error diagnostics',
+    diagnostics_toggle_detail:
+      'On errors, send a summary only to your own server (no note content/passwords; server truncates and strips URLs). Turning off clears the pending queue.',
     appearance: 'Appearance',
     theme_light: '☀️ Light',
     theme_dark: '🌙 Dark',

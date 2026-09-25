@@ -34,6 +34,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { getScreenshotAllowed, setScreenshotAllowed } from '../lib/screenshot';
+import { getDiagnosticsEnabled, setDiagnosticsEnabled } from '../lib/diagnostics';
 import { useLanguageStore, type AppLanguage } from '../lib/i18n';
 import { errorText } from '../lib/error-text';
 import { createRepository } from '../lib/repository';
@@ -101,6 +102,8 @@ export function SettingsScreen() {
 
   // 模式切换 Modal
   const [allowScreenshot, setAllowScreenshot] = useState(false);
+  // 诊断上报开关（P0-4）：默认开；仅联机模式有接收方，单机隐藏整行
+  const [diagEnabled, setDiagEnabled] = useState(true);
   const [showSwitchMode, setShowSwitchMode] = useState(false);
   const [switchTarget, setSwitchTarget] = useState<AppMode | null>(null);
   const [switchServerUrl, setSwitchServerUrl] = useState('');
@@ -775,6 +778,13 @@ export function SettingsScreen() {
       .catch(() => {});
   }, []);
 
+  // 诊断上报开关（P0-4）:读持久化值
+  useEffect(() => {
+    getDiagnosticsEnabled()
+      .then(setDiagEnabled)
+      .catch(() => {});
+  }, []);
+
   const onSetup2fa = async () => {
     setTotpBusy(true);
     try {
@@ -1006,6 +1016,22 @@ export function SettingsScreen() {
               }}
             />
           </View>
+        )}
+        {/* 诊断上报（P0-4）：错误只会发往用户自己的服务器；单机模式无接收方 */}
+        {appMode === 'online' && (
+          <>
+            <View style={styles.switchRow}>
+              <Text style={styles.rowLabel}>{t('settings.diagnostics_toggle')}</Text>
+              <Switch
+                value={diagEnabled}
+                onValueChange={(v: boolean) => {
+                  setDiagEnabled(v);
+                  void setDiagnosticsEnabled(v);
+                }}
+              />
+            </View>
+            <Text style={styles.modeHint}>{t('settings.diagnostics_toggle_detail')}</Text>
+          </>
         )}
       </Section>
 

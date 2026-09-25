@@ -15,6 +15,11 @@ import { getDeviceId } from '../lib/device';
 import { useModeStore } from '../lib/mode-store';
 import type { AppMode } from '@dustnote/shared';
 import { authedFetch } from '../lib/store-helpers';
+import {
+  getDiagnosticsEnabled,
+  setDiagnosticsEnabled,
+  flushErrorReports,
+} from '../lib/error-reporter';
 
 /** 构造绝对 API 基址（Tauri 桌面端必须用绝对地址，详见 SharesManager 注释） */
 function settingsApiBase(): string {
@@ -130,6 +135,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   // 服务器地址配置
   const [apiBase, setApiBase] = useState(getConfig().apiBase);
   const [apiSaved, setApiSaved] = useState(false);
+  // 诊断上报开关（P0-4）；重新开启时顺带补投积压
+  const [diagEnabled, setDiagEnabled] = useState(() => getDiagnosticsEnabled());
   useEffect(() => {
     void loadConfig().then((c) => {
       // 已联机时回填当前实际连接的服务器地址：优先模式存储里记录的地址，
@@ -881,6 +888,41 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                         : t('settings.autostart_off')}
                   </span>
                 </button>
+              </div>
+            )}
+
+            {/* 错误诊断上报（P0-4）：仅联机模式有接收方（用户自建服务器）。
+                与 mobile 共享 localStorage 开关语义；关闭即清空积压队列 */}
+            {appMode === 'online' && (
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-surface-muted">
+                  {t('settings.privacy')}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !diagEnabled;
+                    setDiagnosticsEnabled(next);
+                    setDiagEnabled(next);
+                    if (next) void flushErrorReports();
+                  }}
+                  className={`flex w-full items-center justify-between rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
+                    diagEnabled
+                      ? 'border-mint-500 bg-mint-50 text-surface-fg dark:bg-mint-900/30'
+                      : 'border-surface-border text-surface-fg hover:bg-surface-bg'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span>🩺</span>
+                    <span>{t('settings.diagnostics_toggle')}</span>
+                  </span>
+                  <span
+                    className={`text-xs font-semibold ${diagEnabled ? 'text-mint-700' : 'text-surface-muted'}`}
+                  >
+                    {diagEnabled ? t('settings.diagnostics_on') : t('settings.diagnostics_off')}
+                  </span>
+                </button>
+                <p className="mt-1 text-xs text-surface-muted">{t('settings.diagnostics_hint')}</p>
               </div>
             )}
 

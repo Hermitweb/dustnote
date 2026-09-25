@@ -290,6 +290,9 @@ const zhCN = {
   },
   settings: {
     allow_screenshot: '允许截屏(关闭时截图黑屏,防泄露)',
+    diagnostics_toggle: '错误诊断上报',
+    diagnostics_toggle_detail:
+      '应用出错时仅向你的自建服务器发送错误摘要（不含笔记内容/密码，接收端会截断并剥离 URL）。关闭将清空待发送队列。',
     appearance: '外观',
     theme_light: '☀️ 浅色',
     theme_dark: '🌙 深色',
