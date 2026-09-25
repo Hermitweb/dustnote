@@ -15,7 +15,7 @@ DustNote v2.0.0 引入**单机/联机双模式架构**。两种模式对各端�
 | 在线分享              | **不支持**（仅文件导出）                                                      | 支持                                 |
 | 服务端依赖            | **无**                                                                        | 必需                                 |
 
-详见 [standalone-mode.md](../.trae/documents/standalone-mode.md)。
+双模式设计见 README 的「双模式架构」章节。
 
 ## 1. 浏览器
 

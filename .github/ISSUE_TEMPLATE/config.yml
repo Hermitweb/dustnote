@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 邮件支持
-    url: mailto:hello@dustnote.app
-    about: 一般性问题与反馈
   - name: 安全披露
-    url: mailto:security@dustnote.app
-    about: 私下报告安全漏洞（请勿在公开 Issue 提及）
+    url: https://github.com/Hermitweb/dustnote/security/advisories/new
+    about: 通过 GitHub Private Vulnerability Reporting 私下报告漏洞（勿在公开 Issue 提及，见 SECURITY.md）
+  - name: 问题反馈
+    url: https://github.com/Hermitweb/dustnote/issues/new/choose
+    about: 功能建议与缺陷报告（请先搜索是否已有同类 Issue）
   - name: 文档
-    url: https://github.com/Hermitweb/dustnote/blob/main/.trae/documents/
-    about: 阅读产品文档、用户手册、技术规范
+    url: https://github.com/Hermitweb/dustnote/tree/main/docs
+    about: 用户手册、自托管指南、安全模型与技术规范

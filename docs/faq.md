@@ -19,7 +19,7 @@
 - **单机模式**：数据仅存在你的本设备（IndexedDB / AsyncStorage / Taro.setStorage），**永不离开设备**
 - **联机模式**：数据加密后同步到服务器（自托管或公共服务器），服务端只存密文
 
-你也可以随时[自托管](./self-hosting.md)到自己服务器。详见 [单机模式说明](../.trae/documents/standalone-mode.md)。
+你也可以随时[自托管](./self-hosting.md)到自己服务器。双模式的详细说明见 README 的「双模式架构」章节。
 
 ### 端到端加密是什么意思？
 
@@ -157,7 +157,7 @@ DustNote v2.0.0 引入双模式架构，让客户端在**完全没有服务器**
 - **单机模式（standalone）**：所有数据存储在本地，主密码本地校验，零服务器依赖，开箱即用
 - **联机模式（online）**：连接 DustNote 服务器，解锁跨设备同步、在线分享、设备管理等高级能力
 
-首次启动会让你选择模式。详见 [单机模式说明](../.trae/documents/standalone-mode.md)。
+首次启动会让你选择模式。双模式的详细说明见 README 的「双模式架构」章节。
 
 ### 单机模式和联机模式有什么区别？
 
@@ -252,4 +252,4 @@ DustNote v2.0.0 引入双模式架构，让客户端在**完全没有服务器**
 - 请求服务器 `/api/v1/update-manifest` 获取最新版本与 SHA-256
 - 从自托管服务器 `/downloads/` 下载安装包，校验一致后启动安装向导
 
-联机模式的服务器版本另见服务器 `/api/v1/health` 的 `version` 字段。详见 [更新策略](../.trae/documents/update-strategy.md)。
+联机模式的服务器版本另见服务器 `/api/v1/health` 的 `version` 字段。更新策略详见 docs/operations-runbook.md。

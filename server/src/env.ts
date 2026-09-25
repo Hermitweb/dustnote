@@ -46,6 +46,13 @@ export const config = {
   serverVersion: getEnv('SERVER_VERSION', '2.5.44'),
   minClientVersion: getEnv('MIN_CLIENT_VERSION', '2.0.2'),
   recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.5.44'),
+  /**
+   * 强制升级响应里的下载地址（LIFE-008/009，2026-09-25）。
+   * 此前两处硬编码 https://dustnote.app/download——那是无真实服务的占位域名
+   * （审计早期已定性），自托管部署指向它等于把用户送去 404。
+   * 留空回退 WEB_ORIGIN（更新分发自托管在同源的 /downloads/ 下）。
+   */
+  downloadPageUrl: getEnvOpt('DOWNLOAD_PAGE_URL') ?? null,
   forceUpdateVersion: getEnvOpt('FORCE_UPDATE_VERSION') ?? null,
   eolDateForV0: getEnvOpt('EOL_DATE_FOR_V0'),
   jwtSecret: getEnv('JWT_SECRET', DEFAULT_JWT_SECRET),
