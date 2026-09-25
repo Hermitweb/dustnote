@@ -19,12 +19,13 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ['host.docker.internal:8080']
-    # METRICS_TOKEN 必填（compose env 注入；与主栈 .env 的值保持一致）。
-    # 注意不能留空——Prometheus 对空 credentials 直接拒绝加载配置，
-    # 因此启用监控栈要求主栈先开启 METRICS_ENABLED+METRICS_TOKEN。
+    # token 走 credentials_file（2026-09-25 部署实锤：${METRICS_TOKEN} env 展开
+    # 在此挂载链路上发出空 credentials → node 层 401，而容器 env 里 token 完好）。
+    # credentials_file 不做 env 展开、配置里不落明文，由 compose 只读挂载
+    # /opt/metrics-token.txt（纯 token 单行，600 权限，主栈 METRICS_TOKEN 同值）
     authorization:
       type: Bearer
-      credentials: ${METRICS_TOKEN}
+      credentials_file: /run/dustnote/metrics-token
 
   - job_name: prometheus
     static_configs:

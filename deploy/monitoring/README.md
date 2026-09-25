@@ -13,12 +13,20 @@ Prometheus + Alertmanager + ntfy 桥，对 DustNote 主栈做指标告警。与�
    METRICS_TOKEN=<随机串>
    ```
 
-2. 启动监控栈：
+2. 生成抓取凭据文件（与主栈 token 同值的纯文本单行，600 权限）：
+
+   ```bash
+   grep ^METRICS_TOKEN .env | cut -d= -f2 > /opt/metrics-token.txt
+   chmod 600 /opt/metrics-token.txt
+   chown 65534:65534 /opt/metrics-token.txt  # prometheus 容器以 nobody 运行，
+                                             # 属主不对会 unable to read credentials file
+   ```
+
+3. 启动监控栈：
 
    ```bash
    cd deploy/monitoring
-   cp .env.monitoring.example .env.monitoring
-   # 编辑：NTFY_TOPIC=openssl rand -hex 12 生成的随机串；METRICS_TOKEN 与主栈一致
+   cp .env.monitoring.example .env.monitoring   # 只需 NTFY_TOPIC（openssl rand -hex 12）
    docker compose -f compose.monitoring.yml --env-file .env.monitoring up -d
    ```
 

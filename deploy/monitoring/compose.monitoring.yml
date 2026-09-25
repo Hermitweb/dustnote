@@ -18,17 +18,19 @@ services:
   prometheus:
     image: prom/prometheus:v2.55.1
     restart: unless-stopped
-    environment:
-      # 与主栈 .env 的 METRICS_TOKEN 一致（必填原因见 prometheus.yml 注释）
-      - METRICS_TOKEN=${METRICS_TOKEN:?请设置与主栈一致的 METRICS_TOKEN}
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=30d
-      - --web.enable_lifecycle=false
+      # （remote write API 默认关闭 = lifecycle 管理默认不可用，无需显式 flag；
+      #  曾写 --web.enable_lifecycle=false 因下划线拼错导致 v2.55 启动循环，
+      # 2026-09-25 部署实锤）
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ../prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      # 抓取主栈 /metrics 的 Bearer token（纯文本单行）。env 展开方案实测不可靠，
+      # 见 prometheus.yml 注释；生成：grep ^METRICS_TOKEN 主栈 .env | cut -d= -f2 > /opt/metrics-token.txt
+      - ${METRICS_TOKEN_FILE:-/opt/metrics-token.txt}:/run/dustnote/metrics-token:ro
       - prom-data:/prometheus
     extra_hosts:
       # 抓宿主上主容器的 /metrics（主栈发布在 ${PORT:-8080}）
