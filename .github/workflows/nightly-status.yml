@@ -1,0 +1,65 @@
+# 外部拨测（roadmap P0-1/P0-2）：从 GitHub 网络位置探测自托管实例。
+# 与服务器本机监控互补——它看不见"整机宕机/ISP 断流"，GitHub 跑在外部网络，
+# 挂了这个就是用户视角的"你的服务器没了"。失败自动开 issue（去重），
+# 恢复自动关闭；issue + Actions 红邮件双通道即"零订阅告警"。
+
+name: Status Probe
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+
+jobs:
+  probe:
+    name: Probe instance health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e1148743cd2429552c65b9afb2257b8cd2ca0a # v4, pinned 2026-09-25
+      - uses: pnpm/action-setup@204124f5c4f0e1261a7e1051a1a461616a23309c # v4
+        with:
+          version: 9
+      - uses: actions/setup-node@2028fbcdd3ab9697c9c37d552483f52fdf96ff78 # v4
+        with:
+          node-version: 22
+      - name: Run status probe
+        run: node scripts/status-probe.mjs > probe.json
+        continue-on-error: true
+      - name: Evaluate
+        run: |
+          cat probe.json
+          node -e "
+          const r = JSON.parse(require('fs').readFileSync('probe.json','utf8'));
+          if (!r.ok) { console.error('::error::status probe failed: ' + r.results.filter(x=>!x.ok).map(x=>x.name+'('+x.note+')').join(', ')); process.exit(1); }
+          "
+      - name: Open issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node -e "
+          const r = JSON.parse(require('fs').readFileSync('probe.json','utf8'));
+          const bad = r.results.filter(x => !x.ok);
+          const body = '拨测：' + r.url + '（期望版本 v' + r.expected + '）\n\n'
+            + bad.map(x => '- **' + x.name + '**: ' + (x.note ?? 'HTTP ' + x.status)).join('\n')
+            + '\n\nrun: ' + process.env.GITHUB_SERVER_URL + '/' + process.env.GITHUB_REPOSITORY + '/actions/runs/' + process.env.GITHUB_RUN_ID + '\n';
+          require('fs').writeFileSync('issue-body.md', body);
+          "
+          EXISTING=$(gh issue list --state open --search "[status-probe] in:title" --json number --jq '.[0].number' || true)
+          if [ -z "${EXISTING}" ]; then
+            gh issue create --title "[status-probe] 外部拨测失败 $(date -u +%m-%d\ %H:%M)Z" --body-file issue-body.md
+          else
+            gh issue comment "${EXISTING}" --body-file issue-body.md || true
+          fi
+      - name: Close issue on recovery
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for n in $(gh issue list --state open --search "[status-probe] in:title" --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "拨测已恢复绿：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          done

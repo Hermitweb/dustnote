@@ -10,15 +10,15 @@
 
 单节点部署（宝塔面板 + Docker Compose），Web / API / 下载分发同源：
 
-| 组件                  | 状态    | 地址                                                 |
-| --------------------- | ------- | ---------------------------------------------------- |
-| Web 端（含 PWA）      | 🟢 正常 | `http://154.217.234.125:8080/`                       |
-| 指标（/metrics）      | 🟡 可选 | 默认关闭，`METRICS_ENABLED=true` 开启后供监控抓取    |
-| API                   | 🟢 正常 | `http://154.217.234.125:8080/api/v1/health`          |
-| 同步（WebSocket）     | 🟢 正常 | 同源 `/sync/ws`（联机模式）                          |
-| 分享服务              | 🟢 正常 | `http://154.217.234.125:8080/s/<token>`              |
-| 更新分发（桌面/安卓） | 🟢 正常 | `http://154.217.234.125:8080/downloads/`             |
-| 更新清单              | 🟢 正常 | `http://154.217.234.125:8080/api/v1/update-manifest` |
+| 组件                  | 状态    | 地址                                              |
+| --------------------- | ------- | ------------------------------------------------- |
+| Web 端（含 PWA）      | 🟢 正常 | `https://napi.iniess.cn/`                         |
+| 指标（/metrics）      | 🟡 可选 | 默认关闭，`METRICS_ENABLED=true` 开启后供监控抓取 |
+| API                   | 🟢 正常 | `https://napi.iniess.cn/api/v1/health`            |
+| 同步（WebSocket）     | 🟢 正常 | 同源 `/sync/ws`（联机模式）                       |
+| 分享服务              | 🟢 正常 | `https://napi.iniess.cn/s/<token>`                |
+| 更新分发（桌面/安卓） | 🟢 正常 | `https://napi.iniess.cn/downloads/`               |
+| 更新清单              | 🟢 正常 | `https://napi.iniess.cn/api/v1/update-manifest`   |
 
 - 健康检查：Docker healthcheck 每 30 秒探活（`/api/v1/health`）
 - 数据备份：服务端每日自动备份 SQLite（better-sqlite3 backup API，滚动保留）

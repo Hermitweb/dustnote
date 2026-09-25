@@ -119,3 +119,4 @@ screenshots/
 shoot.mjs
 .debug/
 .release/
+.env.monitoring
