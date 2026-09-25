@@ -2,6 +2,35 @@
 
 本项目所有显著变更记录于此。格式基于 [Keep a Changelog](https://keepachangelog.com/)，版本遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.5.45] - 2026-09-25
+
+### 新增
+
+- **Web / 桌面端错误自动上报**：与安卓同契约（错误摘要回你自己的服务器，
+  脱敏+截断，绝不含笔记内容），错误不再只有插线才能发现；设置页新增
+  「错误诊断上报」开关（三端），关闭即清空待发送队列
+- **外部拨测告警链路**：服务器侧 Prometheus + Alertmanager + ntfy 推送
+  （`deploy/monitoring/`，含宕机/5xx/备份停摆/锁定激增规则与端到端演练
+  脚本）；GitHub Actions 每 6 小时从外部网络拨测，失败自动开 issue、
+  恢复自动关闭
+- **状态页改由拨测驱动**：`docs/status.md` 的绿/红来自真实探测结果
+  （`node scripts/status-probe.mjs`），不再由发版动作刷绿
+
+### 修复与合规
+
+- 图片止血：联机插入图片时明确提示「暂不跨设备」；导出（MD/HTML/PDF/JSON）
+  与全量备份先还原图片本体；缺图在三端统一显示「未同步」占位而非破图；
+  修复非 PNG 图片导出后 MIME 损坏
+- 强制升级响应不再指向无服务的占位域名（`DOWNLOAD_PAGE_URL`/WEB_ORIGIN 可配）；
+  beta 灰度默认关闭且未配置时一律回退 stable
+- 小程序批量操作如实报告失败条数；死状态接线防重入；文档 5 处失效链接、
+  GitHub issue 模板假邮箱清零；14 个 lint 警告清零，miniprogram 补 lint 脚本
+
+### 内部
+
+- `scripts/bump-version.mjs` 三次实战迭代（基线行归一、历史叙事白名单、
+  数组真值 bug 修复）；CI 触发面补 `fix/**`
+
 ## [2.5.44] - 2026-09-25
 
 ### 新增（安卓）

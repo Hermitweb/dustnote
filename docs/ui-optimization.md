@@ -1,6 +1,6 @@
 # DustNote UI 优化方案（2026-09-25）
 
-> 基线：`v2.5.44`。证据来源：`screenshots/` 实测截图逐张核对 + `web/src/index.css` / `web/src/lib/theme.ts` /
+> 基线：`v2.5.45`。证据来源：`screenshots/` 实测截图逐张核对 + `web/src/index.css` / `web/src/lib/theme.ts` /
 > `web/tailwind.config.js` 的 token 层扫描 + 全仓图标用字统计。
 > 结论先行：**问题不在审美，在地基。** 图标靠 emoji、颜色靠 7 个变量、层级靠一层渐变 ——
 > 这种结构下任何局部美化都会在下一处露馅，这正是"改了很多版还是不满意"的机制原因。

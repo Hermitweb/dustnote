@@ -140,14 +140,27 @@ snew = snew.replace(/最近人工核对：\d{4}-\d{2}-\d{2}/, `最近人工核�
 if (snew !== ssrc && !dryRun) writeFileSync(statusAbs, snew);
 if (snew !== ssrc) touched.push('docs/status.md（当前版本/渠道表/核对日期）');
 
+// ── roadmap/ui 文档的「基线：vX」行归一（发版即刷新基线；两文档历史段
+//   含旧版本号属正常叙事，进 RESIDUAL_ALLOW 文件级豁免）──
+for (const rel of ['docs/roadmap.md', 'docs/ui-optimization.md']) {
+  const abs = join(ROOT, rel);
+  const src = readFileSync(abs, 'utf8');
+  const out = src.replace(/基线：`?v?\d+\.\d+\.\d+`?/g, `基线：\`v${NEW}\``);
+  if (out !== src) {
+    if (!dryRun) writeFileSync(abs, out);
+    touched.push(`${rel}（基线行）`);
+  }
+}
+
 console.log(`\n已替换 ${changed} 个文件（versionCode 所在文件单独处理）:`);
 for (const t of touched) console.log(`  ${t}`);
 
 // ── 自检：全仓不得再有旧版本号（CHANGELOG 历史条目除外）────────────
-// RESIDUAL_ALLOW：以**散文/自测身份**合法引用任意历史版本号的文件——
-// 本脚本自己的事故复盘注释属于此类（改写会让历史叙述变成说谎）。
+// RESIDUAL_ALLOW：以**散文/历史叙事身份**合法引用任意旧版本号的文件——
+// bump-version 自身的复盘注释、roadmap/ui 的复测记录段都属于此类
+// （改写会让历史叙述变成说谎；v2.5.45 bump 实战首撞沉淀）。
 // 其余文件（测试等）不得进清单：需要固定版本时用语义明确的假版本号。
-const RESIDUAL_ALLOW = ['scripts/bump-version.mjs'];
+const RESIDUAL_ALLOW = ['scripts/bump-version.mjs', 'docs/roadmap.md', 'docs/ui-optimization.md'];
 if (!dryRun) {
   const grep = execSync(
     `git grep -l "${OLD}" -- . ":(exclude)CHANGELOG.md" ":(exclude)*.lock" || true`,
@@ -157,7 +170,9 @@ if (!dryRun) {
     .split('\n')
     .filter(Boolean)
     .filter((f) => !RESIDUAL_ALLOW.includes(f));
-  if (grep) {
+  // 注意：filter 后是数组——`if ([])` 恒真，必须显式判长度
+  // （v2.5.45 bump 实战暴露：零残留也报 FAIL）
+  if (grep.length > 0) {
     console.error(
       `\n[FAIL] 以下文件仍残留 ${OLD}（清单外出现位置，需人工确认后补进清单或改写）:\n${grep}`
     );

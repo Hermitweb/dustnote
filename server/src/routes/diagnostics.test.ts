@@ -15,7 +15,7 @@ const TEST_DB = './data/diagnostics-test.db';
 
 // 固定假版本：满足 version-check 的 semver 合法性与 ≥MIN_CLIENT_VERSION 即可。
 // 不得引用当前发版号——否则每次 bump 触发 scripts/bump-version.mjs 全仓
-// 残留自检误报（2.5.44 实战首撞即中，顺带证明自检有效）。
+// 残留自检误报（2026-09-25 深夜发版实战首撞即中，顺带证明自检有效）。
 const FAKE_VERSION = '2.99.0';
 
 const CLIENT_HEADERS = {

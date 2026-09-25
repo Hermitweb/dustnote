@@ -3,7 +3,7 @@
 # DustNote 服务器版本升级（自托管单节点，Debian + Docker Compose）
 #
 # 用法（在服务器 root 下执行，或经宝塔面板下发）：
-#   bash upgrade.sh <新版本号>            # 例: bash upgrade.sh 2.5.44
+#   bash upgrade.sh <新版本号>            # 版本号见 GitHub Release tags
 #   SKIP_DOWNLOADS=1 bash upgrade.sh ...  # 跳过 downloads 三件套同步
 #
 # 设计目标=把发版实录中踩过的坑全部程序化规避：
@@ -21,7 +21,7 @@
 # 事后仍需人工:GitHub 上确认 CI 产物存在（脚本按 release 资产直链拉取）。
 set -euo pipefail
 
-TARGET="${1:?用法: bash upgrade.sh <新版本号>，如 2.5.44}"
+TARGET="${1:?用法: bash upgrade.sh <新版本号>（如 GitHub Release 的 tag 版本号）}"
 [[ "$TARGET" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "[FAIL] 版本号格式非法: $TARGET"; exit 1; }
 
 REPO="Hermitweb/dustnote"
@@ -80,7 +80,7 @@ NEW_PROJECT=$(basename "$NEW_DIR" | tr -d '.@')
 docker compose -f "${NEW_DIR}/docker-compose.yml" -p "$NEW_PROJECT" build
 
 # ── 4. 停机切换：down 旧（正确目录!）→ create 新 → 迁卷 → up ────────
-# 所有 compose 调用一律显式 -f + -p：**v2.5.44 实战首撞**——down 后 cwd 停在
+# 所有 compose 调用一律显式 -f + -p：**2026-09-25 深夜实战首撞**——down 后 cwd 停在
 # 旧目录,裸的 create 在旧项目上重建了旧容器（镜像已换新版,容器名/卷名/项目
 # 名全是旧的,健康断言才暴露）。cwd 依赖就是事故源,全部锚定。
 log "停止旧版本（优雅停,WAL checkpoint）..."

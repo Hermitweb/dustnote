@@ -1,6 +1,6 @@
 # DustNote 发展路线图（2026-09-25 起）
 
-> 基线：`v2.5.44` / commit `5b9618b` / 分支 `fix/audit-2026-09-19`
+> 基线：`v2.5.45` / commit `5b9618b` / 分支 `fix/audit-2026-09-19`
 > 依据：本机全量验证（typecheck / lint / test / format / 一致性脚本）、线上外网探测、
 > 两轮审计台账（`audit-fixes-2026-09-19.md`、`audit-fixes-2026-09-21.md`）、CHANGELOG 与 docs/ 现状。
 > 本文取代已下架的 `.trae/documents/roadmap.md`（M0–M8 里程碑全部已完成 ✅）。

@@ -110,7 +110,7 @@ import { installGlobalErrorHandler, flushDiagnostics } from './lib/diagnostics';
 }
 
 // 全局 JS 错误兜底：ErrorBoundary 只覆盖渲染错误，不覆盖异步回调错误。
-// v2.5.44 起接入诊断队列（OBS-R03）：入本地队列（去重+截断），联机模式回传
+// 2026-09-25 起接入诊断队列（OBS-R03）：入本地队列（去重+截断），联机模式回传
 // 自建服务器 /diagnostics/reports——接收端是用户本人的服务器，不接第三方。
 installGlobalErrorHandler();
 

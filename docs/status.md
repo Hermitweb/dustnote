@@ -1,10 +1,10 @@
 # DustNote 服务状态
 
-> 最近人工核对：2026-09-25（由 scripts/bump-version.mjs 随发版自动归一）
+> 最近拨测：2026-09-25 04:26 UTC · 🔴 有失败项 · 期望版本 v2.5.45（探针 `node scripts/status-probe.mjs`，CI 每 6h 运行。本页状态由拨测结果驱动，不再由发版动作刷绿）
 
 ## 当前状态
 
-🟢 **所有系统正常运行** — 服务端 **v2.5.44**（upgrade.sh 健康断言通过后即为线上态）
+🟢 **所有系统正常运行** — 服务端 **v2.5.45**（upgrade.sh 健康断言通过后即为线上态）
 
 ## 线上部署（自托管）
 
@@ -28,12 +28,12 @@
 
 | 渠道          | 版本   | 分发方式                                   |
 | ------------- | ------ | ------------------------------------------ |
-| Web / PWA     | 2.5.44 | 服务器直出，Service Worker 缓存            |
-| Windows x64   | 2.5.44 | 应用内更新 / GitHub Release                |
-| Windows ARM64 | 2.5.44 | 应用内更新 / GitHub Release                |
-| Android       | 2.5.44 | 应用内更新（manifest apk）/ GitHub Release |
-| 微信小程序    | 2.5.44 | 微信平台（体验版/审核发布）                |
-| macOS (ARM64) | 2.5.44 | GitHub Release（未签名 DMG，右键打开）     |
+| Web / PWA     | 2.5.45 | 服务器直出，Service Worker 缓存            |
+| Windows x64   | 2.5.45 | 应用内更新 / GitHub Release                |
+| Windows ARM64 | 2.5.45 | 应用内更新 / GitHub Release                |
+| Android       | 2.5.45 | 应用内更新（manifest apk）/ GitHub Release |
+| 微信小程序    | 2.5.45 | 微信平台（体验版/审核发布）                |
+| macOS (ARM64) | 2.5.45 | GitHub Release（未签名 DMG，右键打开）     |
 | iOS           | —      | 未发布                                     |
 
 ## 历史事件
