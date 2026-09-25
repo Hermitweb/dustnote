@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
 import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
 import { sanitizeHtml } from '../lib/sanitize-html';
+import { replaceMissingImageRefs } from '../lib/image-store';
 import { useModeStore } from '../lib/mode-store';
 
 interface SharePayload {
@@ -223,9 +224,15 @@ export function PublicShareView({ token }: { token: string }) {
           <div
             className="prose prose-sm max-w-none text-slate-700 dark:prose-invert dark:text-slate-200"
             dangerouslySetInnerHTML={{
-              // 访客侧渲染的是别人写的内容，必须净化后再注入
+              // 访客侧渲染的是别人写的内容，必须净化后再注入。
+              // P0-3 止血④：正文里的 dustnote-img:// 引用图片本体在作者的
+              // IndexedDB，从未上传服务端——访客端一律替换为「未同步」占位，
+              // 而不是渲染 404 破图（分享创建时若带图，作者会看到本地真实图，
+              // 访客看到占位，这一差异在附件系统 v1 落地前是产品事实）
               __html: sanitizeHtml(
-                marked.parse(state.content || `*${t('public_share.empty')}*`) as string
+                marked.parse(
+                  replaceMissingImageRefs(state.content) || `*${t('public_share.empty')}*`
+                ) as string
               ),
             }}
           />

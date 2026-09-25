@@ -9,6 +9,7 @@ import { Logo } from './Logo';
 import { ConfirmDialog } from './ConfirmDialog';
 import JSZip from 'jszip';
 import { exportAsMarkdown, downloadBlob, parseNoteFile, detectFormat } from '../lib/io-client';
+import { restoreNoteImages } from '../lib/image-store';
 import { apiErrorCode } from '@dustnote/shared';
 import { errorText } from '../lib/error-text';
 
@@ -491,7 +492,9 @@ export function Sidebar() {
       if (target.type === 'note') {
         const plain = notesPlain.get(target.id);
         if (!plain) return;
-        const blob = exportAsMarkdown(plain.title, plain.content);
+        // P0-3 止血②：导出前还原 dustnote-img:// 为内联 data URL（对齐 ImportExportDialog）
+        const exportContent = await restoreNoteImages(plain.content);
+        const blob = exportAsMarkdown(plain.title, exportContent);
         downloadBlob(blob, `${safeFileName(plain.title || 'note')}.md`);
         toast.success(t('sidebar.exported'));
       } else {
@@ -503,7 +506,9 @@ export function Sidebar() {
           const note = notes.get(id);
           if (!note || note.deletedAt) continue;
           if (!scopeIds.has(note.folderId ?? '')) continue;
-          const md = pt.content.startsWith('#') ? pt.content : `# ${pt.title}\n\n${pt.content}`;
+          // P0-3 止血②：ZIP 内每条同样还原图片引用
+          const restored = await restoreNoteImages(pt.content);
+          const md = restored.startsWith('#') ? restored : `# ${pt.title}\n\n${restored}`;
           zip.file(`${safeFileName(pt.title || 'untitled')}.md`, '\uFEFF' + md);
           count++;
         }

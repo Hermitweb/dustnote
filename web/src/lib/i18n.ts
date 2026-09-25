@@ -220,6 +220,8 @@ const resources = {
         key_hint_tail: '——截断后内容将无法解密，且链接一旦泄露即等同于内容泄露。',
         md_placeholder: '# Markdown 支持...\n\n- 列表项 1\n- 列表项 2',
         image_insert_fail: '图片插入失败：{{reason}}',
+        image_local_only_notice:
+          '图片已插入，但当前不会同步到其他设备（仅存于本机浏览器）。导出/备份时会包含图片本体；跨设备看图请等待附件同步功能。',
         image_processing: '🖼️ 处理图片中…',
         insert_clipboard: '从剪贴板插入（URL 自动转链接）',
         clipboard_empty: '剪贴板为空',
@@ -915,6 +917,8 @@ const resources = {
           '— truncated links cannot be decrypted, and a leaked link equals leaked content.',
         md_placeholder: '# Markdown supported...\n\n- List item 1\n- List item 2',
         image_insert_fail: 'Image insert failed: {{reason}}',
+        image_local_only_notice:
+          'Image inserted, but it will NOT sync to other devices (stored only in this browser). Exports and backups do include the image; cross-device images arrive with the upcoming attachment system.',
         image_processing: '🖼️ Processing image…',
         insert_clipboard: 'Insert from clipboard (URL → link)',
         clipboard_empty: 'Clipboard is empty',

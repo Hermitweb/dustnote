@@ -288,12 +288,23 @@ notes ──(1:N)── attachments(id, note_id, dek_wrapped_blob_meta, size, mi
 - **CI 触发面**：`ci.yml` 的 `push.branches` 补 `fix/**`（此前 fix 分支上 CI 从不
   运行，与 dev/\*\* 同源陷阱）。
 - README `.trae/documents/` 残留（§0.2 未列，属 P0-6"仓库卫生"同类）已删。
+- **P0-3 图片止血（同日第二落，四动作全落地）**：
+  ① web 编辑器联机插图即时提示「仅存本机」（会话级一次防打扰）；
+  ② 单条导出（MD/HTML/PDF/JSON）与 Sidebar 快捷导出/文件夹 ZIP 全部
+  经 `restoreNoteImages` 还原为内联 data URL——"导出再导入另一设备→图在"
+  验收达成；③ 全量备份 JSON 逐条还原（auto-backup 已死，备份=这条通道）；
+  ④ 缺图占位统一：web 渲染出口（Editor 预览/分享页 PublicShareView/历史
+  预览 NoteHistoryDialog）经 `replaceMissingImageRefs` SVG 占位，mobile
+  MarkdownView 新增图片块（http/https/data: 渲染、本地引用占位——此前
+  `![x](url)` 会渲染成 `!`+链接的怪样），小程序端本就有占位口径。
+  **顺带修复**：image-store 存储端只存 base64 段、还原端硬编码 `image/png`
+  → 改存完整 data URL，jpeg/webp MIME 不再损坏（旧存量按 png 前缀兼容）。
+  新增 image-store 纯函数单测 ×5。附件系统 v1（R2）仍是根治方向。
 
 ### 仍待办（下一轮起点）
 
-1. P0-3 图片止血（**最大产品级数据风险**，优先级建议提至所有 R0 之首）
-2. P0-1 文档地址统一为 `napi.iniess.cn` + status 页与发版动作解耦
-3. P0-2 外部拨测 + Alertmanager 真接
-4. P0-6 余下：miniprogram lint 脚本
-5. P0-4 余下：设置页开关 + 采集扩到 web/desktop
-6. R1 供应链/签名/备案（多为外部资源，需你准备证书、账号、备案）
+1. P0-1 文档地址统一为 `napi.iniess.cn` + status 页与发版动作解耦
+2. P0-2 外部拨测 + Alertmanager 真接
+3. P0-6 余下：miniprogram lint 脚本
+4. P0-4 余下：设置页开关 + 采集扩到 web/desktop
+5. R1 供应链/签名/备案（多为外部资源，需你准备证书、账号、备案）

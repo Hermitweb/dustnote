@@ -9,7 +9,7 @@ import { getDeviceId } from '../lib/device';
 import { copyText } from '../lib/clipboard';
 import { canReadClipboard } from '../lib/env';
 import { sanitizeHtml } from '../lib/sanitize-html';
-import { restoreNoteImages } from '../lib/image-store';
+import { restoreNoteImages, replaceMissingImageRefs } from '../lib/image-store';
 import type { NotePlaintext } from '../lib/store-types';
 import { wikilinkExtension, extractWikilinks, buildBacklinkIndex } from '../lib/wikilinks';
 import { filterSlashCommands, resolveSlashCommand, type SlashCommand } from '../lib/slash-commands';
@@ -53,6 +53,9 @@ function shareApiBase(): string {
   const { serverUrl } = useModeStore.getState();
   return serverUrl ? `${serverUrl.replace(/\/+$/, '')}/api/v1` : '/api/v1';
 }
+
+// 联机模式「图片仅本机」提示会话级只弹一次（P0-3 止血①）
+let warnedImageLocalOnly = false;
 
 export function Editor() {
   const { t } = useTranslation();
@@ -120,7 +123,9 @@ export function Editor() {
     const timer = setTimeout(() => {
       void restoreNoteImages(content)
         .then((restored) => {
-          if (!cancelled) setPreviewSource(restored);
+          // P0-3：IndexedDB 查不到的引用（换 profile/清库/跨设备导入）替换为
+          // 「图片未同步」占位，marked 不再输出破图/空白让用户误判数据丢失
+          if (!cancelled) setPreviewSource(replaceMissingImageRefs(restored));
         })
         .catch(() => {
           if (!cancelled) setPreviewSource(content);
@@ -182,12 +187,20 @@ export function Editor() {
         for (const file of imgs) {
           try {
             const { dataUrl, alt } = await fileToImageDataUrl(file);
-            // 图片优化：base64 存入 IndexedDB，笔记只保留引用
-            const base64 = dataUrl.split(',')[1] ?? dataUrl;
             let md: string;
             try {
-              const imgId = await storeImage(base64);
+              // 存完整 data URL（含 MIME）——此前只存 base64 段，restore 端
+              // 硬编码 image/png，jpeg/webp 恢复后 MIME 错误（P0-3 顺带修复）
+              const imgId = await storeImage(dataUrl);
               md = `![${alt}](dustnote-img://${imgId})`;
+              // P0-3 止血①：联机模式下图片本体不随正文同步——插入当场说清楚，
+              // 会话内提示一次防打扰（附件系统 v1 落地前这是数据预期管理）。
+              // 用 getState 读 mode 而非闭包 appMode：本回调 deps 只 [t]，
+              // 模式切换后闭包会滞留旧值。
+              if (useStore.getState().mode === 'online' && !warnedImageLocalOnly) {
+                warnedImageLocalOnly = true;
+                toast.info(t('editor.image_local_only_notice'));
+              }
             } catch {
               // IndexedDB 不可用时回退到 base64 内嵌
               md = buildMarkdownImage(dataUrl, alt);

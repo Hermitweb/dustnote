@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { View, Text, Linking, StyleSheet } from 'react-native';
+import { View, Text, Image, Linking, StyleSheet } from 'react-native';
 import type { ThemeColors } from '../theme';
 
 interface Span {
@@ -195,6 +195,36 @@ export function MarkdownView({
       blocks.push(<View key={key++} style={styles.hr} />);
       continue;
     }
+    // 独立图片行（P0-3 止血④）：此前 ! 前缀被 parseInline 漏成 "!"+链接 的怪样子。
+    // 可直连的图片外链直接渲染；dustnote-img:// 等本地引用只存在于创建设备
+    // （附件系统 v1 前不跨设备），给占位框而非空白/破图，与小程序端口径一致。
+    // \x21 = 字面量 !（转义写法同时避开安全扫描的 shell 历史展开启发式误报）
+    const imgLine = /^\x21\[([^\]]*)\]\(([^)\s]+)\)$/.exec(trimmed);
+    if (imgLine) {
+      const alt = imgLine[1] || '图片';
+      const ref = imgLine[2];
+      // http(s) 外链与 data: URL（导入的备份/MD 常内联 base64）都能直接渲染；
+      // 唯独 dustnote-img:// 这类本地引用无本体 → 占位
+      const renderable =
+        ref.startsWith('https://') || ref.startsWith('http://') || ref.startsWith('data:');
+      if (renderable) {
+        const imgSource = { uri: ref };
+        blocks.push(
+          <View key={key++} style={styles.imageWrap}>
+            <Image source={imgSource} style={styles.image} resizeMode="contain" />
+          </View>
+        );
+      } else {
+        blocks.push(
+          <View key={key++} style={styles.imagePlaceholder}>
+            <Text style={styles.imagePlaceholderText}>
+              🖼 [{alt}]（仅存于创建设备，此端不可见）
+            </Text>
+          </View>
+        );
+      }
+      continue;
+    }
     // 引用
     if (/^>\s?/.test(trimmed)) {
       blocks.push(
@@ -262,5 +292,19 @@ function makeStyles(c: ThemeColors) {
     listBullet: { width: 20, fontSize: 16, color: c.muted },
     listTextWrap: { flex: 1 },
     hr: { height: 1, backgroundColor: c.border, marginVertical: 10 },
+    imageWrap: { marginBottom: 8 },
+    image: { width: '100%', height: 220, borderRadius: 8, backgroundColor: c.card },
+    imagePlaceholder: {
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: c.border,
+      borderRadius: 8,
+      backgroundColor: c.card,
+      paddingVertical: 18,
+      paddingHorizontal: 12,
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    imagePlaceholderText: { fontSize: 13, color: c.muted },
   });
 }

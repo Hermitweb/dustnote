@@ -15,6 +15,7 @@ import { useStore } from '../lib/store';
 import { getDeviceId } from '../lib/device';
 import { useModeStore } from '../lib/mode-store';
 import { sanitizeHtml } from '../lib/sanitize-html';
+import { restoreNoteImages, replaceMissingImageRefs } from '../lib/image-store';
 import { ConfirmDialog } from './ConfirmDialog';
 import { authedFetch } from '../lib/store-helpers';
 
@@ -126,7 +127,10 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
         } catch {
           throw new Error(t('history.decrypt_fail'));
         }
-        setPreview({ title: plaintext.title, content: plaintext.content });
+        // P0-3 止血④：历史版本正文里的 dustnote-img:// 引用先尽力还原
+        // （同机 IndexedDB 通常可命中），仍缺失的换成「未同步」占位而非破图
+        const displayContent = replaceMissingImageRefs(await restoreNoteImages(plaintext.content));
+        setPreview({ title: plaintext.title, content: displayContent });
       } catch (err) {
         if (seq === requestSeqRef.current) {
           setError(t('history.load_fail', { reason: (err as Error).message }));

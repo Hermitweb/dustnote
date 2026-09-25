@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import JSZip from 'jszip';
 import { useStore } from '../lib/store';
 import { isTauri } from '../lib/platform';
+import { restoreNoteImages } from '../lib/image-store';
 import {
   parseNoteFile,
   exportAsMarkdown,
@@ -195,8 +196,12 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       .replace(/[\\/:*?"<>|]/g, '-')
       .replace(/\.\.+/g, '.')
       .replace(/^\.+/, '');
+    // P0-3 止血②：导出前把 dustnote-img:// 引用还原为内联 data URL——
+    // 否则导出文件带着仅本机可解析的引用，换设备打开就是丢图。
+    // IndexedDB 已无本体时保留原引用（无从还原，渲染端负责占位）。
+    const exportContent = await restoreNoteImages(plain.content);
     if (fmt === 'md') {
-      const blob = exportAsMarkdown(plain.title, plain.content);
+      const blob = exportAsMarkdown(plain.title, exportContent);
       const filename = `${safeTitle}-${date}.md`;
       const savedPath = await saveBlob(blob, filename);
       setStatus(
@@ -209,7 +214,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
               t('import_export.download_hint')
       );
     } else if (fmt === 'html') {
-      const blob = exportAsHtml(plain.title, plain.content);
+      const blob = exportAsHtml(plain.title, exportContent);
       const filename = `${safeTitle}-${date}.html`;
       const savedPath = await saveBlob(blob, filename);
       setStatus(
@@ -225,7 +230,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       setMode('exporting');
       setStatus(t('import_export.opening_print'));
       try {
-        await printNote(plain.title, plain.content);
+        await printNote(plain.title, exportContent);
         setStatus(t('import_export.print_opened'));
       } catch (err) {
         setError(t('import_export.print_fail', { reason: (err as Error).message }));
@@ -237,7 +242,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       const blob = exportAsJson({
         format: 'dustnote.v1',
         exportedAt: new Date().toISOString(),
-        note: { title: plain.title, content: plain.content, tags: plain.tags },
+        note: { title: plain.title, content: exportContent, tags: plain.tags },
       });
       const filename = `${safeTitle}-${date}.json`;
       const savedPath = await saveBlob(blob, filename);
@@ -258,16 +263,20 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
     setStatus(t('import_export.backup_start'));
     try {
       const state = useStore.getState();
-      const notes = Array.from(state.notesPlain.entries())
-        .filter(([id]) => !state.notes.get(id)?.deletedAt)
-        .map(([id, pt]) => ({
-          id,
-          title: pt.title,
-          content: pt.content,
-          tags: pt.tags,
-          isPinned: state.notes.get(id)?.isPinned ?? false,
-          isFavorite: state.notes.get(id)?.isFavorite ?? false,
-        }));
+      // P0-3 止血③：全量备份=用户唯一的"带走全部数据"通道（auto-backup 已废弃），
+      // 逐条还原图片引用，让备份 JSON 自带图片本体、可在另一设备完整恢复
+      const entries = Array.from(state.notesPlain.entries()).filter(
+        ([id]) => !state.notes.get(id)?.deletedAt
+      );
+      const contents = await Promise.all(entries.map(([, pt]) => restoreNoteImages(pt.content)));
+      const notes = entries.map(([id, pt], i) => ({
+        id,
+        title: pt.title,
+        content: contents[i] ?? pt.content,
+        tags: pt.tags,
+        isPinned: state.notes.get(id)?.isPinned ?? false,
+        isFavorite: state.notes.get(id)?.isFavorite ?? false,
+      }));
       const payload = {
         format: 'dustnote-backup.v1',
         exportedAt: new Date().toISOString(),
