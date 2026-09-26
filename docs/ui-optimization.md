@@ -1,6 +1,6 @@
 # DustNote UI 优化方案（2026-09-25）
 
-> 基线：`v2.5.45`。证据来源：`screenshots/` 实测截图逐张核对 + `web/src/index.css` / `web/src/lib/theme.ts` /
+> 基线：`v2.5.46`。证据来源：`screenshots/` 实测截图逐张核对 + `web/src/index.css` / `web/src/lib/theme.ts` /
 > `web/tailwind.config.js` 的 token 层扫描 + 全仓图标用字统计。
 > 2026-09-25 二次修订：四条方向性决定已与高保真原型逐屏确认，见 §2；§3 起的阶段表已按定稿同步。`
 > 结论先行：**问题不在审美，在地基。** 图标靠 emoji、颜色靠 7 个变量、层级靠一层渐变 ——

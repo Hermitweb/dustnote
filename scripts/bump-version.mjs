@@ -152,11 +152,17 @@ console.log(`\n已替换 ${changed} 个文件（versionCode 所在文件单独�
 for (const t of touched) console.log(`  ${t}`);
 
 // ── 自检：全仓不得再有旧版本号（CHANGELOG 历史条目除外）────────────
-// RESIDUAL_ALLOW：以**散文/历史叙事身份**合法引用任意旧版本号的文件——
-// bump-version 自身的复盘注释、roadmap/ui 的复测记录段都属于此类
-// （改写会让历史叙述变成说谎；v2.5.45 bump 实战首撞沉淀）。
-// 其余文件（测试等）不得进清单：需要固定版本时用语义明确的假版本号。
-const RESIDUAL_ALLOW = ['scripts/bump-version.mjs', 'docs/roadmap.md', 'docs/ui-optimization.md'];
+// RESIDUAL_ALLOW：以**散文/测试夹具身份**合法引用任意版本号的文件——
+// bump-version 自身复盘注释、roadmap/ui 复测记录段（改写=历史叙述说谎）；
+// updater.test.ts 的夹具是**成对比较语义锚**（"2.6.0 > 2.5.45 = 升级"），
+// 随版本漂移改写会破坏测试本意（v2.5.46 bump 实战判残留后沉淀）。
+// 其余测试需要固定版本时一律用与仓库版本解耦的假版本号（api.test 2.99.0 先例）。
+const RESIDUAL_ALLOW = [
+  'scripts/bump-version.mjs',
+  'docs/roadmap.md',
+  'docs/ui-optimization.md',
+  'desktop/src/lib/updater.test.ts',
+];
 if (!dryRun) {
   const grep = execSync(
     `git grep -l "${OLD}" -- . ":(exclude)CHANGELOG.md" ":(exclude)*.lock" || true`,

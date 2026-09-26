@@ -2,16 +2,16 @@
 
 <!-- status-probe:start -->
 
-> 最近拨测：2026-09-26 15:29 UTC · 🟢 全部通过 · 期望版本 v2.5.45
+> 最近拨测：2026-09-26 16:43 UTC · 🟢 全部通过 · 期望版本 v2.5.46
 
-**当前状态：🟢 正常** — 线上 **v2.5.45**（探针判定，非人工声明）
+**当前状态：🟢 正常** — 线上 **v2.5.46**（探针判定，非人工声明）
 
 | 探测项                        | 结果 | 耗时  | HTTP | 说明                                          |
 | ----------------------------- | ---- | ----- | ---- | --------------------------------------------- |
-| health                        | ✅   | 690ms | 200  |                                               |
-| update-manifest               | ✅   | 658ms | 200  |                                               |
-| web                           | ✅   | 204ms | 200  |                                               |
-| share-api                     | ✅   | 212ms | 404  |                                               |
+| health                        | ❌   | 669ms | 200  | 线上版本 2.5.45 ≠ 期望 2.5.46                 |
+| update-manifest               | ✅   | 601ms | 200  |                                               |
+| web                           | ✅   | 165ms | 200  |                                               |
+| share-api                     | ✅   | 167ms | 404  |                                               |
 | http-plaintext(informational) | ℹ️   | 0ms   | 200  | 明文仍可服务（status=200，R1 HTTPS 收口待办） |
 
 _未列入本表的组件（WebSocket 同步、/metrics）探针不覆盖，状态见下方「拨测不覆盖的部分」。_
@@ -56,11 +56,11 @@ _未列入本表的组件（WebSocket 同步、/metrics）探针不覆盖，状�
 
 | 渠道          | 版本   | 分发方式                                   |
 | ------------- | ------ | ------------------------------------------ |
-| Web / PWA     | 2.5.45 | 服务器直出，Service Worker 缓存            |
-| Windows x64   | 2.5.45 | 应用内更新 / GitHub Release                |
-| Windows ARM64 | 2.5.45 | 应用内更新 / GitHub Release                |
-| Android       | 2.5.45 | 应用内更新（manifest apk）/ GitHub Release |
-| macOS (ARM64) | 2.5.45 | GitHub Release（未签名 DMG，右键打开）     |
+| Web / PWA     | 2.5.46 | 服务器直出，Service Worker 缓存            |
+| Windows x64   | 2.5.46 | 应用内更新 / GitHub Release                |
+| Windows ARM64 | 2.5.46 | 应用内更新 / GitHub Release                |
+| Android       | 2.5.46 | 应用内更新（manifest apk）/ GitHub Release |
+| macOS (ARM64) | 2.5.46 | GitHub Release（未签名 DMG，右键打开）     |
 | iOS           | —      | 未发布                                     |
 
 ## 历史事件

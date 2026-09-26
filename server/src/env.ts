@@ -43,9 +43,9 @@ export const config = {
    * 留空则返回首次激活的设备登记的地址（server_config 表,先到先得）。
    */
   serverPublicUrl: getEnvOpt('SERVER_PUBLIC_URL') ?? null,
-  serverVersion: getEnv('SERVER_VERSION', '2.5.45'),
+  serverVersion: getEnv('SERVER_VERSION', '2.5.46'),
   minClientVersion: getEnv('MIN_CLIENT_VERSION', '2.0.2'),
-  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.5.45'),
+  recommendedClientVersion: getEnv('RECOMMENDED_CLIENT_VERSION', '2.5.46'),
   /**
    * 强制升级响应里的下载地址（LIFE-008/009，2026-09-25）。
    * 此前两处硬编码 https://dustnote.app/download——那是无真实服务的占位域名
