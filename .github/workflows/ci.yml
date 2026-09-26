@@ -51,6 +51,11 @@ jobs:
         run: pnpm --filter @dustnote/shared build && node scripts/gen-mp-tokens.mjs --check
       - name: Test alerting bridge (P0-2 last hop)
         run: pnpm test:monitoring
+      - name: Verify Docker build context covers cross-package imports
+        # v2.5.46 服务器升级连挂两次的固化：Dockerfile COPY 白名单漏 shared 下
+        # tokens.css / tailwind-colors.mjs，而 CI 的 docker build 是 main-only，
+        # 缺口一路活到现场构建。此静态守卫在所有分支的 lint job 即拦
+        run: pnpm docker:check
 
       - name: Check i18n keys
         run: node scripts/check-i18n.mjs

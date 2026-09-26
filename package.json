@@ -25,6 +25,7 @@
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "pin-digests": "node scripts/pin-base-image-digests.mjs",
+    "docker:check": "node scripts/check-docker-context.mjs",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

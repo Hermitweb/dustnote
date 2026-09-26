@@ -29,10 +29,11 @@ RUN if [ -n "$NPM_REGISTRY" ]; then pnpm config set registry "$NPM_REGISTRY"; fi
 
 # 构建
 COPY shared/src shared/src
-# shared/styles/tokens.css 被 web/miniprogram 源码 @import（跨端设计 token 单一
-# 源）。COPY 是白名单语义——漏一行则 docker 镜像构建 ENOENT，而 CI 全源树构建
-# 与本地 vite build 都不会暴露此缺口（v2.5.46 服务器升级实锤）
+# shared 下被 web/desktop 构建配置直接 import 的单文件资源（设计 token 源）。
+# COPY 是白名单语义——漏一个文件则 docker 构建 ENOENT，而 CI 全源树与本地
+# vite build 都不暴露（v2.5.46 服务器升级连撞两次：先 tokens.css 再此文件）
 COPY shared/styles shared/styles
+COPY shared/tailwind-colors.mjs shared/
 COPY server/src server/src
 COPY client-core/src client-core/src
 COPY web/src web/src

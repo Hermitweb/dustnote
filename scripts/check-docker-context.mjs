@@ -21,6 +21,17 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // ── 1) 收集源码里的相对跨包引用（不经过 shell，避免转义地狱）──────────
 const SCAN_DIRS = ['web/src', 'miniprogram/src', 'desktop/src', 'shared/src', 'client-core/src'];
+// 包根的构建配置常 require 跨包资源（v2.5.46 二次升级实锤：
+// web/tailwind.config.js require('../shared/tailwind-colors.mjs')），
+// 与源码同等扫描——单列非递归收集，避免与 SCAN_DIRS 重叠遍历
+const SCAN_ROOT_FILES = [
+  'web/tailwind.config.js',
+  'web/postcss.config.js',
+  'web/vite.config.ts',
+  'desktop/tailwind.config.js',
+  'desktop/vite.config.ts',
+  'miniprogram/config/index.js',
+];
 const EXT = /\.(css|scss|ts|tsx|js|mjs)$/;
 
 function* walk(dir) {
@@ -47,17 +58,29 @@ function* walk(dir) {
 // **跨包判定**：解析后路径的顶层目录 ≠ 引用文件自身的顶层目录才算跨
 // （../../state/theme 从 pages/index 解出来仍在 miniprogram 内——同包噪音必须滤掉）
 const refs = new Set();
+function scanFile(file) {
+  const ownTop = relative(ROOT, file).replace(/\\/g, '/').split('/')[0];
+  const src = readFileSync(file, 'utf8');
+  // 覆盖 @import '...' 与 require("...") 两族写法（v2.5.46 二次升级实锤：
+  // tailwind.config.js 的 require('../shared/tailwind-colors.mjs') 属括号式，
+  // 第一版正则只抓了引号式，被放走）
+  for (const m of src.matchAll(/[(,'"\s]\s*['"`]((?:\.\.\/){1,6}[\w.@-]+(?:\/[\w.@*-]+)*)['"`]/g)) {
+    const resolvedRel = relative(ROOT, resolve(dirname(file), m[1])).replace(/\\/g, '/');
+    if (resolvedRel.startsWith('..')) continue; // 引用出仓库（外部相对），不管
+    const refTop = resolvedRel.split('/')[0];
+    if (refTop === ownTop) continue; // 同包内目录跳转，Dockerfile 的 COPY <pkg>/src 天然覆盖
+    refs.add(resolvedRel);
+  }
+}
 for (const scanDir of SCAN_DIRS) {
-  for (const file of walk(resolve(ROOT, scanDir))) {
-    const ownTop = relative(ROOT, file).replace(/\\/g, '/').split('/')[0];
-    const src = readFileSync(file, 'utf8');
-    for (const m of src.matchAll(/['"`]((?:\.\.\/){1,6}[\w.@-]+(?:\/[\w.@*-]+)*)['"`]/g)) {
-      const resolvedRel = relative(ROOT, resolve(dirname(file), m[1])).replace(/\\/g, '/');
-      if (resolvedRel.startsWith('..')) continue; // 引用出仓库（外部相对），不管
-      const refTop = resolvedRel.split('/')[0];
-      if (refTop === ownTop) continue; // 同包内目录跳转，Dockerfile 的 COPY <pkg>/src 天然覆盖
-      refs.add(resolvedRel);
-    }
+  for (const file of walk(resolve(ROOT, scanDir))) scanFile(file);
+}
+for (const rel of SCAN_ROOT_FILES) {
+  const abs = join(ROOT, rel);
+  try {
+    if (statSync(abs).isFile()) scanFile(abs);
+  } catch {
+    /* 配置文件名随脚手架变化，缺失即跳过 */
   }
 }
 
@@ -83,11 +106,11 @@ function covered(ref) {
 const failures = [];
 for (const ref of refs) {
   const segs = ref.split('/');
-  if (segs.length < 3) continue; // pkg/file 形式（shared/x）多为误抓的安装清单引用
-  const pkgDir = `${segs[0]}/${segs[1]}`; // 如 shared/styles
-  // 源码目录（src）已在安装/构建 COPY 清单覆盖范围内，单独放行
-  if (covered(ref) || covered(pkgDir)) continue;
-  // src 下的深层文件引用：其 pkg/src 顶层若已 COPY 则覆盖
+  // 不论深度——单文件跨包引用（shared/tailwind-colors.mjs）与目录级
+  // （shared/styles/tokens.css）同等校验；深度 <3 放行会让文件级缺口溜走
+  // （v2.5.46 二次升级实锤：tailwind.config.js require 单文件被放走）
+  if (covered(ref)) continue;
+  // 深层源码引用：其 <pkg>/src 顶层若已 COPY 则覆盖
   if (segs[1] === 'src' && copySources.includes(`${segs[0]}/src`)) continue;
   failures.push(ref);
 }
