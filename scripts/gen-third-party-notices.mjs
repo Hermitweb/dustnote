@@ -123,4 +123,6 @@ for (const p of pkgs) lines.push(`| ${p.name} | ${p.version} | ${p.license} |`);
 lines.push('');
 
 writeFileSync(join(root, 'THIRD_PARTY_NOTICES.md'), lines.join('\n'), 'utf8');
-console.log(`✅ 已生成 THIRD_PARTY_NOTICES.md（${pkgs.length} 个去重包，${Object.keys(byLicense).length} 种许可）`);
+console.log(
+  `✅ 已生成 THIRD_PARTY_NOTICES.md（${pkgs.length} 个去重包，${Object.keys(byLicense).length} 种许可）`
+);

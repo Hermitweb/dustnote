@@ -40,14 +40,14 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-6"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6"
       onClick={onCancel}
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
     >
       <div
-        className="w-full max-w-sm rounded-2xl bg-surface-card p-5 shadow-2xl"
+        className="w-full max-w-sm rounded-xl bg-surface-card p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 id="confirm-dialog-title" className="mb-2 text-sm font-semibold text-surface-fg">
@@ -63,8 +63,10 @@ export function ConfirmDialog({
           </button>
           <button
             onClick={onConfirm}
-            className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors ${
-              variant === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-mint-600 hover:bg-mint-700'
+            className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-on-danger-solid transition-colors ${
+              variant === 'danger'
+                ? 'bg-danger-solid hover:bg-danger-solid-hover'
+                : 'bg-accent-strong hover:bg-accent-strong-hover'
             }`}
           >
             {confirmLabel ?? t('common.confirm')}

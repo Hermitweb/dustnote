@@ -98,21 +98,21 @@ export default function StandaloneRecover() {
         <Text className="hero-subtitle mb-l text-center">{t('recover.subtitle')}</Text>
 
         <FInput
-          className="mint-input"
+          className="input"
           placeholder={t('recover.code_placeholder')}
           value={recoveryCode}
           maxlength={16}
           onInput={(e) => setRecoveryCode((e.detail as { value: string }).value)}
         />
         <FInput
-          className="mint-input"
+          className="input"
           password
           placeholder={t('recover.pwd_placeholder')}
           value={newPassword}
           onInput={(e) => setNewPassword((e.detail as { value: string }).value)}
         />
         <FInput
-          className="mint-input"
+          className="input"
           password
           placeholder={t('recover.confirm_placeholder')}
           value={confirm}
@@ -132,7 +132,7 @@ export default function StandaloneRecover() {
         )}
 
         <View
-          className="mint-btn mint-btn-block"
+          className="btn btn-block"
           onClick={onRecover}
           style={{ opacity: submitting ? 0.5 : 1 }}
         >

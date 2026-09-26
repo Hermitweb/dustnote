@@ -7,7 +7,13 @@ import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { getApi, useAuthStore, decryptNote, parseEnvelope } from '../../state/auth';
-import { unwrapKey, toBase64Url, noteAad, type Ciphertext } from '@dustnote/shared';
+import {
+  unwrapKey,
+  toBase64Url,
+  noteAad,
+  type Ciphertext,
+  formatDateTimeStamp,
+} from '@dustnote/shared';
 import { getRepo } from '../../lib/get-repo';
 import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
 import { useModeStore } from '../../lib/mode-store';
@@ -54,7 +60,7 @@ export default function Shares() {
   const [loading, setLoading] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchBusy, setBatchBusy] = useState(false); // batchBusy 见下方批量按钮的禁用判断
   const [titles, setTitles] = useState<Record<string, string>>({});
   const lang = useLanguage();
 
@@ -260,14 +266,11 @@ export default function Shares() {
                   </Text>
                   {!selecting && canAct && (
                     <View className="share-actions">
-                      <Text
-                        className="mint-btn mint-btn-sm mint-btn-ghost"
-                        onClick={() => void copyShareLink(s)}
-                      >
+                      <Text className="btn btn-sm btn-ghost" onClick={() => void copyShareLink(s)}>
                         {t('share_mgr.copy_link')}
                       </Text>
                       <Text
-                        className="mint-btn mint-btn-sm mint-btn-danger"
+                        className="btn btn-sm btn-danger"
                         onClick={async () => {
                           try {
                             await getApi().delete(`/shares/${s.id}`);
@@ -284,14 +287,14 @@ export default function Shares() {
                   )}
                 </View>
                 <Text className="share-meta">
-                  {parseServerDate(s.createdAt).toLocaleString('zh-CN')}
+                  {formatDateTimeStamp(s.createdAt)}
                   {t('share_mgr.views', { count: s.viewCount })}
                   {s.hasPassword ? t('share_mgr.encrypted') : t('share_mgr.public')}
                   {s.revoked
                     ? ''
                     : s.expiresAt
                       ? t('share_mgr.expires_at', {
-                          time: parseServerDate(s.expiresAt).toLocaleString('zh-CN'),
+                          time: formatDateTimeStamp(s.expiresAt),
                         })
                       : t('share_mgr.never_expires')}
                 </Text>
@@ -307,7 +310,12 @@ export default function Shares() {
               {t('common.selected_count', { count: selCount })}
             </Text>
             <View className="batch-bar-actions">
-              <Text className="batch-btn batch-btn-danger" onClick={batchRevoke}>
+              <Text
+                className={`batch-btn batch-btn-danger${batchBusy ? ' batch-btn-disabled' : ''}`}
+                onClick={() => {
+                  if (!batchBusy) void batchRevoke();
+                }}
+              >
                 {t('share_mgr.batch_revoke')}
               </Text>
             </View>

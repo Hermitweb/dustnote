@@ -56,9 +56,9 @@ export const STRENGTH_LABELS: Record<PasswordStrength, string> = {
 };
 
 export const STRENGTH_COLORS: Record<PasswordStrength, string> = {
-  0: 'bg-red-500',
-  1: 'bg-red-400',
-  2: 'bg-amber-400',
-  3: 'bg-emerald-500',
-  4: 'bg-emerald-600',
+  0: 'bg-danger',
+  1: 'bg-danger',
+  2: 'bg-warning',
+  3: 'bg-success',
+  4: 'bg-success',
 };

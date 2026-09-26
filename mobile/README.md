@@ -103,7 +103,10 @@ pnpm start          # 启动 Metro
 pnpm android        # 安装并启动 APP
 ```
 
-生产环境：把 `mobile/src/api.ts` 中的 `baseUrl` 改为 `https://api.dustnote.app/v1`。
+生产环境：**不需要改代码**。移动端 baseUrl 是运行时解析的（`src/lib/mode-store.ts`）：
+联机模式取用户在应用内「服务器地址」设置里填的 `serverUrl`；未配置时回退
+`DEFAULT_BASE_URL`（`localhost:3210`，真机调试用 `adb reverse` 转发）。
+本项目官方实例地址见 [docs/status.md](../docs/status.md)。
 
 ## 注意事项
 

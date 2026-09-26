@@ -1,5 +1,17 @@
-﻿import { useState, useEffect, useCallback, useRef, Suspense, lazy, useMemo } from 'react';
+﻿import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  Suspense,
+  lazy,
+  useMemo,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
+import { Icon, IconText, labelIcon, type IconName } from './Icon';
+import { MenuItem } from './MenuItem';
+import { Overview } from './Overview';
 import i18n from '../lib/i18n';
 import { marked } from 'marked';
 import { encryptString, randomBytes, toBase64Url, wrapKey } from '@dustnote/shared';
@@ -94,6 +106,39 @@ export function Editor() {
   const [content, setContent] = useState('');
   const [mode, setMode] = useState<'edit' | 'preview' | 'split' | 'wysiwyg'>('split');
   const [showMoveMenu, setShowMoveMenu] = useState(false);
+  const [showMore, setShowMore] = useState(false);
+  const isTrash = viewMode === 'trash';
+  /** 视图模式四档：label / tip 用字面量 t()，i18n 门禁才看得见 */
+  const VIEWS = [
+    {
+      m: 'edit',
+      k: 'editor.view_edit',
+      label: t('editor.view_edit'),
+      tip: t('editor.view_edit_tip'),
+      ro: true,
+    },
+    {
+      m: 'split',
+      k: 'editor.view_split',
+      label: t('editor.view_split'),
+      tip: t('editor.view_split_tip'),
+      ro: true,
+    },
+    {
+      m: 'preview',
+      k: 'editor.view_preview',
+      label: t('editor.view_preview'),
+      tip: t('editor.view_preview_tip'),
+      ro: false,
+    },
+    {
+      m: 'wysiwyg',
+      k: 'editor.view_wysiwyg',
+      label: 'WYSIWYG',
+      tip: t('editor.view_wysiwyg_tip'),
+      ro: true,
+    },
+  ] as const;
   const [showShare, setShowShare] = useState(false);
   // 右键菜单「分享」:监听全局事件打开当前笔记的分享对话框
   // 斜杠命令状态
@@ -451,371 +496,350 @@ export function Editor() {
   }, [note, plain, title, content, updateNote]);
 
   if (!note || !plain) {
+    // 兜底：笔记被删 / 明文还没解出来时回落到概览，而不是白屏
+    // （正常路径下 Stage 已经按状态机分了态，见 components/Stage.tsx）
     return (
-      <main className="flex flex-1 items-center justify-center bg-surface-bg text-surface-muted">
-        <div className="text-center">
-          <div className="mb-2 text-5xl opacity-50">📝</div>
-          <p>{t('editor.empty')}</p>
-        </div>
-      </main>
+      <div className="min-h-0 flex-1 overflow-y-auto bg-surface-bg">
+        <Overview />
+      </div>
     );
   }
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col bg-surface-bg">
-      {/* 工具栏 */}
-      <div className="flex flex-shrink-0 flex-wrap items-center gap-2 gap-y-1 border-b border-surface-border bg-surface-card px-4 py-2">
-        <button
-          onClick={() => setMode('edit')}
-          disabled={viewMode === 'trash'}
-          title={t('editor.view_edit_tip')}
-          className={`rounded px-2 py-1 text-xs ${mode === 'edit' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'} ${viewMode === 'trash' ? 'cursor-not-allowed opacity-50' : ''}`}
+    <div className="flex min-h-0 flex-1 flex-col bg-surface-bg">
+      {/* 工具栏三段式（§2.1）：左 = 视图模式 · 中 = 格式 · 右 = 状态与动作。
+          改造前是一整排 flex-wrap 按钮，图标全是写在 JSX 里的 emoji：
+          没有分组也没有主次，且彩色位图不吃 currentColor，暗色下比正文还亮。 */}
+      <div className="flex h-11 flex-shrink-0 items-center gap-3 border-b border-surface-border bg-surface-card px-3">
+        {/* 左：视图模式（选中实底） */}
+        <div
+          role="group"
+          aria-label={t('editor.view_group_aria')}
+          className="flex flex-shrink-0 items-center gap-0.5 rounded-lg bg-surface-bg p-0.5"
         >
-          {t('editor.view_edit')}
-        </button>
-        <button
-          onClick={() => setMode('split')}
-          disabled={viewMode === 'trash'}
-          title={t('editor.view_split_tip')}
-          className={`rounded px-2 py-1 text-xs ${mode === 'split' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'} ${viewMode === 'trash' ? 'cursor-not-allowed opacity-50' : ''}`}
-        >
-          {t('editor.view_split')}
-        </button>
-        <button
-          onClick={() => setMode('preview')}
-          title={t('editor.view_preview_tip')}
-          className={`rounded px-2 py-1 text-xs ${mode === 'preview' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'}`}
-        >
-          {t('editor.view_preview')}
-        </button>
-        <button
-          onClick={() => setMode('wysiwyg')}
-          disabled={viewMode === 'trash'}
-          className={`rounded px-2 py-1 text-xs ${mode === 'wysiwyg' ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/40' : 'text-surface-muted hover:bg-surface-bg'} ${viewMode === 'trash' ? 'cursor-not-allowed opacity-50' : ''}`}
-          title={t('editor.view_wysiwyg_tip')}
-        >
-          ✨ WYSIWYG
-        </button>
+          {VIEWS.map((v) => {
+            const on = mode === v.m;
+            const off = v.ro && isTrash;
+            return (
+              <button
+                key={v.k}
+                onClick={() => setMode(v.m)}
+                disabled={off}
+                aria-pressed={on}
+                title={v.tip}
+                className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                  on
+                    ? 'bg-accent-strong font-semibold text-white'
+                    : 'text-surface-muted hover:bg-surface-bg hover:text-surface-fg'
+                } ${off ? 'cursor-not-allowed opacity-40' : ''}`}
+              >
+                <Icon name={labelIcon(v.k) ?? 'pencil'} size={14} />
+                <span className="hidden md:inline">{v.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
-        {/* Markdown 格式工具栏（回收站只读时禁用） */}
-        {viewMode !== 'trash' && (
-          <div className="ml-2 flex items-center gap-0.5 border-l border-surface-border pl-2">
+        {/* 中：Markdown 格式工具（只在能改文本的模式出现） */}
+        {!isTrash && (mode === 'edit' || mode === 'split') && (
+          <div
+            role="group"
+            aria-label={t('editor.format_group_aria')}
+            className="hidden flex-shrink-0 items-center gap-0.5 sm:flex"
+          >
             <FmtBtn
-              label="B"
+              icon="bold"
               title={t('editor.format_bold')}
-              disabled={mode === 'preview'}
               onClick={() => wrapSelection('**', '**', t('editor.fmt_bold_text'))}
             />
             <FmtBtn
-              label="I"
+              icon="italic"
               title={t('editor.format_italic')}
-              disabled={mode === 'preview'}
               onClick={() => wrapSelection('*', '*', t('editor.fmt_italic_text'))}
             />
             <FmtBtn
-              label="🔗"
+              icon="link"
               title={t('editor.format_link')}
-              disabled={mode === 'preview'}
               onClick={() => wrapSelection('[', '](url)', t('editor.fmt_link_text'))}
             />
             <FmtBtn
-              label="•"
+              icon="list"
               title={t('editor.format_list')}
-              disabled={mode === 'preview'}
               onClick={() => insertLinePrefix('- ')}
             />
             <FmtBtn
-              label="❝"
+              icon="quote"
               title={t('editor.format_quote')}
-              disabled={mode === 'preview'}
               onClick={() => insertLinePrefix('> ')}
             />
             <FmtBtn
-              label="</>"
+              icon="code-block"
               title={t('editor.format_code')}
-              disabled={mode === 'preview'}
               onClick={() => insertBlock('```\n', '\n```\n')}
             />
           </div>
         )}
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {viewMode === 'trash' ? (
+        {/* 右：状态（12px 次要色，与动作分离）+ 常驻动作 + ⋯ 溢出 */}
+        <div className="ml-auto flex flex-shrink-0 items-center gap-1">
+          {isTrash ? (
             <>
-              <span className="rounded bg-amber-100 px-2 py-1 text-xs text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+              <span className="hidden items-center gap-1 rounded bg-warning-soft px-2 py-1 text-xs text-warning md:inline-flex">
+                <Icon name="trash" size={14} />
                 {t('editor.trash_readonly')}
               </span>
               <button
                 onClick={() => void restoreNote(note.id)}
-                className="rounded p-1.5 text-xs text-mint-600 hover:bg-mint-50 dark:hover:bg-mint-900/30"
+                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-accent-text hover:bg-accent-soft/50"
                 title={t('editor.restore')}
               >
-                ↩️ {t('editor.restore')}
+                <Icon name="refresh" size={14} />
+                <span className="hidden sm:inline">{t('editor.restore')}</span>
               </button>
-              <button
-                onClick={() => setShowPermDeleteConfirm(true)}
-                className="rounded p-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
-                title={t('editor.perm_delete')}
-              >
-                🗑️ {t('editor.perm_delete')}
-              </button>
+              <Overflow label={t('editor.more')} open={showMore} setOpen={setShowMore}>
+                <MenuItem
+                  k="editor.perm_delete"
+                  danger
+                  onClick={() => setShowPermDeleteConfirm(true)}
+                />
+              </Overflow>
             </>
           ) : (
             <>
-              {saving && <span className="text-xs text-surface-muted">{t('editor.saving')}</span>}
-              {!saving && title && (
-                <span className="text-xs text-surface-muted">✅ {t('editor.save_indicator')}</span>
-              )}
-              <button
+              <span
+                className="hidden min-w-14 items-center gap-1 text-xs text-surface-muted lg:inline-flex"
+                aria-live="polite"
+              >
+                <Icon
+                  name={imageProcessing ? 'download' : saving ? 'refresh' : 'shield-check'}
+                  size={14}
+                />
+                <span className="truncate">
+                  {imageProcessing
+                    ? t('editor.image_processing')
+                    : saving
+                      ? t('editor.saving')
+                      : title
+                        ? t('editor.save_indicator')
+                        : ''}
+                </span>
+              </span>
+              <ActBtn
+                icon="pin"
+                label={t('editor.pin')}
+                on={!!note.isPinned}
                 onClick={() => void updateNote(note.id, { isPinned: !note.isPinned })}
-                className={`rounded p-1.5 text-xs ${note.isPinned ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40' : 'text-surface-muted hover:bg-surface-bg'}`}
-                title={t('editor.pin')}
-              >
-                📌
-              </button>
-              <button
+              />
+              <ActBtn
+                icon="star"
+                label={t('editor.favorite')}
+                on={!!note.isFavorite}
                 onClick={() => void updateNote(note.id, { isFavorite: !note.isFavorite })}
-                className={`rounded p-1.5 text-xs ${note.isFavorite ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40' : 'text-surface-muted hover:bg-surface-bg'}`}
-                title={t('editor.favorite')}
+              />
+              <Overflow
+                icon="folder"
+                label={t('editor.move_folder')}
+                open={showMoveMenu}
+                setOpen={setShowMoveMenu}
+                align="right"
               >
-                ⭐
-              </button>
-              {/* 移动到文件夹 */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowMoveMenu((v) => !v)}
-                  className="rounded p-1.5 text-xs text-surface-muted hover:bg-surface-bg"
-                  title={t('editor.move_folder')}
-                >
-                  📁
-                </button>
-                {showMoveMenu && (
-                  <>
-                    {/* 点击外部关闭 */}
-                    <div className="fixed inset-0 z-10" onClick={() => setShowMoveMenu(false)} />
-                    <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-surface-border bg-surface-card py-1 shadow-lg">
-                      {/* 「未分类」已移除：笔记必须归属文件夹 */}
-                      {folders.length > 0 && (
-                        <div className="my-1 border-t border-surface-border" />
-                      )}
-                      {folders.map((f) => (
-                        <button
-                          key={f.id}
-                          onClick={() => {
-                            void moveNote(note.id, f.id);
-                            setShowMoveMenu(false);
-                          }}
-                          className={`block w-full truncate px-3 py-1.5 text-left text-xs hover:bg-surface-bg ${note.folderId === f.id ? 'font-semibold text-mint-600' : 'text-surface-fg'}`}
-                        >
-                          {f.icon ?? '📁'} {f.name}
-                        </button>
-                      ))}
-                      {folders.length === 0 && (
-                        <p className="px-3 py-1.5 text-xs text-surface-muted">
-                          {t('editor.no_folders')}
-                        </p>
-                      )}
-                    </div>
-                  </>
+                {folders.length === 0 && (
+                  <p className="px-3 py-1.5 text-xs text-surface-muted">{t('editor.no_folders')}</p>
                 )}
-              </div>
-              <button
+                {folders.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => {
+                      void moveNote(note.id, f.id);
+                      setShowMoveMenu(false);
+                    }}
+                    className={`flex w-full items-center gap-2 truncate px-3 py-1.5 text-left text-xs hover:bg-surface-bg ${
+                      note.folderId === f.id ? 'font-semibold text-accent-text' : 'text-surface-fg'
+                    }`}
+                  >
+                    <Icon name="folder" size={14} />
+                    {f.name}
+                  </button>
+                ))}
+              </Overflow>
+              <ActBtn
+                icon="share"
+                label={t('editor.share')}
+                on={false}
                 onClick={() => setShowShare(true)}
-                className="rounded p-1.5 text-xs text-surface-muted hover:bg-surface-bg"
-                title={t('editor.share')}
-              >
-                🔗
-              </button>
-              {appMode === 'online' && (
-                <button
-                  onClick={() => setShowHistory(true)}
-                  className="rounded p-1.5 text-xs text-surface-muted hover:bg-surface-bg"
-                  title={t('history.open')}
-                >
-                  📜
-                </button>
-              )}
-              {appMode === 'online' && (
-                <button
-                  onClick={handleSaveAsTemplate}
-                  className="rounded p-1.5 text-xs text-surface-muted hover:bg-surface-bg"
-                  title={t('templates.save_as')}
-                >
-                  📋
-                </button>
-              )}
-              {/* B-9 剪贴板/URL 插入 */}
-              <button
-                onClick={() => void insertFromClipboard()}
-                disabled={imageProcessing}
-                className="rounded p-1.5 text-xs text-surface-muted hover:bg-surface-bg disabled:opacity-50"
-                title={t('editor.insert_clipboard')}
-              >
-                📎
-              </button>
-              {/* B-8 语音输入 */}
+              />
               <VoiceInputButton onInsert={insertTextAtCursor} />
-              {imageProcessing && (
-                <span className="text-xs text-surface-muted">{t('editor.image_processing')}</span>
-              )}
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="rounded p-1.5 text-xs text-surface-muted hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30"
-                title={t('editor.delete')}
-              >
-                🗑️
-              </button>
+              <Overflow label={t('editor.more')} open={showMore} setOpen={setShowMore}>
+                {appMode === 'online' && (
+                  <MenuItem k="history.open" onClick={() => setShowHistory(true)} />
+                )}
+                {appMode === 'online' && (
+                  <MenuItem k="templates.save_as" onClick={() => void handleSaveAsTemplate()} />
+                )}
+                <MenuItem k="editor.insert_clipboard" onClick={() => void insertFromClipboard()} />
+                <div className="my-1 border-t border-surface-border" />
+                <MenuItem k="editor.delete" danger onClick={() => setShowDeleteConfirm(true)} />
+              </Overflow>
             </>
           )}
         </div>
       </div>
 
-      {/* 标题 */}
-      <div className="flex-shrink-0 border-b border-surface-border bg-surface-card px-6 py-3">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={t('editor.placeholder')}
-          aria-label={t('editor.placeholder')}
-          className="w-full bg-transparent text-2xl font-bold text-surface-fg placeholder-surface-muted focus:outline-none"
-        />
-      </div>
-
-      {/* 内容 */}
-      {/* 内容 */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {mode === 'wysiwyg' ? (
-          <Suspense
-            fallback={
-              <div className="flex flex-1 items-center justify-center text-surface-muted">
-                {t('common.loading')}
-              </div>
-            }
-          >
-            <WysiwygEditor
-              content={content}
-              onChange={setContent}
-              placeholder={t('editor.md_placeholder')}
+      {/* 阅读纸张（§2.1）：正文 68ch + 88px 内边距，落在 glass-2 上。
+          改造前正文直接铺满整个舞台宽度，一行能排到 130 个汉字 —— 那不是阅读，是扫描。 */}
+      <div className="min-h-0 flex-1 overflow-hidden p-3 sm:p-5">
+        <div
+          className={`paper-sheet glass-2 bg-surface-card ${mode === 'split' ? 'paper-sheet--split' : ''}`}
+        >
+          {/* 标题 */}
+          <div className="flex-shrink-0 border-b border-surface-border pb-3 pt-1">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={t('editor.placeholder')}
+              aria-label={t('editor.placeholder')}
+              disabled={isTrash}
+              className="w-full bg-transparent text-2xl font-bold text-surface-fg placeholder-surface-muted focus:outline-none"
             />
-          </Suspense>
-        ) : (
-          <>
-            {(mode === 'edit' || mode === 'split') && (
-              <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-                <textarea
-                  ref={textareaRef}
-                  value={content}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setContent(val);
-                    const ta = e.target as HTMLTextAreaElement;
-                    const cursorPos = ta.selectionStart;
-                    const lineStart = val.lastIndexOf('\n', cursorPos - 1) + 1;
-                    const linePrefix = val.slice(lineStart, cursorPos);
-                    if (linePrefix.startsWith('/') && !linePrefix.includes(' ')) {
-                      setShowSlash(true);
-                      setSlashQuery(linePrefix.slice(1));
-                      setSlashIndex(0);
-                    } else {
-                      setShowSlash(false);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (!showSlash) return;
-                    if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      setSlashIndex((i) => Math.min(i + 1, slashCommands.length - 1));
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      setSlashIndex((i) => Math.max(i - 1, 0));
-                    } else if (e.key === 'Enter' || e.key === 'Tab') {
-                      if (slashCommands.length > 0) {
-                        e.preventDefault();
-                        insertSlashCommand(slashCommands[slashIndex]!);
-                      }
-                    } else if (e.key === 'Escape') {
-                      setShowSlash(false);
-                    }
-                  }}
-                  onDrop={onDrop}
-                  onPaste={onPaste}
-                  placeholder={t('editor.md_placeholder')}
-                  aria-label={t('editor.md_placeholder')}
-                  className={`editor-textarea flex-1 resize-none bg-surface-bg p-6 text-sm text-surface-fg placeholder-surface-muted focus:outline-none ${mode === 'split' ? 'border-r border-surface-border' : ''}`}
-                />
-                {showSlash && slashCommands.length > 0 && (
-                  <div className="absolute bottom-4 left-6 z-50 max-h-60 w-64 overflow-y-auto rounded-xl border border-surface-border bg-surface-card py-1 shadow-xl">
-                    {slashCommands.map((cmd, i) => (
-                      <button
-                        key={cmd.id}
-                        onClick={() => insertSlashCommand(cmd)}
-                        onMouseEnter={() => setSlashIndex(i)}
-                        className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${i === slashIndex ? 'bg-mint-100 text-mint-800 dark:bg-mint-900/30 dark:text-mint-300' : 'text-surface-fg hover:bg-surface-bg'}`}
-                      >
-                        <span className="text-base">{cmd.icon}</span>
-                        <div className="flex-1 truncate">
-                          <div className="font-medium">
-                            {i18n.language === 'en' ? cmd.labelEn : cmd.label}
-                          </div>
-                          <div className="text-xs text-surface-muted">
-                            {i18n.language === 'en' ? cmd.descriptionEn : cmd.description}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+          </div>
+
+          {/* 内容 */}
+          {/* 内容 */}
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            {mode === 'wysiwyg' ? (
+              <Suspense
+                fallback={
+                  <div className="flex flex-1 items-center justify-center text-surface-muted">
+                    {t('common.loading')}
                   </div>
-                )}
-              </div>
-            )}
-            {(mode === 'preview' || mode === 'split') && (
-              <div
-                className="min-h-0 flex-1 overflow-y-auto p-6"
-                onClick={(e) => {
-                  const target = (e.target as HTMLElement).closest('.wikilink');
-                  if (target) {
-                    const title = target.getAttribute('data-note-title');
-                    if (title) {
-                      const entry = Array.from(notesPlain.entries()).find(
-                        ([, p]) => p.title === title
-                      );
-                      if (entry) selectNote(entry[0]);
-                      else toast.info(t('editor.wikilink_not_found', { title }));
-                    }
-                  }
-                }}
+                }
               >
-                <div
-                  className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
-                  dangerouslySetInnerHTML={{
-                    __html: sanitizeHtml(
-                      marked.parse(
-                        previewSource || content || `*${t('editor.empty_content')}*`
-                      ) as string
-                    ),
-                  }}
+                <WysiwygEditor
+                  content={content}
+                  onChange={setContent}
+                  placeholder={t('editor.md_placeholder')}
                 />
-                {backlinks.length > 0 && (
-                  <div className="mt-6 border-t border-surface-border pt-4">
-                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-muted">
-                      {t('editor.backlinks')} ({backlinks.length})
-                    </h3>
-                    <div className="space-y-1">
-                      {backlinks.map((bl) => (
-                        <button
-                          key={bl.sourceId}
-                          onClick={() => selectNote(bl.sourceId)}
-                          className="block w-full truncate rounded px-2 py-1 text-left text-sm text-mint-600 hover:bg-surface-bg dark:text-mint-400"
-                        >
-                          📄 {bl.sourceTitle}
-                        </button>
-                      ))}
-                    </div>
+              </Suspense>
+            ) : (
+              <>
+                {(mode === 'edit' || mode === 'split') && (
+                  <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <textarea
+                      ref={textareaRef}
+                      value={content}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setContent(val);
+                        const ta = e.target as HTMLTextAreaElement;
+                        const cursorPos = ta.selectionStart;
+                        const lineStart = val.lastIndexOf('\n', cursorPos - 1) + 1;
+                        const linePrefix = val.slice(lineStart, cursorPos);
+                        if (linePrefix.startsWith('/') && !linePrefix.includes(' ')) {
+                          setShowSlash(true);
+                          setSlashQuery(linePrefix.slice(1));
+                          setSlashIndex(0);
+                        } else {
+                          setShowSlash(false);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (!showSlash) return;
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setSlashIndex((i) => Math.min(i + 1, slashCommands.length - 1));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setSlashIndex((i) => Math.max(i - 1, 0));
+                        } else if (e.key === 'Enter' || e.key === 'Tab') {
+                          if (slashCommands.length > 0) {
+                            e.preventDefault();
+                            insertSlashCommand(slashCommands[slashIndex]!);
+                          }
+                        } else if (e.key === 'Escape') {
+                          setShowSlash(false);
+                        }
+                      }}
+                      onDrop={onDrop}
+                      onPaste={onPaste}
+                      placeholder={t('editor.md_placeholder')}
+                      aria-label={t('editor.md_placeholder')}
+                      className={`editor-textarea flex-1 resize-none bg-transparent py-4 text-sm text-surface-fg placeholder-surface-muted focus:outline-none ${mode === 'split' ? 'border-r border-surface-border' : ''}`}
+                    />
+                    {showSlash && slashCommands.length > 0 && (
+                      <div className="glass-2 absolute bottom-4 left-6 z-50 max-h-60 w-64 overflow-y-auto rounded-xl border border-surface-border bg-surface-card py-1 shadow-xl">
+                        {slashCommands.map((cmd, i) => (
+                          <button
+                            key={cmd.id}
+                            onClick={() => insertSlashCommand(cmd)}
+                            onMouseEnter={() => setSlashIndex(i)}
+                            className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${i === slashIndex ? 'bg-accent-soft/60 text-accent-strong dark:bg-accent/30 dark:text-accent-text' : 'text-surface-fg hover:bg-surface-bg'}`}
+                          >
+                            <span className="text-base">{cmd.icon}</span>
+                            <div className="flex-1 truncate">
+                              <div className="font-medium">
+                                {i18n.language === 'en' ? cmd.labelEn : cmd.label}
+                              </div>
+                              <div className="text-xs text-surface-muted">
+                                {i18n.language === 'en' ? cmd.descriptionEn : cmd.description}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+                {(mode === 'preview' || mode === 'split') && (
+                  <div
+                    className="min-h-0 flex-1 overflow-y-auto py-4"
+                    onClick={(e) => {
+                      const target = (e.target as HTMLElement).closest('.wikilink');
+                      if (target) {
+                        const title = target.getAttribute('data-note-title');
+                        if (title) {
+                          const entry = Array.from(notesPlain.entries()).find(
+                            ([, p]) => p.title === title
+                          );
+                          if (entry) selectNote(entry[0]);
+                          else toast.info(t('editor.wikilink_not_found', { title }));
+                        }
+                      }
+                    }}
+                  >
+                    <div
+                      className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
+                      dangerouslySetInnerHTML={{
+                        __html: sanitizeHtml(
+                          marked.parse(
+                            previewSource || content || `*${t('editor.empty_content')}*`
+                          ) as string
+                        ),
+                      }}
+                    />
+                    {backlinks.length > 0 && (
+                      <div className="mt-6 border-t border-surface-border pt-4">
+                        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-muted">
+                          {t('editor.backlinks')} ({backlinks.length})
+                        </h3>
+                        <div className="space-y-1">
+                          {backlinks.map((bl) => (
+                            <button
+                              key={bl.sourceId}
+                              onClick={() => selectNote(bl.sourceId)}
+                              className="block w-full truncate rounded px-2 py-1 text-left text-sm text-accent-text hover:bg-surface-bg dark:text-accent-text"
+                            >
+                              📄 {bl.sourceTitle}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
+          </div>
+        </div>
       </div>
 
       {showShare && (
@@ -864,17 +888,18 @@ export function Editor() {
           onCancel={() => setShowPermDeleteConfirm(false)}
         />
       )}
-    </main>
+    </div>
   );
 }
 
+/** 格式工具：图标按钮 + 无障碍名（改造前是 B / I / 链接 / 引用 / 代码 五种写法混排） */
 function FmtBtn({
-  label,
+  icon,
   title,
   onClick,
   disabled,
 }: {
-  label: string;
+  icon: IconName;
   title: string;
   onClick: () => void;
   disabled?: boolean;
@@ -883,12 +908,94 @@ function FmtBtn({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="rounded px-1.5 py-1 text-xs font-semibold text-surface-muted hover:bg-surface-bg hover:text-surface-fg disabled:cursor-not-allowed disabled:opacity-40"
+      aria-label={title}
       title={title}
       type="button"
+      className="rounded p-1.5 text-surface-muted transition-colors hover:bg-surface-bg hover:text-surface-fg disabled:cursor-not-allowed disabled:opacity-40"
     >
-      {label}
+      <Icon name={icon} size={14} />
     </button>
+  );
+}
+
+/** 工具栏右侧的开关型动作（置顶 / 收藏）：激活态用强调色，而不是换一块琥珀底色 */
+function ActBtn({
+  icon,
+  label,
+  on,
+  onClick,
+}: {
+  icon: IconName;
+  label: string;
+  on: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={on}
+      aria-label={label}
+      title={label}
+      type="button"
+      className={`rounded-lg p-2 transition-colors ${
+        on
+          ? 'bg-accent-soft/60 text-accent-text dark:bg-accent/30'
+          : 'text-surface-muted hover:bg-surface-bg hover:text-surface-fg'
+      }`}
+    >
+      <Icon name={icon} size={16} />
+    </button>
+  );
+}
+
+/**
+ * 溢出菜单（⋯）：把次级动作从主排收进来。
+ * 改造前工具栏 13 个按钮全平铺，主次不分（§1 U-6）；删除这类不可逆动作
+ * 也从"和分享长得一样的图标"变成菜单里一条标了 danger 的明确文字。
+ */
+function Overflow({
+  icon = 'more',
+  label,
+  open,
+  setOpen,
+  align = 'right',
+  children,
+}: {
+  icon?: IconName;
+  label: string;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  align?: 'left' | 'right';
+  children: ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={label}
+        title={label}
+        type="button"
+        className="rounded-lg p-2 text-surface-muted transition-colors hover:bg-surface-bg hover:text-surface-fg"
+      >
+        <Icon name={icon} size={16} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden="true" />
+          <div
+            role="menu"
+            onClick={() => setOpen(false)}
+            className={`glass-2 absolute top-full z-20 mt-1 min-w-48 overflow-hidden rounded-xl border border-surface-border bg-surface-card py-1 shadow-xl ${
+              align === 'right' ? 'right-0' : 'left-0'
+            }`}
+          >
+            {children}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -974,14 +1081,14 @@ function ShareDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-2xl"
+        className="w-full max-w-md rounded-xl bg-surface-card p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 text-lg font-bold text-surface-fg">{t('editor.share_title')}</h2>
+        <h2 className="mb-4 text-xl font-semibold text-text-primary">{t('editor.share_title')}</h2>
 
         {!shareUrl ? (
           <div className="space-y-3">
@@ -1015,7 +1122,7 @@ function ShareDialog({
                     onClick={() => setExpiresSec(opt.value)}
                     className={`rounded-lg border-2 px-2 py-1.5 text-xs transition-colors ${
                       expiresSec === opt.value
-                        ? 'border-mint-500 bg-mint-50 text-surface-fg dark:bg-mint-900/30'
+                        ? 'border-accent bg-accent-soft/40 text-surface-fg dark:bg-accent/30'
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                     type="button"
@@ -1035,7 +1142,7 @@ function ShareDialog({
               <button
                 onClick={() => void create()}
                 disabled={submitting}
-                className="flex-1 rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
+                className="flex-1 rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong-hover disabled:opacity-50"
               >
                 {t('editor.share_btn')}
               </button>
@@ -1056,12 +1163,16 @@ function ShareDialog({
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }}
-                className="rounded-lg bg-mint-600 px-3 py-2 text-xs text-white"
+                className="rounded-lg bg-accent-strong px-3 py-2 text-xs text-white"
               >
-                {copied ? `✅ ${t('editor.copied')}` : t('editor.copy_key')}
+                {copied ? (
+                  <IconText k="editor.copied" label={t('editor.copied')} />
+                ) : (
+                  t('editor.copy_key')
+                )}
               </button>
             </div>
-            <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+            <p className="rounded-lg bg-warning-soft p-2 text-xs text-warning dark:bg-warning-soft dark:text-warning">
               {t('editor.key_hint')} <strong>{t('editor.key_hint_strong')}</strong>
               {t('editor.key_hint_tail')}
             </p>

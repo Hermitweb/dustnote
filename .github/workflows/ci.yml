@@ -47,6 +47,11 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm format:check
       - run: pnpm lint
+      - name: Verify miniprogram theme tokens match shared seeds
+        run: pnpm --filter @dustnote/shared build && node scripts/gen-mp-tokens.mjs --check
+      - name: Test alerting bridge (P0-2 last hop)
+        run: pnpm test:monitoring
+
       - name: Check i18n keys
         run: node scripts/check-i18n.mjs
       - name: Verify SW_VERSION matches package.json

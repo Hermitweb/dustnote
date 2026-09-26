@@ -85,7 +85,7 @@ export function DiagnosticsPanel() {
       {/* 存储用量 */}
       <div className="mb-2 flex items-center justify-between">
         <span>{t('settings.storage_usage')}</span>
-        <span className={isWarning ? 'font-bold text-amber-600 dark:text-amber-400' : ''}>
+        <span className={isWarning ? 'font-bold text-warning' : ''}>
           {formatBytes(usage.usage)} / {formatBytes(usage.quota)} ({usage.usagePercent}%)
         </span>
       </div>
@@ -93,7 +93,7 @@ export function DiagnosticsPanel() {
         <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-bg">
           <div
             className={`h-full rounded-full transition-all ${
-              isWarning ? 'bg-amber-500' : 'bg-mint-500'
+              isWarning ? 'bg-warning-soft0' : 'bg-accent'
             }`}
             style={{ width: `${Math.min(100, usage.usagePercent)}%` }}
           />
@@ -121,11 +121,7 @@ export function DiagnosticsPanel() {
           {cleaned ? t('settings.cache_cleaned') : t('settings.cleanup_cache')}
         </button>
       </div>
-      {cleanFailed && (
-        <div className="mt-1 text-red-600 dark:text-red-400">
-          {t('settings.cache_clean_failed')}
-        </div>
-      )}
+      {cleanFailed && <div className="mt-1 text-danger">{t('settings.cache_clean_failed')}</div>}
 
       {/* 桌面端免密解锁宽限期（S-1） */}
       {desktop && (

@@ -65,14 +65,14 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
 
   return (
     <div className="flex h-full items-center justify-center bg-surface-bg p-6">
-      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 shadow-xl">
+      <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-mint-100 text-3xl dark:bg-mint-900/30">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft/60 text-3xl dark:bg-accent/30">
             🔓
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('auth.unlock_title')}</h1>
           <p className="mt-2 text-sm text-surface-muted">{t('auth.unlock_subtitle')}</p>
-          <p className="mt-1 text-xs text-mint-600 dark:text-mint-400">
+          <p className="mt-1 text-xs text-accent-text dark:text-accent-text">
             {t('settings.app_mode_standalone')}
           </p>
         </div>
@@ -88,7 +88,7 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
             <button
               type="button"
               onClick={handleGraceUnlock}
-              className="w-full rounded-lg border border-mint-500 bg-mint-50 px-6 py-3 text-sm font-semibold text-mint-700 transition-colors hover:bg-mint-100 dark:bg-mint-900/20 dark:text-mint-300"
+              className="w-full rounded-lg border border-accent bg-accent-soft/40 px-6 py-3 text-sm font-semibold text-accent-text transition-colors hover:bg-accent-soft/60 dark:bg-accent/20 dark:text-accent-text"
             >
               ⚡ {t('auth.grace_unlock')}（{Math.floor(graceSec / 60)}:
               {String(graceSec % 60).padStart(2, '0')}）
@@ -104,20 +104,20 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLocked}
-              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20 disabled:opacity-50"
+              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
               autoComplete="off"
               autoFocus
             />
           </div>
 
           {isLocked && (
-            <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+            <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger dark:bg-danger-soft dark:text-danger">
               {t('auth.locked_retry', { sec: Math.ceil(remainingMs / 1000) })}
             </div>
           )}
 
           {error && !isLocked && (
-            <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+            <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger dark:bg-danger-soft dark:text-danger">
               {error}
             </div>
           )}
@@ -125,7 +125,7 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
           <button
             type="submit"
             disabled={submitting || isLocked || !password}
-            className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700 disabled:opacity-50"
+            className="w-full rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
           >
             {submitting ? '...' : t('auth.unlock_btn')}
           </button>
@@ -133,7 +133,7 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
           <button
             type="button"
             onClick={onRecover}
-            className="w-full text-center text-xs text-surface-muted hover:text-mint-600"
+            className="w-full text-center text-xs text-surface-muted hover:text-accent-text"
           >
             {t('auth.unlock_recover')}
           </button>

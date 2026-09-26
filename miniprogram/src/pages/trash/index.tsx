@@ -10,9 +10,8 @@ import Taro, { useDidShow } from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore, decryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
-import { noteAad } from '@dustnote/shared';
+import { noteAad, formatNoteStamp } from '@dustnote/shared';
 import { t, useLanguage } from '../../lib/i18n';
-import { parseServerDate } from '../../lib/date-parse';
 
 interface Note {
   id: string;
@@ -67,6 +66,8 @@ export default function Trash() {
 
   useEffect(() => {
     void load();
+    // 同上：load 是每次渲染的新函数，进依赖会无限重拉
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [masterKey]);
   // 离线队列重放成功后立即校正
   useEffect(() => {
@@ -179,18 +180,13 @@ export default function Trash() {
                 </View>
                 <Text className="note-title">{titles[n.id] || t('common.unnamed_note')}</Text>
               </View>
-              <Text className="note-meta">
-                {parseServerDate(n.serverUpdatedAt).toLocaleString('zh-CN')}
-              </Text>
+              <Text className="note-meta">{formatNoteStamp(n.serverUpdatedAt)}</Text>
               <View className="note-actions">
-                <Text
-                  className="mint-btn mint-btn-sm mint-btn-ghost"
-                  onClick={() => void handleRestore(n)}
-                >
+                <Text className="btn btn-sm btn-ghost" onClick={() => void handleRestore(n)}>
                   {t('common.restore')}
                 </Text>
                 <Text
-                  className="mint-btn mint-btn-sm mint-btn-danger"
+                  className="btn btn-sm btn-danger"
                   onClick={() => void handlePermanentDelete(n)}
                 >
                   {t('common.perm_delete')}

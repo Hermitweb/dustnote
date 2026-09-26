@@ -42,6 +42,7 @@ import {
   toBase64Url,
   apiErrorCode,
   type Template,
+  formatNoteStamp,
 } from '@dustnote/shared';
 import { randomUuid } from '../../lib/uuid';
 import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
@@ -49,7 +50,6 @@ import { PickSheet, type PickItem } from '../../components/PickSheet';
 import { SearchIndex } from '../../lib/search-index';
 import { t, useLanguage } from '../../lib/i18n';
 import { errorText } from '../../lib/error-text';
-import { parseServerDate } from '../../lib/date-parse';
 
 interface Note {
   id: string;
@@ -185,6 +185,8 @@ function IndexBody() {
 
   useEffect(() => {
     if (authState === 'unlocked' && masterKey) void load();
+    // load 不进依赖：它每次渲染都是新函数，加进去就是无限重拉（首屏整库解密）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authState, masterKey]);
   // 离线队列重放成功后立即校正本地视图
   useEffect(() => {
@@ -466,7 +468,11 @@ function IndexBody() {
         fail++;
       }
     }
-    Taro.showToast({ title: t('index.deleted_count', { count: ok }), icon: 'success' });
+    Taro.showToast({
+      title:
+        fail > 0 ? t('index.batch_partial', { ok, fail }) : t('index.deleted_count', { count: ok }),
+      icon: fail > 0 ? 'none' : 'success',
+    });
     exitSelect();
     await load();
   };
@@ -485,7 +491,13 @@ function IndexBody() {
         fail++;
       }
     }
-    Taro.showToast({ title: t('index.restored_count', { count: ok }), icon: 'success' });
+    Taro.showToast({
+      title:
+        fail > 0
+          ? t('index.batch_partial', { ok, fail })
+          : t('index.restored_count', { count: ok }),
+      icon: fail > 0 ? 'none' : 'success',
+    });
     exitSelect();
     await load();
   };
@@ -511,7 +523,13 @@ function IndexBody() {
         fail++;
       }
     }
-    Taro.showToast({ title: t('index.perm_deleted_count', { count: ok }), icon: 'success' });
+    Taro.showToast({
+      title:
+        fail > 0
+          ? t('index.batch_partial', { ok, fail })
+          : t('index.perm_deleted_count', { count: ok }),
+      icon: fail > 0 ? 'none' : 'success',
+    });
     exitSelect();
     await load();
   };
@@ -531,17 +549,21 @@ function IndexBody() {
       if (!fid) return;
       const fname = folderList.find((f) => f.id === fid)!.name;
       let ok = 0;
-      const fail = 0;
+      let fail = 0;
       for (const id of ids) {
         try {
           await repo.moveNote(id, fid);
           ok++;
         } catch {
-          /* skip */
+          // 单条失败不中断整批，但必须报出来（原来直接 skip，用户以为都移动好了）
+          fail++;
         }
       }
       Taro.showToast({
-        title: t('index.moved_to_count', { name: fname, count: ok }),
+        title:
+          fail > 0
+            ? t('index.batch_partial', { ok, fail })
+            : t('index.moved_to_count', { name: fname, count: ok }),
         icon: 'success',
       });
       exitSelect();
@@ -614,7 +636,7 @@ function IndexBody() {
             <Text className="hero-title">{t('errors.server_unreachable')}</Text>
             <Text className="hero-subtitle">{t('errors.server_unreachable_hint')}</Text>
             <View
-              className="mint-btn mint-btn-block mt-l"
+              className="btn btn-block mt-l"
               onClick={() => {
                 void useAuthStore.getState().init();
               }}
@@ -643,7 +665,7 @@ function IndexBody() {
           <Text className="hero-title">{t('index.welcome')}</Text>
           <Text className="hero-subtitle">{t('index.hero_subtitle')}</Text>
           <View
-            className="mint-btn mint-btn-block mt-l"
+            className="btn btn-block mt-l"
             onClick={() => Taro.navigateTo({ url: '/pages/setup/index' })}
           >
             {t('index.create_master_password')}
@@ -686,7 +708,7 @@ function IndexBody() {
           <Text className="hero-title">{t('app.name')}</Text>
           <Text className="hero-subtitle mb-l">{t('index.unlock_subtitle')}</Text>
           <FInput
-            className="mint-input"
+            className="input"
             password
             placeholder={t('common.master_password')}
             value={unlockPwd}
@@ -694,14 +716,14 @@ function IndexBody() {
           />
           {showTotp && (
             <FInput
-              className="mint-input mt-s"
+              className="input mt-s"
               placeholder={t('unlock.totp_placeholder')}
               value={totpCode}
               onInput={(e: any) => setTotpCode((e.detail as { value: string }).value)}
             />
           )}
           <View
-            className="mint-btn mint-btn-block mt-s"
+            className="btn btn-block mt-s"
             style={{ opacity: unlocking ? 0.5 : 1 }}
             onClick={doUnlock}
           >
@@ -851,6 +873,85 @@ function IndexBody() {
             >
               {t('index.tab_trash')}
             </Text>
+            <Text
+              className="view-tab-action"
+              onClick={async () => {
+                if (!masterKey) {
+                  Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
+                  return;
+                }
+                try {
+                  // 选模板:预设 + 服务端自定义(联机)
+                  const customItems = serverTemplates.map((tp) => ({
+                    key: `c:${tp.id}`,
+                    label: `🗂 ${tp.name}`,
+                  }));
+                  const presetItems = PRESET_TEMPLATES.map((tp, i) => ({
+                    key: `p:${i}`,
+                    label: `${tp.icon} ${tp.name}`,
+                  }));
+                  // F11：走统一的 openPickSheet（与选文件夹共用 resolver 槽）——
+                  // 否则本 Promise 不在守卫内,被其他入口覆盖时会永久悬空
+                  const pick = await openPickSheet({
+                    title: t('index.pick_template'),
+                    items: [...presetItems, ...customItems],
+                  });
+                  if (!pick) return;
+                  let tplName = '';
+                  let content = '';
+                  if (pick.startsWith('p:')) {
+                    const tpl = PRESET_TEMPLATES[Number(pick.slice(2))]!;
+                    tplName = tpl.name;
+                    content = fillTemplatePlaceholders(tpl.content);
+                  } else {
+                    const ct = serverTemplates.find((tp) => `c:${tp.id}` === pick)!;
+                    tplName = ct.name;
+                    const env = parseEnvelope(ct.content);
+                    const pt = await decryptNote(masterKey, env);
+                    content = pt.content;
+                  }
+                  if (!tplName) return;
+                  // 选目标文件夹（与 FAB 新建一致的必选逻辑）
+                  let folderId: string | null = selectedFolderId;
+                  const folderList = folders as Folder[];
+                  if (folderId == null || !folderList.some((f) => f.id === folderId)) {
+                    if (folderList.length === 0) {
+                      await ensureDefaultContent();
+                      const fresh = (await getRepo().loadAll()).folders as Folder[];
+                      if (fresh.length === 0) {
+                        Taro.showToast({ title: t('index.need_folder'), icon: 'none' });
+                        return;
+                      }
+                      folderId = fresh[0]!.id;
+                    } else {
+                      folderId = await pickFolderFromList(folderList);
+                      if (!folderId) return;
+                    }
+                  }
+                  const doc: NotePlaintext = { title: tplName, content, tags: [] };
+                  const noteId = randomUuid();
+                  const { json: cipherJson } = await encryptNote(
+                    masterKey,
+                    doc,
+                    noteAad(noteId, useAuthStore.getState().userId ?? '')
+                  );
+                  const id = await getRepo().createNote({
+                    id: noteId,
+                    ciphertext: cipherJson,
+                    keyVersion: 1,
+                    isPinned: false,
+                    isFavorite: false,
+                    folderId,
+                  });
+                  Taro.navigateTo({ url: `/pages/note/edit?id=${id}` });
+                } catch (e: any) {
+                  if (e?.errMsg?.includes?.('cancel')) return;
+                  Taro.showToast({ title: t('common.create_failed'), icon: 'none' });
+                }
+              }}
+            >
+              🗂 {t('index.tab_template')}
+            </Text>
           </View>
         )}
 
@@ -920,19 +1021,14 @@ function IndexBody() {
                     {title}
                   </Text>
                 </View>
-                <Text className="note-meta">
-                  {parseServerDate(n.serverUpdatedAt).toLocaleString('zh-CN')}
-                </Text>
+                <Text className="note-meta">{formatNoteStamp(n.serverUpdatedAt)}</Text>
                 {!selecting && viewMode === 'trash' && (
                   <View className="note-actions">
-                    <Text
-                      className="mint-btn mint-btn-sm mint-btn-ghost"
-                      onClick={() => restoreSingle(n)}
-                    >
+                    <Text className="btn btn-sm btn-ghost" onClick={() => restoreSingle(n)}>
                       {t('common.restore')}
                     </Text>
                     <Text
-                      className="mint-btn mint-btn-sm mint-btn-danger"
+                      className="btn btn-sm btn-danger"
                       onClick={() => permanentDeleteSingle(n)}
                     >
                       {t('common.perm_delete')}
@@ -941,14 +1037,11 @@ function IndexBody() {
                 )}
                 {!selecting && viewMode !== 'trash' && (
                   <View className="note-actions">
-                    <Text
-                      className="mint-btn mint-btn-sm mint-btn-ghost"
-                      onClick={() => void pinSingle(n)}
-                    >
+                    <Text className="btn btn-sm btn-ghost" onClick={() => void pinSingle(n)}>
                       {n.isPinned ? `📌 ${t('index.unpin')}` : `📌 ${t('index.pin')}`}
                     </Text>
                     <Text
-                      className="mint-btn mint-btn-sm mint-btn-ghost"
+                      className="btn btn-sm btn-ghost"
                       onClick={async () => {
                         try {
                           const repo = getRepo();
@@ -962,15 +1055,12 @@ function IndexBody() {
                       {n.isFavorite ? t('index.unfavorite') : t('index.favorite')}
                     </Text>
                     {mode === 'online' && (
-                      <Text
-                        className="mint-btn mint-btn-sm mint-btn-ghost"
-                        onClick={() => void shareFromList(n)}
-                      >
+                      <Text className="btn btn-sm btn-ghost" onClick={() => void shareFromList(n)}>
                         🔗 {t('index.share')}
                       </Text>
                     )}
                     <Text
-                      className="mint-btn mint-btn-sm mint-btn-ghost"
+                      className="btn btn-sm btn-ghost"
                       onClick={() => {
                         setSelecting(true);
                         toggleSelect(n.id);
@@ -1019,88 +1109,6 @@ function IndexBody() {
                 </Text>
               )}
             </View>
-          </View>
-        )}
-
-        {!selecting && (
-          <View
-            className="fab-tpl"
-            onClick={async () => {
-              if (!masterKey) {
-                Taro.showToast({ title: t('common.need_unlock'), icon: 'none' });
-                return;
-              }
-              try {
-                // 选模板:预设 + 服务端自定义(联机)
-                const customItems = serverTemplates.map((tp) => ({
-                  key: `c:${tp.id}`,
-                  label: `🗂 ${tp.name}`,
-                }));
-                const presetItems = PRESET_TEMPLATES.map((tp, i) => ({
-                  key: `p:${i}`,
-                  label: `${tp.icon} ${tp.name}`,
-                }));
-                // F11：走统一的 openPickSheet（与选文件夹共用 resolver 槽）——
-                // 否则本 Promise 不在守卫内,被其他入口覆盖时会永久悬空
-                const pick = await openPickSheet({
-                  title: t('index.pick_template'),
-                  items: [...presetItems, ...customItems],
-                });
-                if (!pick) return;
-                let tplName = '';
-                let content = '';
-                if (pick.startsWith('p:')) {
-                  const tpl = PRESET_TEMPLATES[Number(pick.slice(2))]!;
-                  tplName = tpl.name;
-                  content = fillTemplatePlaceholders(tpl.content);
-                } else {
-                  const ct = serverTemplates.find((tp) => `c:${tp.id}` === pick)!;
-                  tplName = ct.name;
-                  const env = parseEnvelope(ct.content);
-                  const pt = await decryptNote(masterKey, env);
-                  content = pt.content;
-                }
-                if (!tplName) return;
-                // 选目标文件夹（与 FAB 新建一致的必选逻辑）
-                let folderId: string | null = selectedFolderId;
-                const folderList = folders as Folder[];
-                if (folderId == null || !folderList.some((f) => f.id === folderId)) {
-                  if (folderList.length === 0) {
-                    await ensureDefaultContent();
-                    const fresh = (await getRepo().loadAll()).folders as Folder[];
-                    if (fresh.length === 0) {
-                      Taro.showToast({ title: t('index.need_folder'), icon: 'none' });
-                      return;
-                    }
-                    folderId = fresh[0]!.id;
-                  } else {
-                    folderId = await pickFolderFromList(folderList);
-                    if (!folderId) return;
-                  }
-                }
-                const doc: NotePlaintext = { title: tplName, content, tags: [] };
-                const noteId = randomUuid();
-                const { json: cipherJson } = await encryptNote(
-                  masterKey,
-                  doc,
-                  noteAad(noteId, useAuthStore.getState().userId ?? '')
-                );
-                const id = await getRepo().createNote({
-                  id: noteId,
-                  ciphertext: cipherJson,
-                  keyVersion: 1,
-                  isPinned: false,
-                  isFavorite: false,
-                  folderId,
-                });
-                Taro.navigateTo({ url: `/pages/note/edit?id=${id}` });
-              } catch (e: any) {
-                if (e?.errMsg?.includes?.('cancel')) return;
-                Taro.showToast({ title: t('common.create_failed'), icon: 'none' });
-              }
-            }}
-          >
-            <Text>📄</Text>
           </View>
         )}
 

@@ -36,14 +36,19 @@ function resolveDigest(image) {
   ];
   for (const [name, args] of attempts) {
     try {
-      const out = execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+      const out = execFileSync('docker', args, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
         .trim()
         .split('\n')[0];
       if (/^sha256:[0-9a-f]{64}$/.test(out)) return out;
       if (name === 'manifest') {
         // manifest inspect --verbose 输出 JSON，取顶层 Descriptor.digest
         const parsed = JSON.parse(out);
-        const digest = Array.isArray(parsed) ? parsed[0]?.Descriptor?.digest : parsed?.Descriptor?.digest;
+        const digest = Array.isArray(parsed)
+          ? parsed[0]?.Descriptor?.digest
+          : parsed?.Descriptor?.digest;
         if (typeof digest === 'string' && /^sha256:[0-9a-f]{64}$/.test(digest)) return digest;
       }
     } catch {

@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Modal } from './Modal';
 import { isTauri } from '../lib/platform';
 
 interface ShortcutItem {
@@ -50,48 +51,29 @@ export function Cheatsheet() {
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
-      onClick={() => setOpen(false)}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-surface-fg">{t('cheatsheet.title')}</h2>
-          <button
-            onClick={() => setOpen(false)}
-            className="text-surface-muted hover:text-surface-fg"
-            title={t('cheatsheet.close')}
+    <Modal title={t('cheatsheet.title')} onClose={() => setOpen(false)}>
+      <div className="space-y-2">
+        {SHORTCUTS.map((s) => (
+          <div
+            key={s.keys}
+            className="flex items-center justify-between rounded-lg border border-surface-border px-3 py-2"
           >
-            ✕
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          {SHORTCUTS.map((s) => (
-            <div
-              key={s.keys}
-              className="flex items-center justify-between rounded-lg border border-surface-border px-3 py-2"
-            >
-              <span className="text-sm text-surface-fg">
-                {t(s.labelKey)}
-                {s.desktopOnly && !desktop && (
-                  <span className="ml-2 text-xs text-surface-muted">
-                    ({t('cheatsheet.desktop_only')})
-                  </span>
-                )}
-              </span>
-              <kbd className="rounded bg-surface-bg px-2 py-1 font-mono text-xs text-surface-fg">
-                {s.keys}
-              </kbd>
-            </div>
-          ))}
-        </div>
-
-        <p className="mt-4 text-center text-xs text-surface-muted">{t('cheatsheet.hint')}</p>
+            <span className="text-sm text-surface-fg">
+              {t(s.labelKey)}
+              {s.desktopOnly && !desktop && (
+                <span className="ml-2 text-xs text-surface-muted">
+                  ({t('cheatsheet.desktop_only')})
+                </span>
+              )}
+            </span>
+            <kbd className="rounded bg-surface-bg px-2 py-1 font-mono text-xs text-surface-fg">
+              {s.keys}
+            </kbd>
+          </div>
+        ))}
       </div>
-    </div>
+
+      <p className="mt-4 text-center text-xs text-surface-muted">{t('cheatsheet.hint')}</p>
+    </Modal>
   );
 }

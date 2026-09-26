@@ -9,6 +9,7 @@
  */
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { IconText } from './Icon';
 import { logger } from '../lib/diagnostics';
 import i18n from '../lib/i18n';
 
@@ -72,7 +73,7 @@ export class AppErrorBoundary extends Component<Props, State> {
     const { error, errorCode } = this.state;
     return (
       <div className="flex h-full items-center justify-center bg-surface-bg p-6">
-        <div className="w-full max-w-lg rounded-2xl border border-surface-border bg-surface-card p-8 shadow-xl">
+        <div className="w-full max-w-lg rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
           <div className="mb-4 text-center text-5xl">💔</div>
           <h1 className="mb-2 text-center text-xl font-bold text-surface-fg">
             {i18n.t('error_boundary.title')}
@@ -84,12 +85,12 @@ export class AppErrorBoundary extends Component<Props, State> {
           <div className="mb-4 rounded-lg bg-surface-bg p-3">
             <div className="mb-1 flex items-center justify-between text-xs text-surface-muted">
               <span>{i18n.t('error_boundary.error_code')}</span>
-              <code className="rounded bg-mint-100 px-2 py-0.5 font-mono font-bold text-mint-700 dark:bg-mint-900/30 dark:text-mint-300">
+              <code className="rounded bg-accent-soft/60 px-2 py-0.5 font-mono font-bold text-accent-text dark:bg-accent/30 dark:text-accent-text">
                 {errorCode}
               </code>
             </div>
             {error && (
-              <pre className="overflow-x-auto whitespace-pre-wrap break-all text-xs text-red-600 dark:text-red-400">
+              <pre className="overflow-x-auto whitespace-pre-wrap break-all text-xs text-danger">
                 {error.message}
               </pre>
             )}
@@ -100,19 +101,22 @@ export class AppErrorBoundary extends Component<Props, State> {
               onClick={this.handleCopyDiagnostics}
               className="flex-1 rounded-lg border border-surface-border px-4 py-2.5 text-sm font-medium text-surface-fg hover:bg-surface-bg"
             >
-              {i18n.t('error_boundary.export_diagnostics')}
+              <IconText
+                k="error_boundary.export_diagnostics"
+                label={i18n.t('error_boundary.export_diagnostics')}
+              />
             </button>
             <button
               onClick={this.handleRetry}
               className="flex-1 rounded-lg border border-surface-border px-4 py-2.5 text-sm font-medium text-surface-fg hover:bg-surface-bg"
             >
-              {i18n.t('error_boundary.retry')}
+              <IconText k="error_boundary.retry" label={i18n.t('error_boundary.retry')} />
             </button>
             <button
               onClick={this.handleReload}
-              className="flex-1 rounded-lg bg-mint-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-mint-700"
+              className="flex-1 rounded-lg bg-accent-strong px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong-hover"
             >
-              {i18n.t('error_boundary.reload')}
+              <IconText k="error_boundary.reload" label={i18n.t('error_boundary.reload')} />
             </button>
           </div>
         </div>

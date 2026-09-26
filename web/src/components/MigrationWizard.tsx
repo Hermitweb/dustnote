@@ -12,6 +12,7 @@
 
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { IconText } from './Icon';
 import { useStore } from '../lib/store';
 import { useModeStore } from '../lib/mode-store';
 import { toast } from '../lib/toast';
@@ -122,9 +123,9 @@ export function MigrationWizard({ onClose }: { onClose: () => void }) {
           <span className="text-xs font-medium text-surface-fg">{t('migration.export_title')}</span>
           <button
             onClick={handleExport}
-            className="rounded bg-mint-600 px-3 py-1 text-xs font-semibold text-white hover:bg-mint-700"
+            className="rounded bg-accent-strong px-3 py-1 text-xs font-semibold text-white hover:bg-accent-strong-hover"
           >
-            {t('migration.export_btn')}
+            <IconText k="migration.export_btn" label={t('migration.export_btn')} />
           </button>
         </div>
         <p className="text-xs text-surface-muted">{t('migration.export_desc')}</p>
@@ -138,7 +139,11 @@ export function MigrationWizard({ onClose }: { onClose: () => void }) {
             disabled={importing}
             className="rounded border border-surface-border px-3 py-1 text-xs font-semibold text-surface-fg hover:bg-surface-card disabled:opacity-50"
           >
-            {importing ? t('common.loading') : t('migration.import_btn')}
+            {importing ? (
+              t('common.loading')
+            ) : (
+              <IconText k="migration.import_btn" label={t('migration.import_btn')} />
+            )}
           </button>
         </div>
         <p className="text-xs text-surface-muted">{t('migration.import_desc')}</p>

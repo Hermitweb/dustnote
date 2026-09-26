@@ -7,17 +7,28 @@
 
 import { useTranslation } from 'react-i18next';
 import { useToast, type ToastKind } from '../lib/toast';
+import { Icon, type IconName } from './Icon';
 
+/**
+ * 三种 kind 的底色走引擎派生的「实心状态底」：白字必然 AA，且跟着主题变。
+ * 改造前是 bg-emerald-600 / bg-red-600 / bg-slate-700 三个 Tailwind 硬色 ——
+ * 它们既不吃主题，也没人验证过白字在暗色档够不够。
+ */
 const KIND_STYLES: Record<ToastKind, string> = {
-  success: 'bg-emerald-600 text-white',
-  error: 'bg-red-600 text-white',
-  info: 'bg-slate-700 text-white dark:bg-slate-800',
+  success: 'bg-success-solid text-on-success-solid',
+  error: 'bg-danger-solid text-on-danger-solid',
+  info: 'bg-info-solid text-on-info-solid',
 };
 
-const KIND_ICONS: Record<ToastKind, string> = {
-  success: '✓',
-  error: '⚠',
-  info: 'ℹ',
+/**
+ * 每种 kind 的图标走图标体系（currentColor + 可控尺寸），而不是 ✓ ⚠ ℹ 文本符号：
+ * 后者依赖字体是否有这些字形，且不吃颜色，暗色下会灰到看不见。
+ * 文案里原先还各带一个 ✅/❌，等于两个图标叠着 —— 已在 i18n 侧剥掉。
+ */
+const KIND_ICONS: Record<ToastKind, IconName> = {
+  success: 'check',
+  error: 'warning',
+  info: 'info',
 };
 
 export function ToastContainer() {
@@ -41,7 +52,7 @@ export function ToastContainer() {
           className={`pointer-events-auto flex max-w-sm items-start gap-2 rounded-lg px-4 py-3 shadow-lg ${KIND_STYLES[t.kind]}`}
           onClick={() => dismiss(t.id)}
         >
-          <span className="flex-shrink-0 font-bold">{KIND_ICONS[t.kind]}</span>
+          <Icon name={KIND_ICONS[t.kind]} size={16} className="mt-0.5 flex-shrink-0" />
           <span className="flex-1 text-sm">{t.message}</span>
         </div>
       ))}

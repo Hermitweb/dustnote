@@ -1,0 +1,113 @@
+/* 生成文件，请勿手改 —— 由 scripts/gen-mp-tokens.mjs 从 @dustnote/shared 的主题种子派生。
+ * 想改颜色改 shared/src/theme-seeds.ts；想改变量名改 scripts/gen-mp-tokens.mjs 的 VAR_MAP。
+ * 主题：liquid-glass（小程序固定一套，不做 7 主题切换：weapp 包体与审核成本不值） */
+
+/* 浅色默认值（page 元素选择器，优先级最低） */
+page {
+  --bg: #e4ebf8;
+  --fg: #0f172a;
+  --fg-secondary: #465367;
+  --fg-muted: #465367;
+  --fg-faint: #717a88;
+  --border-strong: #d9dadd;
+  --bg-elevated: #ffffffe0;
+  --bg-sunken: #d7deec;
+  --border: #0f172a17;
+  --primary-glow: #dbeafe;
+  --card-solid: #ffffff;
+  --primary: #3b82f6;
+  --primary-strong: #3472d7;
+  --primary-deep: #2e65c0;
+  --primary-soft: #dbeafe;
+  --primary-text: #295bac;
+  --success: #136b36;
+  --warning: #94460c;
+  --danger: #a01b1d;
+  --info: #045d8f;
+  --danger-soft: #f4e4e4;
+  --success-soft: #e3ede7;
+  --warning-soft: #f2e9e2;
+}
+
+/* 系统深色：仅在没有手动主题类时生效 */
+@media (prefers-color-scheme: dark) {
+  page {
+    --bg: #091128;
+    --fg: #e2e8f0;
+    --fg-secondary: #dae1ea;
+    --fg-muted: #dae1ea;
+    --fg-faint: #b1bbcb;
+    --border-strong: #7db4f8;
+    --bg-elevated: #172554cc;
+    --bg-sunken: #1f273c;
+    --border: #ffffff1a;
+    --primary-glow: #1e3a8a;
+    --card-solid: #172554;
+    --primary: #7dd3fc;
+    --primary-strong: #487991;
+    --primary-deep: #9cdefd;
+    --primary-soft: #1e3a8a;
+    --primary-text: #bbe8fd;
+    --success: #aeefc6;
+    --warning: #fbdf94;
+    --danger: #fcd9d9;
+    --info: #bce8fc;
+    --danger-soft: #3c4269;
+    --success-soft: #2f4566;
+    --warning-soft: #3c435e;
+  }
+}
+
+/* 手动浅色（系统深色时反制上面的 @media） */
+.theme-light {
+  --bg: #e4ebf8;
+  --fg: #0f172a;
+  --fg-secondary: #465367;
+  --fg-muted: #465367;
+  --fg-faint: #717a88;
+  --border-strong: #d9dadd;
+  --bg-elevated: #ffffffe0;
+  --bg-sunken: #d7deec;
+  --border: #0f172a17;
+  --primary-glow: #dbeafe;
+  --card-solid: #ffffff;
+  --primary: #3b82f6;
+  --primary-strong: #3472d7;
+  --primary-deep: #2e65c0;
+  --primary-soft: #dbeafe;
+  --primary-text: #295bac;
+  --success: #136b36;
+  --warning: #94460c;
+  --danger: #a01b1d;
+  --info: #045d8f;
+  --danger-soft: #f4e4e4;
+  --success-soft: #e3ede7;
+  --warning-soft: #f2e9e2;
+}
+
+/* 手动深色（ThemeVars/useThemeDarkClass 注入根类） */
+.theme-dark {
+  --bg: #091128;
+  --fg: #e2e8f0;
+  --fg-secondary: #dae1ea;
+  --fg-muted: #dae1ea;
+  --fg-faint: #b1bbcb;
+  --border-strong: #7db4f8;
+  --bg-elevated: #172554cc;
+  --bg-sunken: #1f273c;
+  --border: #ffffff1a;
+  --primary-glow: #1e3a8a;
+  --card-solid: #172554;
+  --primary: #7dd3fc;
+  --primary-strong: #487991;
+  --primary-deep: #9cdefd;
+  --primary-soft: #1e3a8a;
+  --primary-text: #bbe8fd;
+  --success: #aeefc6;
+  --warning: #fbdf94;
+  --danger: #fcd9d9;
+  --info: #bce8fc;
+  --danger-soft: #3c4269;
+  --success-soft: #2f4566;
+  --warning-soft: #3c435e;
+}

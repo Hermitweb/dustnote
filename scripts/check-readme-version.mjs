@@ -19,7 +19,7 @@ const badge = match[1];
 if (badge !== pkg.version) {
   console.error(
     `❌ 版本漂移：README 徽章 v${badge} ≠ package.json v${pkg.version}。` +
-      ` 发布后请同步 README 徽章（或改由 CI 自动注入）。`,
+      ` 发布后请同步 README 徽章（或改由 CI 自动注入）。`
   );
   process.exit(1);
 }

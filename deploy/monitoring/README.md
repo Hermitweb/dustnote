@@ -30,7 +30,7 @@ Prometheus + Alertmanager + ntfy 桥，对 DustNote 主栈做指标告警。与�
    docker compose -f compose.monitoring.yml --env-file .env.monitoring up -d
    ```
 
-3. 手机安装 ntfy → 订阅步骤 2 里的 `NTFY_TOPIC` → 应立刻收到一条测试可达的
+4. 手机安装 ntfy → 订阅步骤 2 里的 `NTFY_TOPIC` → 应立刻收到一条测试可达的
    通知渠道（首次告警即验证）。
 
 ## 告警规则
@@ -47,11 +47,27 @@ Prometheus `:9090`、Alertmanager `:9093` 只绑 127.0.0.1——远程查看走 
 ssh -L 9090:localhost:9090 -L 9093:localhost:9093 root@<server>
 ```
 
-## 演练（roadmap P0-2 验收：拔容器 2 分钟内收到告警）
+## 验收：投递要可证明，不靠人看手机
+
+Alertmanager 的 webhook 只有拿到 4xx/5xx 才会重试。旧 bridge 无论 ntfy 成败都回
+200，等于**topic 填错或 ntfy 不可达时静默丢告警**——"有告警系统"悄悄变成"没有"。
+现在 bridge 数着送达条数：一条都没推出去就回 502（让 Alertmanager 重试），
+并把 received/published/failed 暴露在 `GET /stats`，演练脚本据此断言最后一跳。
 
 ```bash
-scripts/alert-drill.sh          # 自动：down 主栈→观察规则触发→up 恢复→确认 resolved
+scripts/alert-drill.sh --smoke   # 冒烟：投一条合成告警走完整链路，不动主栈（日常用这个）
+scripts/alert-drill.sh           # 全量演练：down 主栈 → 等 firing → 恢复 → 核对最后一跳
 ```
+
+bridge 没对外发布端口（只在内网），脚本经 `docker compose exec ntfy-bridge wget` 读它：
+
+```bash
+cd deploy/monitoring
+docker compose -f compose.monitoring.yml exec -T ntfy-bridge wget -qO- http://127.0.0.1:9095/stats
+```
+
+映射逻辑本身有单测（`bridge.test.mjs`，`pnpm test:monitoring`，已进 CI）：
+critical→priority 5、resolved→3、缺字段兜底、畸形载荷不炸、全失败必须报零送达。
 
 ## 安全边界
 

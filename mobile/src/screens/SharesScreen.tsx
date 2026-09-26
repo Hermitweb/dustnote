@@ -23,7 +23,14 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { errorText } from '../lib/error-text';
-import { decryptString, unwrapKey, toBase64Url, noteAad, type Ciphertext } from '@dustnote/shared';
+import {
+  decryptString,
+  unwrapKey,
+  toBase64Url,
+  noteAad,
+  type Ciphertext,
+  formatDateTimeStamp,
+} from '@dustnote/shared';
 import { api } from '../api';
 import { useAuthStore } from '../state/auth';
 import { createRepository } from '../lib/repository';
@@ -190,12 +197,12 @@ export function SharesScreen() {
                 ) : null}
               </View>
               <Text style={styles.cardMeta}>
-                {t('share.created_at', { date: new Date(item.createdAt).toLocaleString('zh-CN') })}{' '}
-                · {t('share.views', { count: item.viewCount })}
+                {t('share.created_at', { date: formatDateTimeStamp(item.createdAt) })} ·{' '}
+                {t('share.views', { count: item.viewCount })}
                 {'\n'}
                 {item.hasPassword ? t('share.password_protected') : t('share.no_password')}
                 {item.expiresAt
-                  ? ` · ${t('share.expires_at', { date: new Date(item.expiresAt).toLocaleString('zh-CN') })}`
+                  ? ` · ${t('share.expires_at', { date: formatDateTimeStamp(item.expiresAt) })}`
                   : ` · ${t('share.never_expires')}`}
               </Text>
               {!item.revoked && (

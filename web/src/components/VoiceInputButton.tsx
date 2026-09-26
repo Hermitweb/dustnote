@@ -137,7 +137,7 @@ export function VoiceInputButton({ onInsert }: { onInsert: (text: string) => voi
       title={listening ? t('voice_input.stop') : t('voice_input.start')}
       className={`rounded p-1.5 text-xs ${
         listening
-          ? 'animate-pulse bg-red-100 text-red-600 dark:bg-red-900/40'
+          ? 'animate-pulse bg-danger-soft text-danger dark:bg-danger-soft'
           : 'text-surface-muted hover:bg-surface-bg'
       }`}
     >

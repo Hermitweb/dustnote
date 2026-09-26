@@ -217,9 +217,9 @@ describe('NoteHistoryDialog', () => {
       createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 1, onClose })
     );
     await waitFor(() => {});
-    const xBtn = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent === '✕'
-    );
+    // 关闭键原先靠文本内容 '✕' 定位：那是个乘号字形，读屏念出来是 "multiplication sign"，
+    // 换成图标后按无障碍名找 —— 顺带把这条断言变成"用户真的能认出它是关闭"的检查
+    const xBtn = container.querySelector<HTMLButtonElement>('button[aria-label="common.close"]');
     fireEvent.click(xBtn!);
     expect(onClose).toHaveBeenCalled();
   });

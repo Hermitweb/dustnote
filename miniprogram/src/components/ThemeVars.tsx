@@ -12,7 +12,7 @@
 import { PageMeta } from '@tarojs/components';
 import { useEffect } from 'react';
 import Taro from '@tarojs/taro';
-import { useThemeStore, currentEffectiveTheme } from '../state/theme';
+import { useThemeStore, currentEffectiveTheme, rootClassOf } from '../state/theme';
 
 const BG = { light: '#EAEFF8', dark: '#0a1128' } as const;
 const FG = { light: '#1F2D26', dark: '#e8edf4' } as const;
@@ -38,6 +38,7 @@ function bindSystemThemeListener(): void {
  *  H5 构建不拼（TARO_ENV 编译期内联）:极光层在 H5 渲染，铺实底会盖掉极光。 */
 export function useThemeDarkClass(): string {
   const theme = useThemeStore((s) => s.theme);
+  const material = useThemeStore((s) => s.material);
   const systemDark = useThemeStore((s) => s.systemDark);
   const refreshSystemTheme = useThemeStore((s) => s.refreshSystemTheme);
 
@@ -47,15 +48,12 @@ export function useThemeDarkClass(): string {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const solid = process.env.TARO_ENV === 'weapp' ? ' page-solid' : '';
-  if (theme === 'dark') return 'theme-dark' + solid;
-  if (theme === 'light') {
-    // 手动浅色:仅当系统为深色时需要反制类
-    return currentEffectiveTheme('light', systemDark === true) === 'light' && systemDark
-      ? 'theme-light' + solid
-      : '';
-  }
-  return '';
+  return rootClassOf({
+    theme,
+    systemDark: systemDark === true,
+    material,
+    taroEnv: process.env.TARO_ENV ?? '',
+  });
 }
 
 export function ThemeVars() {

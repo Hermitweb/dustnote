@@ -6,11 +6,13 @@ import type { ThemeId, Mode } from './lib/store';
 import { useModeStore, hasModeDefaultApplied, markModeDefaultApplied } from './lib/mode-store';
 import { isTauri } from './lib/platform';
 import { applyTheme, watchSystemTheme, applyTypography, THEMES } from './lib/theme';
+import { applyEffect } from './lib/effect';
 import { useUpdateCheck } from './lib/use-update-check';
+import { Icon } from './components/Icon';
 import { ForceUpdateOverlay } from './components/ForceUpdateOverlay';
 import { UpdateBanner } from './components/UpdateBanner';
 import { Sidebar } from './components/Sidebar';
-import { Editor } from './components/Editor';
+import { Stage } from './components/Stage';
 import { SetupScreen } from './screens/SetupScreen';
 import { UnlockScreen } from './screens/UnlockScreen';
 import { StandaloneSetupScreen } from './screens/StandaloneSetupScreen';
@@ -197,6 +199,11 @@ function App() {
     installOnlineListener();
   }, [checkStatus, loadAll, modeInitialized, initRepository]);
 
+  // 材质与极光：本机渲染偏好，开机应用一次（改动由设置页自己写 DOM，见 lib/effect.ts）
+  useEffect(() => {
+    applyEffect();
+  }, []);
+
   // 应用主题 + 排版（字体 / 行高密度）
   useEffect(() => {
     applyTheme(preferences.theme, preferences.mode);
@@ -332,14 +339,14 @@ function App() {
   if (authState === 'error') {
     return (
       <div className="flex h-full items-center justify-center bg-surface-bg p-6">
-        <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
+        <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
           <div className="mb-4 text-4xl">⚠️</div>
           <h2 className="mb-2 text-lg font-semibold text-surface-fg">
             {t('app.connect_failed_title')}
           </h2>
           <p className="mb-1 text-sm text-surface-muted">{t('app.connect_failed_hint')}</p>
           {serverError && (
-            <p className="mb-6 break-all rounded-lg bg-surface-bg px-3 py-2 text-xs text-red-600 dark:text-red-400">
+            <p className="mb-6 break-all rounded-lg bg-surface-bg px-3 py-2 text-xs text-danger">
               {serverError}
             </p>
           )}
@@ -358,7 +365,7 @@ function App() {
                 useStore.setState({ authState: 'unknown', serverError: null });
                 void checkStatus();
               }}
-              className="flex-1 rounded-lg bg-mint-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-mint-700"
+              className="flex-1 rounded-lg bg-accent-strong px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong-hover"
             >
               {t('app.retry')}
             </button>
@@ -391,7 +398,7 @@ function App() {
       {/* 跳过导航链接（屏幕阅读器/键盘用户） */}
       <a
         href="#main-content"
-        className="sr-only sr-only-focusable fixed left-2 top-2 z-[10000] rounded-lg bg-mint-600 px-4 py-2 text-sm font-medium text-white shadow-lg focus:not-sr-only"
+        className="sr-only sr-only-focusable fixed left-2 top-2 z-[10000] rounded-lg bg-accent-strong px-4 py-2 text-sm font-medium text-white shadow-lg focus:not-sr-only"
       >
         {t('app.skip_to_content') || '跳转到主要内容'}
       </a>
@@ -403,20 +410,20 @@ function App() {
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         {/* 顶部操作条 */}
-        <header className="flex items-center gap-2 border-b border-surface-border bg-surface-card px-4 py-2">
+        <header className="glass-1 flex items-center gap-2 border-b border-surface-border bg-surface-card px-4 py-2">
           {/* 移动端汉堡按钮：切换 sidebar 抽屉 */}
           <button
             onClick={() => toggleSidebar()}
-            className="rounded p-1.5 text-surface-muted hover:bg-surface-bg sm:hidden"
+            className="rounded p-1.5 text-surface-muted hover:bg-surface-3 lg:hidden"
             aria-label={t('app_bar.toggle_sidebar')}
             aria-expanded={!sidebarHidden}
           >
-            ☰
+            <Icon name="menu" />
           </button>
           <div className="hidden text-sm text-surface-muted sm:block">{t('app.tagline')}</div>
           <div className="ml-auto flex items-center gap-2">
             {mode === 'standalone' && (
-              <span className="rounded bg-mint-100 px-2 py-0.5 text-xs text-mint-700 dark:bg-mint-900/30 dark:text-mint-300">
+              <span className="rounded bg-accent-soft/60 px-2 py-0.5 text-xs text-accent-text dark:bg-accent/30 dark:text-accent-text">
                 {t('settings.app_mode_standalone')}
               </span>
             )}
@@ -428,7 +435,7 @@ function App() {
                   title={t('admin.title')}
                   aria-label={t('admin.title')}
                 >
-                  🛠️
+                  <Icon name="admin" />
                 </button>
                 <button
                   onClick={() => setShowShares(true)}
@@ -436,7 +443,7 @@ function App() {
                   title={t('shares.title')}
                   aria-label={t('shares.title')}
                 >
-                  🔗
+                  <Icon name="link" />
                 </button>
               </>
             )}
@@ -446,7 +453,7 @@ function App() {
               title={t('app_bar.settings')}
               aria-label={t('app_bar.settings')}
             >
-              ⚙️
+              <Icon name="settings" />
             </button>
             <button
               onClick={lock}
@@ -454,7 +461,7 @@ function App() {
               title={t('app_bar.lock')}
               aria-label={t('app_bar.lock')}
             >
-              🔒
+              <Icon name="lock" />
             </button>
           </div>
         </header>
@@ -463,7 +470,7 @@ function App() {
           tabIndex={-1}
           className="flex min-h-0 flex-1 flex-col overflow-hidden outline-none"
         >
-          <Editor />
+          <Stage />
         </main>
       </div>
 

@@ -56,7 +56,16 @@ function queryByText(container: HTMLElement, matcher: string | RegExp): HTMLElem
   // 例如版本列表里多个 version_label 文本，父级 button/容器也会包含这些文本，
   // 只取叶子才能让 getAllByText 返回精确数量。
   const leaves = all.filter((el) => el.children.length === 0 && matchText(el, matcher));
-  return leaves.length > 0 ? leaves : all.filter((el) => matchText(el, matcher));
+  if (leaves.length > 0) return leaves;
+  /**
+   * 没有纯文本叶子时，取「最内层」的匹配元素（其自身匹配、且没有匹配的后代）。
+   *
+   * 之前这里直接返回文档序的第一批匹配，于是只要按钮里插了图标（<svg> 成为子元素），
+   * 按钮就不再是"叶子"，查询会退到外层 dialog div —— 点击落在 div 上，测试静默变成
+   * 「点了没反应」。UI 阶段 1.1 会把上百个标签从 emoji 换成矢量图标，这个坑必须先在工具层堵掉。
+   */
+  const withText = all.filter((el) => matchText(el, matcher));
+  return withText.filter((el) => !withText.some((other) => other !== el && el.contains(other)));
 }
 
 function buildScreen(container: HTMLElement): Omit<RenderResult, 'rerender' | 'unmount'> {

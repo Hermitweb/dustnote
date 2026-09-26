@@ -24,6 +24,7 @@ import {
   noteAad,
   PRESET_TEMPLATES,
   fillTemplatePlaceholders,
+  formatDateTimeStamp,
 } from '@dustnote/shared';
 import { PickSheet } from '../../components/PickSheet';
 import { getApi, useAuthStore, decryptNote, encryptNote, parseEnvelope } from '../../state/auth';
@@ -31,7 +32,6 @@ import { getRepo } from '../../lib/get-repo';
 import { useModeStore } from '../../lib/mode-store';
 import { t, useLanguage } from '../../lib/i18n';
 import { errorText } from '../../lib/error-text';
-import { parseServerDate } from '../../lib/date-parse';
 import Markdown from '../../lib/markdown';
 import { filterSlashCommands, resolveSlashCommand } from '../../lib/slash-commands';
 import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../../lib/offline-queue';
@@ -708,7 +708,7 @@ ${text}`
       title: t('editor.restore_title'),
       content: t('editor.restore_content', {
         version: v.version,
-        time: parseServerDate(v.createdAt).toLocaleString(),
+        time: formatDateTimeStamp(v.createdAt),
       }),
       confirmText: t('common.restore'),
     });
@@ -809,10 +809,14 @@ ${text}`
       <View className={`page ${darkClass}`}>
         <View className="topbar">
           {/* 返回用原生导航栏左上角箭头（useUnload 会冲刷未保存修改）；此处只留保存状态 */}
-          <Text className="save-indicator">{statusText}</Text>
+          <Text
+            className={`save-indicator${saveStatus === 'error' ? ' save-indicator--error' : ''}`}
+          >
+            {statusText}
+          </Text>
           <View className="topbar-actions">
             <Text
-              className={`mint-btn mint-btn-sm mint-btn-ghost${preview ? ' icon-btn-active' : ''}`}
+              className={`btn btn-sm btn-ghost${preview ? ' icon-btn-active' : ''}`}
               onClick={() => setPreview((v) => !v)}
             >
               {preview ? t('editor.edit') : t('editor.preview')}
@@ -820,7 +824,7 @@ ${text}`
             <Text className="icon-btn" onClick={toggleVoice}>
               {listening ? (voiceText ? `🎙${voiceText.slice(-6)}` : '🎙') : '🎤'}
             </Text>
-            <Text className="mint-btn mint-btn-sm" onClick={onManualSave}>
+            <Text className="btn btn-sm" onClick={onManualSave}>
               {t('editor.save')}
             </Text>
             <Text className="icon-btn" onClick={() => setMenuOpen(true)}>
@@ -831,7 +835,7 @@ ${text}`
 
         <View className="editor-body">
           <FInput
-            className="mint-input-title"
+            className="input-title"
             value={title}
             onInput={(e) => setTitle((e.detail as { value: string }).value)}
             placeholder={t('editor.title_placeholder')}
@@ -862,7 +866,7 @@ ${text}`
           ) : (
             <>
               <FTextarea
-                className="mint-textarea flex-1"
+                className="textarea flex-1"
                 value={content}
                 onInput={(e) => {
                   const val = (e.detail as { value: string }).value;
@@ -909,7 +913,7 @@ ${text}`
             <View className="modal-card" onClick={(e) => e.stopPropagation()}>
               <Text className="modal-title">{t('editor.share_title')}</Text>
               <FInput
-                className="mint-input"
+                className="input"
                 password
                 placeholder={t('editor.share_pwd_placeholder')}
                 value={sharePwd}
@@ -929,13 +933,13 @@ ${text}`
               </View>
               <View className="row gap-m">
                 <View
-                  className="mint-btn mint-btn-ghost flex-1"
+                  className="btn btn-ghost flex-1"
                   onClick={() => !sharing && setShareOpen(false)}
                 >
                   {t('common.cancel')}
                 </View>
                 <View
-                  className="mint-btn flex-1"
+                  className="btn flex-1"
                   style={{ opacity: sharing ? 0.5 : 1 }}
                   onClick={doCreateShare}
                 >
@@ -959,14 +963,9 @@ ${text}`
                     <View key={v.id} className="device-item">
                       <View className="device-item-info" onClick={() => void onPreviewVersion(v)}>
                         <Text className="device-item-name">v{v.version}</Text>
-                        <Text className="device-item-meta">
-                          {parseServerDate(v.createdAt).toLocaleString()}
-                        </Text>
+                        <Text className="device-item-meta">{formatDateTimeStamp(v.createdAt)}</Text>
                       </View>
-                      <Text
-                        className="mint-btn mint-btn-sm"
-                        onClick={() => void onRestoreVersion(v)}
-                      >
+                      <Text className="btn btn-sm" onClick={() => void onRestoreVersion(v)}>
                         {t('common.restore')}
                       </Text>
                     </View>
@@ -974,10 +973,7 @@ ${text}`
                 </ScrollView>
               )}
               <View className="row gap-m">
-                <View
-                  className="mint-btn mint-btn-ghost flex-1"
-                  onClick={() => setHistoryOpen(false)}
-                >
+                <View className="btn btn-ghost flex-1" onClick={() => setHistoryOpen(false)}>
                   {t('common.close')}
                 </View>
               </View>

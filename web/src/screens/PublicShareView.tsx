@@ -10,6 +10,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Icon } from '../components/Icon';
 import { marked } from 'marked';
 import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
 import { sanitizeHtml } from '../lib/sanitize-html';
@@ -144,21 +145,21 @@ export function PublicShareView({ token }: { token: string }) {
 
   if (state.kind === 'loading') {
     return (
-      <div className="flex h-screen items-center justify-center bg-mint-50 dark:bg-slate-900">
-        <div className="text-mint-700">{t('public_share.loading')}</div>
+      <div className="flex h-screen items-center justify-center bg-surface-bg">
+        <div className="text-accent-text">{t('public_share.loading')}</div>
       </div>
     );
   }
 
   if (state.kind === 'password_required') {
     return (
-      <div className="flex h-screen items-center justify-center overflow-y-auto bg-mint-50 p-4 dark:bg-slate-900">
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl dark:bg-slate-800">
+      <div className="flex h-screen items-center justify-center overflow-y-auto bg-surface-bg p-4">
+        <div className="w-full max-w-md rounded-xl bg-surface-card p-8 shadow-xl">
           <div className="mb-2 text-center text-3xl">🔐</div>
-          <h1 className="mb-4 text-center text-lg font-bold text-slate-900 dark:text-slate-100">
+          <h1 className="mb-4 text-center text-lg font-bold text-text-primary">
             {t('public_share.password_title')}
           </h1>
-          <p className="mb-4 text-center text-sm text-slate-600 dark:text-slate-400">
+          <p className="mb-4 text-center text-sm text-text-secondary">
             {t('public_share.password_hint')}
           </p>
           <input
@@ -167,7 +168,7 @@ export function PublicShareView({ token }: { token: string }) {
             onChange={(e) => setPassword(e.target.value)}
             placeholder={t('public_share.password_placeholder')}
             aria-label={t('public_share.password_title')}
-            className="mb-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+            className="mb-3 w-full rounded-lg border border-line bg-surface-bg px-3 py-2 text-sm"
             autoFocus
             onKeyDown={(e) => {
               if (e.key === 'Enter' && password) void fetchShare(password);
@@ -176,7 +177,7 @@ export function PublicShareView({ token }: { token: string }) {
           <button
             onClick={() => void fetchShare(password)}
             disabled={!password || submitting}
-            className="w-full rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
+            className="w-full rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong-hover disabled:opacity-50"
           >
             {submitting ? t('public_share.verifying') : t('public_share.unlock')}
           </button>
@@ -187,11 +188,12 @@ export function PublicShareView({ token }: { token: string }) {
 
   if (state.kind === 'error') {
     return (
-      <div className="flex h-screen items-center justify-center overflow-y-auto bg-mint-50 p-4 dark:bg-slate-900">
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl dark:bg-slate-800">
+      <div className="flex h-screen items-center justify-center overflow-y-auto bg-surface-bg p-4">
+        <div className="w-full max-w-md rounded-xl bg-surface-card p-8 text-center shadow-xl">
           <div className="mb-2 text-3xl">⚠️</div>
-          <p className="text-slate-700 dark:text-slate-200">{state.message}</p>
-          <a href="/" className="mt-4 inline-block text-sm text-mint-600 hover:underline">
+          <p className="text-text-secondary">{state.message}</p>
+          <a href="/" className="mt-4 inline-block text-sm text-accent-text hover:underline">
+            <Icon name="arrow-left" size={14} className="mr-1 inline align-[-2px]" />
             {t('public_share.back')}
           </a>
         </div>
@@ -202,27 +204,25 @@ export function PublicShareView({ token }: { token: string }) {
   return (
     // 自身滚动容器：全局 CSS 将 html/body/#root 锁死 overflow:hidden（主界面
     // 依赖内部滚动），分享页是独立路由，若依赖文档流滚动长内容会被裁掉无法滚动
-    <div className="h-screen overflow-y-auto bg-mint-50 dark:bg-slate-900">
+    <div className="h-screen overflow-y-auto bg-surface-bg">
       {/* 顶部尘心绿横条 */}
-      <div className="h-1.5 bg-gradient-to-r from-mint-400 via-mint-500 to-mint-600" />
+      <div className="h-1.5 bg-gradient-to-r from-accent via-accent to-accent-strong" />
       <div className="mx-auto max-w-3xl px-6 py-12">
         {/* 头部 */}
-        <div className="mb-6 flex items-center gap-2 text-sm text-slate-500">
+        <div className="mb-6 flex items-center gap-2 text-sm text-text-secondary">
           <img src="/logo.png" alt="" className="inline-block h-4 w-4 align-middle" />
           <span>{t('public_share.badge')}</span>
           {state.hasPassword && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+            <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs text-warning">
               {t('public_share.password_protected')}
             </span>
           )}
         </div>
 
-        <article className="rounded-2xl bg-white p-8 shadow-sm dark:bg-slate-800">
-          <h1 className="mb-6 text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {state.title}
-          </h1>
+        <article className="rounded-xl bg-surface-card p-8 shadow-sm">
+          <h1 className="mb-6 text-2xl font-bold text-text-primary">{state.title}</h1>
           <div
-            className="prose prose-sm max-w-none text-slate-700 dark:prose-invert dark:text-slate-200"
+            className="prose prose-sm max-w-none text-text-secondary dark:prose-invert "
             dangerouslySetInnerHTML={{
               // 访客侧渲染的是别人写的内容，必须净化后再注入。
               // P0-3 止血④：正文里的 dustnote-img:// 引用图片本体在作者的
@@ -238,9 +238,9 @@ export function PublicShareView({ token }: { token: string }) {
           />
         </article>
 
-        <div className="mt-6 text-center text-xs text-slate-400">
+        <div className="mt-6 text-center text-xs text-text-secondary">
           <p>{t('public_share.footer')}</p>
-          <a href="/" className="mt-2 inline-block text-mint-600 hover:underline">
+          <a href="/" className="mt-2 inline-block text-accent-text hover:underline">
             {t('public_share.visit')}
           </a>
         </div>

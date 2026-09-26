@@ -122,23 +122,19 @@ if (!dryRun) writeFileSync(gradle, gnew);
 if (!touched.includes(gradleRel)) touched.push(gradleRel);
 console.log(`versionCode: ${m[1]} -> ${nextCode}`);
 
-// ── status.md 特殊处理：它记录「线上当前版本」，人手维护必然滞后
-//   （v2.5.43 发版时它就停在 2.5.40）。只归一三类**精确模式**：
-//   头部当前版本行 / 渠道表第二列 / 核对日期。历史事件段与 IP 一律不碰
-//   （第一版用全局 \d+\.\d+\.\d+ 预览时把 154.217.234 和 v2.5.40 历史行
-//   都改了——教训：对含 IP 的文档禁止宽泛数字替换）。──
+// ── status.md 特殊处理（P0-1 解耦后收窄）──────────────────────────────
+//   发版脚本只允许写「客户端渠道表」——那是"我们发布了什么版本"的事实。
+//   以前它还顺手归一"服务端 **vX**"与"最近人工核对：<今天>"，等于**没探测就把状态页刷绿**
+//   （v2.5.43 发版时页面停在 2.5.40；后来更出现页头 🔴 而组件表全 🟢 的自相矛盾）。
+//   "线上跑着什么"现在只能由 scripts/status-probe.mjs 写，且写进它的生成区标记内。
 const statusAbs = join(ROOT, 'docs/status.md');
 const ssrc = readFileSync(statusAbs, 'utf8');
-let snew = ssrc.replace(/服务端 \*\*v\d+\.\d+\.\d+\*\*/, `服务端 **v${NEW}**`);
-snew = snew.replace(/(\|[^|\n]+\| )\d+\.\d+\.\d+( ?\|)/g, (_m, pre, post) => `${pre}${NEW}${post}`);
-// 本地日期（toISOString 是 UTC，晚间发版会写错一天——2.5.44 实战发现）
-const now = new Date();
-const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-  now.getDate()
-).padStart(2, '0')}`;
-snew = snew.replace(/最近人工核对：\d{4}-\d{2}-\d{2}/, `最近人工核对：${today}`);
+let snew = ssrc.replace(
+  /(\|[^|\n]+\| )\d+\.\d+\.\d+( ?\|)/g,
+  (_m, pre, post) => `${pre}${NEW}${post}`
+);
 if (snew !== ssrc && !dryRun) writeFileSync(statusAbs, snew);
-if (snew !== ssrc) touched.push('docs/status.md（当前版本/渠道表/核对日期）');
+if (snew !== ssrc) touched.push('docs/status.md（仅客户端渠道表）');
 
 // ── roadmap/ui 文档的「基线：vX」行归一（发版即刷新基线；两文档历史段
 //   含旧版本号属正常叙事，进 RESIDUAL_ALLOW 文件级豁免）──

@@ -70,16 +70,10 @@ import {
 } from '../lib/migration';
 import { taroFetch } from '../lib/taro-fetch';
 import {
-  loadLocalAuthBlob,
   loadLocalAuthBlobSync,
-  saveLocalAuthBlob,
   saveLocalAuthBlobSync,
-  loadLockoutState,
   loadLockoutStateSync,
-  saveLockoutState,
   saveLockoutStateSync,
-  clearLockoutState,
-  hasLocalAuthSync,
 } from '../lib/local-auth-storage';
 import {
   getStandaloneMasterKey,

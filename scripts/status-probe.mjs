@@ -21,6 +21,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const URL_BASE = (process.env.STATUS_PROBE_URL || 'https://napi.iniess.cn').replace(/\/+$/, '');
 const UPDATE = process.argv.includes('--update');
 const TIMEOUT_MS = 15_000;
+const MARK_START = '<!-- status-probe:start -->';
+const MARK_END = '<!-- status-probe:end -->';
 
 const expected =
   process.env.EXPECT_VERSION ||
@@ -53,6 +55,10 @@ async function probe(name, path, check, headers) {
 }
 
 const results = [];
+/** 计入红绿的硬失败；informational 项只记录不判红 */
+const hard = [];
+
+let lastHealthVersion = null;
 
 // 1) health：结构 + 版本断言（health 在 version-check 白名单，免头）
 results.push(
@@ -67,9 +73,11 @@ results.push(
     if (j.ok !== true) return 'health.ok 非 true';
     if (j.db !== 'ok') return `db=${j.db}`;
     if (j.version !== expected) return `线上版本 ${j.version} ≠ 期望 ${expected}`;
+    lastHealthVersion = j.version;
     return null;
   })
 );
+results[results.length - 1].version = lastHealthVersion;
 
 // 2) 更新清单（需客户端头）
 results.push(
@@ -93,6 +101,16 @@ results.push(
 // 3) Web 首页可达
 results.push(await probe('web', '/', (res) => (res.ok ? null : `HTTP ${res.status}`)));
 
+// 3.5) 分享服务的**公开 API**（不是 SPA 外壳）：
+//   /s/<token> 对任意路径都回 200 首页，拨它等于什么都没测；
+//   打 /api/v1/share/public/<假 token> 才有意义 —— 路由活着会回 4xx JSON，5xx 才算坏。
+results.push(
+  await probe('share-api', '/api/v1/share/public/statusprobe000000000000000', (res) => {
+    if (res.status >= 500) return `HTTP ${res.status}`;
+    return null;
+  })
+);
+
 // 4) 明文 HTTP 收口状况——informational（不计入 ok）：
 //    R1「强制 HTTPS」落地前明文可达是已知现状，红它 = 制造告警疲劳
 try {
@@ -103,6 +121,7 @@ try {
   const hardened = [301, 302, 307, 308].includes(res.status) || res.status === 404;
   results.push({
     name: 'http-plaintext(informational)',
+    informational: true,
     ok: true,
     ms: 0,
     status: res.status,
@@ -111,30 +130,70 @@ try {
 } catch (err) {
   results.push({
     name: 'http-plaintext(informational)',
+    informational: true,
     ok: true,
     ms: 0,
     note: `明文不可达：${String(err?.message ?? err)}`,
   });
 }
 
-const allOk = results.every((r) => r.ok);
-const report = { at: new Date().toISOString(), url: URL_BASE, expected, ok: allOk, results };
+const allOk = hard.every((r) => r.ok);
+const liveVersion = results.find((r) => r.name === 'health')?.version ?? null;
+const report = {
+  at: new Date().toISOString(),
+  url: URL_BASE,
+  expected,
+  liveVersion,
+  ok: allOk,
+  results,
+};
 console.log(JSON.stringify(report, null, 2));
 
 if (UPDATE) {
+  /**
+   * 状态页的「当前状态」整段由本探针生成。
+   *
+   * 为什么要生成而不是手写：这一页存在的唯一意义是"外部可核实的线上事实"。
+   * 手写就会同时满足两个坏条件——发版脚本顺手刷绿（v2.5.43 时页面还停在 2.5.40）、
+   * 组件表里的 🟢 与真实探测无关（本次实测到页头是 🔴、表内六行全是 🟢 的自相矛盾）。
+   * 现在发版脚本只允许写「客户端渠道表」（那是"我们发布了什么"的事实），
+   * "线上是什么"只能由探测结果落笔。
+   */
   const statusPath = join(ROOT, 'docs/status.md');
-  let md = readFileSync(statusPath, 'utf8');
+  const md = readFileSync(statusPath, 'utf8');
   const stamp = report.at.slice(0, 16).replace('T', ' ');
-  const headLine =
-    `> 最近拨测：${stamp} UTC · ${allOk ? '🟢 全部通过' : '🔴 有失败项'} · 期望版本 v${expected}` +
-    '（探针 `node scripts/status-probe.mjs`，CI 每 6h 运行。本页状态由拨测结果驱动，不再由发版动作刷绿）';
-  md = md.replace(/^> 最近(人工核对|拨测)：.*$/m, headLine);
-  const banner = allOk
-    ? '🟢 **所有系统正常运行**'
-    : '🔴 **拨测发现异常**（运行 `node scripts/status-probe.mjs` 复现明细）';
-  md = md.replace(/^[🟢🔴] \*\*(所有系统正常运行|拨测发现异常)\*\*.*$/m, banner);
-  writeFileSync(statusPath, md);
-  console.error(`docs/status.md 已按拨测结果更新（${allOk ? '绿' : '红'}）`);
+  const rows = results
+    .map((r) => {
+      const flag = r.informational ? 'ℹ️' : r.ok ? '✅' : '❌';
+      const note = (r.note ?? '').replace(/\|/g, '/');
+      return `| ${r.name} | ${flag} | ${r.ms}ms | ${r.status ?? '-'} | ${note} |`;
+    })
+    .join('\n');
+  const generated = [
+    MARK_START,
+    `> 最近拨测：${stamp} UTC · ${allOk ? '🟢 全部通过' : '🔴 有失败项'} · 期望版本 v${expected}`,
+    '',
+    allOk
+      ? `**当前状态：🟢 正常** — 线上 **v${liveVersion ?? expected}**（探针判定，非人工声明）`
+      : `**当前状态：🔴 异常** — 线上 **v${liveVersion ?? '未知'}**，期望 v${expected}（明细见下表；复现：\`node scripts/status-probe.mjs\`）`,
+    '',
+    '| 探测项 | 结果 | 耗时 | HTTP | 说明 |',
+    '| --- | --- | --- | --- | --- |',
+    rows,
+    '',
+    '_未列入本表的组件（WebSocket 同步、/metrics）探针不覆盖，状态见下方「拨测不覆盖的部分」。_',
+    MARK_END,
+  ].join('\n');
+  const next = md.replace(
+    new RegExp(`${MARK_START}[\\s\\S]*${MARK_END}`),
+    generated.replace(/\$/g, '$$$$')
+  );
+  if (next === md) {
+    console.error('docs/status.md 缺少探针标记，未写入');
+  } else {
+    writeFileSync(statusPath, next);
+    console.error(`docs/status.md 已按拨测结果更新（${allOk ? '绿' : '红'}）`);
+  }
 }
 
 process.exit(allOk ? 0 : 1);

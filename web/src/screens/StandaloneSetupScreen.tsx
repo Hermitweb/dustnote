@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Icon } from '../components/Icon';
 import { useStore } from '../lib/store';
 import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter';
 import { errorText } from '../lib/error-text';
@@ -47,18 +48,21 @@ export function StandaloneSetupScreen() {
   if (recoveryCode) {
     return (
       <div className="flex h-full items-center justify-center bg-surface-bg p-6">
-        <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
+        <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
           <div className="mb-4 text-5xl">🔐</div>
           <h1 className="mb-2 text-xl font-bold text-surface-fg">
             {t('auth.recovery_code_label')}
           </h1>
-          <div className="my-6 rounded-xl bg-mint-50 p-6 font-mono text-3xl font-bold tracking-widest text-mint-700 dark:bg-mint-900/30 dark:text-mint-300">
+          <div className="my-6 rounded-xl bg-accent-soft/40 p-6 font-mono text-3xl font-bold tracking-widest text-accent-text dark:bg-accent/30 dark:text-accent-text">
             {recoveryCode}
           </div>
-          <p className="mb-6 text-xs text-surface-muted">{t('auth.no_recovery_warning')}</p>
+          <p className="mb-6 flex items-start gap-1.5 text-xs text-surface-muted">
+            <Icon name="warning" size={14} className="mt-px flex-none text-warning" />
+            {t('auth.no_recovery_warning')}
+          </p>
           <button
             onClick={() => window.location.reload()}
-            className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700"
+            className="w-full rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover"
           >
             {t('auth.recovery_code_done')}
           </button>
@@ -69,14 +73,14 @@ export function StandaloneSetupScreen() {
 
   return (
     <div className="flex h-full items-center justify-center bg-surface-bg p-6">
-      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 shadow-xl">
+      <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-mint-100 dark:bg-mint-900/30">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft/60 dark:bg-accent/30">
             <img src="/logo.png" alt="" className="h-10 w-10" />
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('auth.setup_title')}</h1>
           <p className="mt-2 text-sm text-surface-muted">{t('auth.setup_subtitle')}</p>
-          <p className="mt-1 text-xs text-mint-600 dark:text-mint-400">
+          <p className="mt-1 text-xs text-accent-text dark:text-accent-text">
             {t('settings.app_mode_standalone')}
           </p>
         </div>
@@ -106,7 +110,7 @@ export function StandaloneSetupScreen() {
           />
 
           {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+            <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger dark:bg-danger-soft dark:text-danger">
               {error}
             </div>
           )}
@@ -116,7 +120,7 @@ export function StandaloneSetupScreen() {
           <button
             type="submit"
             disabled={submitting || password.length < 6 || password !== confirm}
-            className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700 disabled:opacity-50"
+            className="w-full rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
           >
             {submitting ? '...' : t('auth.setup_btn')}
           </button>
@@ -148,11 +152,11 @@ function Field({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20"
+        className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         autoComplete="off"
       />
       {hint && !error && <p className="mt-1 text-xs text-surface-muted">{hint}</p>}
-      {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mt-1 text-xs text-danger">{error}</p>}
     </div>
   );
 }

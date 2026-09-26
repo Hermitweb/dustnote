@@ -1,7 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { IconText } from './Icon';
+import { ThemeCard } from './ThemeCard';
 import { useStore } from '../lib/store';
 import { THEMES } from '../lib/theme';
+import { AURORA_LEVELS, useEffectStore } from '../lib/effect';
 import { ImportExportDialog } from './ImportExportDialog';
 import { SharesManager } from './SharesManager';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
@@ -102,6 +105,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setMode = useStore((s) => s.setMode);
   const setLanguage = useStore((s) => s.setLanguage);
   const setPreferences = useStore((s) => s.setPreferences);
+  // 材质与极光：本机偏好，独立于 Preferences（见 lib/effect.ts）
+  const { effect, aurora, setEffect, setAurora } = useEffectStore();
   const changePassword = useStore((s) => s.changePassword);
   const switchMode = useStore((s) => s.switchMode);
 
@@ -422,18 +427,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6"
         onClick={onClose}
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-dialog-title"
       >
         <div
-          className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-2xl"
+          className="w-full max-w-md rounded-xl bg-surface-card p-6 shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mb-4 flex items-center justify-between">
-            <h2 id="settings-dialog-title" className="text-lg font-bold text-surface-fg">
+            <h2 id="settings-dialog-title" className="text-xl font-semibold text-text-primary">
               {t('settings.title')}
             </h2>
             <button
@@ -451,20 +456,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <label className="mb-2 block text-xs font-semibold text-surface-muted">
                 {t('settings.theme')}
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              {/* 自动换行、上限 4 列（§2.5）：7 套主题在 3 列下会剩一个孤悬格 */}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 {THEMES.map((th) => (
-                  <button
+                  <ThemeCard
                     key={th.id}
-                    onClick={() => setTheme(th.id)}
-                    className={`flex flex-col items-center gap-1 rounded-lg border-2 p-3 transition-colors ${
-                      prefs.theme === th.id
-                        ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/30'
-                        : 'border-surface-border hover:bg-surface-bg'
-                    }`}
-                  >
-                    <span className="text-2xl">{th.emoji}</span>
-                    <span className="text-xs text-surface-fg">{th.name}</span>
-                  </button>
+                    id={th.id}
+                    selected={prefs.theme === th.id}
+                    onSelect={() => setTheme(th.id)}
+                  />
                 ))}
               </div>
             </div>
@@ -481,7 +481,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     onClick={() => setMode(m)}
                     className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                       prefs.mode === m
-                        ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/30 text-surface-fg'
+                        ? 'border-accent bg-accent-soft/40 dark:bg-accent/30 text-surface-fg'
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                   >
@@ -507,7 +507,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     onClick={() => setLanguage(l)}
                     className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                       prefs.language === l
-                        ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/30 text-surface-fg'
+                        ? 'border-accent bg-accent-soft/40 dark:bg-accent/30 text-surface-fg'
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                   >
@@ -515,6 +515,61 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* 材质与极光（阶段 3 · §2.2）
+                这是**本机渲染偏好**：玻璃吃 backdrop-filter，弱机 / 省电 / 投影场景
+                该关就关，所以它不进 Preferences、也不跟着账号同步（见 lib/effect.ts）。 */}
+            <div>
+              <label className="mb-2 block text-xs font-semibold text-surface-muted">
+                {t('settings.effect')}
+              </label>
+              <div className="flex gap-2">
+                {(['glass', 'flat'] as const).map((e) => (
+                  <button
+                    key={e}
+                    onClick={() => setEffect(e)}
+                    aria-pressed={effect === e}
+                    className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
+                      effect === e
+                        ? 'border-accent bg-accent-soft/40 text-surface-fg dark:bg-accent/30'
+                        : 'border-surface-border text-surface-fg hover:bg-surface-bg'
+                    }`}
+                  >
+                    {e === 'glass' ? t('settings.effect_glass') : t('settings.effect_flat')}
+                  </button>
+                ))}
+              </div>
+              {effect === 'glass' && (
+                <>
+                  <label className="mb-2 mt-3 block text-xs font-semibold text-surface-muted">
+                    {t('settings.aurora')}
+                  </label>
+                  <div className="flex gap-2">
+                    {AURORA_LEVELS.map((a) => (
+                      <button
+                        key={a}
+                        onClick={() => setAurora(a)}
+                        aria-pressed={aurora === a}
+                        className={`flex-1 rounded-lg border-2 px-2 py-1.5 text-xs transition-colors ${
+                          aurora === a
+                            ? 'border-accent bg-accent-soft/40 text-surface-fg dark:bg-accent/30'
+                            : 'border-surface-border text-surface-fg hover:bg-surface-bg'
+                        }`}
+                      >
+                        {a === 0
+                          ? t('settings.aurora_off')
+                          : a === 0.5
+                            ? t('settings.aurora_soft')
+                            : a === 1
+                              ? t('settings.aurora_standard')
+                              : t('settings.aurora_rich')}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-surface-muted">{t('settings.aurora_hint')}</p>
+                </>
+              )}
             </div>
 
             {/* 字体 */}
@@ -529,7 +584,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     onClick={() => setPreferences({ font: f })}
                     className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                       prefs.font === f
-                        ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/30 text-surface-fg'
+                        ? 'border-accent bg-accent-soft/40 dark:bg-accent/30 text-surface-fg'
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                   >
@@ -555,7 +610,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     onClick={() => setPreferences({ density: d })}
                     className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                       prefs.density === d
-                        ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/30 text-surface-fg'
+                        ? 'border-accent bg-accent-soft/40 dark:bg-accent/30 text-surface-fg'
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                   >
@@ -597,16 +652,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm"
                 />
                 {pwMsg && (
-                  <p
-                    className={`text-xs ${pwMsg.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
-                  >
+                  <p className={`text-xs ${pwMsg.ok ? 'text-success' : 'text-danger'}`}>
                     {pwMsg.text}
                   </p>
                 )}
                 <button
                   onClick={() => void handleChangePassword()}
                   disabled={pwBusy}
-                  className="w-full rounded-lg bg-mint-600 px-3 py-2 text-sm font-medium text-white hover:bg-mint-700 disabled:opacity-50"
+                  className="w-full rounded-lg bg-accent-strong px-3 py-2 text-sm font-medium text-white hover:bg-accent-strong-hover disabled:opacity-50"
                 >
                   {pwBusy ? t('common.loading') : t('settings.change_password_btn')}
                 </button>
@@ -622,7 +675,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <button
                 onClick={() => setLogoutConfirm(true)}
                 disabled={logoutBusy}
-                className="w-full rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                className="w-full rounded-lg border border-danger/30 px-3 py-2 text-sm font-medium text-danger hover:bg-danger-soft disabled:opacity-50 dark: dark:text-danger dark:hover:bg-danger-soft"
               >
                 {logoutBusy ? t('common.loading') : t('settings.logout')}
               </button>
@@ -640,7 +693,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     <p className="text-xs text-surface-muted">{t('shares.loading')}</p>
                   )}
                   {devicesError && (
-                    <p className="text-xs text-red-600">
+                    <p className="text-xs text-danger">
                       {t('settings.devices_load_fail', { reason: devicesError })}
                     </p>
                   )}
@@ -656,7 +709,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                         <div className="flex items-center gap-1.5 text-sm text-surface-fg">
                           <span className="truncate">{d.name}</span>
                           {d.isCurrent && (
-                            <span className="rounded-full bg-mint-100 px-1.5 py-0.5 text-[10px] text-mint-700 dark:bg-mint-900/30 dark:text-mint-300">
+                            <span className="rounded-full bg-accent-soft/60 px-1.5 py-0.5 text-[10px] text-accent-text dark:bg-accent/30 dark:text-accent-text">
                               {t('settings.device_current')}
                             </span>
                           )}
@@ -673,7 +726,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                       {!d.isCurrent && (
                         <button
                           onClick={() => setKickTargetId(d.id)}
-                          className="flex-shrink-0 rounded bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:bg-red-900/30"
+                          className="flex-shrink-0 rounded bg-danger-soft px-2 py-1 text-xs text-danger hover:bg-danger-soft dark:bg-danger-soft"
                         >
                           {t('settings.device_kick')}
                         </button>
@@ -686,8 +739,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
             {/* 危险区：删除账户（仅联机模式，GDPR Article 17） */}
             {appMode === 'online' && (
-              <div className="rounded-lg border-2 border-red-200 p-3 dark:border-red-900/50">
-                <label className="mb-1 block text-xs font-semibold text-red-600 dark:text-red-400">
+              <div className="rounded-lg border-2 border-danger/30 p-3">
+                <label className="mb-1 block text-xs font-semibold text-danger">
                   {t('settings.delete_account')}
                 </label>
                 <p className="mb-2 text-xs text-surface-muted">
@@ -696,7 +749,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 <button
                   onClick={() => setDeleteConfirmStep(1)}
                   disabled={deleteBusy}
-                  className="w-full rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  className="w-full rounded-lg bg-danger-solid px-3 py-2 text-sm font-medium text-on-danger-solid transition-colors hover:bg-danger-solid-hover disabled:opacity-50"
                 >
                   {t('settings.delete_account')}
                 </button>
@@ -729,7 +782,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <button
                 onClick={() => setSwitchConfirm(appMode === 'standalone' ? 'online' : 'standalone')}
                 disabled={switchBusy}
-                className="w-full rounded-lg bg-mint-600 px-3 py-2 text-sm font-medium text-white hover:bg-mint-700 disabled:opacity-50"
+                className="w-full rounded-lg bg-accent-strong px-3 py-2 text-sm font-medium text-white hover:bg-accent-strong-hover disabled:opacity-50"
               >
                 {appMode === 'standalone'
                   ? t('settings.switch_to_online')
@@ -737,7 +790,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               </button>
               <p className="mt-1 text-xs text-surface-muted">{t('settings.switch_mode_hint')}</p>
               {switchError && (
-                <p className="mt-1 text-xs text-red-600">
+                <p className="mt-1 text-xs text-danger">
                   {t('settings.mode_switch_fail', { reason: switchError })}
                 </p>
               )}
@@ -755,7 +808,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     onClick={() => setPreferences({ autoLock: n })}
                     className={`flex-1 rounded-lg border-2 px-2 py-2 text-sm transition-colors ${
                       prefs.autoLock === n
-                        ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/30 text-surface-fg'
+                        ? 'border-accent bg-accent-soft/40 dark:bg-accent/30 text-surface-fg'
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                   >
@@ -791,13 +844,13 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             {/* 服务器地址 */}
             <div>
               <label className="mb-2 block text-xs font-semibold text-surface-muted">
-                {t('settings.server_url_label')}
+                <IconText k="settings.server_url_label" label={t('settings.server_url_label')} />
               </label>
               <div className="flex gap-2">
                 <input
                   value={apiBase}
                   onChange={(e) => setApiBase(e.target.value)}
-                  className="flex-1 rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-200"
+                  className="flex-1 rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft"
                 />
                 <button
                   onClick={() => {
@@ -805,9 +858,13 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     setApiSaved(true);
                     setTimeout(() => setApiSaved(false), 1500);
                   }}
-                  className="rounded-lg bg-mint-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-mint-700"
+                  className="rounded-lg bg-accent-strong px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-strong-hover"
                 >
-                  {apiSaved ? '✅' : t('settings.save_btn')}
+                  {apiSaved ? (
+                    <IconText k="settings.saved_ok" label={t('settings.saved_ok')} />
+                  ) : (
+                    t('settings.save_btn')
+                  )}
                 </button>
               </div>
               <p className="mt-1 text-xs text-surface-muted">{t('settings.refresh_hint')}</p>
@@ -839,7 +896,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   }}
                   className={`flex w-full items-center justify-between rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                     allowScreenshot
-                      ? 'border-mint-500 bg-mint-50 text-surface-fg dark:bg-mint-900/30'
+                      ? 'border-accent bg-accent-soft/40 text-surface-fg dark:bg-accent/30'
                       : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                   }`}
                 >
@@ -870,7 +927,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   onClick={() => void toggleAutostart(!autostartEnabled)}
                   className={`flex w-full items-center justify-between rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                     autostartEnabled
-                      ? 'border-mint-500 bg-mint-50 text-surface-fg dark:bg-mint-900/30'
+                      ? 'border-accent bg-accent-soft/40 text-surface-fg dark:bg-accent/30'
                       : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                   } ${autostartBusy ? 'opacity-60' : ''}`}
                 >
@@ -879,7 +936,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     <span>{t('settings.autostart')}</span>
                   </span>
                   <span
-                    className={`text-xs font-semibold ${autostartEnabled ? 'text-mint-700' : 'text-surface-muted'}`}
+                    className={`text-xs font-semibold ${autostartEnabled ? 'text-accent-text' : 'text-surface-muted'}`}
                   >
                     {autostartBusy
                       ? '…'
@@ -908,7 +965,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   }}
                   className={`flex w-full items-center justify-between rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                     diagEnabled
-                      ? 'border-mint-500 bg-mint-50 text-surface-fg dark:bg-mint-900/30'
+                      ? 'border-accent bg-accent-soft/40 text-surface-fg dark:bg-accent/30'
                       : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                   }`}
                 >
@@ -917,7 +974,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     <span>{t('settings.diagnostics_toggle')}</span>
                   </span>
                   <span
-                    className={`text-xs font-semibold ${diagEnabled ? 'text-mint-700' : 'text-surface-muted'}`}
+                    className={`text-xs font-semibold ${diagEnabled ? 'text-accent-text' : 'text-surface-muted'}`}
                   >
                     {diagEnabled ? t('settings.diagnostics_on') : t('settings.diagnostics_off')}
                   </span>
@@ -950,12 +1007,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   {/* 发现新版本 */}
                   {updateState === 'available' && targetVer && (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-mint-700">
+                      <span className="text-accent-text">
                         {t('settings.new_version', { version: targetVer })}
                       </span>
                       <button
                         onClick={() => void handleDownloadUpdate()}
-                        className="rounded bg-mint-600 px-3 py-1 text-xs font-medium text-white hover:bg-mint-700"
+                        className="rounded bg-accent-strong px-3 py-1 text-xs font-medium text-white hover:bg-accent-strong-hover"
                       >
                         {t('settings.download')}
                       </button>
@@ -970,7 +1027,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-surface-bg">
                         <div
-                          className="h-full rounded-full bg-mint-500 transition-all"
+                          className="h-full rounded-full bg-accent transition-all"
                           style={{ width: `${updateProgress}%` }}
                         />
                       </div>
@@ -979,7 +1036,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
                   {/* 安装向导已启动（NSIS 流程：下载完成→SHA-256 校验→向导自动弹出） */}
                   {updateState === 'ready' && (
-                    <div className="text-sm text-mint-700">
+                    <div className="text-sm text-accent-text">
                       {t('settings.update_ready')}
                       {targetVer ? ` (v${targetVer})` : ''}
                     </div>
@@ -993,10 +1050,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   {/* 错误 */}
                   {updateState === 'error' && (
                     <div className="space-y-1">
-                      <div className="text-xs text-red-600">{updateErr}</div>
+                      <div className="text-xs text-danger">{updateErr}</div>
                       <button
                         onClick={() => void handleCheckUpdate()}
-                        className="text-xs text-mint-700 underline hover:text-mint-800"
+                        className="text-xs text-accent-text underline hover:text-accent-strong"
                       >
                         {t('settings.retry')}
                       </button>
@@ -1011,7 +1068,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                       onClick={() => void handleCheckUpdate()}
                       className="w-full rounded-lg border border-surface-border px-3 py-1.5 text-xs text-surface-fg hover:bg-surface-bg"
                     >
-                      {t('settings.check_update')}
+                      <IconText k="settings.check_update" label={t('settings.check_update')} />
                     </button>
                   )}
                 </div>
@@ -1033,14 +1090,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <div className="mt-1">{t('settings.tech_stack')}</div>
               {pwaInstall.canInstall && (
                 <button
-                  className="mt-2 rounded-md bg-mint-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-mint-600"
+                  className="mt-2 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-strong"
                   onClick={() => void pwaInstall.install()}
                 >
-                  {t('settings.install_pwa')}
+                  <IconText k="settings.install_pwa" label={t('settings.install_pwa')} />
                 </button>
               )}
               {pwaInstall.installed && (
-                <div className="mt-2 text-mint-600 dark:text-mint-400">
+                <div className="mt-2 text-accent-text dark:text-accent-text">
                   {t('settings.pwa_installed')}
                 </div>
               )}

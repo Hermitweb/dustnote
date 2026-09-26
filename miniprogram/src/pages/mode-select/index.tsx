@@ -278,7 +278,7 @@ export default function ModeSelect() {
 
         {/* 部署引导地址失效提示：预置地址连不上,引导用户改用新地址或去设置修改 */}
         {bootstrapFailed && (
-          <View className="mint-card mt-m" style={{ width: '100%', maxWidth: '560rpx' }}>
+          <View className="card mt-m" style={{ width: '100%', maxWidth: '560rpx' }}>
             <Text className="text-sm error-text" style={{ display: 'block' }}>
               {t('mode_select.bootstrap_failed')}
             </Text>
@@ -287,7 +287,7 @@ export default function ModeSelect() {
 
         {/* 单机模式入口 */}
         <View
-          className="mint-card mt-l"
+          className="card mt-l"
           style={{
             width: '100%',
             maxWidth: '560rpx',
@@ -315,7 +315,7 @@ export default function ModeSelect() {
         </View>
 
         {/* 联机模式入口 */}
-        <View className="mint-card mt-m" style={{ width: '100%', maxWidth: '560rpx' }}>
+        <View className="card mt-m" style={{ width: '100%', maxWidth: '560rpx' }}>
           <View className="row" style={{ justifyContent: 'center' }}>
             <Text className="text-lg fw-bold">{t('mode_select.online')}</Text>
             <Text className="text-mint" style={{ marginLeft: '8rpx' }}>
@@ -326,7 +326,7 @@ export default function ModeSelect() {
             {t('mode_select.online_desc')}
           </Text>
           <FInput
-            className="mint-input mt-m"
+            className="input mt-m"
             placeholder={'http://192.168.x.x:3210'}
             value={serverUrl}
             onInput={(e) => {
@@ -346,14 +346,14 @@ export default function ModeSelect() {
           )}
           <View className="row mt-m" style={{ justifyContent: 'center', gap: '16rpx' }}>
             <View
-              className="mint-btn mint-btn-outline mint-btn-sm"
+              className="btn btn-outline btn-sm"
               style={{ opacity: testing ? 0.5 : 1, minWidth: '200rpx', boxSizing: 'border-box' }}
               onClick={onTestConnection}
             >
               {testing ? t('mode_select.testing') : t('mode_select.test_connection')}
             </View>
             <View
-              className="mint-btn mint-btn-sm"
+              className="btn btn-sm"
               style={{ opacity: testing ? 0.5 : 1, minWidth: '200rpx', boxSizing: 'border-box' }}
               onClick={chooseOnline}
             >

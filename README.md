@@ -74,7 +74,7 @@ DustNote 提供两种使用模式，无需任何配置即可选择：
 
 ### 模式 A：单机使用（无需服务器）
 
-1. 下载客户端安装包（[GitHub Releases](https://github.com/Hermitweb/dustnote/releases/latest)）或直接访问部署好的 Web 端
+1. 下载客户端安装包（[GitHub Releases](https://github.com/Hermitweb/dustnote/releases/latest)），或直接使用官方 Web 端 <https://napi.iniess.cn/>（自托管见 [deploy/README.md](./deploy/README.md)）
 2. 首次启动选择「🏠 单机使用」
 3. 设置主密码 + 抄写恢复码
 4. 开始使用，数据存储在本地（IndexedDB / AsyncStorage / Taro.setStorage）

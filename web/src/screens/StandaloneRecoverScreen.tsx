@@ -54,9 +54,9 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
 
   return (
     <div className="flex h-full items-center justify-center bg-surface-bg p-6">
-      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 shadow-xl">
+      <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-mint-100 text-3xl dark:bg-mint-900/30">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft/60 text-3xl dark:bg-accent/30">
             🔑
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('auth.recover_title')}</h1>
@@ -81,7 +81,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
               placeholder="A7K2M-9PQR3"
               autoCapitalize="characters"
               spellCheck={false}
-              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-center font-mono text-lg tracking-widest focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20"
+              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-center font-mono text-lg tracking-widest focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               autoComplete="off"
               autoFocus
             />
@@ -95,12 +95,10 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20"
+              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               autoComplete="off"
             />
-            {tooWeak && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{t('auth.too_weak')}</p>
-            )}
+            {tooWeak && <p className="mt-1 text-xs text-danger">{t('auth.too_weak')}</p>}
           </div>
 
           <div>
@@ -111,16 +109,14 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20"
+              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               autoComplete="off"
             />
-            {mismatch && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{t('auth.mismatch')}</p>
-            )}
+            {mismatch && <p className="mt-1 text-xs text-danger">{t('auth.mismatch')}</p>}
           </div>
 
           {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+            <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger dark:bg-danger-soft dark:text-danger">
               {error}
             </div>
           )}
@@ -133,7 +129,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
               newPassword.length < 6 ||
               newPassword !== confirm
             }
-            className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700 disabled:opacity-50"
+            className="w-full rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
           >
             {submitting ? '...' : t('auth.recover_btn')}
           </button>
@@ -141,7 +137,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
           <button
             type="button"
             onClick={onBack}
-            className="w-full text-center text-xs text-surface-muted hover:text-mint-600"
+            className="w-full text-center text-xs text-surface-muted hover:text-accent-text"
           >
             {t('auth.back_to_unlock')}
           </button>

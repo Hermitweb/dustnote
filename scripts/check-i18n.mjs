@@ -54,11 +54,20 @@ function collectUsedKeys() {
 }
 
 // ========== 2. 解析 i18n.ts 中定义的 key ==========
-function collectDefinedKeys() {
-  const src = readFileSync(I18N_FILE, 'utf8');
-  // 只取 zh-CN.translation 对象（第一个 translation: { ... }）
+function collectDefinedKeys(which = 0) {
+  /**
+   * 先剥块注释：字符扫描器会把注释块当成一个"键名为空"的条目，
+   * 然后一路跳到下一个逗号 —— 于是紧随其后的那条真实 key 被吃掉，
+   * 表现为"中英不对称"的假报警（本次加 web 对称门禁时实测撞到）。
+   * 行注释不剥：值里可能带 https:// 这种 //，剥了会把字符串尾巴一起吃掉。
+   */
+  const src = readFileSync(I18N_FILE, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  // resources 里有两个 translation: { ... } —— 第 0 个是 zh-CN，第 1 个是 en。
   // 用括号匹配提取对象字面量
-  const translationIdx = src.indexOf('translation:');
+  let translationIdx = -1;
+  for (let n = 0; n <= which; n++) {
+    translationIdx = src.indexOf('translation:', translationIdx + 1);
+  }
   if (translationIdx < 0) {
     console.error('✗ 未找到 translation 块');
     process.exit(1);
@@ -147,7 +156,7 @@ function collectDefinedKeys() {
 
 // ========== 3. 对比 ==========
 const used = collectUsedKeys();
-const defined = collectDefinedKeys();
+const defined = collectDefinedKeys(0);
 
 const missing = [...used].filter((k) => !defined.has(k));
 
@@ -159,6 +168,27 @@ if (missing.length === 0) {
   console.error(`✗ web i18n 校验失败：${missing.length} 个 key 未定义：`);
   for (const k of missing.sort()) {
     console.error(`  - ${k}`);
+  }
+}
+
+// ========== 3b. 审计：web 词典中英对称 ==========
+/*
+ * 之前只门禁了 mobile / miniprogram 的两端对称，web 反而没人管：
+ * 改文案时很容易只动 zh 或只动 en，缺的那半在运行时静默回落到 key 名字。
+ * UI 阶段 2 批量剥离 i18n 内嵌 emoji 时一次要动 38 个 key × 2 语言，正是它该拦住的场景。
+ */
+{
+  const zhKeys = collectDefinedKeys(0);
+  const enKeys = collectDefinedKeys(1);
+  const onlyZh = [...zhKeys].filter((k) => !enKeys.has(k));
+  const onlyEn = [...enKeys].filter((k) => !zhKeys.has(k));
+  if (onlyZh.length === 0 && onlyEn.length === 0) {
+    console.log(`✓ web 词典中英对称：${zhKeys.size} 个 key`);
+  } else {
+    failed = true;
+    console.error(`✗ web 词典中英不对称：仅 zh ${onlyZh.length} 个，仅 en ${onlyEn.length} 个`);
+    for (const k of onlyZh.slice(0, 15)) console.error(`  - 仅 zh: ${k}`);
+    for (const k of onlyEn.slice(0, 15)) console.error(`  - 仅 en: ${k}`);
   }
 }
 
@@ -238,7 +268,11 @@ function extractLeafKeys(filePath) {
 
 const PARITY_TARGETS = [
   { name: 'mobile', zh: 'mobile/src/locales/zh-CN.ts', en: 'mobile/src/locales/en.ts' },
-  { name: 'miniprogram', zh: 'miniprogram/src/locales/zh-CN.ts', en: 'miniprogram/src/locales/en.ts' },
+  {
+    name: 'miniprogram',
+    zh: 'miniprogram/src/locales/zh-CN.ts',
+    en: 'miniprogram/src/locales/en.ts',
+  },
 ];
 
 for (const t of PARITY_TARGETS) {
@@ -261,6 +295,55 @@ for (const t of PARITY_TARGETS) {
     failed = true;
     console.error(`✗ ${t.name} 词典解析失败：${err.message}`);
   }
+}
+
+// ========== 5. 审计 UI 阶段 1.1：i18n 里禁止内嵌 emoji（2026-09-26 已归零，转为硬规则） ==========
+/*
+ * 历史上很多按钮把图标写进文案（'⚡ 分屏'、'🗑️ 删除'），于是翻译带着图标、
+ * 换图标库要改词典、暗色下 emoji 固定配色抢焦点、读屏念出"电池/锁"。
+ * 迁移方向见 docs/ui-icon-map.md：图标改由 components/Icon.tsx 的 LABEL_ICON 提供。
+ *
+ * 这里用**棘轮**而不是"一次性清零"：剩余数量写死成上限，只许调低。
+ * 一次性大改会牵动三端词典与所有渲染点，风险高于收益；但绝不允许新增。
+ */
+/*
+ * 棘轮走到底：2026-09-26 三端词典里的内嵌 emoji 已全部剥除（270 → 194 → 0），
+ * 上限钉在 0 就等于硬规则 —— 图标只能来自 components/Icon.tsx（web）
+ * 或各端的图标位，不许再往文案里塞。
+ */
+const EMOJI_LABEL_CEILING = 0;
+const EMOJI_LEAD = /^[\u{1F000}-\u{1FAFF}\u{2190}-\u{2BFF}\u{FE0F}]/u;
+const EMOJI_FILES = [
+  'web/src/lib/i18n.ts',
+  'mobile/src/locales/zh-CN.ts',
+  'mobile/src/locales/en.ts',
+  'miniprogram/src/locales/zh-CN.ts',
+  'miniprogram/src/locales/en.ts',
+];
+let emojiLabels = 0;
+const perFile = [];
+for (const f of EMOJI_FILES) {
+  const lines = readFileSync(new URL('../' + f, import.meta.url), 'utf8').split('\n');
+  let n = 0;
+  for (const raw of lines) {
+    const m = raw.match(/^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*:\s*'((?:[^'\\]|\\.)*)'/);
+    if (m && EMOJI_LEAD.test(m[1])) n++;
+  }
+  perFile.push(`${f.split('/').slice(-2).join('/')} ${n}`);
+  emojiLabels += n;
+}
+if (emojiLabels > EMOJI_LABEL_CEILING) {
+  failed = true;
+  console.error(
+    `✗ i18n 内嵌 emoji 标签 ${emojiLabels} 条，超过上限 ${EMOJI_LABEL_CEILING}（已归零，一条都不许再加）。\n  ` +
+      perFile.join(' | ') +
+      '\n  新增按钮请用 components/Icon.tsx 的 <IconText k=... />，不要往文案里塞 emoji。'
+  );
+} else {
+  console.log(
+    `✓ i18n 内嵌 emoji 标签 ${emojiLabels} 条（上限 0：硬规则，图标只能来自图标体系）：` +
+      perFile.join(' | ')
+  );
 }
 
 process.exit(failed ? 1 : 0);

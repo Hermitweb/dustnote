@@ -26,7 +26,7 @@ export function UpdateBanner({ result }: { result: CheckUpdateResult }) {
   return (
     <div className="fixed inset-x-0 bottom-4 z-40 mx-auto max-w-2xl px-4">
       <div className="flex items-center gap-3 rounded-xl border border-surface-border bg-surface-card px-4 py-3 shadow-lg">
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-mint-100 text-lg dark:bg-mint-900/30">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent-soft/60 text-lg dark:bg-accent/30">
           ✨
         </div>
         <div className="flex-1">
@@ -34,21 +34,21 @@ export function UpdateBanner({ result }: { result: CheckUpdateResult }) {
             {t('update.new_version', { version })}
           </div>
           {level === 'L2_strong_prompt' && (
-            <div className="text-xs text-slate-500">{t('update.suggest_upgrade')}</div>
+            <div className="text-xs text-text-secondary">{t('update.suggest_upgrade')}</div>
           )}
           {level === 'L3_soft_prompt' && (
-            <div className="text-xs text-slate-500">{t('update.available')}</div>
+            <div className="text-xs text-text-secondary">{t('update.available')}</div>
           )}
         </div>
         <a
           href={url}
-          className="rounded-lg bg-mint-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-mint-700"
+          className="rounded-lg bg-accent-strong px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-accent-strong-hover"
         >
           {t('update.now')}
         </a>
         <button
           onClick={() => setDismissed(true)}
-          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
+          className="rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-surface-1 hover:text-text-secondary dark:hover:bg-surface-3"
           aria-label={t('common.close')}
         >
           ✕

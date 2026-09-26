@@ -134,13 +134,13 @@ export default function Share() {
       <View className="hero">
         <Text className="hero-title">{t('share.need_pwd')}</Text>
         <FInput
-          className="mint-input"
+          className="input"
           password
           placeholder={t('share.pwd_placeholder')}
           value={password}
           onInput={(e) => setPassword((e.detail as { value: string }).value)}
         />
-        <View className="mint-btn mint-btn-block mt-m" onClick={() => load(password)}>
+        <View className="btn btn-block mt-m" onClick={() => load(password)}>
           {t('common.unlock')}
         </View>
       </View>

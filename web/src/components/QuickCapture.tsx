@@ -68,11 +68,11 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[12vh]"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 p-4 backdrop-blur-[2px] pt-[12vh]"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-2xl"
+        className="w-full max-w-xl overflow-hidden rounded-xl border border-surface-border bg-surface-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <input
@@ -102,7 +102,7 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => void save()}
               disabled={saving}
-              className="rounded bg-mint-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
+              className="rounded bg-accent-strong px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent-strong-hover disabled:opacity-50"
             >
               {saving ? t('common.loading') : `⌘↵ ${t('common.save')}`}
             </button>

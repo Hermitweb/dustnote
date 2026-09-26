@@ -44,6 +44,7 @@ import {
   type NoteRow,
   type NoteVersionMeta,
   type Folder,
+  formatDateTimeStamp,
 } from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
 import { buildClientHeaders } from '../api';
@@ -704,7 +705,17 @@ export function NoteEditScreen() {
     >
       <View style={styles.toolbar}>
         {/* 返回走原生导航头箭头；离开时 unmount flush 兜底未保存修改 */}
-        <Text style={styles.toolbarStatus}>
+        {/* 状态词本身已表意（保存中 / 已保存 / 解密失败 / 已离线），色彩只负责"要紧的那两种跳出来" */}
+        <Text
+          style={[
+            styles.toolbarStatus,
+            decryptFailed
+              ? { color: colors.danger }
+              : offlineQueued
+                ? { color: colors.warn }
+                : null,
+          ]}
+        >
           {offlineQueued
             ? t('editor.offline_queued')
             : decryptFailed
@@ -878,7 +889,7 @@ export function NoteEditScreen() {
                   void onLoadFolders();
                 }}
               >
-                <Text style={styles.menuItemText}>📁 {t('editor.move')}</Text>
+                <Text style={styles.menuItemText}>{t('editor.move')}</Text>
               </TouchableOpacity>
             )}
             {mode === 'online' && !decryptFailed && (
@@ -889,7 +900,7 @@ export function NoteEditScreen() {
                   void onLoadHistory();
                 }}
               >
-                <Text style={styles.menuItemText}>🕘 {t('editor.history')}</Text>
+                <Text style={styles.menuItemText}>{t('editor.history')}</Text>
               </TouchableOpacity>
             )}
             {mode === 'online' && !decryptFailed && (
@@ -900,7 +911,7 @@ export function NoteEditScreen() {
                   void onShare();
                 }}
               >
-                <Text style={styles.menuItemText}>🔗 {t('editor.share')}</Text>
+                <Text style={styles.menuItemText}>{t('editor.share')}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -911,7 +922,7 @@ export function NoteEditScreen() {
               }}
             >
               <Text style={[styles.menuItemText, { color: colors.danger }]}>
-                🗑 {t('editor.delete')}
+                {t('editor.delete')}
               </Text>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -979,9 +990,7 @@ export function NoteEditScreen() {
                     <Text style={styles.templateName}>
                       {t('history.version_label', { n: item.noteVersion })}
                     </Text>
-                    <Text style={styles.templateDesc}>
-                      {new Date(item.createdAt).toLocaleString()}
-                    </Text>
+                    <Text style={styles.templateDesc}>{formatDateTimeStamp(item.createdAt)}</Text>
                   </View>
                   <TouchableOpacity
                     style={styles.restoreBtnWrap}

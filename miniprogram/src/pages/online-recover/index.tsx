@@ -11,7 +11,7 @@ import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { FInput } from '../../components/FInput';
 import { useAuthStore } from '../../state/auth';
-import { t, useLanguage } from '../../lib/i18n';
+import { t } from '../../lib/i18n';
 import { errorText } from '../../lib/error-text';
 
 /** 恢复码格式（与 standalone-recover 一致：XXXXX-XXXXX） */
@@ -20,7 +20,6 @@ function isValidRecoveryCode(code: string): boolean {
 }
 
 export default function OnlineRecover() {
-  const lang = useLanguage();
   const recoverOnline = useAuthStore((s) => s.recoverOnline);
   const [recoveryCode, setRecoveryCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -66,21 +65,21 @@ export default function OnlineRecover() {
         <Text className="hero-subtitle mb-l text-center">{t('recover.online_subtitle')}</Text>
 
         <FInput
-          className="mint-input"
+          className="input"
           placeholder={t('recover.code_placeholder')}
           value={recoveryCode}
           maxlength={16}
           onInput={(e) => setRecoveryCode((e.detail as { value: string }).value)}
         />
         <FInput
-          className="mint-input"
+          className="input"
           password
           placeholder={t('recover.pwd_placeholder')}
           value={newPassword}
           onInput={(e) => setNewPassword((e.detail as { value: string }).value)}
         />
         <FInput
-          className="mint-input"
+          className="input"
           password
           placeholder={t('recover.confirm_placeholder')}
           value={confirm}
@@ -88,7 +87,7 @@ export default function OnlineRecover() {
         />
 
         <View
-          className="mint-btn mint-btn-block mt-s"
+          className="btn btn-block mt-s"
           style={{ opacity: submitting ? 0.5 : 1 }}
           onClick={() => void onSubmit()}
         >

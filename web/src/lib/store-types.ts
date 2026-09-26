@@ -46,7 +46,11 @@ export interface Folder {
 }
 
 export type AuthState = 'unknown' | 'uninitialized' | 'needs_unlock' | 'unlocked' | 'error';
-export type ViewMode = 'all' | 'favorites' | 'trash';
+/**
+ * 导航轨的目的地（舞台状态机的输入，见 web/src/lib/stage.ts）。
+ * 'overview' 不是一堆笔记，而是「还没决定看哪一堆」的落点：首屏与 Esc 到底的位置。
+ */
+export type ViewMode = 'overview' | 'all' | 'favorites' | 'trash';
 
 export type ThemeId =
   | 'mint-dawn'

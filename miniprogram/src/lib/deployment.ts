@@ -11,16 +11,17 @@
  * 选择页时仍可自由选单机，不会被每次启动强拉回联机。用户手动完成选择
  * （chooseStandalone/chooseOnline）同样打标记。
  *
- * 安全取舍：引导值为公网明文 HTTP 时不弹 mode-select 的明文链路警告
- * （docs/security-model.md「明文 HTTP」已列为有意取舍；引导地址由部署者
- * 拍板，弹窗反而破坏「新机免配置」的目标）。
+ * 引导地址用 HTTPS 域名而不是「服务器 IP + 明文端口」：
+ *   - weapp 正式版 request 只允许 HTTPS 白名单域，裸 IP 连审核都过不了；
+ *   - 明文 HTTP 会让「E2EE 但地址可被中间人改写」变成现实攻击面。
+ * 历史值 http://154.217.234.125:8080 见审计 PLAT-004（已废弃，勿再填回）。
  */
 import Taro from '@tarojs/taro';
 import { ApiClient } from '@dustnote/shared';
 import { taroFetch } from './taro-fetch';
 import { APP_VERSION } from '../state/auth';
 
-export const DEPLOY_DEFAULT_SERVER_URL = 'http://154.217.234.125:8080';
+export const DEPLOY_DEFAULT_SERVER_URL = 'https://napi.iniess.cn';
 
 const APPLIED_KEY = 'dustnote_deploy_default_applied';
 

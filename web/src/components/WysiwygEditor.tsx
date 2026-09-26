@@ -70,7 +70,9 @@ export function WysiwygEditor({ content, onChange, placeholder }: WysiwygEditorP
       TaskItem.configure({ nested: true }),
       Link.configure({
         openOnClick: false,
-        HTMLAttributes: { class: 'text-mint-600 dark:text-mint-400 underline cursor-pointer' },
+        HTMLAttributes: {
+          class: 'text-accent-text dark:text-accent-text underline cursor-pointer',
+        },
       }),
       Image.configure({
         HTMLAttributes: { class: 'max-w-full rounded-lg' },
