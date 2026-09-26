@@ -29,6 +29,10 @@ RUN if [ -n "$NPM_REGISTRY" ]; then pnpm config set registry "$NPM_REGISTRY"; fi
 
 # 构建
 COPY shared/src shared/src
+# shared/styles/tokens.css 被 web/miniprogram 源码 @import（跨端设计 token 单一
+# 源）。COPY 是白名单语义——漏一行则 docker 镜像构建 ENOENT，而 CI 全源树构建
+# 与本地 vite build 都不会暴露此缺口（v2.5.46 服务器升级实锤）
+COPY shared/styles shared/styles
 COPY server/src server/src
 COPY client-core/src client-core/src
 COPY web/src web/src

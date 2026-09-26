@@ -15,4 +15,3 @@ data
 .gitignore
 .DS_Store
 *.md
-!.trae/documents/*.md
