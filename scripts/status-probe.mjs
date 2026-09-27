@@ -153,6 +153,34 @@ results.push(
 // 3) Web 首页可达
 results.push(await probe('web', '/', (res) => (res.ok ? null : `HTTP ${res.status}`)));
 
+// 3.4) 页面响应必须真的带着 CSP。
+//
+//   为什么要单独测它：express 侧的 helmet 是 contentSecurityPolicy:false，光看代码
+//   会以为「这站没 CSP」；实际上页面从不由 express 发出——nginx 直接 root /app/web-dist
+//   静态吐出（见 deploy/nginx.conf），策略也在 nginx 上。既然防线在那里，就该由
+//   拨测去验证**那条响应头本身**，而不是相信配置文件写过了。
+//
+//   nginx 的 add_header 不继承：子 location 只要自己写过任何 add_header，父级的
+//   安全头就整个不再出现（该坑已在 nginx.conf 里留了注释）。所以「CSP 在不在」是
+//   每个 location 各自的事，一次配置改动就能悄悄让页面裸奔——这条断言就是那张网。
+const CSP_REQUIRED = [
+  [/default-src[^;]*'self'/, "default-src 'self'"],
+  [/script-src[^;]*'self'/, "script-src 'self'"],
+  [/object-src[^;]*'none'/, "object-src 'none'"],
+  [/frame-ancestors[^;]*'none'/, "frame-ancestors 'none'"],
+  [/base-uri[^;]*'self'/, "base-uri 'self'"],
+];
+results.push(
+  await probe('csp-page', '/', (res) => {
+    if (!res.ok) return `HTTP ${res.status}`;
+    // 注意：这里不把响应头原文写进 note（那是网络数据），只报缺哪一项
+    const csp = res.headers.get('content-security-policy');
+    if (!csp) return '页面响应没有 Content-Security-Policy 头';
+    const missing = CSP_REQUIRED.filter(([re]) => !re.test(csp)).map(([, label]) => label);
+    return missing.length ? `CSP 缺少: ${missing.join(' ')}` : null;
+  })
+);
+
 // 3.5) 分享服务的**公开 API**（不是 SPA 外壳）：
 //   /s/<token> 对任意路径都回 200 首页，拨它等于什么都没测；
 //   打 /api/v1/share/public/<假 token> 才有意义 —— 路由活着会回 4xx JSON，5xx 才算坏。

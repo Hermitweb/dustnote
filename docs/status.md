@@ -2,16 +2,17 @@
 
 <!-- status-probe:start -->
 
-> 最近拨测：2026-09-27 06:25 UTC · 🟢 全部通过 · 期望版本 v2.5.46
+> 最近拨测：2026-09-27 10:21 UTC · 🟢 全部通过 · 期望版本 v2.5.46
 
 **当前状态：🟢 正常** — 线上 **v2.5.46**（探针判定，非人工声明）
 
 | 探测项 | 结果 | 耗时 | HTTP | 说明 |
 | --- | --- | --- | --- | --- |
-| health | ✅ | 682ms | 200 |  |
-| update-manifest | ✅ | 515ms | 200 |  |
-| web | ✅ | 163ms | 200 |  |
-| share-api | ✅ | 166ms | 404 |  |
+| health | ✅ | 551ms | 200 |  |
+| update-manifest | ✅ | 506ms | 200 |  |
+| web | ✅ | 160ms | 200 |  |
+| csp-page | ✅ | 160ms | 200 |  |
+| share-api | ✅ | 162ms | 404 |  |
 | http-plaintext(informational) | ℹ️ | 0ms | 200 | 明文仍可服务（status=200，R1 HTTPS 收口待办） |
 
 _未列入本表的组件（WebSocket 同步、/metrics）探针不覆盖，状态见下方「拨测不覆盖的部分」。_

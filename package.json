@@ -26,6 +26,7 @@
     "docker:down": "docker compose down",
     "pin-digests": "node scripts/pin-base-image-digests.mjs",
     "docker:check": "node scripts/check-docker-context.mjs",
+    "security:headers": "node scripts/check-security-headers.mjs",
     "lint": "turbo run lint",
     "lint:scripts": "eslint scripts deploy/monitoring --ext .mjs",
     "typecheck": "turbo run typecheck",
