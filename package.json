@@ -36,7 +36,7 @@
     "audit": "pnpm audit --prod",
     "prepare": "node -e \"try{require('husky').install()}catch(_){}\"",
     "tokens:gen": "node scripts/gen-mp-tokens.mjs",
-    "test:monitoring": "node --test \"deploy/monitoring/*.test.mjs\"",
+    "test:monitoring": "node --test \"deploy/monitoring/*.test.mjs\" \"scripts/*.test.mjs\"",
     "tokens:check": "node scripts/gen-mp-tokens.mjs --check"
   },
   "devDependencies": {

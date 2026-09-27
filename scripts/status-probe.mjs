@@ -24,9 +24,43 @@ const TIMEOUT_MS = 15_000;
 const MARK_START = '<!-- status-probe:start -->';
 const MARK_END = '<!-- status-probe:end -->';
 
-const expected =
+const rawExpected =
   process.env.EXPECT_VERSION ||
   JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
+
+/** 版本号必须是 x.y.z —— 它既进请求头，也会被写进 docs/status.md */
+const SEMVER_RE = /^\d+\.\d+\.\d+$/;
+if (!SEMVER_RE.test(String(rawExpected))) {
+  console.error(
+    `期望版本号不合法（需要 x.y.z）: ${JSON.stringify(String(rawExpected).slice(0, 40))}`
+  );
+  process.exitCode = 1;
+}
+const expected = String(rawExpected);
+
+/**
+ * 任何要写进 markdown 的东西先净化。
+ *
+ * 表格里的 note / version 来自**网络响应**：服务器被攻陷或被中间人改写时，
+ * 一个 `<!-- status-probe:end -->` 就能把生成区提前关掉，
+ * 从此往仓库里那份状态页注入任意 markdown。所以：
+ *   - 版本字段只认 x.y.z，其余当"未知"；
+ *   - 其它文本去换行与控制符、截断，并抹掉生成区标记本身。
+ */
+function safeText(v, max = 160) {
+  return (
+    String(v ?? '')
+      .replace(/<!--\s*status-probe:(start|end)\s*-->/g, '')
+      .replace(/\r?\n/g, ' ')
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u001f\u007f]/g, '')
+      .slice(0, max)
+  );
+}
+
+function safeVersion(v) {
+  return typeof v === 'string' && SEMVER_RE.test(v) ? v : null;
+}
 
 // 服务端 version-check 中间件要求客户端头（缺则 400 missing_client_headers，
 // 2026-09-24 发版验收实测）——探针以"最新客户端"身份拨测
@@ -55,8 +89,14 @@ async function probe(name, path, check, headers) {
 }
 
 const results = [];
-/** 计入红绿的硬失败；informational 项只记录不判红 */
-const hard = [];
+/**
+ * 红绿判定只看"硬探测项"：informational（明文收口这类已知现状）不参与，
+ * 否则会制造告警疲劳。注意必须在结尾**求值时**再过滤——
+ * results 是逐条 push 的，提前快照会得到空数组，
+ * 而 `[].every()` 恒为 true：这个 bug 曾让探针无论什么都报绿、exit 0，
+ * nightly 告警因此形同虚设（由恶意假服务器回归测试暴露）。
+ */
+const isHard = (r) => !r.informational;
 
 let lastHealthVersion = null;
 
@@ -137,8 +177,8 @@ try {
   });
 }
 
-const allOk = hard.every((r) => r.ok);
-const liveVersion = results.find((r) => r.name === 'health')?.version ?? null;
+const allOk = results.filter(isHard).every((r) => r.ok);
+const liveVersion = safeVersion(results.find((r) => r.name === 'health')?.version);
 const report = {
   at: new Date().toISOString(),
   url: URL_BASE,
@@ -165,18 +205,22 @@ if (UPDATE) {
   const rows = results
     .map((r) => {
       const flag = r.informational ? 'ℹ️' : r.ok ? '✅' : '❌';
-      const note = (r.note ?? '').replace(/\|/g, '/');
-      return `| ${r.name} | ${flag} | ${r.ms}ms | ${r.status ?? '-'} | ${note} |`;
+      const note = safeText(r.note, 200).replace(/\|/g, '/');
+      const name = safeText(r.name, 60).replace(/\|/g, '/');
+      const ms = Number.isFinite(r.ms) ? Math.max(0, Math.round(r.ms)) : 0;
+      const st = Number.isFinite(r.status) ? r.status : '-';
+      return `| ${name} | ${flag} | ${ms}ms | ${st} | ${note} |`;
     })
     .join('\n');
+  const liveLabel = liveVersion ? `v${liveVersion}` : '未知（响应未给合法版本号）';
   const generated = [
     MARK_START,
     '',
     `> 最近拨测：${stamp} UTC · ${allOk ? '🟢 全部通过' : '🔴 有失败项'} · 期望版本 v${expected}`,
     '',
     allOk
-      ? `**当前状态：🟢 正常** — 线上 **v${liveVersion ?? expected}**（探针判定，非人工声明）`
-      : `**当前状态：🔴 异常** — 线上 **v${liveVersion ?? '未知'}**，期望 v${expected}（明细见下表；复现：\`node scripts/status-probe.mjs\`）`,
+      ? `**当前状态：🟢 正常** — 线上 **${liveLabel}**（探针判定，非人工声明）`
+      : `**当前状态：🔴 异常** — 线上 **${liveLabel}**，期望 v${expected}（明细见下表；复现：\`node scripts/status-probe.mjs\`）`,
     '',
     '| 探测项 | 结果 | 耗时 | HTTP | 说明 |',
     '| --- | --- | --- | --- | --- |',
@@ -197,4 +241,10 @@ if (UPDATE) {
   }
 }
 
-process.exit(allOk ? 0 : 1);
+/*
+ * 用 exitCode 而不是 process.exit()：后者会在句柄（undici 的 keep-alive socket）
+ * 还没关闭时强杀进程，Windows 上直接触发 libuv 断言
+ * （Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)，退出码 0xC0000409），
+ * 于是"探针判定"在最需要它自检的开发机上反而是坏的。
+ */
+process.exitCode = allOk ? 0 : 1;
