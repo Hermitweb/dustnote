@@ -51,7 +51,7 @@ function collect(dirs, out, seen) {
             seen.add(key);
             let license = j.license || (j.licenses && JSON.stringify(j.licenses));
             if (!license && j.readme) {
-              const m = /License:\s*([A-Za-z0-9.\-]+)/i.exec(j.readme);
+              const m = /License:\s*([A-Za-z0-9.-]+)/i.exec(j.readme);
               if (m) license = m[1];
             }
             out.push({ name: j.name, version: j.version || '?', license: license || 'UNKNOWN' });

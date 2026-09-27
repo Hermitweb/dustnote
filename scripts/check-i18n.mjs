@@ -73,17 +73,10 @@ function collectDefinedKeys(which = 0) {
     process.exit(1);
   }
   // 从 translation: 后第一个 { 开始括号匹配
-  let i = src.indexOf('{', translationIdx);
-  const keys = new Set();
-  const stack = [];
-  let path = [];
+  const i = src.indexOf('{', translationIdx);
 
   // 逐字符扫描，遇到 key: 标识符压栈，遇到 { 进入下一层，遇到 } 弹栈
-  // 简易解析：匹配 `key: {` 或 `'key': {` 进入子对象，`key: 'value'` 是叶子
-  const KEY_RE = /([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g;
-
   // 用栈式解析：记录当前路径，遇到 { 压入，} 弹出
-  let depth = 0;
   let pos = i;
   // 先找到起始 {
   while (pos < src.length && src[pos] !== '{') pos++;
@@ -312,7 +305,11 @@ for (const t of PARITY_TARGETS) {
  * 或各端的图标位，不许再往文案里塞。
  */
 const EMOJI_LABEL_CEILING = 0;
-const EMOJI_LEAD = /^[\u{1F000}-\u{1FAFF}\u{2190}-\u{2BFF}\u{FE0F}]/u;
+// FE0F 不能和其它码位并进同一个字符类：它是组合用的变体选择符，
+// 单独作首字符才需要计入；混在类里，「这个类匹配的是 emoji 首字符」这一读法
+// 对作者和读者都是骗人的（no-misleading-character-class 报的就是它）。
+// 改成交替式，覆盖面不缩小——棘轮上限钉在 0，靠的就是它不漏。
+const EMOJI_LEAD = /^(?:[\u{1F000}-\u{1FAFF}\u{2190}-\u{2BFF}]|\u{FE0F})/u;
 const EMOJI_FILES = [
   'web/src/lib/i18n.ts',
   'mobile/src/locales/zh-CN.ts',

@@ -27,6 +27,7 @@
     "pin-digests": "node scripts/pin-base-image-digests.mjs",
     "docker:check": "node scripts/check-docker-context.mjs",
     "lint": "turbo run lint",
+    "lint:scripts": "eslint scripts deploy/monitoring --ext .mjs",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",

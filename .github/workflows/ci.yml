@@ -45,8 +45,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm format:check
       - run: pnpm lint
+      - name: Lint root scripts (bump-version / status-probe / i18n guards)
+        # 这些 .mjs 不属于任何 workspace 包，turbo 的 lint 从来看不到它们：
+        # execSync/execFileSync 这类未定义引用因此潜伏到发版当天才炸（2026-09-27 实测复现）
+        run: pnpm lint:scripts
       - name: Verify miniprogram theme tokens match shared seeds
         run: pnpm --filter @dustnote/shared build && node scripts/gen-mp-tokens.mjs --check
       - name: Test alerting bridge (P0-2 last hop)

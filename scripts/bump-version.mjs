@@ -20,8 +20,8 @@
  * 自检：替换结束后全仓 grep 旧版本号（排除 CHANGELOG 历史/dist/node_modules），
  * 任何残留即报错退出——清单外的出现位置会被显式暴露而不是静默漏掉。
  */
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { readFileSync, writeFileSync, existsSync, renameSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -95,6 +95,28 @@ if (cmp(NEW, OLD) <= 0) {
   process.exit(1);
 }
 
+/**
+ * 原子替换：先写同目录临时文件，再 rename 覆盖目标。
+ *
+ * 为什么不直接 writeFileSync 目标：那是"截断后重写"，中途崩溃/断电会留下半个
+ * 文件——版本号清单里半个 package.json，下一次发版连 version 都读不出来。
+ * rename 是原子的：目标要么全旧要么全新。
+ *
+ * 残余风险（已知、并写在这里而不是假装没有）：下面"写入前复核"与 rename 之间
+ * 仍有微秒级窗口，彻底消除需要文件锁。但那是个假问题——本脚本是维护者单机跑的
+ * 发布工具，要防的是**几秒前**编辑器/lint-staged 的意外保存（真发生过），
+ * 不是微秒级竞争。复核留着是因为它对前一种情形有效。
+ */
+function writeFileAtomic(abs, content) {
+  const tmp = `${abs}.bump-${process.pid}.tmp`;
+  try {
+    writeFileSync(tmp, content);
+    renameSync(tmp, abs);
+  } finally {
+    if (existsSync(tmp)) rmSync(tmp, { force: true }); // 失败时不留垃圾文件
+  }
+}
+
 console.log(`bump ${OLD} -> ${NEW}${dryRun ? '（dry-run）' : ''}`);
 let changed = 0;
 const touched = [];
@@ -121,7 +143,7 @@ for (const rel of VERSION_FILES) {
       console.error(`[中止] ${rel} 在写入前已被其它进程改动，请确认后重跑（避免静默覆盖）`);
       process.exit(1);
     }
-    writeFileSync(abs, after);
+    writeFileAtomic(abs, after);
   }
   changed++;
 }
@@ -142,7 +164,7 @@ let gnew = gsrc.replace(/(versionCode\s+)\d+/, `$1${nextCode}`);
 if (!gnew.includes(`versionName "${NEW}"`)) {
   gnew = gnew.replace(/versionName "\d+\.\d+\.\d+"/, `versionName "${NEW}"`);
 }
-if (!dryRun) writeFileSync(gradle, gnew);
+if (!dryRun) writeFileAtomic(gradle, gnew);
 if (!touched.includes(gradleRel)) touched.push(gradleRel);
 console.log(`versionCode: ${m[1]} -> ${nextCode}`);
 
@@ -153,11 +175,11 @@ console.log(`versionCode: ${m[1]} -> ${nextCode}`);
 //   "线上跑着什么"现在只能由 scripts/status-probe.mjs 写，且写进它的生成区标记内。
 const statusAbs = join(ROOT, 'docs/status.md');
 const ssrc = readFileSync(statusAbs, 'utf8');
-let snew = ssrc.replace(
+const snew = ssrc.replace(
   /(\|[^|\n]+\| )\d+\.\d+\.\d+( ?\|)/g,
   (_m, pre, post) => `${pre}${NEW}${post}`
 );
-if (snew !== ssrc && !dryRun) writeFileSync(statusAbs, snew);
+if (snew !== ssrc && !dryRun) writeFileAtomic(statusAbs, snew);
 if (snew !== ssrc) touched.push('docs/status.md（仅客户端渠道表）');
 
 // ── roadmap/ui 文档的「基线：vX」行归一（发版即刷新基线；两文档历史段
@@ -167,7 +189,7 @@ for (const rel of ['docs/roadmap.md', 'docs/ui-optimization.md']) {
   const src = readFileSync(abs, 'utf8');
   const out = src.replace(/基线：`?v?\d+\.\d+\.\d+`?/g, `基线：\`v${NEW}\``);
   if (out !== src) {
-    if (!dryRun) writeFileSync(abs, out);
+    if (!dryRun) writeFileAtomic(abs, out);
     touched.push(`${rel}（基线行）`);
   }
 }
