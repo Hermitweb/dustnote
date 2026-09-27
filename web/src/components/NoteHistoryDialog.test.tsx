@@ -207,6 +207,45 @@ describe('NoteHistoryDialog', () => {
     await waitFor(() => expect(getByText('history.restore_success')).toBeInTheDocument());
   });
 
+  it('恢复成功后立刻卸载：延迟刷新不得在卸载之后再发请求', async () => {
+    /*
+     * 回归钉：恢复成功后组件里挂了一个 500ms 的"刷新版本列表"定时器。
+     * 用户点完恢复就关对话框是常态，那时组件已卸载，而回调照跑 ——
+     * 生产里是"卸载后 setState + 一次无人接收的请求"，测试里更会撞上已拆除的
+     * jsdom 抛 "window is not defined"（CI 的 coverage job 实测复现过一次）。
+     * 断言方式：卸载后越过 500ms 窗口，versions 列表请求数不得增加。
+     */
+    const versions = [makeVersion({ id: 'v-1', noteVersion: 3 })];
+    const urls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        urls.push(url);
+        if (init?.method === 'POST' && url.includes('/restore')) return fetchOk({ version: 4 });
+        if (url.endsWith('/versions/v-1'))
+          return fetchOk({ ciphertext: JSON.stringify({ payload: {} }) });
+        return fetchOk({ versions });
+      })
+    );
+    decryptMock.mockResolvedValue(JSON.stringify({ title: 'T', content: 'C' }));
+    const { getByText, unmount } = render(
+      createElement(NoteHistoryDialog, { noteId: 'n1', currentVersion: 3, onClose: () => {} })
+    );
+    await waitFor(() => expect(getByText('history.version_label')).toBeInTheDocument());
+    await fireEvent.clickAsync(getByText('history.version_label'));
+    await waitFor(() => expect(getByText('T')).toBeInTheDocument());
+    await fireEvent.clickAsync(getByText('history.restore'));
+    await waitFor(() => expect(getByText('common.confirm')).toBeInTheDocument());
+    await fireEvent.clickAsync(getByText('common.confirm'));
+    await waitFor(() => expect(getByText('history.restore_success')).toBeInTheDocument());
+
+    const before = urls.filter((u) => u.endsWith('/versions')).length;
+    unmount();
+    await new Promise((r) => setTimeout(r, 700)); // 越过 500ms 的延迟刷新窗口
+    const after = urls.filter((u) => u.endsWith('/versions')).length;
+    expect(after).toBe(before);
+  });
+
   it('关闭按钮调用 onClose', async () => {
     vi.stubGlobal(
       'fetch',

@@ -49,6 +49,19 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
   // 请求序号：防止快速点击多个版本时，后发请求先返回覆盖先点击的预览
   const requestSeqRef = useRef(0);
+  /*
+   * 「恢复成功后延迟刷新列表」的定时器必须登记并在卸载时清掉。
+   * 原先是裸 setTimeout：对话框在 500ms 内关闭（用户点完恢复就关是常态），
+   * 回调仍会在组件消失后 setState + 发一次无人接收的请求；
+   * 测试里它更会撞上已拆除的 jsdom，抛 "window is not defined"（CI 实测复现）。
+   */
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    },
+    []
+  );
 
   const fetchVersions = useCallback(async () => {
     setLoadingList(true);
@@ -174,7 +187,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
       }
       setSuccess(t('history.restore_success'));
       // 刷新版本列表（恢复操作本身也会产生一个新快照）
-      setTimeout(() => void fetchVersions(), 500);
+      refreshTimerRef.current = setTimeout(() => void fetchVersions(), 500);
     } catch (err) {
       setError(t('history.restore_fail', { reason: (err as Error).message }));
     } finally {
