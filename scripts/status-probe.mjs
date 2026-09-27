@@ -28,38 +28,50 @@ const rawExpected =
   process.env.EXPECT_VERSION ||
   JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
 
-/** 版本号必须是 x.y.z —— 它既进请求头，也会被写进 docs/status.md */
-const SEMVER_RE = /^\d+\.\d+\.\d+$/;
-if (!SEMVER_RE.test(String(rawExpected))) {
+/**
+ * 版本号必须是 x.y.z —— 它既进请求头，也会被写进 docs/status.md。
+ *
+ * 净化刻意写成「用捕获组重建字符串」，而不是「正则通过了就沿用原串」：
+ * 下游拿到的是三段数字重新拼出来的值，结构上不可能夹带原输入里的标记、换行或
+ * HTML 字符。污点分析把 `.test()` 这类布尔判断当作"依赖推理的守卫"、不当作净化，
+ * 重建后的串才是它认的形式。
+ */
+const SEMVER_RE = /^(\d+)\.(\d+)\.(\d+)$/;
+function safeVersion(v) {
+  const m = SEMVER_RE.exec(String(v ?? ''));
+  return m ? `${m[1]}.${m[2]}.${m[3]}` : null;
+}
+const expected = safeVersion(rawExpected);
+if (expected === null) {
   console.error(
     `期望版本号不合法（需要 x.y.z）: ${JSON.stringify(String(rawExpected).slice(0, 40))}`
   );
-  process.exitCode = 1;
+  // 这里还没有任何网络句柄，直接退出是安全的（文件末尾那条 exitCode 注释针对的是
+  // fetch 之后强杀会踩 libuv 断言的场景）
+  process.exit(1);
 }
-const expected = String(rawExpected);
 
 /**
  * 任何要写进 markdown 的东西先净化。
  *
  * 表格里的 note / version 来自**网络响应**：服务器被攻陷或被中间人改写时，
  * 一个 `<!-- status-probe:end -->` 就能把生成区提前关掉，
- * 从此往仓库里那份状态页注入任意 markdown。所以：
- *   - 版本字段只认 x.y.z，其余当"未知"；
- *   - 其它文本去换行与控制符、截断，并抹掉生成区标记本身。
+ * 从此往仓库里那份状态页注入任意 markdown。
+ *
+ * 原先是黑名单写法——"先抹掉生成区标记，再放其它字符过去"，少列一个变体
+ * （大小写、编码、空白差异）就漏。现在改成白名单：只留字母数字、空白和已知
+ * 无害标点（含中日韩标点）。`<` `>` `&` `!` `[` `]` 这些能拼出 HTML 注释/标签/
+ * 链接的字符从一开始就进不来，所以标记无法成形，不必再单独抹一遍。
  */
-function safeText(v, max = 160) {
-  return (
-    String(v ?? '')
-      .replace(/<!--\s*status-probe:(start|end)\s*-->/g, '')
-      .replace(/\r?\n/g, ' ')
-      // eslint-disable-next-line no-control-regex
-      .replace(/[\u0000-\u001f\u007f]/g, '')
-      .slice(0, max)
-  );
-}
+const DISALLOWED_RE =
+  /[^A-Za-z0-9 ,.:;?+=_/()'"\u4e00-\u9fff\u3000-\u303f\uff01-\uff5e\u00b7\u2013\u2014\u2018\u2019\u201c\u201d\u2192\u2260-]/g;
 
-function safeVersion(v) {
-  return typeof v === 'string' && SEMVER_RE.test(v) ? v : null;
+function safeText(v, max = 160) {
+  return String(v ?? '')
+    .replace(/\|/g, '/') // 表格分隔符换斜杠：留着它会把一行劈成多列
+    .replace(/\s+/g, ' ') // 换行/制表先并成空格：一行就是一条表格行
+    .replace(DISALLOWED_RE, '')
+    .slice(0, max);
 }
 
 // 服务端 version-check 中间件要求客户端头（缺则 400 missing_client_headers，
@@ -205,8 +217,8 @@ if (UPDATE) {
   const rows = results
     .map((r) => {
       const flag = r.informational ? 'ℹ️' : r.ok ? '✅' : '❌';
-      const note = safeText(r.note, 200).replace(/\|/g, '/');
-      const name = safeText(r.name, 60).replace(/\|/g, '/');
+      const note = safeText(r.note, 200);
+      const name = safeText(r.name, 60);
       const ms = Number.isFinite(r.ms) ? Math.max(0, Math.round(r.ms)) : 0;
       const st = Number.isFinite(r.status) ? r.status : '-';
       return `| ${name} | ${flag} | ${ms}ms | ${st} | ${note} |`;

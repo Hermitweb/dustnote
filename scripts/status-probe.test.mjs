@@ -10,14 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
-import {
-  mkdtempSync,
-  writeFileSync,
-  rmSync,
-  readFileSync,
-  copyFileSync,
-  existsSync,
-} from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, copyFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -142,6 +135,47 @@ test('恶意响应不能劫持生成区（标记数不变、不产生新标题�
     if (existsSync(backup)) {
       copyFileSync(backup, target);
     }
+    rmSync(dir, { recursive: true, force: true });
+    await stopServer(srv);
+  }
+});
+
+/**
+ * 净化机制本身的可执行证据。
+ *
+ * 旧实现是黑名单（"抹掉生成区标记，其余字符放行"），这个 payload 能从它手里漏过去：
+ * `<img src=… onerror=…>` 与 `[x](javascript:…)` 里没有 status-probe 标记，
+ * 却被原样写进仓库里那份状态页——GitHub 会渲染表格单元格内的 img，
+ * 于是被攻陷/被 MITM 的服务器拿到一个"仓库内容触发的对外请求"。
+ * 白名单实现必须把它删干净，这条测试就是两者的分界线（改回黑名单即红）。
+ */
+test('网络回包的 HTML/链接载荷不得进入状态页表格', async () => {
+  const payload = '<img src=x onerror=alert(1)> [x](javascript:1) &amp; <b>';
+  const srv = await startServer(payload);
+  const dir = mkdtempSync(join(ROOT, '.probe-test-'));
+  const target = join(ROOT, 'docs/status.md');
+  const backup = join(dir, 'status.md.bak');
+  try {
+    copyFileSync(target, backup);
+    const r = await runProbe(srv.address().port, ['--update']);
+    assert.equal(r.code, 1, '非法版本必须判失败');
+    const md = readFileSync(target, 'utf8');
+    const gen = md.split('<!-- status-probe:start -->')[1].split('<!-- status-probe:end -->')[0];
+    const rows = gen.split('\n').filter((l) => l.startsWith('| ') && !l.startsWith('| ---'));
+    assert.ok(rows.length >= 4, `应生成探测行，实际 ${rows.length} 行`);
+    for (const row of rows) {
+      // 结构不变量：5 列的行有 6 个竖线 → split('|') 得 7 段（首尾为空串）。
+      // 载荷里的 | 若漏进来，这一行就会被劈成多列（行数不变但列数变了）
+      assert.equal(row.split('|').length, 7, `表格列数被破坏: ${row}`);
+      for (const ch of ['<', '>', '&', '!', '[', ']']) {
+        assert.ok(!row.includes(ch), `单元格不得含 ${ch}：${row}`);
+      }
+    }
+    assert.ok(!/<[a-zA-Z/]/.test(gen), '不得出现 HTML 标签起始');
+    assert.ok(!/\[[^\]]*\]\(/.test(gen), '不得出现可点击的 markdown 链接');
+    assert.ok(gen.includes('未知'), '非法版本号应显示为未知');
+  } finally {
+    if (existsSync(backup)) copyFileSync(backup, target);
     rmSync(dir, { recursive: true, force: true });
     await stopServer(srv);
   }
