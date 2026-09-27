@@ -662,6 +662,84 @@ i18n：556 使用 key 全定义 · web 673 / mobile 469 / 小程序 447 对称 �
 `pnpm test:monitoring` 9 例通过、真实拨测通过（线上 v2.5.45）、`format:check` 通过、
 i18n 556 使用 key 全定义 + 三端词典对称 + emoji 0/0、`bash -n` 演练脚本语法通过。
 
+### 2026-09-27 落：发版路径的潜伏崩溃、门禁盲区、以及一次把「已修」讲成事实的更正
+
+起因是 PR #10 的 CodeQL 红灯。顺着三条告警查下去，挖出的不是"告警太挑"，
+而是一个会在发版当天炸掉的真实缺陷、一个让这缺陷活下来的门禁盲区，
+以及我自己上一轮那句"已修"里不成立的部分。
+
+**1. `bump-version.mjs` 用到从未导入的 `execFileSync` —— 发版当天必炸**
+
+上一轮收命令注入面时，调用点从 `execSync` 换成 `execFileSync`，import 行漏改。
+在独立 worktree 跑真实 bump 复现：22 个版本文件 + build.gradle + 状态页渠道表**全部写完之后**，
+才在「全仓残留自检」那步 `ReferenceError: execFileSync is not defined` 退出——
+发版断在半程，工作区已被改过，得人工收拾。
+
+为什么一直活着：`scripts/` 不属于任何 workspace 包，`pnpm lint` = `turbo run lint` 从来看不到
+这些 .mjs；`tsc` 也不覆盖；`--dry-run` 恰好跳过出事那段。三道"看起来都绿"的门禁，
+没有一道真的执行过发版写盘路径。
+
+**2. 堵盲区本身**
+
+- 新增 `pnpm lint:scripts`（eslint 覆盖 `scripts/` 与 `deploy/monitoring/`）并接进 CI 的 lint job。
+  变异验证：import 退回 `execSync` → `no-undef` error、退出码 1；改回来即绿。
+- `.lintstagedrc.json` 补 `*.mjs`：原先两条 glob 都不匹配 mjs，发版脚本提交时连 prettier 都没跑过。
+  实测把 `status-probe.mjs` 做纯格式劣化后 `git add` + `lint-staged` → 命中 `*.mjs — 1 file`，
+  prettier + eslint --fix 跑完与 HEAD 逐字节一致。
+- 新门禁当场抓到两处既有 error：`check-i18n` 的 `EMOJI_LEAD` 把组合用的变体选择符 `FE0F`
+  混进首字符类（`no-misleading-character-class`，改交替式，棘轮复测仍 0 条不漏）、
+  `gen-third-party-notices` 字符类尾部多余的 `\-` 转义。
+
+**3. 写盘改成原子替换**
+
+四处 `writeFileSync` → 「同目录临时文件 + `renameSync`」。截断重写中途崩溃会留下半个
+`package.json`，下次发版连 version 都读不出来。实测连续两次真实 bump（2.5.46→47→48）exit 0、
+零 tmp 残留、失败路径也清 tmp。写前复核保留：它防的是**几秒前**编辑器/lint-staged 的意外保存
+（真发生过），不是微秒级竞争——那需要文件锁，对维护者单机跑的发布脚本是假问题。
+
+**4. 白名单确实修掉一个真漏洞，但 CodeQL 转绿的原因不是它**
+
+两件事必须分开说，否则下一轮又会拿"工具绿了"当"问题没了"。
+
+_真的变强了_：`safeText` 原先是黑名单（抹掉生成区标记、其余放行）。把实现退回黑名单跑新回归测试，
+报错就是漏网现场：
+
+```
+| health | ❌ | 72ms | 200 | 线上版本 <img src=x onerror=alert(1)> [x](javascript:1) &amp; <b> ≠ 期望 2.5.46 |
+```
+
+旧写法只防住"生成区被提前关闭"这一种劫持；`<img src=…>` 不含那个标记，于是原样落进仓库里那份
+状态页。GitHub 会渲染 markdown 表格里的 `img`（事件属性被剥掉，**这不是 XSS，别说成 XSS**），
+但"仓库内容驱动每个访问者向第三方发请求"已经成立——访问计数、可达性探测、谁在看状态页，都够。
+来源是被攻陷或被 MITM 的响应，而这一页存在的全部意义就是"外部可核实"。现在改成字符白名单：
+`< > & ! [ ]` 进不来，注释/标签/链接根本拼不出形状。新回归断言三件事——表格列数不变
+（`|` 漏进来会把一行劈成多列）、单元格不含上述字符、拼不出标签与 markdown 链接。
+口径也写进注释：白名单保证的是"拼不出标记"，不是"这些字符永不出现"
+（`javascript:` 作为纯文本残留是无害的），断言若追更强的性质就会去改不需要改的东西。
+
+_但 CodeQL 转绿不是因为它认了我的净化_（这是上一轮会说错的地方）。核对 PR 告警台账后是：
+
+| 告警                                              | 现状        | 真实原因                                                   |
+| ------------------------------------------------- | ----------- | ---------------------------------------------------------- |
+| `js/indirect-command-line-injection`              | fixed       | `execFileSync` + 参数数组，模型认下了                      |
+| `js/file-system-race`（唯一阻断项）               | fixed       | 写盘进 helper 后 check-then-act **模式不再匹配**，属副作用 |
+| `js/file-access-to-http`（package.json → 请求头） | **仍 open** | 捕获组重建**没**被当作净化，只是降为非阻断 warning         |
+| `js/http-to-file-access`（响应 → docs/status.md） | **仍 open** | 白名单同样**没**被当作净化                                 |
+
+检查变绿是因为原先被计为 `failure` 的那条消失了，两条数据流告警一条也没被消掉。
+合并后它们会在 main 上成为 open alert，届时带理由 dismiss（理由现在就成立，不必临时编）：
+前者的 source 是仓库自己的 package.json——能改它的人已经能提交任何东西，而 `X-Client-Version`
+是客户端**自声明**、不赋予新权限；后者的 sink 是生成区内的一段文本，白名单之后不可能成形标记，
+残余风险是"状态页上出现一串无害的死文字"。两条都不是把 bug 藏起来，而是这条数据流没有
+安全边界可破。
+
+**5. 状态页与拨测**：由新实现重新拨测归一，真实线上 **v2.5.46** 全绿，明文项仍 informational。
+
+**验证**：typecheck 10/10、lint 7/7 且 `lint:scripts` 0 问题、单测 574 全绿（turbo 缓存命中，
+本轮未改包内源码）、`test:monitoring` 14 例（探针 5 + 告警桥 9）、`format:check` 通过、
+`docker:check` 三条跨包引用全覆盖、`tokens:check` 通过、`check-i18n` 556 key 全定义 + 三端对称 +
+内嵌 emoji 0/0、真实拨测 `ok=true` exit 0、CodeQL 检查 pass（**但见上表：两条 warning 仍在**）。
+
 ### 仍待办（下一轮起点）
 
 UI 这条线（阶段 1 / 2 / 3 的可量化部分）与 P0-1、P0-2、P0-6、TEST-004 均已收口。剩下的：
@@ -675,3 +753,13 @@ UI 这条线（阶段 1 / 2 / 3 的可量化部分）与 P0-1、P0-2、P0-6、TE
 4. **图标轨档（56px）读标签名**：浮层已能用，但形态还可以更好（同上，属打磨）。
 5. 备份**可恢复性**演练：`docs/operations-runbook.md` 有人工步骤，但没有自动化断言；
    状态页现在明确不声明它（见「拨测不覆盖的部分」）。
+6. **main 上 17 条既有 CodeQL 告警待逐条分诊**（本轮只处理 PR #10 新增的那几条）。按规则分布：
+   `js/insecure-randomness` ×3（`Math.random` 生成安全敏感值）、
+   `js/type-confusion-through-parameter-tampering` ×3、`js/regex/missing-regexp-anchor` ×3、
+   `js/missing-origin-check` ×2（`postMessage` 不校验 origin）、
+   `js/missing-token-validation` ×1（Cookie 无 CSRF 校验）、`js/polynomial-redos` ×1、
+   `js/insecure-helmet-configuration` ×1、`js/stack-trace-exposure` ×1、
+   `js/user-controlled-bypass` ×1、`js/file-system-race` ×1。
+   前三种里 randomness / missing-origin-check / missing-token-validation 看着像真缺陷，
+   要读每条数据流才有资格下「修」还是「带理由 dismiss」的结论，所以不顺手做掉。
+   另有本轮明确保留的两条：`js/file-access-to-http`、`js/http-to-file-access`（理由见上一节）。
