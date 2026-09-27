@@ -9,12 +9,15 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Icon } from './Icon';
+import { formatDateTimeStamp } from '@dustnote/shared';
 import { marked } from 'marked';
 import { decryptString, type NoteVersionMeta } from '@dustnote/shared';
 import { useStore } from '../lib/store';
 import { getDeviceId } from '../lib/device';
 import { useModeStore } from '../lib/mode-store';
 import { sanitizeHtml } from '../lib/sanitize-html';
+import { restoreNoteImages, replaceMissingImageRefs } from '../lib/image-store';
 import { ConfirmDialog } from './ConfirmDialog';
 import { authedFetch } from '../lib/store-helpers';
 
@@ -34,7 +37,7 @@ interface NoteHistoryDialogProps {
 interface VersionRow extends NoteVersionMeta {}
 
 export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHistoryDialogProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [versions, setVersions] = useState<VersionRow[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ title: string; content: string } | null>(null);
@@ -46,6 +49,19 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
   // 请求序号：防止快速点击多个版本时，后发请求先返回覆盖先点击的预览
   const requestSeqRef = useRef(0);
+  /*
+   * 「恢复成功后延迟刷新列表」的定时器必须登记并在卸载时清掉。
+   * 原先是裸 setTimeout：对话框在 500ms 内关闭（用户点完恢复就关是常态），
+   * 回调仍会在组件消失后 setState + 发一次无人接收的请求；
+   * 测试里它更会撞上已拆除的 jsdom，抛 "window is not defined"（CI 实测复现）。
+   */
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    },
+    []
+  );
 
   const fetchVersions = useCallback(async () => {
     setLoadingList(true);
@@ -126,7 +142,10 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
         } catch {
           throw new Error(t('history.decrypt_fail'));
         }
-        setPreview({ title: plaintext.title, content: plaintext.content });
+        // P0-3 止血④：历史版本正文里的 dustnote-img:// 引用先尽力还原
+        // （同机 IndexedDB 通常可命中），仍缺失的换成「未同步」占位而非破图
+        const displayContent = replaceMissingImageRefs(await restoreNoteImages(plaintext.content));
+        setPreview({ title: plaintext.title, content: displayContent });
       } catch (err) {
         if (seq === requestSeqRef.current) {
           setError(t('history.load_fail', { reason: (err as Error).message }));
@@ -168,7 +187,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
       }
       setSuccess(t('history.restore_success'));
       // 刷新版本列表（恢复操作本身也会产生一个新快照）
-      setTimeout(() => void fetchVersions(), 500);
+      refreshTimerRef.current = setTimeout(() => void fetchVersions(), 500);
     } catch (err) {
       setError(t('history.restore_fail', { reason: (err as Error).message }));
     } finally {
@@ -178,18 +197,22 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6"
       onClick={onClose}
     >
       <div
-        className="flex h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-surface-card shadow-2xl"
+        className="flex h-[72vh] w-full max-w-2xl flex-col rounded-xl bg-surface-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 标题栏 */}
         <div className="flex items-center justify-between border-b border-surface-border p-4">
-          <h2 className="text-lg font-bold text-surface-fg">{t('history.title')}</h2>
-          <button onClick={onClose} className="text-surface-muted hover:text-surface-fg">
-            ✕
+          <h2 className="text-xl font-semibold text-text-primary">{t('history.title')}</h2>
+          <button
+            onClick={onClose}
+            aria-label={t('common.close')}
+            className="rounded p-1 text-text-tertiary transition-colors hover:bg-surface-3 hover:text-text-primary"
+          >
+            <Icon name="close" size={16} />
           </button>
         </div>
 
@@ -208,7 +231,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
                   onClick={() => void selectVersion(v.id)}
                   className={`mb-1 block w-full rounded-lg px-3 py-2 text-left text-xs transition-colors ${
                     selectedId === v.id
-                      ? 'bg-mint-100 text-mint-700 dark:bg-mint-900/30'
+                      ? 'bg-accent-soft/60 text-accent-text dark:bg-accent/30'
                       : 'text-surface-fg hover:bg-surface-bg'
                   }`}
                 >
@@ -216,7 +239,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
                     {t('history.version_label', { n: v.noteVersion })}
                   </div>
                   <div className="mt-0.5 text-surface-muted">
-                    {new Date(v.createdAt).toLocaleString(i18n?.language || undefined)}
+                    {formatDateTimeStamp(v.createdAt)}
                   </div>
                 </button>
               ))
@@ -231,7 +254,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
               <div className="text-center text-sm text-surface-muted">{t('history.loading')}</div>
             ) : preview ? (
               <div>
-                <h3 className="mb-3 text-lg font-bold text-surface-fg">{preview.title}</h3>
+                <h3 className="mb-3 text-xl font-semibold text-text-primary">{preview.title}</h3>
                 <div
                   className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
                   dangerouslySetInnerHTML={{
@@ -252,8 +275,8 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
           <div
             className={`px-4 py-2 text-xs ${
               error
-                ? 'bg-red-50 text-red-600 dark:bg-red-900/30'
-                : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30'
+                ? 'bg-danger-soft text-danger dark:bg-danger-soft'
+                : 'bg-success-soft text-success dark:bg-success-soft'
             }`}
           >
             {error ?? success}
@@ -269,7 +292,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
           <button
             onClick={() => setShowRestoreConfirm(true)}
             disabled={!selectedId || restoring}
-            className="rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
+            className="rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong-hover disabled:opacity-50"
           >
             {restoring ? t('history.restoring') : t('history.restore')}
           </button>

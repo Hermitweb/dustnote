@@ -107,7 +107,7 @@ function App({ children }: { children?: ReactNode }) {
     Taro.onAppShow?.(() => {
       if (!hiddenAt) return;
       const min = Number(Taro.getStorageSync('dustnote_autolock_min') || 0);
-      const { mode: m, initialized } = useModeStore.getState();
+      const { initialized } = useModeStore.getState();
       const { authState, lock } = useAuthStore.getState();
       if (
         min > 0 &&

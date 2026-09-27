@@ -22,7 +22,6 @@ import {
   ScrollView,
   Alert,
   Modal,
-  TextInput,
   ActivityIndicator,
   Switch,
   Platform,
@@ -35,12 +34,25 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { getScreenshotAllowed, setScreenshotAllowed } from '../lib/screenshot';
+import { getDiagnosticsEnabled, setDiagnosticsEnabled } from '../lib/diagnostics';
 import { useLanguageStore, type AppLanguage } from '../lib/i18n';
 import { errorText } from '../lib/error-text';
 import { createRepository } from '../lib/repository';
-import { useColors, useThemeStore, type ThemeMode, THEMES, type ThemeId } from '../theme';
+import {
+  useColors,
+  useThemeStore,
+  type ThemeMode,
+  THEMES,
+  type ThemeId,
+  paletteFor,
+} from '../theme';
 import type { BackupPayload, AppMode, Preferences } from '@dustnote/shared';
-import { decryptString, encryptString, type Ciphertext } from '@dustnote/shared';
+import {
+  decryptString,
+  encryptString,
+  type Ciphertext,
+  formatDateTimeStamp,
+} from '@dustnote/shared';
 import RNFS from 'react-native-fs';
 import { Linking } from 'react-native';
 import RNShare from 'react-native-share';
@@ -78,8 +90,15 @@ export function SettingsScreen() {
   const setMode = useThemeStore((s) => s.setMode);
   const themeId = useThemeStore((s) => s.themeId);
   const setThemeId = useThemeStore((s) => s.setThemeId);
+  const material = useThemeStore((s) => s.material);
+  const setMaterial = useThemeStore((s) => s.setMaterial);
   const language = useLanguageStore((s) => s.language);
   const setLanguage = useLanguageStore((s) => s.setLanguage);
+
+  const MATERIAL_OPTIONS = [
+    { value: 'glass' as const, key: 'settings.material_glass' },
+    { value: 'flat' as const, key: 'settings.material_flat' },
+  ];
 
   const MODE_OPTIONS: Array<{ mode: ThemeMode; label: string }> = [
     { mode: 'light', label: t('settings.theme_light') },
@@ -102,6 +121,8 @@ export function SettingsScreen() {
 
   // 模式切换 Modal
   const [allowScreenshot, setAllowScreenshot] = useState(false);
+  // 诊断上报开关（P0-4）：默认开；仅联机模式有接收方，单机隐藏整行
+  const [diagEnabled, setDiagEnabled] = useState(true);
   const [showSwitchMode, setShowSwitchMode] = useState(false);
   const [switchTarget, setSwitchTarget] = useState<AppMode | null>(null);
   const [switchServerUrl, setSwitchServerUrl] = useState('');
@@ -776,6 +797,13 @@ export function SettingsScreen() {
       .catch(() => {});
   }, []);
 
+  // 诊断上报开关（P0-4）:读持久化值
+  useEffect(() => {
+    getDiagnosticsEnabled()
+      .then(setDiagEnabled)
+      .catch(() => {});
+  }, []);
+
   const onSetup2fa = async () => {
     setTotpBusy(true);
     try {
@@ -912,7 +940,27 @@ export function SettingsScreen() {
                 ]}
                 onPress={() => setThemeId(opt.id as ThemeId)}
               >
-                <Text style={styles.themeEmoji}>{opt.emoji}</Text>
+                {/* 真实配色预览（§2.6）：叶子/气泡这类 emoji 传达不了"雾霭蓝"和
+                    "暮色森林"到底差在哪，选皮肤应该用眼睛而不是读名字 */}
+                <View style={styles.themeSwatch}>
+                  {(['light', 'dark'] as const).map((m) => {
+                    const p = paletteFor(opt.id as ThemeId, m);
+                    return (
+                      <View
+                        key={m}
+                        style={[styles.themeHalf, { backgroundColor: p.bg, borderColor: p.border }]}
+                      >
+                        <View style={[styles.themeBar, { backgroundColor: p.accent }]} />
+                        <View
+                          style={[styles.themeBar, { backgroundColor: p.card, width: '70%' }]}
+                        />
+                        <View
+                          style={[styles.themeBar, { backgroundColor: p.muted, width: '45%' }]}
+                        />
+                      </View>
+                    );
+                  })}
+                </View>
                 <Text
                   style={[
                     styles.themeChipText,
@@ -939,6 +987,27 @@ export function SettingsScreen() {
                 onPress={() => setMode(opt.mode)}
               >
                 <Text style={[styles.modeChipText, active && { color: 'white' }]}>{opt.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {/* 材质档：与 web 的 data-effect、小程序的 material-flat 同一语义。
+            通透近似吃的是合成开销，低配机与省电模式必须有退路 */}
+        <View style={[styles.modeRow, { marginTop: 10 }]}>
+          {MATERIAL_OPTIONS.map((opt) => {
+            const active = material === opt.value;
+            return (
+              <TouchableOpacity
+                key={opt.value}
+                style={[
+                  styles.modeChip,
+                  active && { backgroundColor: colors.mint600, borderColor: colors.mint600 },
+                ]}
+                onPress={() => setMaterial(opt.value)}
+              >
+                <Text style={[styles.modeChipText, active && { color: 'white' }]}>
+                  {t(opt.key)}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -1007,6 +1076,22 @@ export function SettingsScreen() {
               }}
             />
           </View>
+        )}
+        {/* 诊断上报（P0-4）：错误只会发往用户自己的服务器；单机模式无接收方 */}
+        {appMode === 'online' && (
+          <>
+            <View style={styles.switchRow}>
+              <Text style={styles.rowLabel}>{t('settings.diagnostics_toggle')}</Text>
+              <Switch
+                value={diagEnabled}
+                onValueChange={(v: boolean) => {
+                  setDiagEnabled(v);
+                  void setDiagnosticsEnabled(v);
+                }}
+              />
+            </View>
+            <Text style={styles.modeHint}>{t('settings.diagnostics_toggle_detail')}</Text>
+          </>
         )}
       </Section>
 
@@ -1151,7 +1236,7 @@ export function SettingsScreen() {
                       {d.isCurrent ? `（${t('settings.device_current')}）` : ''}
                     </Text>
                     <Text style={styles.deviceMeta}>
-                      {d.platform} · {new Date(d.lastActiveAt).toLocaleString()}
+                      {d.platform} · {formatDateTimeStamp(d.lastActiveAt)}
                     </Text>
                   </View>
                   {!d.isCurrent && (
@@ -1519,7 +1604,24 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       backgroundColor: c.bg,
       gap: 8,
     },
-    themeEmoji: { fontSize: 20 },
+    themeSwatch: {
+      flexDirection: 'row',
+      gap: 4,
+      marginBottom: 6,
+    },
+    themeHalf: {
+      flex: 1,
+      height: 34,
+      borderRadius: 6,
+      borderWidth: 1,
+      padding: 4,
+      gap: 3,
+    },
+    themeBar: {
+      height: 4,
+      borderRadius: 2,
+      width: '100%',
+    },
     themeChipText: { fontSize: 13, color: c.fg, flexShrink: 1 },
     modeHint: {
       fontSize: 12,

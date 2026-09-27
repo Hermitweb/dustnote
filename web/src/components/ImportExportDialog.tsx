@@ -11,9 +11,12 @@
 
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Modal } from './Modal';
+import { IconText } from './Icon';
 import JSZip from 'jszip';
 import { useStore } from '../lib/store';
 import { isTauri } from '../lib/platform';
+import { restoreNoteImages } from '../lib/image-store';
 import {
   parseNoteFile,
   exportAsMarkdown,
@@ -195,8 +198,12 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       .replace(/[\\/:*?"<>|]/g, '-')
       .replace(/\.\.+/g, '.')
       .replace(/^\.+/, '');
+    // P0-3 止血②：导出前把 dustnote-img:// 引用还原为内联 data URL——
+    // 否则导出文件带着仅本机可解析的引用，换设备打开就是丢图。
+    // IndexedDB 已无本体时保留原引用（无从还原，渲染端负责占位）。
+    const exportContent = await restoreNoteImages(plain.content);
     if (fmt === 'md') {
-      const blob = exportAsMarkdown(plain.title, plain.content);
+      const blob = exportAsMarkdown(plain.title, exportContent);
       const filename = `${safeTitle}-${date}.md`;
       const savedPath = await saveBlob(blob, filename);
       setStatus(
@@ -209,7 +216,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
               t('import_export.download_hint')
       );
     } else if (fmt === 'html') {
-      const blob = exportAsHtml(plain.title, plain.content);
+      const blob = exportAsHtml(plain.title, exportContent);
       const filename = `${safeTitle}-${date}.html`;
       const savedPath = await saveBlob(blob, filename);
       setStatus(
@@ -225,7 +232,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       setMode('exporting');
       setStatus(t('import_export.opening_print'));
       try {
-        await printNote(plain.title, plain.content);
+        await printNote(plain.title, exportContent);
         setStatus(t('import_export.print_opened'));
       } catch (err) {
         setError(t('import_export.print_fail', { reason: (err as Error).message }));
@@ -237,7 +244,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
       const blob = exportAsJson({
         format: 'dustnote.v1',
         exportedAt: new Date().toISOString(),
-        note: { title: plain.title, content: plain.content, tags: plain.tags },
+        note: { title: plain.title, content: exportContent, tags: plain.tags },
       });
       const filename = `${safeTitle}-${date}.json`;
       const savedPath = await saveBlob(blob, filename);
@@ -258,16 +265,20 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
     setStatus(t('import_export.backup_start'));
     try {
       const state = useStore.getState();
-      const notes = Array.from(state.notesPlain.entries())
-        .filter(([id]) => !state.notes.get(id)?.deletedAt)
-        .map(([id, pt]) => ({
-          id,
-          title: pt.title,
-          content: pt.content,
-          tags: pt.tags,
-          isPinned: state.notes.get(id)?.isPinned ?? false,
-          isFavorite: state.notes.get(id)?.isFavorite ?? false,
-        }));
+      // P0-3 止血③：全量备份=用户唯一的"带走全部数据"通道（auto-backup 已废弃），
+      // 逐条还原图片引用，让备份 JSON 自带图片本体、可在另一设备完整恢复
+      const entries = Array.from(state.notesPlain.entries()).filter(
+        ([id]) => !state.notes.get(id)?.deletedAt
+      );
+      const contents = await Promise.all(entries.map(([, pt]) => restoreNoteImages(pt.content)));
+      const notes = entries.map(([id, pt], i) => ({
+        id,
+        title: pt.title,
+        content: contents[i] ?? pt.content,
+        tags: pt.tags,
+        isPinned: state.notes.get(id)?.isPinned ?? false,
+        isFavorite: state.notes.get(id)?.isFavorite ?? false,
+      }));
       const payload = {
         format: 'dustnote-backup.v1',
         exportedAt: new Date().toISOString(),
@@ -359,228 +370,209 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-surface-fg">{t('import_export.title')}</h2>
-          <button onClick={onClose} className="text-surface-muted hover:text-surface-fg">
-            ✕
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {/* 导入：拖拽 / 预览 / 冲突策略 */}
-          <div className="rounded-lg border border-surface-border p-3">
-            <h3 className="mb-2 text-sm font-semibold text-surface-fg">
-              {t('import_export.import_title')}
-            </h3>
-            <p className="mb-2 text-xs text-surface-muted">{t('import_export.import_hint')}</p>
-            <input
-              ref={fileInput}
-              type="file"
-              accept=".txt,.md,.markdown,.docx"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files) void prepareImport(e.target.files);
-                e.target.value = '';
-              }}
-            />
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOver(false);
-                if (e.dataTransfer.files.length > 0) void prepareImport(e.dataTransfer.files);
-              }}
-              className={`rounded-lg border-2 border-dashed p-4 text-center text-xs transition-colors ${
-                dragOver
-                  ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/30'
-                  : 'border-surface-border text-surface-muted'
-              }`}
+    <Modal title={t('import_export.title')} onClose={onClose}>
+      <div className="space-y-4">
+        {/* 导入：拖拽 / 预览 / 冲突策略 */}
+        <div className="rounded-lg border border-surface-border p-3">
+          <h3 className="mb-2 text-sm font-semibold text-surface-fg">
+            {t('import_export.import_title')}
+          </h3>
+          <p className="mb-2 text-xs text-surface-muted">{t('import_export.import_hint')}</p>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".txt,.md,.markdown,.docx"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) void prepareImport(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              if (e.dataTransfer.files.length > 0) void prepareImport(e.dataTransfer.files);
+            }}
+            className={`rounded-lg border-2 border-dashed p-4 text-center text-xs transition-colors ${
+              dragOver
+                ? 'border-accent bg-accent-soft/40 dark:bg-accent/30'
+                : 'border-surface-border text-surface-muted'
+            }`}
+          >
+            <button
+              onClick={() => fileInput.current?.click()}
+              disabled={mode !== 'main'}
+              className="rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong-hover disabled:opacity-50"
             >
-              <button
-                onClick={() => fileInput.current?.click()}
-                disabled={mode !== 'main'}
-                className="rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
-              >
-                {mode === 'importing'
-                  ? status || t('import_export.importing')
-                  : t('import_export.import_btn')}
-              </button>
-              <p className="mt-2">{t('import_export.drag_hint')}</p>
-            </div>
+              {mode === 'importing'
+                ? status || t('import_export.importing')
+                : t('import_export.import_btn')}
+            </button>
+            <p className="mt-2">{t('import_export.drag_hint')}</p>
+          </div>
 
-            {preview.length > 0 && mode === 'main' && (
-              <div className="mt-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-surface-fg">
-                    {t('import_export.preview_title')} ({preview.filter((p) => p.included).length})
-                  </span>
-                  <button
-                    onClick={() => setPreview([])}
-                    className="text-xs text-surface-muted underline hover:text-surface-fg"
-                  >
-                    {t('common.cancel')}
-                  </button>
-                </div>
-                <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-surface-border p-1">
-                  {preview.map((p) => (
-                    <label
-                      key={p.key}
-                      className="flex items-start gap-2 rounded px-2 py-1 text-xs hover:bg-surface-bg"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={p.included}
-                        onChange={(e) =>
-                          setPreview((prev) =>
-                            prev.map((x) =>
-                              x.key === p.key ? { ...x, included: e.target.checked } : x
-                            )
-                          )
-                        }
-                        className="mt-0.5"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium text-surface-fg">
-                          {p.title}
-                        </span>
-                        <span className="block truncate text-surface-muted">
-                          {p.content.slice(0, 60) || '—'}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-surface-muted">
-                    {t('import_export.conflict_strategy')}:
-                  </span>
-                  <select
-                    value={conflictStrategy}
-                    onChange={(e) =>
-                      setConflictStrategy(e.target.value as 'merge' | 'overwrite' | 'skip')
-                    }
-                    className="rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs text-surface-fg focus:outline-none"
-                  >
-                    <option value="merge">{t('import_export.conflict_merge')}</option>
-                    <option value="overwrite">{t('import_export.conflict_overwrite')}</option>
-                    <option value="skip">{t('import_export.conflict_skip')}</option>
-                  </select>
-                </div>
-                <p className="text-xs text-surface-muted">{t('import_export.conflict_hint')}</p>
+          {preview.length > 0 && mode === 'main' && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-surface-fg">
+                  {t('import_export.preview_title')} ({preview.filter((p) => p.included).length})
+                </span>
                 <button
-                  onClick={() => void doImport()}
-                  className="w-full rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700"
+                  onClick={() => setPreview([])}
+                  className="text-xs text-surface-muted underline hover:text-surface-fg"
                 >
-                  {t('import_export.start_import_btn', {
-                    count: preview.filter((p) => p.included).length,
-                  })}
+                  {t('common.cancel')}
                 </button>
               </div>
-            )}
-          </div>
-
-          {/* 导出当前笔记 */}
-          <div className="rounded-lg border border-surface-border p-3">
-            <h3 className="mb-2 text-sm font-semibold text-surface-fg">
-              {t('import_export.export_title')}
-            </h3>
-            <p className="mb-2 text-xs text-surface-muted">{t('import_export.export_hint')}</p>
-            <p className="mb-2 text-xs text-amber-600 dark:text-amber-400">
-              {t('import_export.plaintext_warning')}
-            </p>
-            <div className="flex gap-2">
+              <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-surface-border p-1">
+                {preview.map((p) => (
+                  <label
+                    key={p.key}
+                    className="flex items-start gap-2 rounded px-2 py-1 text-xs hover:bg-surface-bg"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={p.included}
+                      onChange={(e) =>
+                        setPreview((prev) =>
+                          prev.map((x) =>
+                            x.key === p.key ? { ...x, included: e.target.checked } : x
+                          )
+                        )
+                      }
+                      className="mt-0.5"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-surface-fg">{p.title}</span>
+                      <span className="block truncate text-surface-muted">
+                        {p.content.slice(0, 60) || '—'}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-surface-muted">
+                  {t('import_export.conflict_strategy')}:
+                </span>
+                <select
+                  value={conflictStrategy}
+                  onChange={(e) =>
+                    setConflictStrategy(e.target.value as 'merge' | 'overwrite' | 'skip')
+                  }
+                  className="rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs text-surface-fg focus:outline-none"
+                >
+                  <option value="merge">{t('import_export.conflict_merge')}</option>
+                  <option value="overwrite">{t('import_export.conflict_overwrite')}</option>
+                  <option value="skip">{t('import_export.conflict_skip')}</option>
+                </select>
+              </div>
+              <p className="text-xs text-surface-muted">{t('import_export.conflict_hint')}</p>
               <button
-                onClick={() => void handleExport('md')}
-                disabled={mode !== 'main'}
-                className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
+                onClick={() => void doImport()}
+                className="w-full rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong-hover"
               >
-                .md
+                {t('import_export.start_import_btn', {
+                  count: preview.filter((p) => p.included).length,
+                })}
               </button>
-              <button
-                onClick={() => void handleExport('html')}
-                disabled={mode !== 'main'}
-                className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
-              >
-                .html
-              </button>
-              <button
-                onClick={() => void handleExport('json')}
-                disabled={mode !== 'main'}
-                className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
-              >
-                .json
-              </button>
-              <button
-                onClick={() => void handleExport('pdf')}
-                disabled={mode !== 'main'}
-                className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
-              >
-                .pdf
-              </button>
-            </div>
-          </div>
-
-          {/* 全量备份 */}
-          <div className="rounded-lg border border-surface-border p-3">
-            <h3 className="mb-2 text-sm font-semibold text-surface-fg">
-              {t('import_export.backup_title')}
-            </h3>
-            <p className="mb-2 text-xs text-surface-muted">{t('import_export.backup_hint')}</p>
-            <button
-              onClick={() => void handleExportAll()}
-              disabled={mode !== 'main'}
-              className="w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
-            >
-              {mode === 'exporting' &&
-              status?.includes(t('import_export.backup_start').split('…')[0] ?? '')
-                ? status
-                : t('import_export.backup_btn')}
-            </button>
-          </div>
-
-          {/* 批量打包导出 */}
-          <div className="rounded-lg border border-surface-border p-3">
-            <h3 className="mb-2 text-sm font-semibold text-surface-fg">
-              {t('import_export.zip_title')}
-            </h3>
-            <p className="mb-2 text-xs text-surface-muted">{t('import_export.zip_hint')}</p>
-            <p className="mb-2 text-xs text-amber-600 dark:text-amber-400">
-              {t('import_export.plaintext_warning')}
-            </p>
-            <button
-              onClick={() => void handleExportZip()}
-              disabled={mode !== 'main'}
-              className="w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
-            >
-              {mode === 'exporting' &&
-              status?.includes(t('import_export.zip_start').split('…')[0] ?? '')
-                ? t('import_export.zipping')
-                : t('import_export.zip_btn')}
-            </button>
-          </div>
-
-          {(status || error) && (
-            <div
-              className={`break-all rounded p-2 text-xs ${error ? 'bg-red-50 text-red-600 dark:bg-red-900/30' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30'}`}
-            >
-              {error ?? status}
             </div>
           )}
         </div>
+
+        {/* 导出当前笔记 */}
+        <div className="rounded-lg border border-surface-border p-3">
+          <h3 className="mb-2 text-sm font-semibold text-surface-fg">
+            {t('import_export.export_title')}
+          </h3>
+          <p className="mb-2 text-xs text-surface-muted">{t('import_export.export_hint')}</p>
+          <p className="mb-2 text-xs text-warning">{t('import_export.plaintext_warning')}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => void handleExport('md')}
+              disabled={mode !== 'main'}
+              className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
+            >
+              .md
+            </button>
+            <button
+              onClick={() => void handleExport('html')}
+              disabled={mode !== 'main'}
+              className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
+            >
+              .html
+            </button>
+            <button
+              onClick={() => void handleExport('json')}
+              disabled={mode !== 'main'}
+              className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
+            >
+              .json
+            </button>
+            <button
+              onClick={() => void handleExport('pdf')}
+              disabled={mode !== 'main'}
+              className="flex-1 rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
+            >
+              .pdf
+            </button>
+          </div>
+        </div>
+
+        {/* 全量备份 */}
+        <div className="rounded-lg border border-surface-border p-3">
+          <h3 className="mb-2 text-sm font-semibold text-surface-fg">
+            {t('import_export.backup_title')}
+          </h3>
+          <p className="mb-2 text-xs text-surface-muted">{t('import_export.backup_hint')}</p>
+          <button
+            onClick={() => void handleExportAll()}
+            disabled={mode !== 'main'}
+            className="w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
+          >
+            {mode === 'exporting' &&
+            status?.includes(t('import_export.backup_start').split('…')[0] ?? '')
+              ? status
+              : t('import_export.backup_btn')}
+          </button>
+        </div>
+
+        {/* 批量打包导出 */}
+        <div className="rounded-lg border border-surface-border p-3">
+          <h3 className="mb-2 text-sm font-semibold text-surface-fg">
+            {t('import_export.zip_title')}
+          </h3>
+          <p className="mb-2 text-xs text-surface-muted">{t('import_export.zip_hint')}</p>
+          <p className="mb-2 text-xs text-warning">{t('import_export.plaintext_warning')}</p>
+          <button
+            onClick={() => void handleExportZip()}
+            disabled={mode !== 'main'}
+            className="w-full rounded-lg border border-surface-border px-3 py-2 text-sm text-surface-fg hover:bg-surface-bg disabled:opacity-50"
+          >
+            {mode === 'exporting' &&
+            status?.includes(t('import_export.zip_start').split('…')[0] ?? '') ? (
+              t('import_export.zipping')
+            ) : (
+              <IconText k="import_export.zip_btn" label={t('import_export.zip_btn')} />
+            )}
+          </button>
+        </div>
+
+        {(status || error) && (
+          <div
+            className={`break-all rounded p-2 text-xs ${error ? 'bg-danger-soft text-danger dark:bg-danger-soft' : 'bg-success-soft text-success dark:bg-success-soft'}`}
+          >
+            {error ?? status}
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

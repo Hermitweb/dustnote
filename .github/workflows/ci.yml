@@ -4,7 +4,9 @@ on:
   push:
     # dev/** 通配：工作分支形如 dev/setup-and-fixes，此前只写 [main, dev] 导致
     # 该分支上的全部 CI（lint/typecheck/test/audit/e2e）从未运行（技术债排查发现）
-    branches: [main, dev, 'dev/**']
+    # fix/** 同理补入（2026-09-25：fix/audit-2026-09-19 上的 mobile 测试基建
+    # 若不在触发面内，等于又造了一个"CI 从未跑过"的暗仓）
+    branches: [main, dev, 'dev/**', 'fix/**']
     paths-ignore:
       - '**.md'
       - 'docs/**'
@@ -43,8 +45,21 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm format:check
       - run: pnpm lint
+      - name: Lint root scripts (bump-version / status-probe / i18n guards)
+        # 这些 .mjs 不属于任何 workspace 包，turbo 的 lint 从来看不到它们：
+        # execSync/execFileSync 这类未定义引用因此潜伏到发版当天才炸（2026-09-27 实测复现）
+        run: pnpm lint:scripts
+      - name: Verify miniprogram theme tokens match shared seeds
+        run: pnpm --filter @dustnote/shared build && node scripts/gen-mp-tokens.mjs --check
+      - name: Test alerting bridge (P0-2 last hop)
+        run: pnpm test:monitoring
+      - name: Verify Docker build context covers cross-package imports
+        # v2.5.46 服务器升级连挂两次的固化：Dockerfile COPY 白名单漏 shared 下
+        # tokens.css / tailwind-colors.mjs，而 CI 的 docker build 是 main-only，
+        # 缺口一路活到现场构建。此静态守卫在所有分支的 lint job 即拦
+        run: pnpm docker:check
+
       - name: Check i18n keys
         run: node scripts/check-i18n.mjs
       - name: Verify SW_VERSION matches package.json

@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+.probe-test*/
 
 # Build outputs
 dist/
@@ -117,3 +118,6 @@ playwright.local.config.ts
 # Local screenshot/debug artifacts (audit ARCH-009)
 screenshots/
 shoot.mjs
+.debug/
+.release/
+.env.monitoring

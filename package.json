@@ -1,6 +1,6 @@
 {
   "name": "dustnote",
-  "version": "2.5.42",
+  "version": "2.5.46",
   "private": true,
   "description": "DustNote · 尘渊笔记 - 极简跨端个人笔记系统",
   "license": "MIT",
@@ -25,15 +25,20 @@
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "pin-digests": "node scripts/pin-base-image-digests.mjs",
+    "docker:check": "node scripts/check-docker-context.mjs",
     "lint": "turbo run lint",
+    "lint:scripts": "eslint scripts deploy/monitoring --ext .mjs",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,mts,mjs,js,jsx,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,mts,mjs,js,jsx,json,md,yml,yaml}\"",
     "clean": "pnpm -r exec rm -rf dist build .turbo node_modules/.cache",
     "audit": "pnpm audit --prod",
-    "prepare": "node -e \"try{require('husky').install()}catch(_){}\""
+    "prepare": "node -e \"try{require('husky').install()}catch(_){}\"",
+    "tokens:gen": "node scripts/gen-mp-tokens.mjs",
+    "test:monitoring": "node --test \"deploy/monitoring/*.test.mjs\" \"scripts/*.test.mjs\"",
+    "tokens:check": "node scripts/gen-mp-tokens.mjs --check"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.5.0",

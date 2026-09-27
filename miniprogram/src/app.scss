@@ -3,26 +3,11 @@
  * 小程序不支持 :root，统一用 page 选择器声明 CSS 变量
  */
 
+/* 颜色令牌由 shared 主题种子派生，勿在此手改：见 scripts/gen-mp-tokens.mjs */
+@import './styles/theme-tokens.scss';
+
 /* ========== 设计令牌（CSS 变量） ========== */
 page {
-  --bg: #eaeff8;
-  --bg-elevated: rgba(255, 255, 255, 0.5);
-  --bg-sunken: #e7ecf6;
-  --fg: #0f172a;
-  --fg-secondary: #5c6b63;
-  --fg-muted: #475569;
-  --border: rgba(148, 163, 184, 0.35);
-  --border-strong: #c5d5ca;
-  --primary: #3b82f6;
-  --primary-strong: #2563eb;
-  --primary-deep: #1d4ed8;
-  --primary-soft: #dbeafe;
-  --primary-glow: rgba(59, 130, 246, 0.25);
-  --accent: #f5a65b;
-  --warning: #e8b86b;
-  --danger: #e07b6c;
-  --danger-soft: #feecec;
-  --info: #6fa8c7;
   --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.03);
   --shadow-sm: 0 1rpx 3rpx rgba(0, 0, 0, 0.05), 0 1rpx 2rpx rgba(0, 0, 0, 0.03);
   --shadow-md:
@@ -31,7 +16,7 @@ page {
   --shadow-lg:
     0 10rpx 15rpx rgba(0, 0, 0, 0.05), 0 4rpx 6rpx rgba(0, 0, 0, 0.03),
     0 16rpx 48rpx rgba(0, 0, 0, 0.06);
-  --shadow-fab: 0 8rpx 24rpx rgba(59, 130, 246, 0.35);
+  --shadow-fab: 0 8rpx 24rpx rgba(15, 23, 42, 0.22);
   --radius-xs: 6rpx;
   --radius-sm: 10rpx;
   --radius-md: 16rpx;
@@ -226,7 +211,7 @@ page {
 }
 
 /* ========== 按钮系统 ========== */
-.mint-btn {
+.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -246,54 +231,54 @@ page {
   cursor: default;
   gap: 8rpx;
 }
-.mint-btn:active {
+.btn:active {
   background: var(--primary-deep);
   transform: scale(0.97);
 }
-.mint-btn-block {
+.btn-block {
   display: block;
   width: 100%;
   box-sizing: border-box;
 }
-.mint-btn-sm {
+.btn-sm {
   padding: 12rpx 20rpx;
   font-size: 24rpx;
   border-radius: var(--radius-xs);
 }
-.mint-btn-lg {
+.btn-lg {
   padding: 26rpx 48rpx;
   font-size: 32rpx;
   border-radius: var(--radius-md);
 }
-.mint-btn-ghost {
+.btn-ghost {
   background: var(--primary-soft);
   color: var(--primary-deep);
 }
-.mint-btn-ghost:active {
+.btn-ghost:active {
   background: var(--primary-soft);
 }
-.mint-btn-outline {
+.btn-outline {
   background: transparent;
   color: var(--fg);
   border: 1rpx solid var(--border-strong);
 }
-.mint-btn-outline:active {
+.btn-outline:active {
   background: var(--bg-sunken);
 }
-.mint-btn-danger {
+.btn-danger {
   background: var(--danger-soft);
   color: var(--danger);
 }
-.mint-btn-danger:active {
-  background: #fddcdc;
+.btn-danger:active {
+  background: var(--danger-soft);
 }
-.mint-btn[disabled] {
+.btn[disabled] {
   opacity: 0.45;
   pointer-events: none;
 }
 
 /* ========== 卡片 ========== */
-.mint-card {
+.card {
   background: var(--bg-elevated);
   border-radius: var(--radius-md);
   padding: 28rpx 32rpx;
@@ -304,17 +289,17 @@ page {
     box-shadow 0.2s,
     transform 0.15s;
 }
-.mint-card:active {
+.card:active {
   background: var(--bg-sunken);
   transform: scale(0.985);
 }
-.mint-card-tight {
+.card-tight {
   padding: 20rpx 24rpx;
   margin: 12rpx 24rpx;
 }
 
 /* ========== 输入框 ========== */
-.mint-input {
+.input {
   background: var(--bg-sunken);
   border: 1rpx solid var(--border);
   border-radius: var(--radius-sm);
@@ -332,12 +317,12 @@ page {
     box-shadow 0.2s;
   caret-color: var(--primary-strong);
 }
-.mint-input:focus {
+.input:focus {
   border-color: var(--primary-strong);
   box-shadow: 0 0 0 3rpx var(--primary-glow);
   outline: none;
 }
-.mint-textarea {
+.textarea {
   background: transparent;
   border: none;
   padding: 16rpx 0;
@@ -349,10 +334,10 @@ page {
   line-height: 1.8;
   resize: none;
 }
-.mint-textarea:focus {
+.textarea:focus {
   outline: none;
 }
-.mint-input-title {
+.input-title {
   background: transparent;
   font-size: 40rpx;
   font-weight: 800;
@@ -362,10 +347,10 @@ page {
   letter-spacing: -0.3rpx;
   caret-color: var(--primary-strong);
 }
-.mint-input-title:focus {
+.input-title:focus {
   outline: none;
 }
-.mint-input-title::placeholder {
+.input-title::placeholder {
   color: var(--fg-muted);
   font-weight: 400;
 }
@@ -402,7 +387,7 @@ page {
 }
 
 /* hero 内输入框：白底 + 加深边框 */
-.hero .mint-input {
+.hero .input {
   background: var(--bg-elevated);
   border: 2rpx solid var(--border-strong);
   border-radius: var(--radius-md);
@@ -413,13 +398,13 @@ page {
   max-width: 560rpx;
   margin-bottom: 20rpx;
 }
-.hero .mint-input:focus {
+.hero .input:focus {
   border-color: var(--primary-strong);
   box-shadow: 0 0 0 4rpx var(--primary-glow);
 }
 
 /* hero 内按钮：主色底白字 + 大圆角 + 阴影 */
-.hero .mint-btn-block {
+.hero .btn-block {
   background: var(--primary-strong);
   color: #fff;
   font-weight: 700;
@@ -434,7 +419,7 @@ page {
     transform var(--motion-fast) var(--ease-out),
     box-shadow var(--motion-fast) var(--ease-out);
 }
-.hero .mint-btn-block:active {
+.hero .btn-block:active {
   background: var(--primary-deep);
   transform: scale(0.97);
   box-shadow: 0 2rpx 8rpx rgba(37, 99, 235, 0.25);
@@ -611,7 +596,7 @@ page {
   color: var(--danger);
 }
 .batch-btn-danger:active {
-  background: #fddcdc;
+  background: var(--danger-soft);
 }
 
 /* ========== 浮动操作按钮 (FAB) ========== */
@@ -622,7 +607,7 @@ page {
   width: 100rpx;
   height: 100rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
   color: #fff;
   display: flex;
   align-items: center;
@@ -637,31 +622,21 @@ page {
     box-shadow 0.2s ease;
 }
 .fab:active {
-  background: linear-gradient(135deg, #2563eb, #1e40af);
+  background: linear-gradient(135deg, var(--primary-strong), var(--primary-deep));
   transform: scale(0.92);
   box-shadow: 0 4rpx 12rpx rgba(59, 130, 246, 0.25);
 }
 /* 模板新建入口：FAB 上方的小圆钮 */
-.fab-tpl {
-  position: fixed;
-  right: 56rpx;
-  bottom: 216rpx;
-  width: 76rpx;
-  height: 76rpx;
-  border-radius: 50%;
-  background: var(--card, #fff);
-  border: 1rpx solid var(--border);
-  color: var(--fg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.12);
-  font-size: 34rpx;
-  z-index: 20;
-  transition: transform var(--motion-fast) var(--ease-out);
+.view-tab-action {
+  flex: none;
+  padding: 22rpx 20rpx;
+  font-size: 24rpx;
+  color: var(--fg-secondary);
+  text-align: center;
+  transition: color var(--motion-fast) var(--ease-out);
 }
-.fab-tpl:active {
-  transform: scale(0.92);
+.view-tab-action:active {
+  color: var(--primary-text);
 }
 
 /* ========== 设置页 ========== */
@@ -817,7 +792,7 @@ page {
   line-height: 1.6;
   padding: 0 48rpx;
 }
-.mint-btn-disabled {
+.btn-disabled {
   opacity: 0.45;
   pointer-events: none;
 }
@@ -906,7 +881,7 @@ page {
 /* ========== 分享页 ========== */
 .share-banner {
   height: 6rpx;
-  background: linear-gradient(90deg, #bfdbfe, #3b82f6, #1d4ed8);
+  background: linear-gradient(90deg, var(--primary-soft), var(--primary), var(--primary-strong));
   border-radius: 3rpx;
   margin-bottom: 32rpx;
 }
@@ -935,6 +910,11 @@ page {
   flex: 1;
   text-align: center;
   white-space: nowrap;
+}
+
+/* 保存失败：剥掉 emoji 后由颜色承担"这条要去看" */
+.save-indicator--error {
+  color: var(--danger);
 }
 
 /* ========== 视图切换栏 ========== */
@@ -1079,44 +1059,16 @@ page {
 /* ========== 暗色主题（weapp:跟随系统深色） ========== */
 @media (prefers-color-scheme: dark) {
   page {
-    --bg: #0a1128;
-    --bg-elevated: rgba(148, 163, 184, 0.18);
-    --bg-sunken: rgba(148, 163, 184, 0.1);
-    --fg: #e8edf4;
-    --fg-secondary: #a8b5c8;
-    --fg-muted: #9aa7b5;
-    --border: rgba(147, 197, 253, 0.34);
-    --border-strong: #2d4a6f;
-    --primary: #38bdf8;
-    --primary-strong: #2563eb;
-    --primary-deep: #93c5fd;
-    --primary-soft: #1e3a5f;
-    --primary-glow: rgba(56, 189, 248, 0.15);
-    --danger-soft: #2d1518;
     --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);
     --shadow-sm: 0 1rpx 3rpx rgba(0, 0, 0, 0.3), 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
     --shadow-md: 0 4rpx 6rpx rgba(0, 0, 0, 0.3), 0 8rpx 24rpx rgba(0, 0, 0, 0.35);
     --shadow-lg: 0 10rpx 15rpx rgba(0, 0, 0, 0.3), 0 16rpx 48rpx rgba(0, 0, 0, 0.4);
-    --shadow-fab: 0 8rpx 24rpx rgba(56, 189, 248, 0.3);
+    --shadow-fab: 0 8rpx 24rpx rgba(0, 0, 0, 0.45);
   }
 }
 
 /* 手动浅色(系统深色时反制 @media 深色变量) */
 .theme-light {
-  --bg: #eaeff8;
-  --bg-elevated: rgba(255, 255, 255, 0.5);
-  --bg-sunken: #e7ecf6;
-  --fg: #0f172a;
-  --fg-secondary: #5c6b63;
-  --fg-muted: #475569;
-  --border: rgba(148, 163, 184, 0.35);
-  --border-strong: #c5d5ca;
-  --primary: #3b82f6;
-  --primary-strong: #2563eb;
-  --primary-deep: #1d4ed8;
-  --primary-soft: #dbeafe;
-  --primary-glow: rgba(59, 130, 246, 0.25);
-  --danger-soft: #feecec;
   --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.03);
   --shadow-sm: 0 1rpx 3rpx rgba(0, 0, 0, 0.05), 0 1rpx 2rpx rgba(0, 0, 0, 0.03);
   --shadow-md:
@@ -1135,20 +1087,6 @@ page {
 /* 手动深色(theme-dark 根类,ThemeVars/useThemeDarkClass 注入):
    覆盖 @media 仅跟系统的局限,实现 light/dark 手动切换 */
 .theme-dark {
-  --bg: #0a1128;
-  --bg-elevated: rgba(148, 163, 184, 0.18);
-  --bg-sunken: rgba(148, 163, 184, 0.1);
-  --fg: #e8edf4;
-  --fg-secondary: #a8b5c8;
-  --fg-muted: #9aa7b5;
-  --border: rgba(147, 197, 253, 0.34);
-  --border-strong: #2d4a6f;
-  --primary: #38bdf8;
-  --primary-strong: #2563eb;
-  --primary-deep: #93c5fd;
-  --primary-soft: #1e3a5f;
-  --primary-glow: rgba(56, 189, 248, 0.15);
-  --danger-soft: #2d1518;
   --shadow-xs: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 1rpx 3rpx rgba(0, 0, 0, 0.3), 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4rpx 6rpx rgba(0, 0, 0, 0.3), 0 8rpx 24rpx rgba(0, 0, 0, 0.35);
@@ -1357,7 +1295,7 @@ page {
 .backlink-item {
   display: block;
   font-size: 26rpx;
-  color: var(--accent);
+  color: var(--primary-text);
   padding: 8rpx 0;
 }
 
@@ -1558,7 +1496,7 @@ page {
    H5 与较新 Skyline 渲染支持 backdrop-filter → 叠加真实模糊；
    旧 weapp WebView 不支持 → 自动回退到上方各 surface 的半透明 rgba 底色。 */
 @supports (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px)) {
-  .mint-card,
+  .card,
   .modal-card,
   .menu-sheet,
   .settings-group,
@@ -1603,41 +1541,19 @@ page {
   }
 }
 
-/* 玻璃表面统一：高光描边 + 顶部内高光 + 柔外阴影（weapp 无模糊也显玻璃质感） */
-.mint-card,
-.modal-card,
-.menu-sheet,
-.settings-group,
-.search-box,
-.note-row,
-.mint-input,
-.view-tabs,
-.folder-tabs {
-  border: 1rpx solid rgba(255, 255, 255, 0.6);
-  box-shadow:
-    0 8rpx 30rpx rgba(15, 23, 42, 0.08),
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.7);
-}
-.theme-dark .mint-card,
+.theme-dark .card,
 .theme-dark .modal-card,
 .theme-dark .menu-sheet,
 .theme-dark .settings-group,
 .theme-dark .search-box,
 .theme-dark .note-row,
-.theme-dark .mint-input,
+.theme-dark .input,
 .theme-dark .view-tabs,
 .theme-dark .folder-tabs {
   border-color: rgba(96, 165, 250, 0.3);
   box-shadow:
     0 8rpx 30rpx rgba(0, 0, 0, 0.4),
     inset 0 1rpx 0 rgba(255, 255, 255, 0.12);
-}
-
-/* 暗色 FAB/模板按钮：绿色渐变 → 蓝调，与暗色 accent 统一 */
-.theme-dark .fab,
-.theme-dark .fab-tpl {
-  background: linear-gradient(135deg, #38bdf8, #2563eb);
-  box-shadow: 0 8rpx 24rpx rgba(56, 189, 248, 0.35);
 }
 
 /* ========== weapp 手动主题实底（必须位于本文件末尾） ==========
@@ -1652,4 +1568,27 @@ page {
    H5 构建不含此类（TARO_ENV 编译期内联），极光层不受影响。 */
 .page-solid {
   background: var(--bg);
+}
+
+/* ========== 实色材质档（§2.2，与 web 的 data-effect=flat 同语义） ==========
+ * 小程序没有 backdrop-filter，"玻璃"是半透明叠色的近似：卡片透出色底与极光层。
+ * 关掉之后必须回到完全不透明的 surface-1，否则文字底下仍有极光在动。 */
+.material-flat .glass-aurora {
+  display: none;
+}
+.material-flat .card,
+.material-flat .note-row,
+.material-flat .modal-card,
+.material-flat .menu-sheet,
+.material-flat .settings-group,
+.material-flat .search-box,
+.material-flat .input,
+.material-flat .view-tabs,
+.material-flat .folder-tabs,
+.material-flat .backlinks-card {
+  background: var(--card-solid);
+}
+/* 批量操作进行中：不可点，避免并发发两轮请求 */
+.batch-btn-disabled {
+  opacity: 0.45;
 }

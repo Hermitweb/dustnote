@@ -73,6 +73,9 @@ export async function setupStandalone(page: Page): Promise<void> {
       .click();
     await page.waitForTimeout(3000);
   }
-  // 主界面就绪：编辑器可见
-  await expect(page.locator('textarea').first()).toBeVisible({ timeout: 15_000 });
+  // 主界面就绪 = 导航轨出现。首屏落到哪一态归舞台状态机管（概览 / 列表 / 详情），
+  // 用例不该假设"一定是编辑器" —— 两栏改造后首屏就是概览，没有 textarea。
+  await expect(page.getByRole('button', { name: /全部笔记/ }).first()).toBeVisible({
+    timeout: 15_000,
+  });
 }

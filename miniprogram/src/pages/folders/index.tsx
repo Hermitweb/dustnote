@@ -295,7 +295,7 @@ export default function Folders() {
                   onConfirm={() => void handleCreate()}
                 />
                 <Text
-                  className={`mint-btn mint-btn-sm${!newName.trim() ? ' mint-btn-disabled' : ''}`}
+                  className={`btn btn-sm${!newName.trim() ? ' btn-disabled' : ''}`}
                   onClick={() => void handleCreate()}
                 >
                   {t('folders.add')}
@@ -411,21 +411,18 @@ export default function Folders() {
             <View className="modal-card" onClick={(e) => e.stopPropagation()}>
               <Text className="modal-title">{t('folders.rename_title')}</Text>
               <Input
-                className="mint-input"
+                className="input"
                 value={renameText}
                 focus
                 onInput={(e: any) => setRenameText((e.detail as { value: string }).value)}
                 onConfirm={() => void submitRename()}
               />
               <View className="row gap-m">
-                <View
-                  className="mint-btn mint-btn-ghost flex-1"
-                  onClick={() => setRenameTarget(null)}
-                >
+                <View className="btn btn-ghost flex-1" onClick={() => setRenameTarget(null)}>
                   {t('common.cancel')}
                 </View>
                 <View
-                  className={`mint-btn flex-1${!renameText.trim() ? ' mint-btn-disabled' : ''}`}
+                  className={`btn flex-1${!renameText.trim() ? ' btn-disabled' : ''}`}
                   onClick={() => void submitRename()}
                 >
                   {t('common.confirm')}

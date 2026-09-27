@@ -4,8 +4,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Icon, IconText } from './Icon';
 import { type Ciphertext, toBase64Url, unwrapKey, zeroize } from '@dustnote/shared';
 import { useStore } from '../lib/store';
+import { formatDateTimeStamp } from '@dustnote/shared';
 import { useModeStore } from '../lib/mode-store';
 import { getDeviceId } from '../lib/device';
 import { errorText } from '../lib/error-text';
@@ -40,7 +42,7 @@ interface Share {
 }
 
 export function SharesManager({ onClose }: { onClose: () => void }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   // 标题不再存服务端，用本地已解密的笔记按 noteId 反查
   const notesPlain = useStore((s) => s.notesPlain);
   const [shares, setShares] = useState<Share[]>([]);
@@ -208,18 +210,18 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="shares-mgr-title"
     >
       <div
-        className="flex h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-surface-card shadow-2xl"
+        className="flex h-[72vh] w-full max-w-2xl flex-col rounded-xl bg-surface-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-surface-border p-4">
-          <h2 id="shares-mgr-title" className="text-lg font-bold text-surface-fg">
+          <h2 id="shares-mgr-title" className="text-xl font-semibold text-text-primary">
             {t('shares.title')}
           </h2>
           <div className="flex items-center gap-2">
@@ -232,10 +234,14 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                     setSelectedIds(new Set(activeShares.map((s) => s.id)));
                   }
                 }}
-                className="text-xs text-mint-600 hover:text-mint-700"
+                className="text-xs text-accent-text hover:text-accent-text"
                 aria-pressed={selecting}
               >
-                {selecting ? t('shares.exit_select') : t('shares.batch_select')}
+                {selecting ? (
+                  <IconText k="shares.exit_select" label={t('shares.exit_select')} />
+                ) : (
+                  t('shares.batch_select')
+                )}
               </button>
             )}
             <button
@@ -255,13 +261,13 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
             </div>
           )}
           {error && (
-            <div className="py-8 text-center text-red-600" role="alert">
+            <div className="py-8 text-center text-danger" role="alert">
               {t('shares.load_fail', { reason: error })}
             </div>
           )}
           {!loading && !error && shares.length === 0 && (
             <div className="py-12 text-center text-surface-muted">
-              <div className="mb-2 text-4xl opacity-50">{t('shares.empty_icon')}</div>
+              <Icon name="archive" size={24} className="mb-2 opacity-45" />
               <p>{t('shares.empty')}</p>
             </div>
           )}
@@ -273,14 +279,14 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
               return (
                 <div
                   key={s.id}
-                  className={`rounded-lg border border-surface-border p-3 transition-colors ${s.revoked || expired ? 'bg-slate-100 opacity-60 dark:bg-slate-800/50' : checked ? 'bg-mint-100/80 dark:bg-mint-900/20' : 'bg-surface-bg'}`}
+                  className={`rounded-lg border border-surface-border p-3 transition-colors ${s.revoked || expired ? 'bg-surface-2 opacity-60 dark:bg-surface-3/60' : checked ? 'bg-accent-soft/60 dark:bg-accent/20' : 'bg-surface-bg'}`}
                 >
                   <div className="mb-2 flex items-start justify-between">
                     <div className="flex items-start gap-2">
                       {selecting && (
                         <button
                           onClick={() => toggleSelect(s.id)}
-                          className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${checked ? 'border-mint-600 bg-mint-600 text-white' : 'border-surface-border hover:border-mint-400'}`}
+                          className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${checked ? 'border-accent-strong bg-accent-strong text-white' : 'border-surface-border hover:border-accent'}`}
                           aria-pressed={checked}
                           aria-label={t('shares.select_all')}
                         >
@@ -293,27 +299,28 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                         </div>
                         <div className="mt-0.5 text-xs text-surface-muted">
                           {t('shares.created_at', {
-                            date: new Date(s.createdAt).toLocaleString(i18n?.language || undefined),
+                            date: formatDateTimeStamp(s.createdAt),
                           })}
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-1">
                       {s.hasPassword && (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                        <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs text-warning dark:bg-warning-soft dark:text-warning">
+                          <Icon name="lock" size={14} className="mr-0.5 inline align-[-2px]" />
                           {t('shares.password_badge')}
                         </span>
                       )}
                       {s.revoked ? (
-                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                        <span className="rounded-full bg-danger-soft px-2 py-0.5 text-xs text-danger dark:bg-danger-soft dark:text-danger">
                           {t('shares.status_revoked')}
                         </span>
                       ) : expired ? (
-                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-600">
+                        <span className="rounded-full bg-surface-3 px-2 py-0.5 text-xs text-text-secondary">
                           {t('shares.status_expired')}
                         </span>
                       ) : (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                        <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs text-success dark:bg-success-soft dark:text-success">
                           {t('shares.status_active')}
                         </span>
                       )}
@@ -325,11 +332,14 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                     <span className="opacity-60">#&lt;{t('shares.link_hint_placeholder')}&gt;</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-surface-muted">
-                    <span>{t('shares.view_count', { count: s.viewCount })}</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Icon name="preview" size={14} />
+                      {t('shares.view_count', { count: s.viewCount })}
+                    </span>
                     {s.expiresAt && (
                       <span>
                         {t('shares.expires_at', {
-                          date: new Date(s.expiresAt).toLocaleString(i18n?.language || undefined),
+                          date: formatDateTimeStamp(s.expiresAt),
                         })}
                       </span>
                     )}
@@ -337,7 +347,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                       <div className="ml-auto flex gap-1">
                         <button
                           onClick={() => void copy(s)}
-                          className="rounded bg-mint-100 px-2 py-1 text-xs text-mint-700 hover:bg-mint-200 dark:bg-mint-900/30 dark:text-mint-300"
+                          className="rounded bg-accent-soft/60 px-2 py-1 text-xs text-accent-text hover:bg-accent-soft dark:bg-accent/30 dark:text-accent-text"
                           aria-label={t('shares.copy_link')}
                         >
                           {copiedId === s.id ? t('shares.copied') : t('shares.copy_link')}
@@ -354,7 +364,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                         {canAct && (
                           <button
                             onClick={() => setRevokeTargetId(s.id)}
-                            className="rounded bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:bg-red-900/30"
+                            className="rounded bg-danger-soft px-2 py-1 text-xs text-danger hover:bg-danger-soft dark:bg-danger-soft"
                             aria-label={t('shares.revoke')}
                           >
                             {t('shares.revoke')}
@@ -377,16 +387,16 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
             <div className="flex gap-2">
               <button
                 onClick={toggleAll}
-                className="text-xs text-mint-600 hover:text-mint-700"
+                className="text-xs text-accent-text hover:text-accent-text"
                 aria-pressed={hasAll}
               >
                 {hasAll ? t('shares.deselect_all') : t('shares.select_all')}
               </button>
               <button
                 onClick={() => setShowBatchRevokeConfirm(true)}
-                className="rounded bg-red-50 px-3 py-1 text-xs text-red-600 hover:bg-red-100 dark:bg-red-900/30"
+                className="rounded bg-danger-soft px-3 py-1 text-xs text-danger hover:bg-danger-soft dark:bg-danger-soft"
               >
-                {t('shares.batch_revoke')}
+                <IconText k="shares.batch_revoke" label={t('shares.batch_revoke')} />
               </button>
             </div>
           </div>

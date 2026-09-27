@@ -8,9 +8,11 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   ERROR_BUCKETS,
   ERROR_GENERIC_KEY,
+  ERROR_NETWORK_KEY,
   apiErrorCode,
   errorI18nKey,
   errorReason,
+  isClientNetworkError,
 } from '../src/error-codes.js';
 
 describe('errorI18nKey', () => {
@@ -78,6 +80,31 @@ describe('errorReason', () => {
   });
 
   const apiErr = (code: string, message: string) => ({ err: { code, status: 400, message } });
+
+  it('网络层错误（无码）归 server_unreachable 桶，不把英文技术黑话直出给用户', () => {
+    const dict2 = { ...dict, [ERROR_NETWORK_KEY]: '无法连接到服务器' };
+    const tr = (key: string, options?: { defaultValue?: string }) =>
+      dict2[key] ?? options?.defaultValue ?? key;
+    // AbortError：客户端超时 abort（真机弱网解锁实测文案 signal is aborted without reason）
+    expect(
+      errorReason({ name: 'AbortError', message: 'signal is aborted without reason' }, 'zh-CN', tr)
+    ).toBe('无法连接到服务器');
+    // RN Android fetch 断网
+    expect(errorReason(new TypeError('Network request failed'), 'zh-CN', tr)).toBe(
+      '无法连接到服务器'
+    );
+    // 小程序 request:fail
+    expect(errorReason(new Error('request:fail timeout'), 'zh-CN', tr)).toBe('无法连接到服务器');
+  });
+
+  it('isClientNetworkError：只认网络层形态，不误伤服务端码异常', () => {
+    expect(isClientNetworkError(new TypeError('Failed to fetch'))).toBe(true);
+    expect(isClientNetworkError({ name: 'AbortError', message: 'x' })).toBe(true);
+    expect(isClientNetworkError(new Error('some random error'))).toBe(false);
+    // 本地已翻译/自定义文案不算网络错误
+    expect(isClientNetworkError(new Error('密码错误'))).toBe(false);
+    expect(isClientNetworkError(null)).toBe(false);
+  });
 
   it('中文界面：原样用服务端文案（更具体，别被桶文案覆盖）', () => {
     expect(errorReason(apiErr('invalid_credentials', '密码错误'), 'zh-CN', translate)).toBe(

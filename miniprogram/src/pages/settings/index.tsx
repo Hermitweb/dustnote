@@ -19,18 +19,17 @@ import {
   parseEnvelope,
   encryptNote,
 } from '../../state/auth';
-import { noteAad } from '@dustnote/shared';
+import { noteAad, formatDateTimeStamp } from '@dustnote/shared';
 import { randomUuid } from '../../lib/uuid';
-import { useThemeStore, type Theme } from '../../state/theme';
+import { useThemeStore, type Theme, type Material } from '../../state/theme';
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo, resetRepoCache } from '../../lib/get-repo';
 import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
-import { savePendingMigration, loadPendingMigration } from '../../lib/migration';
+import { savePendingMigration } from '../../lib/migration';
 import { clearStandaloneMasterKey } from '../../lib/standalone-session';
 import { setup2fa, enable2fa, disable2fa, get2faStatus } from '../../lib/totp-client';
 import { t, setLanguage, useLanguage, type Language } from '../../lib/i18n';
 import { errorText } from '../../lib/error-text';
-import { parseServerDate } from '../../lib/date-parse';
 import { isPrivateHost } from '../../lib/net-utils';
 import {
   cacheMasterKeyForBiometric,
@@ -80,6 +79,8 @@ export default function Settings() {
   const lock = useAuthStore((s) => s.lock);
   const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
+  const material = useThemeStore((s) => s.material);
+  const setMaterial = useThemeStore((s) => s.setMaterial);
   const mode = useModeStore((s) => s.mode);
   const serverUrl = useModeStore((s) => s.serverUrl);
   const resetMode = useModeStore((s) => s.resetMode);
@@ -103,6 +104,21 @@ export default function Settings() {
         title: t('settings.theme_switched', { theme: t(THEME_KEY[next]) }),
         icon: 'none',
       });
+    } catch {
+      /* 用户取消 */
+    }
+  };
+
+  /** 材质档：玻璃（半透明叠色 + 极光）或实色。weapp 没有 backdrop-filter，
+      通透靠叠色近似、代价是合成开销，低配机与省电模式必须能关（§2.2） */
+  const onMaterialChange = async () => {
+    try {
+      const res = await Taro.showActionSheet({
+        itemList: [t('settings.material_glass'), t('settings.material_flat')],
+      });
+      const next: Material = res.tapIndex === 1 ? 'flat' : 'glass';
+      setMaterial(next);
+      Taro.showToast({ title: t('settings.material_switched'), icon: 'none' });
     } catch {
       /* 用户取消 */
     }
@@ -750,6 +766,14 @@ export default function Settings() {
             </View>
             <Text className="settings-row-value">{t(THEME_KEY[theme])} ›</Text>
           </View>
+          <View className="settings-row" onClick={onMaterialChange}>
+            <View className="settings-row-label">
+              <Text>{t('settings.material')}</Text>
+            </View>
+            <Text className="settings-row-value">
+              {material === 'flat' ? t('settings.material_flat') : t('settings.material_glass')} ›
+            </Text>
+          </View>
           <View className="settings-row" onClick={onLanguageChange}>
             <View className="settings-row-label">
               <Text>{t('settings.language')}</Text>
@@ -979,21 +1003,21 @@ export default function Settings() {
             <View className="modal-card" onClick={(e) => e.stopPropagation()}>
               <Text className="modal-title">{t('settings.pwd_title')}</Text>
               <FInput
-                className="mint-input"
+                className="input"
                 password
                 placeholder={t('settings.pwd_current_placeholder')}
                 value={oldPwd}
                 onInput={(e) => setOldPwd((e.detail as { value: string }).value)}
               />
               <FInput
-                className="mint-input"
+                className="input"
                 password
                 placeholder={t('settings.pwd_new_placeholder')}
                 value={newPwd}
                 onInput={(e) => setNewPwd((e.detail as { value: string }).value)}
               />
               <FInput
-                className="mint-input"
+                className="input"
                 password
                 placeholder={t('settings.pwd_confirm_placeholder')}
                 value={confirmPwd}
@@ -1001,13 +1025,13 @@ export default function Settings() {
               />
               <View className="row gap-m">
                 <View
-                  className="mint-btn mint-btn-ghost flex-1"
+                  className="btn btn-ghost flex-1"
                   onClick={() => !changing && setPwdOpen(false)}
                 >
                   {t('common.cancel')}
                 </View>
                 <View
-                  className="mint-btn flex-1"
+                  className="btn flex-1"
                   style={{ opacity: changing ? 0.5 : 1 }}
                   onClick={onPwdSubmit}
                 >
@@ -1035,7 +1059,7 @@ export default function Settings() {
                           {d.isCurrent ? t('settings.current_tag') : ''}
                         </Text>
                         <Text className="device-item-meta">
-                          {d.platform} · {parseServerDate(d.lastActiveAt).toLocaleString()}
+                          {d.platform} · {formatDateTimeStamp(d.lastActiveAt)}
                         </Text>
                       </View>
                       {!d.isCurrent && (
@@ -1048,10 +1072,7 @@ export default function Settings() {
                 </ScrollView>
               )}
               <View className="row gap-m">
-                <View
-                  className="mint-btn mint-btn-ghost flex-1"
-                  onClick={() => setDevicesOpen(false)}
-                >
+                <View className="btn btn-ghost flex-1" onClick={() => setDevicesOpen(false)}>
                   {t('common.close')}
                 </View>
               </View>

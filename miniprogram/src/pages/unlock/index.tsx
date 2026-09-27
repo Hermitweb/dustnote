@@ -85,7 +85,7 @@ export default function Unlock() {
         <Text className="hero-subtitle mb-l">{t('unlock.subtitle')}</Text>
 
         <FInput
-          className="mint-input"
+          className="input"
           password
           placeholder={t('common.master_password')}
           value={password}
@@ -94,7 +94,7 @@ export default function Unlock() {
 
         {showTotp && (
           <FInput
-            className="mint-input"
+            className="input"
             placeholder={t('unlock.totp_placeholder')}
             type="number"
             maxlength={6}
@@ -104,7 +104,7 @@ export default function Unlock() {
         )}
 
         <View
-          className="mint-btn mint-btn-block"
+          className="btn btn-block"
           onClick={onUnlock}
           style={{ opacity: submitting ? 0.5 : 1 }}
         >
@@ -113,7 +113,7 @@ export default function Unlock() {
 
         {bioReady && !submitting && (
           <View
-            className="mint-btn mint-btn-ghost mint-btn-block mt-s"
+            className="btn btn-ghost btn-block mt-s"
             style={{ opacity: bioEntering ? 0.5 : 1 }}
             onClick={() => void onBiometric()}
           >

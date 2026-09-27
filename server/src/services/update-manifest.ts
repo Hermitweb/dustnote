@@ -75,11 +75,14 @@ const CHANNEL_VERSIONS: Record<Channel, string> = {
   stable: config.serverVersion,
 };
 
-/** 灰度切流比例（0-1），默认 1% 切到 beta；env BETA_TRAFFIC_RATIO 可调 */
-const BETA_TRAFFIC_RATIO = Math.min(
-  1,
-  Math.max(0, Number(process.env.BETA_TRAFFIC_RATIO ?? '0.01'))
-);
+/**
+ * 灰度切流比例（0-1）。LIFE-008（2026-09-25）：默认 0——单用户自托管部署
+ * 不存在灰度受众，默认 1% 意味着随机一个设备的更新提示被切到从未发布过的
+ * beta 版本（'0.1.0-beta.1' 占位）；需要灰度时显式设 env。
+ */
+const BETA_TRAFFIC_RATIO = Math.min(1, Math.max(0, Number(process.env.BETA_TRAFFIC_RATIO ?? '0')));
+// beta 通道未显式配置时不允许任何设备被切流（占位版本不可对外发布）
+const BETA_CONFIGURED = Boolean(process.env.UPDATE_CHANNEL_BETA);
 
 /**
  * 灰度流量切分：按 deviceId 哈希稳定切流到 beta
@@ -87,6 +90,7 @@ const BETA_TRAFFIC_RATIO = Math.min(
  */
 function pickChannelForDevice(requested: Channel, deviceId: string): Channel {
   if (requested !== 'stable') return requested;
+  if (!BETA_CONFIGURED) return 'stable';
 
   const hash = createHash('sha256').update(deviceId).digest();
   const byte = hash[0] ?? 0;

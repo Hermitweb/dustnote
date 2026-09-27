@@ -71,14 +71,14 @@ export default function Setup() {
         <Text className="hero-subtitle mb-l">{t('setup.subtitle')}</Text>
 
         <FInput
-          className="mint-input"
+          className="input"
           password
           placeholder={t('setup.pwd_placeholder')}
           value={password}
           onInput={(e) => setPassword((e.detail as { value: string }).value)}
         />
         <FInput
-          className="mint-input"
+          className="input"
           password
           placeholder={t('setup.confirm_placeholder')}
           value={confirm}
@@ -97,11 +97,7 @@ export default function Setup() {
           </View>
         )}
 
-        <View
-          className="mint-btn mint-btn-block"
-          onClick={onSetup}
-          style={{ opacity: submitting ? 0.5 : 1 }}
-        >
+        <View className="btn btn-block" onClick={onSetup} style={{ opacity: submitting ? 0.5 : 1 }}>
           {submitting ? t('setup.setting_up') : t('setup.create')}
         </View>
       </View>

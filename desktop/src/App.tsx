@@ -134,6 +134,9 @@ export function App() {
     } else {
       document.documentElement.dataset.platform = 'web';
     }
+    // 启动一次性 effect 是刻意设计：语言后续变化由下方专责 effect 同步标题；
+    // 把 i18n/t 加进依赖会让 languageChanged 监听重挂，重新引入刚修的 Q3 双注册。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 语言切换时同步窗口标题（启动 effect 依赖 [] 不会重跑，这里单独跟随 i18n.language）

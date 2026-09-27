@@ -154,6 +154,20 @@ async function getRefreshToken(): Promise<string | null> {
 let refreshInFlight: Promise<RefreshOutcome> | null = null;
 
 /**
+ * 取 HTTP 状态码：shared ApiClient 抛的是 ApiException，状态码在 **err.err.status**
+ * （ApiException 顶层没有 status 字段）。此前两处按顶层 `.status` 读，401 恒为
+ * undefined → 移动端「401 静默刷新重放」自 v2.5.18 起从未真正生效（token 过期后
+ * 所有请求持续 401 直到杀进程）——mobile/api.test.ts 补齐后由用例 2026-09-25 实锤。
+ * web 端 authFetch 直接判 Response.status 不受影响；client-core unwrapErrorStatus
+ * 读的是 err.err.status 亦正确。
+ */
+export function httpStatusOf(err: unknown): number | undefined {
+  const e = err as { status?: number; err?: { status?: number } } | null | undefined;
+  if (typeof e?.status === 'number') return e.status;
+  return typeof e?.err?.status === 'number' ? e.err.status : undefined;
+}
+
+/**
  * 用 refresh token 静默换新 access token（服务端轮换 refresh token）。
  * 并发 401 只触发一次刷新（refreshInFlight 去重）。
  */
@@ -196,7 +210,7 @@ export async function refreshAccessTokenSilently(): Promise<RefreshOutcome> {
       // 分类处理:仅服务端判定过期/吊销(401/403)才清 refresh token 并视为终态;
       // 网络抖动/超时/5xx/429 保留 token,判为瞬时失败——一次断网不该把用户
       // 踢回密码登录（H1）
-      const status = (err as { status?: number })?.status;
+      const status = httpStatusOf(err);
       if (status !== 401 && status !== 403) return 'transient' as const;
       await setRefreshToken(null);
       return 'rejected' as const;
@@ -252,7 +266,8 @@ const requestImpl: RequestMethod = async function (
     // access token 过期（15 分钟 TTL）且本地有 refresh token：静默续签后重放一次。
     // 锁屏超 15 分钟后生物解锁复用旧 token 的场景即由此自愈（v2.5.18）。
     // H-E：排除 /auth/ 自身（unlock 密码错误也是 401,不能触发会话过期接管）
-    const status = (err as { status?: number }).status;
+    // 状态码取法见 httpStatusOf（曾误读顶层 .status 致本路径整体失效）
+    const status = httpStatusOf(err);
     if (status === 401 && !path.startsWith('/auth/')) {
       // H1：三态判定——只有「终态失效」才交回 auth store 锁屏；瞬时失败
       // （网络/超时/5xx/429）原样上抛,由页面显示网络错误。此前把任何

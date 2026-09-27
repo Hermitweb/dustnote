@@ -1,28 +1,8 @@
+@import '../../shared/styles/tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* ========== 主题变量（运行时由 theme.ts 注入）========== */
-:root {
-  --mn-bg: 247 250 247;
-  --mn-fg: 30 41 59;
-  --mn-fg-muted: 100 116 139;
-  --mn-border: 226 232 240;
-  --mn-card: 255 255 255;
-  --mn-accent: 22 163 74;
-  --mn-accent-soft: 220 252 231;
-  /* 排版变量：由 theme.ts 的 applyTypography 按 preferences.font/density 运行时注入 */
-  --mn-font: 'Manrope', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
-  --mn-line-height: 1.6;
-}
-
-[data-mode='dark'] {
-  --mn-bg: 15 23 42;
-  --mn-fg: 226 232 240;
-  --mn-fg-muted: 148 163 184;
-  --mn-border: 51 65 85;
-  --mn-card: 30 41 59;
-}
 
 html,
 body,
@@ -36,45 +16,41 @@ body {
   font-family: var(--mn-font);
   background-color: rgb(var(--mn-bg));
   color: rgb(var(--mn-fg));
-  transition: background-color 250ms ease, color 250ms ease;
+  transition:
+    background-color 250ms ease,
+    color 250ms ease;
 }
 
-/* 键盘焦点可见性（A11Y-R04）：实描边比半透明光晕在玻璃上更清晰 */
-:focus-visible {
-  outline: 2px solid rgb(var(--mn-accent));
-  outline-offset: 2px;
+\/30 {
+  background-color: rgb(var(--mn-accent) / 0.15);
 }
-
-/* Tailwind 颜色变量桥接 */
-.bg-surface-bg { background-color: rgb(var(--mn-bg)); }
-.bg-surface-card { background-color: rgb(var(--mn-card)); }
-.bg-mint-50 { background-color: rgb(var(--mn-accent-soft) / 0.4); }
-.text-surface-fg { color: rgb(var(--mn-fg)); }
-.text-surface-muted { color: rgb(var(--mn-fg-muted)); }
-.border-surface-border { border-color: rgb(var(--mn-border)); }
-.bg-mint-600 { background-color: rgb(var(--mn-accent)); }
-.bg-mint-700 { background-color: rgb(var(--mn-accent) / 0.85); }
-.text-mint-700 { color: rgb(var(--mn-accent)); }
-.text-mint-600 { color: rgb(var(--mn-accent)); }
-.border-mint-500 { border-color: rgb(var(--mn-accent)); }
-.hover\:bg-mint-700:hover { background-color: rgb(var(--mn-accent) / 0.85); }
-.hover\:text-mint-700:hover { color: rgb(var(--mn-accent)); }
-.text-mint-300 { color: rgb(var(--mn-accent)); }
-.bg-mint-100 { background-color: rgb(var(--mn-accent-soft) / 0.6); }
-.bg-mint-900\/30 { background-color: rgb(var(--mn-accent) / 0.15); }
 
 /* Markdown 渲染样式 */
 .prose {
   line-height: var(--mn-line-height, 1.7);
+  /* 阅读宽度：长文不横跨整屏（docs/ui-optimization.md U-5）。
+     组件上写的 max-w-none 会被这条后面的声明覆盖——两栏布局下 68ch 才是舒适行长 */
+  max-width: var(--mn-measure, 68ch);
 }
-.prose h1, .prose h2, .prose h3, .prose h4 {
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
   font-weight: 700;
   margin: 1em 0 0.5em;
 }
-.prose h1 { font-size: 1.875rem; }
-.prose h2 { font-size: 1.5rem; }
-.prose h3 { font-size: 1.25rem; }
-.prose p { margin: 0.5em 0; }
+.prose h1 {
+  font-size: 1.875rem;
+}
+.prose h2 {
+  font-size: 1.5rem;
+}
+.prose h3 {
+  font-size: 1.25rem;
+}
+.prose p {
+  margin: 0.5em 0;
+}
 .prose code {
   background: rgb(var(--mn-border) / 0.5);
   padding: 0.125em 0.375em;
@@ -91,12 +67,18 @@ body {
   background: transparent;
   padding: 0;
 }
-.prose ul, .prose ol {
+.prose ul,
+.prose ol {
   padding-left: 1.5em;
   margin: 0.5em 0;
 }
-.prose li { margin: 0.25em 0; }
-.prose a { color: rgb(var(--mn-accent)); text-decoration: underline; }
+.prose li {
+  margin: 0.25em 0;
+}
+.prose a {
+  color: rgb(var(--mn-accent));
+  text-decoration: underline;
+}
 .prose blockquote {
   border-left: 3px solid rgb(var(--mn-accent));
   padding-left: 1em;
@@ -128,7 +110,9 @@ mark {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
@@ -221,175 +205,8 @@ textarea:focus::placeholder {
   color: transparent;
 }
 
-/* ================= 液态玻璃主题（liquid-glass） =================
-   玻璃质感靠"背后有内容可透"体现：body 铺一层固定极光渐变作为景，
-   卡片/面板做半透明磨砂（backdrop-filter blur + saturate），暗色单独配色。
-   颜色/透明度集中在 theme.ts 的 --mn-glass-* token（单一来源）。
-   仅作用域于 html[data-theme='liquid-glass']，不影响其余 6 个主题。 */
-html[data-theme='liquid-glass'] body {
-  background: var(--mn-glass-aurora), rgb(var(--mn-bg));
-  background-attachment: fixed;
-}
-
-/* 玻璃面板：卡片 / 弹窗 / 侧栏容器（组件统一用 .bg-surface-card） */
-html[data-theme='liquid-glass'] .bg-surface-card {
-  background-color: rgb(var(--mn-glass-surface));
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgb(var(--mn-glass-border));
-  box-shadow:
-    0 8px 32px rgb(15 23 42 / 0.1),
-    inset 0 1px 0 rgb(255 255 255 / 0.6);
-}
-html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-card {
-  background-color: rgb(var(--mn-glass-surface));
-  border: 1px solid rgb(var(--mn-glass-border));
-  box-shadow:
-    0 8px 32px rgb(0 0 0 / 0.35),
-    inset 0 1px 0 rgb(255 255 255 / 0.08);
-}
-
-/* 半透明内容底：大面积滚动区/次级容器，让极光渐变透出 */
-html[data-theme='liquid-glass'] .bg-surface-bg {
-  background-color: rgb(var(--mn-glass-surface-bg));
-  backdrop-filter: blur(16px) saturate(190%);
-  -webkit-backdrop-filter: blur(16px) saturate(190%);
-}
-html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-bg {
-  background-color: rgb(var(--mn-glass-surface-bg));
-}
-
-/* 边框柔化：玻璃上的分隔线应为半透明高光，而非实心灰线 */
-html[data-theme='liquid-glass'] .border-surface-border {
-  border-color: rgb(255 255 255 / 0.5);
-}
-html[data-theme='liquid-glass'][data-mode='dark'] .border-surface-border {
-  border-color: rgb(147 197 253 / 0.26);
-}
-
-/* 玻璃下的 markdown 代码块 / hover 面轻微半透明，避免实心白块破坏质感 */
-html[data-theme='liquid-glass'] .prose code {
-  background: rgb(255 255 255 / 0.5);
-}
-html[data-theme='liquid-glass'][data-mode='dark'] .prose code {
-  background: rgb(2 6 23 / 0.45);
-}
-
-/* A11Y-R01 + ARCH-R01：主按钮底色用 token var(--mn-glass-button)
-   （浅色=accent 蓝、深色=深蓝白字达 AA），不再硬编码分散的 rgb 值。 */
-html[data-theme='liquid-glass'] .bg-mint-600 {
-  background-color: rgb(var(--mn-glass-button));
-}
-html[data-theme='liquid-glass'] .bg-mint-700,
-html[data-theme='liquid-glass'] .hover\:bg-mint-700:hover {
-  background-color: rgb(var(--mn-glass-button));
-  filter: brightness(0.88);
-}
-
-/* ---------- 液态玻璃·深化（贯穿组件层） ---------- */
-
-/* 漂移极光：作为玻璃背后的"活景"，让磨砂有可透的动态内容 */
-html[data-theme='liquid-glass'] body::before {
-  content: '';
-  position: fixed;
-  inset: -25%;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(38% 40% at 20% 25%, rgb(59 130 246 / 0.5), transparent 70%),
-    radial-gradient(36% 38% at 80% 18%, rgb(99 102 241 / 0.44), transparent 70%),
-    radial-gradient(42% 44% at 55% 88%, rgb(34 211 238 / 0.42), transparent 70%);
-  filter: blur(30px);
-  animation: mn-aurora 26s ease-in-out infinite alternate;
-}
-html[data-theme='liquid-glass'][data-mode='dark'] body::before {
-  background:
-    radial-gradient(38% 40% at 20% 25%, rgb(56 189 248 / 0.42), transparent 70%),
-    radial-gradient(36% 38% at 80% 18%, rgb(99 102 241 / 0.4), transparent 70%),
-    radial-gradient(42% 44% at 55% 88%, rgb(34 211 238 / 0.34), transparent 70%);
-}
-@keyframes mn-aurora {
-  0% {
-    transform: translate3d(-2%, -1%, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(2%, 2%, 0) scale(1.08);
-  }
-  100% {
-    transform: translate3d(-1%, 1%, 0) scale(1.02);
-  }
-}
-
-/* 更强的玻璃面板（后置声明覆盖上方基础玻璃，加大模糊/饱和与内高光） */
-html[data-theme='liquid-glass'] .bg-surface-card {
-  background-color: rgb(var(--mn-glass-surface));
-  backdrop-filter: blur(46px) saturate(240%);
-  -webkit-backdrop-filter: blur(46px) saturate(240%);
-  border: 1px solid rgb(var(--mn-glass-border));
-  box-shadow:
-    0 12px 44px rgb(15 23 42 / 0.14),
-    inset 0 1px 0 rgb(255 255 255 / 0.85),
-    inset 0 -1px 0 rgb(255 255 255 / 0.2),
-    inset 1px 0 0 rgb(255 255 255 / 0.35);
-  transition: box-shadow 200ms ease;
-}
-html[data-theme='liquid-glass'][data-mode='dark'] .bg-surface-card {
-  background-color: rgb(var(--mn-glass-surface));
-  backdrop-filter: blur(46px) saturate(200%);
-  -webkit-backdrop-filter: blur(46px) saturate(200%);
-  border: 1px solid rgb(var(--mn-glass-border));
-  box-shadow:
-    0 12px 44px rgb(0 0 0 / 0.44),
-    inset 0 1px 0 rgb(255 255 255 / 0.28);
-}
-
-/* 玻璃表单场域：输入/文本域/下拉统一半透明磨砂 + 聚焦 accent 光环 */
-html[data-theme='liquid-glass'] input,
-html[data-theme='liquid-glass'] textarea,
-html[data-theme='liquid-glass'] select {
-  background-color: rgb(255 255 255 / 0.5);
-  border-color: rgb(255 255 255 / 0.6);
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-}
-html[data-theme='liquid-glass'][data-mode='dark'] input,
-html[data-theme='liquid-glass'][data-mode='dark'] textarea,
-html[data-theme='liquid-glass'][data-mode='dark'] select {
-  background-color: rgb(2 6 23 / 0.35);
-  border-color: rgb(148 163 184 / 0.25);
-}
-html[data-theme='liquid-glass'] input:focus,
-html[data-theme='liquid-glass'] textarea:focus,
-html[data-theme='liquid-glass'] select:focus {
-  outline: none;
-  border-color: rgb(var(--mn-accent) / 0.6);
-  box-shadow: 0 0 0 3px rgb(var(--mn-accent) / 0.25);
-}
-
-/* 选区与滚动条玻璃化 */
-html[data-theme='liquid-glass'] ::selection {
-  background: rgb(var(--mn-accent) / 0.3);
-}
-html[data-theme='liquid-glass'] ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-html[data-theme='liquid-glass'] ::-webkit-scrollbar-track {
-  background: transparent;
-}
-html[data-theme='liquid-glass'] ::-webkit-scrollbar-thumb {
-  background-color: rgb(15 23 42 / 0.18);
-  border-radius: 8px;
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-html[data-theme='liquid-glass'][data-mode='dark'] ::-webkit-scrollbar-thumb {
-  background-color: rgb(226 232 240 / 0.22);
-}
-
-/* reduced-motion：极光停摆，仅保留静态渐变，避免不适 */
-@media (prefers-reduced-motion: reduce) {
-  html[data-theme='liquid-glass'] body::before {
-    animation: none;
-  }
-}
+/* ================= 玻璃材质 =================
+   材质不在这里定义：它是跨主题的开关（html[data-effect]），三档 glass-1 / glass-2 /
+   glass-line 与极光都在 shared/styles/tokens.css —— web 与桌面端共用同一份，
+   否则两边会各写一套磨砂参数（这正是 U-3 的成因）。
+   见 docs/ui-optimization.md §2.2。 */

@@ -41,7 +41,7 @@ export const wikilinkExtension: TokenizerAndRendererExtension = {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
     const escapedText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    return `<a class="wikilink text-mint-600 dark:text-mint-400 hover:underline cursor-pointer" data-note-title="${escapedTitle}">${escapedText}</a>`;
+    return `<a class="wikilink text-accent-text dark:text-accent-text hover:underline cursor-pointer" data-note-title="${escapedTitle}">${escapedText}</a>`;
   },
 };
 

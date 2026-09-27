@@ -26,7 +26,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { noteAad, type NoteRow } from '@dustnote/shared';
+import { noteAad, type NoteRow, formatNoteStamp } from '@dustnote/shared';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
@@ -178,9 +178,7 @@ export function TrashScreen() {
             <Text style={styles.cardTitle} numberOfLines={1}>
               {item.plain?.title ?? '🔒'}
             </Text>
-            <Text style={styles.cardMeta}>
-              {new Date(item.serverUpdatedAt).toLocaleString('zh-CN')}
-            </Text>
+            <Text style={styles.cardMeta}>{formatNoteStamp(item.serverUpdatedAt)}</Text>
             <View style={styles.actions}>
               <TouchableOpacity
                 style={styles.restoreBtn}

@@ -31,6 +31,7 @@ import {
 import type { StoreState } from '../store';
 import type { AuthState } from '../store-types';
 import { api } from '../store-helpers';
+import { errorText } from '../error-text';
 import { deriveSecretsInWorker } from '../argon2-client';
 import { clearPlainCache } from '../db';
 import {
@@ -205,9 +206,11 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
         } as Partial<StoreState>);
       }
     } catch (err) {
+      // 展示走 errorText：网络层错误归 server_unreachable 桶，
+      // 不再把 Failed to fetch / AbortError 英文原文直出（同步 mobile 2026-09-24 审计）
       set({
         authState: 'error',
-        serverError: err instanceof Error ? err.message : String(err),
+        serverError: errorText(err),
       } as Partial<StoreState>);
     }
   },

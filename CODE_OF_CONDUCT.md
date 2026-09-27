@@ -31,7 +31,7 @@
 
 ## 举报
 
-遇违反行为，请通过 [security@dustnote.app](mailto:security@dustnote.app) 举报。所有投诉都会被及时审查与调查。
+遇违反行为，请通过 GitHub 私密漏洞/行为举报渠道：打开仓库 <https://github.com/Hermitweb/dustnote> 的 Security → Report a vulnerability，或直接联系仓库所有者。所有投诉都会被及时审查与调查。
 
 ## 适用范围
 

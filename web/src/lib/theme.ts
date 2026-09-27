@@ -1,200 +1,65 @@
 /**
- * 主题系统
- * 6 主题 × 3 模式（light / dark / auto）
- * 详见 theme-system.md
+ * 主题系统 · 6 主题 × 3 模式（light / dark / auto）
  *
- * 实现：CSS 变量驱动 + data-theme / data-mode 切换
+ * v2.6 起本文件**不再持有任何色值**：种子表与派生规则都在 `@dustnote/shared/theme-engine`，
+ * 这里只负责把它写进 DOM。目的是关闭审计项 `ARCH-R01`（token 单一源）——
+ * 改造前这里有 98 个手写色值，mobile / miniprogram 又各抄一份，四端必然漂移。
+ *
+ * 详见 docs/ui-optimization.md §1（U-2 / U-3）与 §2.2（玻璃三档）。
  */
 
+import { THEME_SEEDS, buildThemeTokens } from '@dustnote/shared';
 import type { ThemeId, Mode, Preferences } from './store';
 
-export const THEMES: { id: ThemeId; name: string; emoji: string }[] = [
-  { id: 'mint-dawn', name: '尘心晨光', emoji: '🌿' },
-  { id: 'mist-blue', name: '雾霭蓝调', emoji: '🌫️' },
-  { id: 'dusk-forest', name: '暮色森林', emoji: '🌲' },
-  { id: 'caramel-warm', name: '焦糖暖光', emoji: '☕' },
-  { id: 'sakura-pink', name: '樱粉物语', emoji: '🌸' },
-  { id: 'minimal-white', name: '极简白', emoji: '◽' },
-  { id: 'liquid-glass', name: '液态玻璃', emoji: '🫧' },
+/** 主题元信息：id 必须与 shared 的种子表一致（下面有编译期外的自检） */
+export const THEMES: { id: ThemeId; name: string }[] = [
+  { id: 'mint-dawn', name: '尘心晨光' },
+  { id: 'mist-blue', name: '雾霭蓝调' },
+  { id: 'dusk-forest', name: '暮色森林' },
+  { id: 'caramel-warm', name: '焦糖暖光' },
+  { id: 'sakura-pink', name: '樱粉物语' },
+  { id: 'minimal-white', name: '极简白' },
+  { id: 'liquid-glass', name: '液态玻璃' },
 ];
 
-const THEME_TOKENS: Record<
-  ThemeId,
-  { light: Record<string, string>; dark: Record<string, string> }
-> = {
-  'mint-dawn': {
-    light: {
-      '--mn-bg': '247 250 247',
-      '--mn-fg': '30 41 59',
-      '--mn-fg-muted': '100 116 139',
-      '--mn-border': '226 232 240',
-      '--mn-card': '255 255 255',
-      '--mn-accent': '22 163 74',
-      '--mn-accent-soft': '220 252 231',
-    },
-    dark: {
-      '--mn-bg': '15 23 42',
-      '--mn-fg': '226 232 240',
-      '--mn-fg-muted': '148 163 184',
-      '--mn-border': '51 65 85',
-      '--mn-card': '30 41 59',
-      '--mn-accent': '74 222 128',
-      '--mn-accent-soft': '20 83 45',
-    },
-  },
-  'mist-blue': {
-    light: {
-      '--mn-bg': '241 245 249',
-      '--mn-fg': '15 23 42',
-      '--mn-fg-muted': '71 85 105',
-      '--mn-border': '203 213 225',
-      '--mn-card': '255 255 255',
-      '--mn-accent': '59 130 246',
-      '--mn-accent-soft': '219 234 254',
-    },
-    dark: {
-      '--mn-bg': '15 23 42',
-      '--mn-fg': '226 232 240',
-      '--mn-fg-muted': '148 163 184',
-      '--mn-border': '51 65 85',
-      '--mn-card': '30 41 59',
-      '--mn-accent': '96 165 250',
-      '--mn-accent-soft': '30 58 138',
-    },
-  },
-  'dusk-forest': {
-    light: {
-      '--mn-bg': '245 246 240',
-      '--mn-fg': '29 41 36',
-      '--mn-fg-muted': '87 96 86',
-      '--mn-border': '215 222 209',
-      '--mn-card': '255 255 255',
-      '--mn-accent': '101 123 78',
-      '--mn-accent-soft': '230 238 218',
-    },
-    dark: {
-      '--mn-bg': '20 30 24',
-      '--mn-fg': '220 230 215',
-      '--mn-fg-muted': '148 163 144',
-      '--mn-border': '50 60 50',
-      '--mn-card': '32 45 36',
-      '--mn-accent': '148 184 113',
-      '--mn-accent-soft': '55 78 41',
-    },
-  },
-  'caramel-warm': {
-    light: {
-      '--mn-bg': '252 248 243',
-      '--mn-fg': '63 39 25',
-      '--mn-fg-muted': '120 96 78',
-      '--mn-border': '233 220 198',
-      '--mn-card': '255 250 240',
-      '--mn-accent': '180 83 9',
-      '--mn-accent-soft': '254 243 199',
-    },
-    dark: {
-      '--mn-bg': '28 22 16',
-      '--mn-fg': '240 230 215',
-      '--mn-fg-muted': '180 160 130',
-      '--mn-border': '60 50 38',
-      '--mn-card': '45 35 26',
-      '--mn-accent': '217 119 6',
-      '--mn-accent-soft': '90 50 12',
-    },
-  },
-  'sakura-pink': {
-    light: {
-      '--mn-bg': '253 244 247',
-      '--mn-fg': '76 33 50',
-      '--mn-fg-muted': '156 110 124',
-      '--mn-border': '245 215 226',
-      '--mn-card': '255 250 252',
-      '--mn-accent': '219 80 124',
-      '--mn-accent-soft': '252 232 240',
-    },
-    dark: {
-      '--mn-bg': '28 20 24',
-      '--mn-fg': '240 215 222',
-      '--mn-fg-muted': '180 140 152',
-      '--mn-border': '60 40 50',
-      '--mn-card': '42 30 36',
-      '--mn-accent': '244 114 182',
-      '--mn-accent-soft': '112 26 60',
-    },
-  },
-  'minimal-white': {
-    light: {
-      '--mn-bg': '255 255 255',
-      '--mn-fg': '23 23 23',
-      '--mn-fg-muted': '115 115 115',
-      '--mn-border': '229 229 229',
-      '--mn-card': '250 250 250',
-      '--mn-accent': '23 23 23',
-      '--mn-accent-soft': '245 245 245',
-    },
-    dark: {
-      '--mn-bg': '10 10 10',
-      '--mn-fg': '240 240 240',
-      '--mn-fg-muted': '140 140 140',
-      '--mn-border': '50 50 50',
-      '--mn-card': '23 23 23',
-      '--mn-accent': '240 240 240',
-      '--mn-accent-soft': '60 60 60',
-    },
-  },
-  'liquid-glass': {
-    light: {
-      '--mn-bg': '228 235 248',
-      '--mn-fg': '15 23 42',
-      '--mn-fg-muted': '71 85 105',
-      '--mn-border': '255 255 255',
-      '--mn-card': '255 255 255',
-      '--mn-accent': '59 130 246',
-      '--mn-accent-soft': '219 234 254',
-      '--mn-glass-surface': '255 255 255 / 0.4',
-      '--mn-glass-surface-bg': '255 255 255 / 0.42',
-      '--mn-glass-border': '255 255 255 / 0.8',
-      '--mn-glass-button': '59 130 246',
-      '--mn-glass-aurora':
-        'radial-gradient(1200px 820px at 10% -12%, rgb(59 130 246 / 0.6), transparent 60%), radial-gradient(1000px 720px at 112% 6%, rgb(99 102 241 / 0.5), transparent 55%), radial-gradient(920px 900px at 50% 124%, rgb(34 211 238 / 0.48), transparent 60%), radial-gradient(760px 640px at 82% 78%, rgb(56 189 248 / 0.34), transparent 62%)',
-    },
-    dark: {
-      '--mn-bg': '9 17 40',
-      '--mn-fg': '226 232 240',
-      '--mn-fg-muted': '148 163 184',
-      '--mn-border': '96 165 250',
-      '--mn-card': '23 37 84',
-      '--mn-accent': '125 211 252',
-      '--mn-accent-soft': '30 58 138',
-      '--mn-glass-surface': '30 41 59 / 0.74',
-      '--mn-glass-surface-bg': '15 23 42 / 0.6',
-      '--mn-glass-border': '147 197 253 / 0.42',
-      '--mn-glass-button': '37 99 235',
-      '--mn-glass-aurora':
-        'radial-gradient(1200px 820px at 10% -12%, rgb(56 189 248 / 0.4), transparent 60%), radial-gradient(1000px 720px at 112% 6%, rgb(99 102 241 / 0.38), transparent 55%), radial-gradient(920px 900px at 50% 124%, rgb(37 99 235 / 0.4), transparent 60%), radial-gradient(760px 640px at 82% 78%, rgb(34 211 238 / 0.28), transparent 62%)',
-    },
-  },
-};
+// 防漂移：UI 列表与 shared 种子表必须一一对应（新增主题只改 shared 就会在这里报错）
+for (const t of THEMES) {
+  if (!THEME_SEEDS[t.id]) {
+    throw new Error(`theme: '${t.id}' 在 @dustnote/shared 的种子表里不存在`);
+  }
+}
 
+/** 上一次写入 :root 的变量名集合，用于精确清除，避免切主题后残留旧值 */
+let appliedKeys = new Set<string>();
+
+function resolveMode(mode: Mode): 'light' | 'dark' {
+  if (mode !== 'auto') return mode;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/**
+ * 应用主题：写入全部种子 + 派生 token。
+ *
+ * 为什么要清 stale：改造前只有 liquid-glass 定义 `--mn-glass-*`，
+ * 从它切到别的主题时旧值会留在 `:root` 上继续生效（玻璃残留 bug）。
+ * 现在每个主题都会产出完整 token 集，再额外清除上一轮写入但本轮没有的键。
+ */
 export function applyTheme(theme: ThemeId, mode: Mode): void {
   const root = document.documentElement;
-  const tokens = THEME_TOKENS[theme];
-  if (!tokens) return;
+  const def = THEME_SEEDS[theme];
+  if (!def) return;
 
-  // 设置 data-theme / data-mode
+  const resolved = resolveMode(mode);
   root.dataset.theme = theme;
-  if (mode === 'auto') {
-    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    root.dataset.mode = isDark ? 'dark' : 'light';
-  } else {
-    root.dataset.mode = mode;
-  }
+  root.dataset.mode = resolved;
 
-  // 应用变量
-  const t = root.dataset.mode === 'dark' ? tokens.dark : tokens.light;
-  for (const [k, v] of Object.entries(t)) {
-    root.style.setProperty(k, v);
+  const tokens = buildThemeTokens(def, resolved);
+  for (const [k, v] of Object.entries(tokens)) root.style.setProperty(k, v);
+
+  for (const stale of appliedKeys) {
+    if (!(stale in tokens)) root.style.removeProperty(stale);
   }
+  appliedKeys = new Set(Object.keys(tokens));
 }
 
 // ========== 排版（字体 / 行高密度）==========
@@ -205,17 +70,28 @@ const FONT_FAMILIES: Record<Preferences['font'], string> = {
   lxgw: `'LXGW WenKai', 'Noto Sans SC', system-ui, serif`,
 };
 
-const LINE_HEIGHTS: Record<Preferences['density'], string> = {
-  comfortable: '1.85',
-  standard: '1.6',
-  compact: '1.35',
+/**
+ * 密度同时改**字号 + 行高 + 间距**（改造前只改行高，切换几乎无感知，功能显得是假的）。
+ * 见 docs/ui-optimization.md U-5。
+ */
+const TYPOGRAPHY: Record<
+  Preferences['density'],
+  { lineHeight: string; base: string; scale: string; space: string }
+> = {
+  comfortable: { lineHeight: '1.85', base: '15px', scale: '1.13', space: '1.08' },
+  standard: { lineHeight: '1.6', base: '14px', scale: '1.1', space: '1' },
+  compact: { lineHeight: '1.35', base: '13px', scale: '1.07', space: '0.9' },
 };
 
-/** 应用字体与行高密度：写入 CSS 变量 --mn-font / --mn-line-height，由 index.css 消费 */
+/** 写入 CSS 变量，由 index.css / Tailwind 消费 */
 export function applyTypography(font: Preferences['font'], density: Preferences['density']): void {
   const root = document.documentElement;
+  const t = TYPOGRAPHY[density] ?? TYPOGRAPHY.standard;
   root.style.setProperty('--mn-font', FONT_FAMILIES[font]);
-  root.style.setProperty('--mn-line-height', LINE_HEIGHTS[density]);
+  root.style.setProperty('--mn-line-height', t.lineHeight);
+  root.style.setProperty('--mn-text-base', t.base);
+  root.style.setProperty('--mn-type-scale', t.scale);
+  root.style.setProperty('--mn-space-scale', t.space);
 }
 
 export function watchSystemTheme(theme: ThemeId, mode: Mode): () => void {

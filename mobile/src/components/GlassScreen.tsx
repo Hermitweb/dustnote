@@ -14,7 +14,7 @@
  */
 import React from 'react';
 import { StyleSheet, View, type ViewProps } from 'react-native';
-import { useIsDark, LIQUID_GLASS_GRADIENT } from '../theme';
+import { useIsDark, useColors, useMaterial, LIQUID_GLASS_GRADIENT } from '../theme';
 
 type GlassScreenProps = ViewProps & { children: React.ReactNode };
 
@@ -32,10 +32,15 @@ try {
 
 export function GlassScreen({ children, style, ...rest }: GlassScreenProps) {
   const isDark = useIsDark();
+  const material = useMaterial();
+  const { bg } = useColors();
   const colors = isDark ? LIQUID_GLASS_GRADIENT.dark : LIQUID_GLASS_GRADIENT.light;
   return (
     <View style={[styles.root, style]} {...rest}>
-      {LinearGradient ? (
+      {material === 'flat' ? (
+        /* 实色档：一层不透明主题底色，极光与半透明叠色全部关掉 */
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: bg }]} />
+      ) : LinearGradient ? (
         <LinearGradient colors={colors} style={StyleSheet.absoluteFill} />
       ) : (
         // 降级：纯色底（取渐变首色），保证不崩、仍有背景层次

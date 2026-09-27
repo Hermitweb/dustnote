@@ -12,6 +12,7 @@ import { useEffect } from 'react';
 import { useStore } from './store';
 import { isTauri } from './platform';
 import type { AuthState } from './store';
+import { stepInSet } from './stage';
 
 /** 判断事件目标是否在输入框中 */
 function isInInput(target: EventTarget | null): boolean {
@@ -30,6 +31,20 @@ interface ShortcutDef {
   allowInInput?: boolean;
   /** 执行动作 */
   action: () => void;
+}
+
+/**
+ * 结果集内翻篇。
+ *
+ * 结果集（stageOrder）是列表态解析出的那份有序 id：详情态会卸载 NoteList，
+ * 所以那份序由 note-scope 写进 store 保管。空集合（从概览的最近编辑点进来）
+ * 就不动 —— 没有"上/下一篇"可去，硬跳会把用户扔到不相干的笔记。
+ */
+function stepNote(delta: 1 | -1): void {
+  const st = useStore.getState();
+  if (!st.selectedNoteId || st.stageOrder.length === 0) return;
+  const next = stepInSet(st.stageOrder, st.selectedNoteId, delta);
+  if (next && next !== st.selectedNoteId) st.selectNote(next);
 }
 
 /** 构建快捷键映射表 */
@@ -96,6 +111,16 @@ function buildShortcuts(authState: AuthState): ShortcutDef[] {
       action: () => {
         useStore.getState().lock();
       },
+    },
+    {
+      // ←/→ 在结果集内翻篇（docs/ui-optimization.md §2.1）。
+      // 不加 allowInInput：正在打字时方向键属于光标，翻篇只在"读正文"时接管。
+      key: 'arrowleft',
+      action: () => stepNote(-1),
+    },
+    {
+      key: 'arrowright',
+      action: () => stepNote(1),
     },
     {
       key: 'ctrl+k',

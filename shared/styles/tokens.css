@@ -1,0 +1,275 @@
+/*
+ * DustNote 静态设计令牌（web 与 desktop 共用一份）
+ *
+ * 语义色（--mn-surface-* / --mn-text-* / --mn-accent-* / --mn-success 等）在这里
+ * **只声明引用关系**，不复制色值：运行时由 lib/theme.ts 从 @dustnote/shared/theme-engine
+ * 派生后整批写入 :root。这里的默认值只为**首帧**兜底（JS 还没跑时不至于白屏无配色）。
+ *
+ * 新增颜色请改生成器，不要在此追加十六进制 —— 那正是改造前 98 个手写值的来源。
+ */
+:root {
+  /* 种子（首帧兜底 = mint-dawn light；运行时被覆盖） */
+  --mn-bg: 247 250 247;
+  --mn-fg: 30 41 59;
+  --mn-fg-muted: 100 116 139;
+  --mn-border: 226 232 240;
+  --mn-card: 255 255 255;
+  --mn-accent: 22 163 74;
+  --mn-accent-soft: 220 252 231;
+
+  /* 语义层（引用种子，运行时由生成器写精确值） */
+  --mn-surface-0: var(--mn-bg);
+  --mn-surface-1: var(--mn-card);
+  --mn-surface-2: var(--mn-card);
+  --mn-surface-3: var(--mn-border);
+  --mn-text-primary: var(--mn-fg);
+  --mn-text-secondary: var(--mn-fg-muted);
+  --mn-text-tertiary: var(--mn-fg-muted);
+  --mn-text-inverse: var(--mn-bg);
+  --mn-accent-hover: var(--mn-accent);
+  --mn-accent-active: var(--mn-accent);
+  --mn-accent-border: var(--mn-accent);
+  --mn-accent-strong: var(--mn-accent);
+  --mn-accent-text: var(--mn-accent);
+  --mn-on-accent: 255 255 255;
+  --mn-border-strong: var(--mn-border);
+  --mn-overlay: var(--mn-card);
+  --mn-focus: var(--mn-accent);
+  --mn-success: 21 128 61;
+  --mn-success-soft: 230 246 236;
+  --mn-warning: 180 83 9;
+  --mn-warning-soft: 254 243 199;
+  --mn-danger: 185 28 28;
+  --mn-danger-soft: 253 235 235;
+  --mn-info: 3 105 161;
+  --mn-info-soft: 228 244 252;
+  --mn-scrim: 30 41 59 / 0.42;
+  --mn-glass-1: 255 255 255 / 0.74;
+  --mn-glass-2: 255 255 255 / 0.88;
+  --mn-glass-line: 30 41 59 / 0.09;
+
+  /* 排版与间距尺度：density 同时改字号 / 行高 / 间距（改造前只改行高，切换几乎无感） */
+  --mn-font: 'Manrope', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  --mn-line-height: 1.6;
+  --mn-text-base: 14px;
+  --mn-type-scale: 1.1;
+  --mn-space-scale: 1;
+  --mn-text-xs: calc(var(--mn-text-base) / var(--mn-type-scale));
+  --mn-text-sm: var(--mn-text-base);
+  --mn-text-md: calc(var(--mn-text-base) * var(--mn-type-scale));
+  --mn-text-lg: calc(var(--mn-text-base) * var(--mn-type-scale) * var(--mn-type-scale));
+  --mn-text-xl: calc(var(--mn-text-lg) * var(--mn-type-scale) * var(--mn-type-scale));
+  --mn-text-2xl: calc(var(--mn-text-xl) * var(--mn-type-scale) * var(--mn-type-scale));
+  --mn-space-1: calc(4px * var(--mn-space-scale));
+  --mn-space-2: calc(8px * var(--mn-space-scale));
+  --mn-space-3: calc(12px * var(--mn-space-scale));
+  --mn-space-4: calc(16px * var(--mn-space-scale));
+  --mn-space-6: calc(24px * var(--mn-space-scale));
+  --mn-space-8: calc(32px * var(--mn-space-scale));
+  --mn-radius-sm: 6px;
+  --mn-radius-md: 10px;
+  --mn-radius-lg: 14px;
+  --mn-radius-xl: 20px;
+  --mn-measure: 68ch;
+  --mn-ease: cubic-bezier(0.2, 0, 0, 1);
+  --mn-duration-fast: 120ms;
+  --mn-duration-med: 180ms;
+  --mn-duration-slow: 240ms;
+}
+
+/* 焦点可见性（A11Y-R04）：实描边比半透明光晕在玻璃上更清晰 */
+:focus-visible {
+  outline: 2px solid rgb(var(--mn-accent));
+  outline-offset: 2px;
+  border-radius: var(--mn-radius-sm, 6px);
+}
+
+/* ================= 材质层（阶段 3 · docs/ui-optimization.md §2.2） =================
+ * 玻璃是**材质开关**，不是某个主题的专利：html[data-effect] 只切材质，
+ * 布局 / 间距 / 字号零位移（这条是硬要求，切到实色后不能有任何元素挪位）。
+ *
+ * 三档各有其位：
+ *   glass-1  顶栏、导航轨 —— 常驻且面积大，更透，让极光当景
+ *   glass-2  卡片、弹窗、阅读纸张、舞台头部 —— 承载文字，更实
+ *   glass-line  玻璃面板之间的分隔，替掉实心灰线
+ *
+ * 硬约束：**文字不得直接压在极光上**。所以极光只画在 body::before 一层，
+ * 所有含文字的容器必须落在 glass-1 / glass-2 或实色 surface 上；
+ * e2e/a11y-contrast.ts 会实测每条文字背后的最差承载面。
+ *
+ * 极光强度是乘数（0 关 / .5 柔和 / 1 标准 / 1.4 浓郁），默认 .5：
+ * 上一版默认吃满 1.0，截图里概览和列表都像泡在蓝雾里 —— 那是观感问题的主因，
+ * 也是 contrast-report 里 105 处"玻璃最坏情况"的来源。
+ */
+:root {
+  --mn-aurora: 0.5;
+  --mn-paper-pad: 88px;
+  --mn-glass-blur-1: 16px;
+  --mn-glass-blur-2: 28px;
+}
+
+/* ---------- 极光：只画一层，随主题色走，强度由 --mn-aurora 缩放 ---------- */
+html[data-effect='glass'] body::before {
+  content: '';
+  position: fixed;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      38% 40% at 20% 25%,
+      rgb(var(--mn-accent) / calc(0.34 * var(--mn-aurora))),
+      transparent 70%
+    ),
+    radial-gradient(
+      36% 38% at 80% 18%,
+      rgb(var(--mn-info) / calc(0.26 * var(--mn-aurora))),
+      transparent 70%
+    ),
+    radial-gradient(
+      42% 44% at 55% 88%,
+      rgb(var(--mn-accent-soft) / calc(0.4 * var(--mn-aurora))),
+      transparent 70%
+    );
+  filter: blur(30px);
+  animation: mn-aurora 26s ease-in-out infinite alternate;
+}
+
+@keyframes mn-aurora {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, 2%, 0) scale(1.08);
+  }
+  100% {
+    transform: translate3d(-1%, 1%, 0) scale(1.02);
+  }
+}
+
+/* ---------- 三档材质 ---------- */
+html[data-effect='glass'] .glass-1 {
+  background-color: rgb(var(--mn-glass-1));
+  -webkit-backdrop-filter: blur(var(--mn-glass-blur-1)) saturate(160%);
+  backdrop-filter: blur(var(--mn-glass-blur-1)) saturate(160%);
+}
+
+html[data-effect='glass'] .glass-2 {
+  background-color: rgb(var(--mn-glass-2));
+  -webkit-backdrop-filter: blur(var(--mn-glass-blur-2)) saturate(180%);
+  backdrop-filter: blur(var(--mn-glass-blur-2)) saturate(180%);
+  border: 1px solid rgb(var(--mn-glass-line));
+  box-shadow:
+    0 10px 30px rgb(15 23 42 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.55);
+}
+html[data-effect='glass'][data-mode='dark'] .glass-2 {
+  box-shadow:
+    0 12px 34px rgb(0 0 0 / 0.36),
+    inset 0 1px 0 rgb(255 255 255 / 0.07);
+}
+
+/* 弹窗按角色统一吃 glass-2：新增弹窗不必记得挂类名 */
+html[data-effect='glass'] [role='dialog'] {
+  background-color: rgb(var(--mn-glass-2));
+  -webkit-backdrop-filter: blur(var(--mn-glass-blur-2)) saturate(180%);
+  backdrop-filter: blur(var(--mn-glass-blur-2)) saturate(180%);
+  border: 1px solid rgb(var(--mn-glass-line));
+}
+
+/* 玻璃面板内部的分隔线换成半透明高光（只作用于玻璃之内，不动实色区） */
+html[data-effect='glass'] .glass-2 .border-surface-border,
+html[data-effect='glass'] .glass-2.border-surface-border,
+html[data-effect='glass'] [role='dialog'] .border-surface-border {
+  border-color: rgb(var(--mn-glass-line));
+}
+
+/* ---------- 阅读纸张（§2.1 详情态）：68ch 正文 + 88px 内边距，落在 glass-2 上 ---------- */
+.paper-sheet {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  margin-inline: auto;
+  max-width: calc(var(--mn-measure) + 2 * var(--mn-paper-pad));
+  padding-inline: var(--mn-paper-pad);
+  overflow: hidden;
+  /* 实色档下的抬升；玻璃档里 html[data-effect=glass] .glass-2 的特异性更高，会盖掉这条 */
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.07);
+}
+/* 分屏态放宽为 2 × 46ch，边距对半，避免两栏之间空出 176px */
+.paper-sheet--split {
+  --mn-paper-pad: 44px;
+  max-width: calc(92ch + 2 * var(--mn-paper-pad));
+}
+/* 窄屏没有 88px 可浪费：纸张铺满，内边距收到 20px */
+@media (max-width: 1023px) {
+  .paper-sheet,
+  .paper-sheet--split {
+    --mn-paper-pad: 20px;
+    max-width: 100%;
+  }
+}
+
+/* ---------- 关闭材质时的两条退路 ---------- */
+/* 系统要求降低透明度：极光与磨砂一并停掉（不是偏好，是无障碍兜底） */
+@media (prefers-reduced-transparency: reduce) {
+  html[data-effect='glass'] body::before {
+    display: none;
+  }
+  html[data-effect='glass'] .glass-1,
+  html[data-effect='glass'] .glass-2,
+  html[data-effect='glass'] [role='dialog'] {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: rgb(var(--mn-surface-1));
+  }
+}
+
+/* 不支持 backdrop-filter 的引擎：玻璃面板退回实色，否则文字会直接压在极光上 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-effect='glass'] body::before {
+    display: none;
+  }
+  html[data-effect='glass'] .glass-1,
+  html[data-effect='glass'] .glass-2,
+  html[data-effect='glass'] [role='dialog'] {
+    background-color: rgb(var(--mn-surface-1));
+  }
+}
+
+/* 动效偏好：极光停摆，只留静态渐变 */
+@media (prefers-reduced-motion: reduce) {
+  html[data-effect='glass'] body::before {
+    animation: none;
+  }
+}
+
+/* ================= 导航轨断点（§2.1） =================
+ * ≥1280 全轨 216px；1024–1279 收成 56px 图标轨 + tooltip；<1024 由组件侧转成抽屉。
+ * 图标轨靠"标签隐藏 + 宽度收窄"实现，而不是另写一套 DOM —— 两套结构必然漂移。
+ * tooltip 用 title：原生、不吃 JS，键盘聚焦时浏览器也会显示。
+ */
+.rail-mini-only {
+  display: none;
+}
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  [data-rail] {
+    width: 56px;
+  }
+  [data-rail] .rail-label {
+    display: none;
+  }
+  [data-rail] .rail-center {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  [data-rail] .rail-hide-mini {
+    display: none;
+  }
+  .rail-mini-only {
+    display: flex;
+  }
+}

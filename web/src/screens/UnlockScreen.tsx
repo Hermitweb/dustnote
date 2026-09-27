@@ -75,9 +75,9 @@ export function UnlockScreen() {
 
   return (
     <div className="flex h-full items-center justify-center bg-surface-bg p-6">
-      <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 shadow-xl">
+      <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-mint-100 text-3xl dark:bg-mint-900/30">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft/60 text-3xl dark:bg-accent/30">
             🔓
           </div>
           {mode === 'unlock' ? (
@@ -105,7 +105,7 @@ export function UnlockScreen() {
               <button
                 type="button"
                 onClick={handleGraceUnlock}
-                className="w-full rounded-lg border border-mint-500 bg-mint-50 px-6 py-3 text-sm font-semibold text-mint-700 transition-colors hover:bg-mint-100 dark:bg-mint-900/20 dark:text-mint-300"
+                className="w-full rounded-lg border border-accent bg-accent-soft/40 px-6 py-3 text-sm font-semibold text-accent-text transition-colors hover:bg-accent-soft/60 dark:bg-accent/20 dark:text-accent-text"
               >
                 ⚡ {t('auth.grace_unlock')}（{Math.floor(graceSec / 60)}:
                 {String(graceSec % 60).padStart(2, '0')}）
@@ -123,7 +123,7 @@ export function UnlockScreen() {
                   value={totpCode}
                   onChange={(e) => setTotpCode(e.target.value.trim())}
                   placeholder="123456"
-                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm tracking-widest text-surface-fg focus:border-mint-500 focus:outline-none"
+                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm tracking-widest text-surface-fg focus:border-accent focus:outline-none"
                 />
               </div>
             )}
@@ -136,19 +136,19 @@ export function UnlockScreen() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoFocus
-                className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20"
+                className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 autoComplete="current-password"
               />
             </div>
             {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+              <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger dark:bg-danger-soft dark:text-danger">
                 {error}
               </div>
             )}
             <button
               type="submit"
               disabled={!password || submitting}
-              className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700 disabled:opacity-50"
+              className="w-full rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
             >
               {submitting ? '...' : t('auth.unlock_btn')}
             </button>
@@ -183,7 +183,7 @@ export function UnlockScreen() {
                 autoCapitalize="characters"
                 placeholder="A7K2M-9PQR3"
                 spellCheck={false}
-                className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-center font-mono text-2xl tracking-widest focus:border-mint-500 focus:outline-none"
+                className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-center font-mono text-2xl tracking-widest focus:border-accent focus:outline-none"
               />
             </div>
             <div>
@@ -198,14 +198,14 @@ export function UnlockScreen() {
               />
             </div>
             {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+              <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger dark:bg-danger-soft dark:text-danger">
                 {error}
               </div>
             )}
             <button
               type="submit"
               disabled={!isValidRecoveryCode(recoveryCode) || newPassword.length < 6 || submitting}
-              className="w-full rounded-lg bg-mint-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-mint-700 disabled:opacity-50"
+              className="w-full rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
             >
               {submitting ? '...' : t('auth.recover_btn')}
             </button>

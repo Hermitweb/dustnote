@@ -3,11 +3,15 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { isTauri, isProduction } from './lib/platform';
 import { initSentry, captureException, Sentry } from './lib/sentry';
+import { installErrorReporter } from './lib/error-reporter';
 import { canRegisterServiceWorker } from './lib/env';
 import './index.css';
 
 // Sentry 初始化（必须在 React 渲染之前；未配置 DSN 时为 no-op）
 initSentry();
+// 自托管错误上报（P0-4）：不依赖 Sentry DSN，错误摘要回用户自己的服务器；
+// 与下方 Sentry 监听并存，共享 localStorage 禁用开关（设置页可关）
+installErrorReporter();
 
 // 设置平台标识（供 CSS 选择器和 JS 判断使用）
 document.documentElement.dataset.platform = isTauri() ? 'desktop' : 'web';
@@ -61,7 +65,7 @@ createRoot(root).render(
     <Sentry.ErrorBoundary
       fallback={({ error }) => (
         <div className="flex h-full items-center justify-center bg-surface-bg p-6">
-          <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
+          <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
             <div className="mb-4 text-4xl">💥</div>
             <h2 className="mb-2 text-lg font-semibold text-surface-fg">应用遇到了问题</h2>
             <p className="mb-4 text-sm text-surface-muted">
@@ -71,7 +75,7 @@ createRoot(root).render(
             </p>
             <button
               onClick={() => location.reload()}
-              className="rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700"
+              className="rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong-hover"
             >
               重新加载
             </button>

@@ -96,14 +96,14 @@ export default function StandaloneSetup() {
         <Text className="hero-subtitle mb-l text-center">{t('standalone_setup.subtitle')}</Text>
 
         <FInput
-          className="mint-input"
+          className="input"
           password
           placeholder={t('standalone_setup.pwd_placeholder')}
           value={password}
           onInput={(e) => setPassword((e.detail as { value: string }).value)}
         />
         <FInput
-          className="mint-input"
+          className="input"
           password
           placeholder={t('standalone_setup.confirm_placeholder')}
           value={confirm}
@@ -123,7 +123,7 @@ export default function StandaloneSetup() {
         )}
 
         <View
-          className="mint-btn mint-btn-block"
+          className="btn btn-block"
           onClick={() => doSetup(password, confirm)}
           style={{ opacity: submitting ? 0.5 : 1 }}
         >

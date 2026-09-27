@@ -316,14 +316,14 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center bg-black/50 p-4 pt-[15vh]"
+      className="fixed inset-0 z-40 flex items-start justify-center bg-black/55 p-4 backdrop-blur-[2px] pt-[15vh]"
       onClick={() => setOpen(false)}
       role="dialog"
       aria-modal="true"
       aria-label={t('command_palette.title')}
     >
       <div
-        className="w-full max-w-xl overflow-hidden rounded-2xl border border-surface-border bg-surface-card shadow-2xl"
+        className="w-full max-w-xl overflow-hidden rounded-xl border border-surface-border bg-surface-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
@@ -382,7 +382,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
                         }}
                         className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                           isSelected
-                            ? 'bg-mint-50 text-surface-fg'
+                            ? 'bg-accent-soft/40 text-surface-fg'
                             : 'text-surface-fg hover:bg-surface-bg'
                         }`}
                         aria-selected={isSelected}

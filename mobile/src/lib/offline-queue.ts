@@ -102,6 +102,9 @@ const queue = new OfflineQueue(new AsyncStorageQueueStorage());
 
 /** 是否网络类错误（fetch 底层 TypeError / 状态 0 / 网络错误消息） */
 export function isNetworkError(err: unknown): boolean {
+  // 拒绝原因可以是任意值（Promise.reject() 不带参数时就是 undefined）：
+  // 不守卫会在这里抛 TypeError，把"判断该不该入队"变成"整个 catch 分支炸掉"
+  if (!err) return false;
   if (err instanceof TypeError) return true;
   const e = err as { name?: string; status?: number; message?: string };
   if (e.name === 'TypeError') return true;

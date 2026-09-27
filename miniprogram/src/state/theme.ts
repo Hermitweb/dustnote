@@ -11,7 +11,15 @@ import Taro from '@tarojs/taro';
 
 export type Theme = 'light' | 'dark' | 'auto';
 
+/**
+ * 材质档：glass = 半透明叠色 + 极光层；flat = 全部回实色。
+ * 与 web 的 html[data-effect] 同一语义（§2.2）—— weapp 没有 backdrop-filter，
+ * 通透靠叠色近似，代价是合成开销，低配机必须能关。
+ */
+export type Material = 'glass' | 'flat';
+
 const STORAGE_KEY = 'dustnote_theme';
+const MATERIAL_KEY = 'dustnote_material';
 
 function readInitialTheme(): Theme {
   try {
@@ -73,19 +81,64 @@ export function currentEffectiveTheme(
 
 export { systemTheme };
 
+/**
+ * 页面根 View 的样式类（纯函数，便于单测）
+ *
+ * 三件事叠在一起决定结果，每一件事单独看都"好像对"，合起来出过手动暗色+系统浅色
+ * 透出白底的问题：
+ *   - theme：light / dark / auto
+ *   - systemDark：auto 与"手动浅色但系统是深色"时的反制依据
+ *   - material：实色档必须追加 material-flat，否则设置里的开关只在部分主题下生效
+ * weapp 还要 page-solid（极光层在 weapp 不渲染，需铺实底），H5 不铺（会盖掉极光）。
+ */
+export function rootClassOf(opts: {
+  theme: Theme;
+  systemDark: boolean;
+  material: Material;
+  taroEnv: string;
+}): string {
+  const parts: string[] = [];
+  if (opts.theme === 'dark') parts.push('theme-dark');
+  else if (opts.theme === 'light' && opts.systemDark) parts.push('theme-light');
+  if (opts.taroEnv === 'weapp') parts.push('page-solid');
+  if (opts.material === 'flat') parts.push('material-flat');
+  return parts.join(' ');
+}
+
 interface ThemeStoreState {
   theme: Theme;
+  material: Material;
   systemDark: boolean;
   refreshSystemTheme: () => void;
   setTheme: (t: Theme) => void;
+  setMaterial: (m: Material) => void;
+}
+
+function readInitialMaterial(): Material {
+  try {
+    const v = Taro.getStorageSync(MATERIAL_KEY) as Material | '';
+    if (v === 'glass' || v === 'flat') return v;
+  } catch {
+    /* ignore */
+  }
+  return 'glass';
 }
 
 export const useThemeStore = create<ThemeStoreState>((set) => ({
   theme: readInitialTheme(),
+  material: readInitialMaterial(),
   systemDark: false,
   refreshSystemTheme: () => set({ systemDark: systemTheme() === 'dark' }),
   setTheme: (t) => {
     applyTheme(t);
     set({ theme: t });
+  },
+  setMaterial: (m) => {
+    try {
+      Taro.setStorageSync(MATERIAL_KEY, m);
+    } catch {
+      /* ignore */
+    }
+    set({ material: m });
   },
 }));

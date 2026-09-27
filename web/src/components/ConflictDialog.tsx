@@ -84,12 +84,12 @@ export function ConflictDialog() {
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="conflict-dialog-title"
     >
-      <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl bg-surface-card p-5 shadow-2xl">
+      <div className="w-full max-w-lg max-h-[72vh] overflow-y-auto rounded-xl bg-surface-card p-5 shadow-2xl">
         <h3 id="conflict-dialog-title" className="mb-1 text-base font-semibold text-surface-fg">
           {t('conflict.title')}
         </h3>
@@ -110,7 +110,7 @@ export function ConflictDialog() {
                   <span className="w-20 shrink-0 text-xs text-surface-muted">
                     {t('conflict.my_version')}
                   </span>
-                  <span className="flex-1 break-words rounded bg-mint-100/70 px-2 py-1 text-surface-fg dark:bg-mint-900/20">
+                  <span className="flex-1 break-words rounded bg-accent-soft/60 px-2 py-1 text-surface-fg dark:bg-accent/20">
                     {formatValue(c.field, c.localValue, t)}
                   </span>
                 </div>
@@ -133,7 +133,7 @@ export function ConflictDialog() {
             <button
               onClick={() => void handleChoice('local')}
               disabled={resolving !== null}
-              className="flex-1 rounded-lg bg-mint-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-mint-700 disabled:opacity-50"
+              className="flex-1 rounded-lg bg-accent-strong px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong-hover disabled:opacity-50"
             >
               {resolving === 'local' ? t('conflict.resolving') : t('conflict.use_local')}
             </button>
@@ -148,7 +148,7 @@ export function ConflictDialog() {
           <button
             onClick={() => void handleChoice('merged')}
             disabled={resolving !== null}
-            className="w-full rounded-lg border border-mint-400 px-4 py-2.5 text-sm font-medium text-mint-700 hover:bg-mint-50 disabled:opacity-50 dark:text-mint-300 dark:hover:bg-mint-900/20"
+            className="w-full rounded-lg border border-accent px-4 py-2.5 text-sm font-medium text-accent-text hover:bg-accent-soft/40 disabled:opacity-50 dark:text-accent-text dark:hover:bg-accent/20"
           >
             {resolving === 'merged'
               ? t('conflict.resolving')

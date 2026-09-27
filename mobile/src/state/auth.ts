@@ -45,7 +45,6 @@ import {
   remainingLockoutMs,
   INITIAL_LOCKOUT_STATE,
   LOCAL_LOCKOUT_DURATION_MS,
-  KDF_PARAMS,
   KDF_PARAMS_MOBILE,
   KDF_VERSION,
   type Ciphertext,
@@ -65,6 +64,7 @@ import {
 import i18n from '../lib/i18n';
 import { errorText } from '../lib/error-text';
 import { useModeStore } from '../lib/mode-store';
+import { recordNetworkSignal } from '../lib/diagnostics';
 import {
   loadLocalAuthBlob,
   saveLocalAuthBlob,
@@ -136,6 +136,11 @@ interface AuthStoreState {
   userId: string | null;
   /** keychain 中是否有缓存的 masterKey（可用于生物识别） */
   hasBiometricCache: boolean;
+  /** 联机 init() 探测 /auth/status 失败（网络/服务器不可达）。
+   *  为 true 时 App.tsx 的 unknown 分支渲染「服务器不可达 + 重试」错误页，
+   *  而不是永久转圈（真机审计 2026-09-24：断网冷启动后 init 以 unknown
+   *  正常 resolve，5s 兜底超时被 finally 清掉，UI 永远卡死且网络恢复后不自愈）。 */
+  initFailed: boolean;
 
   // 单机模式相关
   /** 单机模式本地鉴权 blob（仅 standalone 模式有值） */
@@ -194,6 +199,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   pwSalt: null,
   userId: null,
   hasBiometricCache: false,
+  initFailed: false,
   localAuthBlob: null,
   lockoutState: { ...INITIAL_LOCKOUT_STATE },
   pendingMasterKey: null,
@@ -202,6 +208,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
   async init() {
     const { mode, initialized } = useModeStore.getState();
+    set({ initFailed: false });
     // 模式未选择时保持 unknown 状态，等待用户选择
     if (!initialized) {
       set({ authState: 'unknown' });
@@ -247,9 +254,19 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       }
       set({ authState: 'needs_unlock', hasBiometricCache: hasCache });
     } catch (e) {
-      // 服务端不可达：保持 unknown 让 UI 提示用户
+      // 服务端不可达：保持 unknown 并置 initFailed，让 UI 显示错误页 + 重试
+      // （仅置 unknown 会让 App.tsx 停在「正在检查鉴权状态…」永久转圈）。
+      // 但只在 UI 仍停在探测页时切换：慢失败（如 30s 超时）场景 5s 看门狗已
+      // 把用户放行到解锁页，此刻把正在输密码的界面整页拽走比不切更糟——
+      // 解锁提交失败自有「无法连接到服务器」弹窗兜底（真机审计 2026-09-24）
       console.warn('[auth] /auth/status failed', e);
-      set({ authState: 'unknown' });
+      // OBS-R03：网络失败采样进诊断队列（弱网/宕机/证书问题的自动信号源）
+      recordNetworkSignal(
+        `/auth/status failed: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`
+      );
+      if (get().authState === 'unknown') {
+        set({ initFailed: true });
+      }
     }
   },
 

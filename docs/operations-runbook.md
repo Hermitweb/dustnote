@@ -201,7 +201,7 @@ staging 环境（独立域名）跑：
 
 ## 9. 安全事件响应
 
-详见 [security.md §13](../.trae/documents/security.md)
+详见 [security-model.md](./security-model.md)
 
 ## 10. 关键脚本位置
 

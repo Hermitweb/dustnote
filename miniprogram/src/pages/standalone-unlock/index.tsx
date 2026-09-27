@@ -132,7 +132,7 @@ export default function StandaloneUnlock() {
 
         {locked && (
           <View
-            className="mint-card"
+            className="card"
             style={{ width: '100%', maxWidth: '560rpx', background: 'var(--danger-soft)' }}
           >
             <Text className="text-danger fw-bold" style={{ display: 'block' }}>
@@ -145,7 +145,7 @@ export default function StandaloneUnlock() {
         )}
 
         <FInput
-          className="mint-input"
+          className="input"
           password
           placeholder={t('common.master_password')}
           value={password}
@@ -154,7 +154,7 @@ export default function StandaloneUnlock() {
         />
 
         <View
-          className="mint-btn mint-btn-block"
+          className="btn btn-block"
           onClick={onUnlock}
           style={{ opacity: submitting || locked ? 0.5 : 1 }}
         >
@@ -167,7 +167,7 @@ export default function StandaloneUnlock() {
 
         {bioReady && !locked && !submitting && (
           <View
-            className="mint-btn mint-btn-ghost mint-btn-block mt-s"
+            className="btn btn-ghost btn-block mt-s"
             style={{ opacity: bioEntering ? 0.5 : 1 }}
             onClick={() => void onBiometric()}
           >

@@ -18,7 +18,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
-  TextInput,
   Alert,
   ScrollView,
   Modal,
@@ -41,6 +40,7 @@ import {
   toBase64Url,
   type NoteRow,
   type Folder,
+  formatNoteStamp,
 } from '@dustnote/shared';
 import { useAuthStore } from '../state/auth';
 import { useModeStore, resolveBaseUrl } from '../lib/mode-store';
@@ -205,7 +205,7 @@ export function NotesListScreen() {
       }
     } catch (err) {
       console.warn('加载失败', err);
-      setError(t('notes.load_error_detail', { reason: (err as Error).message }));
+      setError(t('notes.load_error_detail', { reason: errorText(err) }));
     } finally {
       setRefreshing(false);
     }
@@ -559,9 +559,7 @@ export function NotesListScreen() {
                 {item.plain?.title ?? '🔒'}
               </Text>
             </View>
-            <Text style={styles.cardMeta}>
-              {new Date(item.serverUpdatedAt).toLocaleString('zh-CN')}
-            </Text>
+            <Text style={styles.cardMeta}>{formatNoteStamp(item.serverUpdatedAt)}</Text>
           </TouchableOpacity>
         )}
         contentContainerStyle={{

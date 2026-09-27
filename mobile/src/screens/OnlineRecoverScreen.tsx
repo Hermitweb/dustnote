@@ -9,15 +9,7 @@
  */
 
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ScrollView,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { FTextInput } from '../components/FTextInput';
 import { isValidRecoveryCode } from '@dustnote/shared';
 import { useTranslation } from 'react-i18next';

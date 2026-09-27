@@ -88,7 +88,8 @@ export function versionCheckMiddleware(req: Request, res: Response, next: NextFu
       error: 'client_version_eol',
       message: '当前版本存在严重问题，请立即升级',
       forceUpdateVersion: config.forceUpdateVersion,
-      updateUrl: 'https://dustnote.app/download',
+      // LIFE-008/009：不再硬编码占位域名；未配置 DOWNLOAD_PAGE_URL 时指向本站
+      updateUrl: config.downloadPageUrl ?? config.webOrigin,
     });
     return;
   }
@@ -102,7 +103,7 @@ export function versionCheckMiddleware(req: Request, res: Response, next: NextFu
       error: 'client_version_eol',
       message: '当前版本已停止支持，请升级后继续使用',
       forceUpdateVersion: config.minClientVersion,
-      updateUrl: 'https://dustnote.app/download',
+      updateUrl: config.downloadPageUrl ?? config.webOrigin,
     });
     return;
   }

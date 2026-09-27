@@ -71,7 +71,7 @@ createRoot(root).render(
             </p>
             <button
               onClick={() => location.reload()}
-              className="rounded-lg bg-mint-600 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-700"
+              className="rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong/90"
             >
               重新加载
             </button>

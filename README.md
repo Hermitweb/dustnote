@@ -2,7 +2,7 @@
 
 > 🌿 极简 · 清新 · 跨端 · 安全——一款 E2EE 端到端加密的个人笔记系统
 
-![Status](https://img.shields.io/badge/status-v2.5.42-blue)
+![Status](https://img.shields.io/badge/status-v2.5.46-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Node](https://img.shields.io/badge/node-20%2B-blue)
 ![E2EE](https://img.shields.io/badge/encryption-AES--256--GCM-purple)
@@ -74,7 +74,7 @@ DustNote 提供两种使用模式，无需任何配置即可选择：
 
 ### 模式 A：单机使用（无需服务器）
 
-1. 下载客户端安装包（[GitHub Releases](https://github.com/Hermitweb/dustnote/releases/latest)）或直接访问部署好的 Web 端
+1. 下载客户端安装包（[GitHub Releases](https://github.com/Hermitweb/dustnote/releases/latest)），或直接使用官方 Web 端 <https://napi.iniess.cn/>（自托管见 [deploy/README.md](./deploy/README.md)）
 2. 首次启动选择「🏠 单机使用」
 3. 设置主密码 + 抄写恢复码
 4. 开始使用，数据存储在本地（IndexedDB / AsyncStorage / Taro.setStorage）
@@ -198,8 +198,7 @@ dustnote/
 ├── miniprogram/      # 小程序 (Taro 3，多平台)
 ├── deploy/           # 部署配置 (nginx + supervisor)
 ├── Dockerfile        # 多阶段 Docker 构建
-├── docker-compose.yml
-└── .trae/documents/  # 本地 AI 工具产物（不随仓库发布）
+└── docker-compose.yml
 ```
 
 ## 功能
@@ -260,8 +259,7 @@ pnpm docker:up          # Docker 部署
 
 ## 文档
 
-> 产品/技术设计文档见下方 `docs/`。历史 `.trae/documents/` 为本地 AI 工具产物，
-> 已从仓库移除追踪、不随发布提供，故不再在此链接。
+> 产品/技术设计文档见下方 `docs/`。
 
 ### 用户与运维文档
 
@@ -276,6 +274,8 @@ pnpm docker:up          # Docker 部署
 - [隐私政策](./docs/privacy-policy.md)
 - [服务条款](./docs/terms-of-service.md)
 - [Cookie 政策](./docs/cookie-policy.md)
+- [发展路线图](./docs/roadmap.md)（季度更新，含现状体检与不做清单）
+- [UI 优化方案](./docs/ui-optimization.md)（设计系统地基 + 三阶段改造 + 可量化验收）
 
 ### 部署文档
 

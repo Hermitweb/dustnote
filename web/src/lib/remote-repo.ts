@@ -33,6 +33,8 @@ function createApiClient(accessToken: string | null): ApiClient {
     channel: 'stable',
     deviceId: getDeviceId(),
     accessToken: accessToken ?? undefined,
+    // 30s 超时（对齐 mobile，2026-09-24 审计同步）：CRUD 请求不能无限挂起
+    timeoutMs: 30_000,
   });
 }
 

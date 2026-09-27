@@ -81,8 +81,30 @@ export interface DataSlice {
   selectedNoteId: string | null;
   selectedFolderId: string | null;
   viewMode: ViewMode;
+  /**
+   * 舞台列表态最近一次解析出的有序笔记 id。
+   * 详情态会卸载 NoteList，「‹ 3/11 ›」与 ←/→ 翻篇要的结果集因此必须活在 store 里，
+   * 而不是活在组件里 —— 组件卸载即失忆。
+   */
+  stageOrder: string[];
   sidebarHidden: boolean;
   searchFocusToken: number;
+  /**
+   * 搜索框内容。原先是 Sidebar 的局部 state，但舞台的 search 态需要读它 ——
+   * 「当前该显示什么」的事实必须只有一个来源，否则状态机与界面会各说各话。
+   */
+  searchQuery: string;
+  /**
+   * 导航轨标签段当前选中的标签（null = 不按标签过滤）。
+   * 与文件夹同级：都是「看哪一堆笔记」的范围，所以互斥而不是叠加 ——
+   * 叠起来会出现「这个文件夹里的这个标签」这种没人能预测的空集合。
+   */
+  selectedTag: string | null;
+  /**
+   * 正在被拖动的笔记 id（两栏合并后没有"拖到第三列的文件夹上"这回事，
+   * 投放目标改成导航轨的文件夹行，见 §2.1「合并的代价与对策」）。
+   */
+  dragNoteId: string | null;
 
   loadAll: () => Promise<void>;
   /**
@@ -102,10 +124,14 @@ export interface DataSlice {
   moveNote: (id: string, folderId: string | null) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   selectNote: (id: string | null) => void;
+  setSearchQuery: (q: string) => void;
   selectFolder: (id: string | null) => void;
   setViewMode: (mode: ViewMode) => void;
   toggleSidebar: () => void;
   focusSearch: () => void;
+  setStageOrder: (ids: string[]) => void;
+  setSelectedTag: (tag: string | null) => void;
+  setDragNoteId: (id: string | null) => void;
   createFolder: (
     name: string,
     opts?: { parentId?: string | null; branch?: 'work' | 'personal' | null }
@@ -134,9 +160,13 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
   templates: PRESET_TEMPLATES,
   selectedNoteId: null,
   selectedFolderId: null,
-  viewMode: 'all',
+  viewMode: 'overview',
+  stageOrder: [],
   sidebarHidden: false,
   searchFocusToken: 0,
+  searchQuery: '',
+  selectedTag: null,
+  dragNoteId: null,
 
   async loadAll(): Promise<void> {
     // 单飞:并发调用(StrictMode 双跑/WS 重入)共享同一次全量拉取+解密
@@ -744,17 +774,49 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
   selectNote(id: string | null): void {
     set({ selectedNoteId: id } as Partial<StoreState>);
   },
+  setSearchQuery(q: string): void {
+    // 「开始搜索 = 离开正文」：查询变非空时退出详情，让结果集接管舞台。
+    // 反向不成立 —— 点开命中时保留查询词，于是 Esc 能回到刚才那份命中列表。
+    if (q) set({ searchQuery: q, selectedNoteId: null } as Partial<StoreState>);
+    else set({ searchQuery: q } as Partial<StoreState>);
+  },
   selectFolder(id: string | null): void {
-    set({ selectedFolderId: id, viewMode: 'all' } as Partial<StoreState>);
+    set({ selectedFolderId: id, viewMode: 'all', selectedTag: null } as Partial<StoreState>);
   },
   setViewMode(mode: ViewMode): void {
-    set({ viewMode: mode, selectedFolderId: null, selectedNoteId: null } as Partial<StoreState>);
+    set({
+      viewMode: mode,
+      selectedFolderId: null,
+      selectedNoteId: null,
+      selectedTag: null,
+    } as Partial<StoreState>);
+  },
+  setDragNoteId(id: string | null): void {
+    set({ dragNoteId: id } as Partial<StoreState>);
+  },
+  setSelectedTag(tag: string | null): void {
+    // 选标签 = 进「全部笔记」视图下的标签范围；取消标签不擅自改视图，避免"关掉标签却跳了页"
+    set(
+      (s) =>
+        ({
+          selectedTag: tag,
+          selectedNoteId: null,
+          selectedFolderId: tag ? null : s.selectedFolderId,
+          viewMode: tag ? 'all' : s.viewMode,
+        }) as Partial<StoreState>
+    );
   },
   toggleSidebar(): void {
     set((s) => ({ sidebarHidden: !s.sidebarHidden }) as Partial<StoreState>);
   },
   focusSearch(): void {
     set((s) => ({ searchFocusToken: s.searchFocusToken + 1 }) as Partial<StoreState>);
+  },
+  setStageOrder(ids: string[]): void {
+    const prev = get().stageOrder;
+    // 同序就不写：note-scope 每次渲染都可能交回一份新数组，无谓写入会让订阅者空转
+    if (prev.length === ids.length && prev.every((id, i) => id === ids[i])) return;
+    set({ stageOrder: ids } as Partial<StoreState>);
   },
 
   async permanentDeleteNote(id: string): Promise<void> {
