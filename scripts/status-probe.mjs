@@ -171,6 +171,7 @@ if (UPDATE) {
     .join('\n');
   const generated = [
     MARK_START,
+    '',
     `> 最近拨测：${stamp} UTC · ${allOk ? '🟢 全部通过' : '🔴 有失败项'} · 期望版本 v${expected}`,
     '',
     allOk

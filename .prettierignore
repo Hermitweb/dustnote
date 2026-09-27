@@ -15,6 +15,10 @@ out/
 .turbo/
 
 # Generated files
+# 状态页由 scripts/status-probe.mjs --update 整段重写（表格列宽随实测数据变）。
+# prettier 的表格对齐按东亚字符宽度算列宽，复刻进探针是拿脆弱换安静；
+# 拨测一次就会变一次，让 CI 挑生成器的笔迹属于稳定误报。
+docs/status.md
 coverage/
 *.tsbuildinfo
 src-tauri/target/
