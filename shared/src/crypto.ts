@@ -89,6 +89,20 @@ export function toBase64(b: Uint8Array): string {
 /**
  * 纯 JS Base64 解码（不依赖 atob），输出与标准 Base64 完全一致。
  */
+/**
+ * 去掉 base64 尾部的填充 '='。
+ *
+ * 原先两处都写 s.replace(/=+$/, '')：这个模式在不匹配的输入上要逐起始位置
+ * 回溯，一串 '=' 后跟任意字符就是二次方开销（CodeQL #1 polynomial-redos，
+ * 输入来自存储/网络的密文信封，长度可控）。从尾部手工扫描是 O(n)，
+ * 并且不再把正确性押在正则引擎的回溯行为上。
+ */
+function stripBase64Padding(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.charCodeAt(end - 1) === 61 /* = */) end--;
+  return end === s.length ? s : s.slice(0, end);
+}
+
 export function fromBase64(s: string): Uint8Array {
   if (typeof atob === 'function') {
     const bin = atob(s);
@@ -98,7 +112,7 @@ export function fromBase64(s: string): Uint8Array {
   }
   const lookup: Record<string, number> = {};
   for (let i = 0; i < B64_CHARS.length; i++) lookup[B64_CHARS[i]!] = i;
-  const clean = s.replace(/=+$/, '');
+  const clean = stripBase64Padding(s);
   const out = new Uint8Array(Math.floor((clean.length * 6) / 8));
   let buffer = 0;
   let bits = 0;
@@ -117,7 +131,7 @@ export function fromBase64(s: string): Uint8Array {
 }
 
 export function toBase64Url(b: Uint8Array): string {
-  return toBase64(b).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return stripBase64Padding(toBase64(b).replace(/\+/g, '-').replace(/\//g, '_'));
 }
 
 export function fromBase64Url(s: string): Uint8Array {
@@ -126,14 +140,33 @@ export function fromBase64Url(s: string): Uint8Array {
   return fromBase64(b64.padEnd(Math.ceil(b64.length / 4) * 4, '='));
 }
 
-let secureRandomFn: ((n: number) => Uint8Array) | null = null;
+export interface RandomOptions {
+  /**
+   * 本次请求只要「唯一」，不要「保密」。用于 AES-GCM 的 IV/nonce：
+   * nonce 泄露无害，重复才是灾难，所以允许走弱随机兜底换取可用性。
+   *
+   * 缺省 false = 密钥材料（盐、主密钥、恢复码、token）：拿不到安全随机源时必须
+   * 抛错，绝不能静默拿到 时间戳+计数器+Math.random 的字节。
+   *
+   * 这个开关为什么存在：小程序随机池耗尽时，原先的降级是**无条件**的（只
+   * console.warn 一句），而「长期密钥不得走降级路径」全靠调用方记得先
+   * await ensureRandomReady()——一条只写在注释里的约束。现在把决定权收到签名上：
+   * 想要降级必须显式声明用途（CodeQL #6/#7/#8 insecure-randomness 指的就是这个洞）。
+   */
+  uniquenessOnly?: boolean;
+}
+
+type SecureRandomFn = (n: number, opts: RandomOptions) => Uint8Array;
+
+let secureRandomFn: SecureRandomFn | null = null;
 
 /**
  * 注册同步安全随机源。
  * 微信小程序等无 WebCrypto 的运行环境在启动时调用（内部用 wx 的安全随机
- * API 预填充随机池，供同步取用）。传入的函数必须返回密码学安全随机字节。
+ * API 预填充随机池，供同步取用）。契约：opts.uniquenessOnly 为假时**必须**返回
+ * 密码学安全字节或抛错；只有为真时才允许返回唯一性兜底字节。
  */
-export function setSecureRandomSource(fn: (n: number) => Uint8Array): void {
+export function setSecureRandomSource(fn: SecureRandomFn): void {
   secureRandomFn = fn;
 }
 
@@ -147,20 +180,26 @@ function hasWebCryptoSubtle(): boolean {
   }
 }
 
-export function randomBytes(n: number): Uint8Array {
+export function randomBytes(n: number, opts: RandomOptions = {}): Uint8Array {
   // 优先 WebCrypto getRandomValues
   const c = globalThis.crypto as Crypto | undefined;
   if (c && typeof c.getRandomValues === 'function') {
     const out = new Uint8Array(n);
-    c.getRandomValues(out);
-    return out;
+    try {
+      c.getRandomValues(out);
+      return out;
+    } catch (err) {
+      // 小程序上这里可能是我们自己的垫片（池耗尽即抛）。密钥请求原样抛出就是
+      // 正确姿态；只有 uniquenessOnly 才继续往下找降级源。
+      if (!opts.uniquenessOnly) throw err;
+    }
   }
   // 平台注入的安全随机源（小程序）。注入源可能因随机池尚未就绪而抛错，
   // 捕获后尝试 noble 兜底；都失败时抛出注入源的原始错误（如「池未就绪」），
   // 比笼统的「无安全随机源」更有利于定位。
   if (secureRandomFn) {
     try {
-      return secureRandomFn(n);
+      return secureRandomFn(n, opts);
     } catch (e) {
       try {
         return nobleRandomBytes(n);
@@ -595,7 +634,8 @@ export async function encrypt(
   keyVersion = 1,
   aad?: Uint8Array
 ): Promise<Ciphertext> {
-  const nonce = randomBytes(12);
+  // IV 只要唯一、不需保密，是允许降级的唯一用途；盐/密钥/恢复码都走默认强随机分支。
+  const nonce = randomBytes(12, { uniquenessOnly: true });
   const ct = await aesGcmEncrypt(key, nonce, plaintext, aad);
   return {
     v: 1,

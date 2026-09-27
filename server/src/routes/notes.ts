@@ -63,28 +63,42 @@ const UpdateNoteSchema = z.object({
 
 // ========== GET /notes - 列出笔记 ==========
 
+/** since：增量同步游标，必须是 ISO-8601 */
+const SINCE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/;
+/** cursor：`${server_updated_at}|${id}`（id 仅做同毫秒并列时的决胜） */
+const CURSOR_RE = /^[^|]+\|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * GET /notes 的查询参数。
+ *
+ * 这里用 schema 而不是 `req.query.cursor as string`——那个 cast 是个谎言：
+ * `?cursor[]=a&cursor[]=b` 给 Express 的是数组，`?cursor[a]=1` 是对象，
+ * 而下游要做 `cursor.lastIndexOf('|')` 这种字符串手术。原先靠
+ * 「正则 test 会先把数组转成字符串、所以匹配不上」侥幸挡住，类型上并不成立
+ * （CodeQL #2/#3/#4 type-confusion-through-parameter-tampering）。
+ * z.string() 对数组/对象直接失败，400 的错误码与原先两段 if 完全一致。
+ *
+ * 定义顺序即优先级（since 先于 cursor）：两者都非法时仍报 invalid_since，与旧行为同。
+ */
+export const ListNotesQuerySchema = z.object({
+  since: z.string().regex(SINCE_RE).optional(),
+  cursor: z.string().regex(CURSOR_RE).optional(),
+});
+
 notesRouter.get('/notes', (req, res) => {
   const user = req.user as AuthUser;
-  const since = req.query.since as string | undefined;
+  const parsedQuery = ListNotesQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    const field = parsedQuery.error.issues[0]?.path?.[0];
+    res.status(400).json({ error: field === 'cursor' ? 'invalid_cursor' : 'invalid_since' });
+    return;
+  }
+  const { since, cursor } = parsedQuery.data;
+  // includeDeleted 保留「只认字符串 1」的宽松语义：数组/对象天然不相等，
+  // 这里没有类型混淆面；纳进 schema 反而会把老客户端带的多余参数变成 400。
   const includeDeleted = req.query.includeDeleted === '1';
-  // 分页游标：`${server_updated_at}|${id}`（id 仅做同毫秒并列时的决胜）。
   // 客户端循环携带响应里的 nextCursor 直到 hasMore=false 才算全量。
   // 老客户端不传 cursor 也不读 hasMore，行为与原先一致（只拿第一页）。
-  const cursor = req.query.cursor as string | undefined;
-
-  // since 是增量同步游标，必须为 ISO-8601 且不超长，非法值直接 400
-  if (
-    since !== undefined &&
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/.test(since)
-  ) {
-    res.status(400).json({ error: 'invalid_since' });
-    return;
-  }
-  const CURSOR_RE = /^[^|]+\|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (cursor !== undefined && !CURSOR_RE.test(cursor)) {
-    res.status(400).json({ error: 'invalid_cursor' });
-    return;
-  }
 
   const db = getDb();
   const PAGE_LIMIT = since ? 1000 : 500;

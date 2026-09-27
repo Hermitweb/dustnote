@@ -176,7 +176,10 @@ export function createApp(): Application {
       res.set('Content-Type', register.contentType);
       res.end(await register.metrics());
     } catch (err) {
-      res.status(500).end(String(err));
+      // 细节进日志，不回响应体：/metrics 在 METRICS_TOKEN 未配置时是公开的，
+      // 把内部错误文本（含依赖版本、路径、堆栈首行）原样吐出去等于免费侦察。
+      logger.error({ err }, 'metrics render failed');
+      res.status(500).end('metrics_unavailable');
     }
   });
 

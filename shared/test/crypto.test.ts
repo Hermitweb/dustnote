@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   deriveSecrets,
   generateMasterKey,
@@ -13,8 +13,10 @@ import {
   unwrapKey,
   isCiphertext,
   toBase64Url,
+  fromBase64,
   fromBase64Url,
   randomBytes,
+  setSecureRandomSource,
   zeroize,
   KDF_PARAMS,
 } from '../src/crypto';
@@ -355,5 +357,74 @@ describe('zeroize', () => {
     const roView = backing.subarray(0).map((b) => b) as Uint8Array;
     // subarray 返回的视图共享底层 buffer，但 map 返回新数组——这里只测「不抛」
     expect(() => zeroize(roView)).not.toThrow();
+  });
+});
+
+/**
+ * 随机源的强度契约（CodeQL #6/#7/#8 insecure-randomness）。
+ *
+ * 三条告警指着 KDF 的入参和被包裹的主密钥，病灶不在那里，而在小程序垫片：
+ * 随机池耗尽时它曾**无条件**降级成「时间戳+计数器+Math.random」，只 console.warn
+ * 一句；「长期密钥不得走降级路径」全靠调用方自觉先 await ensureRandomReady()——
+ * 一条只写在注释里的约束。现在用途必须由调用方显式声明（uniquenessOnly）。
+ */
+describe('randomBytes 强度契约', () => {
+  const WEAK = 0xab;
+
+  it('熵不足时密钥请求失败，不静默交出弱字节；nonce 请求仍可降级保可用', () => {
+    setSecureRandomSource((k, opts) => {
+      // 模拟「池耗尽」：只肯给唯一性用途返回可预测的兜底字节
+      if (!opts.uniquenessOnly) throw new Error('安全随机池未就绪');
+      return new Uint8Array(k).fill(WEAK);
+    });
+    vi.stubGlobal('crypto', {
+      // 运行时的取随机函数「存在但会抛」——正是垫片池耗尽时的样子
+      getRandomValues: () => {
+        throw new Error('池耗尽');
+      },
+    });
+    try {
+      // 强语义：失败就失败，绝不拿弱字节当盐/密钥
+      expect(() => randomBytes(16)).toThrow('池耗尽');
+      // 弱语义：GCM IV 要的是不重复，降级路径必须仍然走得通
+      const nonce = randomBytes(12, { uniquenessOnly: true });
+      expect(Array.from(nonce)).toEqual(new Array(12).fill(WEAK));
+    } finally {
+      vi.unstubAllGlobals();
+      // 交还一个等价于默认行为的源，避免给后续用例留后门或后遗症
+      setSecureRandomSource((k) => globalThis.crypto.getRandomValues(new Uint8Array(k)));
+    }
+  });
+
+  it('恢复默认后 randomBytes 照常工作且字节不复用', () => {
+    expect(Array.from(randomBytes(16))).not.toEqual(Array.from(randomBytes(16)));
+    expect(randomBytes(0).length).toBe(0);
+  });
+});
+
+/**
+ * CodeQL #1 polynomial-redos：`=+$` 在「一长串 '=' 后面跟个非 '=' 字符」的输入上
+ * 要逐起始位置回溯，成本随长度二次增长。这类输入来自存储/网络里的密文信封，
+ * 长度由对方决定——所以不是理论问题。现在改成从尾部线性扫描。
+ */
+describe('base64 填充剥离是线性的', () => {
+  it('十万个 = 结尾仍能毫秒级完成，且与不带动填充的结果一致', () => {
+    vi.stubGlobal('atob', undefined); // atob 在时走原生分支，测不到纯 JS 路径
+    try {
+      const body = 'AAAA';
+      // '=' 串后面必须跟一个非 '=' 字符才触发回溯：若整串以 '=' 结尾，
+      // /=+$/ 第一次尝试就匹配成功，压根不是二次方场景（实测差 6000 倍）。
+      const evil = body + '='.repeat(100_000) + '!';
+      const started = Date.now();
+      const out = fromBase64(evil);
+      const elapsed = Date.now() - started;
+      expect(out).toEqual(fromBase64(body));
+      // 实测旧写法 6014ms / 新写法 1ms。1 秒的门槛宽松 160 倍，又能稳定钉住回归
+      expect(elapsed).toBeLessThan(1000);
+      // 中间与尾部的 '=' 都不能被当成有效字符
+      expect(fromBase64('AA==BB')).toEqual(fromBase64('AABB'));
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
