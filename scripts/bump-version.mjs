@@ -63,7 +63,18 @@ if (!NEW) {
   process.exit(1);
 }
 const rootPkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-const OLD = fromIdx >= 0 ? args[fromIdx + 1] : rootPkg.version;
+const OLD_RAW = fromIdx >= 0 ? args[fromIdx + 1] : rootPkg.version;
+/**
+ * OLD 也要校验：它原先未经验证就拼进 `git grep -l "${OLD}"` 的 shell 命令行，
+ * `--from 'x\" ; <cmd> ; #'` 等于任意命令执行（NEW 一直有正则校验，OLD 漏了）。
+ * 下面还改成 execFileSync 传参数组——双保险，且不依赖引号技巧。
+ */
+const SEMVER_RE = /^\d+\.\d+\.\d+$/;
+if (!SEMVER_RE.test(String(OLD_RAW))) {
+  console.error(`旧版本号不合法（需要 x.y.z）: ${JSON.stringify(OLD_RAW)}`);
+  process.exit(1);
+}
+const OLD = String(OLD_RAW);
 if (!/^\d+\.\d+\.\d+$/.test(OLD)) {
   console.error(`旧版本号非法: ${OLD}`);
   process.exit(1);
@@ -98,7 +109,20 @@ for (const rel of VERSION_FILES) {
   if (!before.includes(OLD)) continue;
   const after = before.split(OLD).join(NEW);
   touched.push(rel);
-  if (!dryRun) writeFileSync(abs, after);
+  if (!dryRun) {
+    /*
+     * 写前复核：97 行读到的内容与磁盘当前内容不一致，说明中途有别人写过
+     * （编辑器保存、lint-staged、并发的另一次 bump）。
+     * 原先这里是无条件的读-改-写，会把对方的改动静默覆盖掉——
+     * 版本号被回退这种事，宁可停下让人看一眼。
+     */
+    const now = readFileSync(abs, 'utf8');
+    if (now !== before) {
+      console.error(`[中止] ${rel} 在写入前已被其它进程改动，请确认后重跑（避免静默覆盖）`);
+      process.exit(1);
+    }
+    writeFileSync(abs, after);
+  }
   changed++;
 }
 
@@ -164,10 +188,19 @@ const RESIDUAL_ALLOW = [
   'desktop/src/lib/updater.test.ts',
 ];
 if (!dryRun) {
-  const grep = execSync(
-    `git grep -l "${OLD}" -- . ":(exclude)CHANGELOG.md" ":(exclude)*.lock" || true`,
-    { cwd: ROOT, encoding: 'utf8' }
-  )
+  // execFileSync + 参数数组：命令内容不再经过 shell，OLD 也就无从"越狱"
+  let grepOut = '';
+  try {
+    grepOut = execFileSync(
+      'git',
+      ['grep', '-l', OLD, '--', '.', ':(exclude)CHANGELOG.md', ':(exclude)*.lock'],
+      { cwd: ROOT, encoding: 'utf8' }
+    );
+  } catch (err) {
+    // git grep 无匹配时退出码 1，属正常路径；其余错误照抛
+    if (err.status !== 1) throw err;
+  }
+  const grep = grepOut
     .trim()
     .split('\n')
     .filter(Boolean)
