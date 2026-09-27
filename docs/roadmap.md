@@ -740,6 +740,15 @@ _但 CodeQL 转绿不是因为它认了我的净化_（这是上一轮会说错�
 `docker:check` 三条跨包引用全覆盖、`tokens:check` 通过、`check-i18n` 556 key 全定义 + 三端对称 +
 内嵌 emoji 0/0、真实拨测 `ok=true` exit 0、CodeQL 检查 pass（**但见上表：两条 warning 仍在**）。
 
+**合并后实测（PR #10 → main，merge commit `4612402`）**：main 上 CI 与 CodeQL 双双 success，
+包括只在 main 上跑的那个 **Build & Push Docker Image** ——过去两次都是「CI 绿、现场炸」，
+这次它构建并推送成功（`ghcr.io/hermitweb/dustnote:latest` + `:4612402…`，digest `sha256:6cc7507f…`）。
+另外核对过 `9fe1a62`（v2.5.46 tag 所在，即线上镜像）到 main 的全部差异：14 个文件，
+**`shared/` 下零新增**，新增的只有 `scripts/status-probe.test.mjs`（不在镜像运行路径上）——
+也就是说这次合并没有给 Dockerfile 的 COPY 白名单添任何新面，那两次事故的前置条件不成立。
+本地无 docker，做不到起容器验运行时，因此这条结论的口径是「差异面为空 + 守卫通过 + CI 构建推送成功」，
+不含「我跑过那个镜像」这种没做过的事。
+
 ### 仍待办（下一轮起点）
 
 UI 这条线（阶段 1 / 2 / 3 的可量化部分）与 P0-1、P0-2、P0-6、TEST-004 均已收口。剩下的：
@@ -753,13 +762,34 @@ UI 这条线（阶段 1 / 2 / 3 的可量化部分）与 P0-1、P0-2、P0-6、TE
 4. **图标轨档（56px）读标签名**：浮层已能用，但形态还可以更好（同上，属打磨）。
 5. 备份**可恢复性**演练：`docs/operations-runbook.md` 有人工步骤，但没有自动化断言；
    状态页现在明确不声明它（见「拨测不覆盖的部分」）。
-6. **main 上 17 条既有 CodeQL 告警待逐条分诊**（本轮只处理 PR #10 新增的那几条）。按规则分布：
-   `js/insecure-randomness` ×3（`Math.random` 生成安全敏感值）、
-   `js/type-confusion-through-parameter-tampering` ×3、`js/regex/missing-regexp-anchor` ×3、
-   `js/missing-origin-check` ×2（`postMessage` 不校验 origin）、
-   `js/missing-token-validation` ×1（Cookie 无 CSRF 校验）、`js/polynomial-redos` ×1、
-   `js/insecure-helmet-configuration` ×1、`js/stack-trace-exposure` ×1、
-   `js/user-controlled-bypass` ×1、`js/file-system-race` ×1。
-   前三种里 randomness / missing-origin-check / missing-token-validation 看着像真缺陷，
+6. **main 上 14 条既有 CodeQL 告警待逐条分诊**（位置已核对，下一轮直接从这里开工，不必重新推导）：
+
+   | #         | 规则                                            | 位置                                         |
+   | --------- | ----------------------------------------------- | -------------------------------------------- |
+   | 17        | `js/user-controlled-bypass`                     | `server/src/routes/shares.ts:245`            |
+   | 16        | `js/file-system-race`                           | `server/src/services/update-manifest.ts:46`  |
+   | 15        | `js/missing-origin-check`                       | `web/src/lib/argon2-worker.ts:27`            |
+   | 14        | `js/missing-origin-check`                       | `web/public/sw.js:168`                       |
+   | 10        | `js/stack-trace-exposure`                       | `server/src/app.ts:179`                      |
+   | 9         | `js/insecure-helmet-configuration`              | `server/src/app.ts:62`                       |
+   | 8         | `js/insecure-randomness`                        | `web/src/lib/argon2-client.ts:61`            |
+   | 7         | `js/insecure-randomness`                        | `shared/src/crypto.ts:494`                   |
+   | 6         | `js/insecure-randomness`                        | `web/src/lib/slices/auth-slice.ts:382`       |
+   | 5         | `js/missing-token-validation`                   | `server/src/app.ts:94`                       |
+   | 4 / 3 / 2 | `js/type-confusion-through-parameter-tampering` | `server/src/routes/notes.ts:101 / 102 / 103` |
+   | 1         | `js/polynomial-redos`                           | `shared/src/crypto.ts:101`                   |
+
+   randomness ×3 / missing-origin-check ×2 / missing-token-validation 看着像真缺陷，
    要读每条数据流才有资格下「修」还是「带理由 dismiss」的结论，所以不顺手做掉。
-   另有本轮明确保留的两条：`js/file-access-to-http`、`js/http-to-file-access`（理由见上一节）。
+   台账确实在动：合并后 main 从 17 条降到 16 条 open，掉的三条（#11/#12/#13
+   `js/regex/missing-regexp-anchor`）是 P0-1 删掉 `scripts/cleanup-docs.js` 时自动 fixed 的——
+   死代码删掉告警就没了，这比任何 dismiss 都干净。
+
+   本轮明确保留的两条（非阻断，理由见「2026-09-27 落」§4）：
+   #19 `js/file-access-to-http` → `scripts/status-probe.mjs:90`；
+   #23 `js/http-to-file-access` → `scripts/status-probe.mjs:251`。
+   关掉它们需要 `security_events` 的写权限：当前 gh 凭证只有 repo / workflow / read:org / gist，
+   PATCH `.../dismissals` 回 404（读接口正常，所以是权限不够，不是路径写错）。
+   补一句 `gh auth refresh -h github.com -s security_events` 就能用 API 关，或在 Security 页手动 dismiss。
+   不采用 `advanced-security/dismiss-alerts` 那类 action + `// codeql[...]` 注释：那等于给仓库装一台
+   「以后凡带这行注释的告警一律自动关」的常驻机器，而这两条的分诊结论应当由人逐条守。
