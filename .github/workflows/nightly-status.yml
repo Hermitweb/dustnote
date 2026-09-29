@@ -1,13 +1,18 @@
 # 外部拨测（roadmap P0-1/P0-2）：从 GitHub 网络位置探测自托管实例。
-# 与服务器本机监控互补——它看不见"整机宕机/ISP 断流"，GitHub 跑在外部网络，
-# 挂了这个就是用户视角的"你的服务器没了"。失败自动开 issue（去重），
-# 恢复自动关闭；issue + Actions 红邮件双通道即"零订阅告警"。
+# 与服务器本机监控互补——它看不见「整机宕机/ISP 断流」，GitHub 跑在外部网络，
+# 挂了这个就是用户视角的「你的服务器没了」。失败自动开 issue（去重），恢复自动关闭。
 #
-# 2026-09-29 教训：这个 workflow 的三个 uses 钉版 SHA 全是查无此 commit 的值
-# （API 422），而 schedule 只在默认分支跑——于是它从写下那天起一次都没成功执行过，
-# 合并进 main 后的第一次真跑直接挂。更糟的是它连「我坏了」都报不出来：开 issue 的
-# 步骤在同一个 job 里，job 起不来就没有 issue。所以钉版可解析性改由
-# `pnpm action:pins` 守（在每次 push 都跑的 lint job 里，不依赖本 workflow）。
+# 这条 workflow 连着两次以同一种难看的方式失败，两段教训都留在文件里：
+#
+#  (1) 2026-09-29 上午：三个 uses 钉版 SHA 全是查无此 commit 的值（API 422），job 根本
+#      起不来；而「失败就开 issue」的步骤就在同一个 job 里，于是它连「我坏了」都说不出口。
+#      钉版的可解析性已由 pnpm action:pins 守（每次 push 都跑，不依赖被检查者自己）。
+#
+#  (2) 同日修好钉版后的第一次真跑：job 起来了，却死在 pnpm/action-setup 的版本冲突上
+#      （workflow 写 version: 9，package.json 的 packageManager 写 pnpm@9.12.0）。探针依然
+#      一步没跑，而「开 issue」那步因为读不到 probe.json 也一起失败——结果还是没有 issue。
+#      教训：报警器和被报警的东西不能在同一个失效域里。所以下面把上报拆成独立的 report job
+#      （needs: probe + if: failure()），且 probe.json 缺失时它照样开单，写明「探针未跑完」。
 
 name: Status Probe
 
@@ -25,10 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0（与 ci.yml 同 major）
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-        with:
-          version: 9
+        # 刻意不写 version：让 action 去读 package.json 的 packageManager。两处各写一份就是
+        # 上面 (2) 的直接原因（v4.3.0 起视为错误，不再静默取其一）。
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
@@ -42,30 +47,70 @@ jobs:
           const r = JSON.parse(require('fs').readFileSync('probe.json','utf8'));
           if (!r.ok) { console.error('::error::status probe failed: ' + r.results.filter(x=>!x.ok).map(x=>x.name+'('+x.note+')').join(', ')); process.exit(1); }
           "
-      - name: Open issue on failure
-        if: failure()
+      - name: Publish probe result for the reporter
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: probe-json
+          path: probe.json
+          if-no-files-found: ignore
+      - name: Close issue on recovery
+        if: success()
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for n in $(gh issue list --state open --search '[status-probe] in:title' --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "拨测已恢复绿：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          done
+
+  report:
+    name: Report probe failure
+    needs: probe
+    # 独立 job：探针那侧无论怎么坏（包括「业务一步都没跑」的坏法），报警这条路都得是通的。
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # 不 checkout 仓库：上报只需要 runner 自带的 gh，少一处自己会坏的地方
+      - name: Fetch probe result if there is one
+        continue-on-error: true
+        uses: actions/download-artifact@v5
+        with:
+          name: probe-json
+      - name: Open or update issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # gh 需要 repo 上下文。本 job 刻意不 checkout（少一处会坏的地方），那就必须显式给；
+          # 演练实测：不给就是「正文生成成功、gh issue create 却 exit 1」——报警器自己哑掉。
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           node -e "
-          const r = JSON.parse(require('fs').readFileSync('probe.json','utf8'));
-          const bad = r.results.filter(x => !x.ok);
-          const body = '拨测：' + r.url + '（期望版本 v' + r.expected + '）\n\n'
-            + bad.map(x => '- **' + x.name + '**: ' + (x.note ?? 'HTTP ' + x.status)).join('\n')
-            + '\n\nrun: ' + process.env.GITHUB_SERVER_URL + '/' + process.env.GITHUB_REPOSITORY + '/actions/runs/' + process.env.GITHUB_RUN_ID + '\n';
-          require('fs').writeFileSync('issue-body.md', body);
+          const fs = require('fs');
+          const NL = String.fromCharCode(10);
+          const run = process.env.RUN_URL;
+          let body;
+          try {
+            const r = JSON.parse(fs.readFileSync('probe.json', 'utf8'));
+            const bad = (r.results || []).filter((x) => !x.ok);
+            const detail = bad.length
+              ? bad.map((x) => '- **' + x.name + '**: ' + (x.note || 'HTTP ' + x.status)).join(NL)
+              : '（整体判红但无单项明细，见 run 日志）';
+            body = '拨测：' + r.url + '（期望版本 v' + r.expected + '）' + NL + NL + detail +
+              NL + NL + 'run: ' + run;
+          } catch (e) {
+            // 这就是 2026-09-29 那两次的情形：probe.json 压根不存在，探针一步都没跑。
+            body = '**探针未执行完成**：probe.json 读不到（' + e.message + '）。' + NL + NL +
+              '这既不是「线上正常」也不是「线上挂了」，而是**哨兵自己没站起来**——' +
+              '按 nightly-status.yml 头部教训 (1)/(2) 定位是哪一步死的。' + NL + NL + 'run: ' + run;
+          }
+          fs.writeFileSync('issue-body.md', body + NL);
+          console.log(body);
           "
-          EXISTING=$(gh issue list --state open --search "[status-probe] in:title" --json number --jq '.[0].number' || true)
+          EXISTING=$(gh issue list --state open --search '[status-probe] in:title' --json number --jq '.[0].number' || true)
           if [ -z "${EXISTING}" ]; then
             gh issue create --title "[status-probe] 外部拨测失败 $(date -u +%m-%d\ %H:%M)Z" --body-file issue-body.md
           else
             gh issue comment "${EXISTING}" --body-file issue-body.md || true
           fi
-      - name: Close issue on recovery
-        if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for n in $(gh issue list --state open --search "[status-probe] in:title" --json number --jq '.[].number'); do
-            gh issue close "$n" --comment "拨测已恢复绿：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          done
