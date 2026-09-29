@@ -68,6 +68,11 @@ jobs:
         # 钉 SHA 是供应链姿势，但钉一个不存在的 commit 比不钉更糟：job 直接起不来，
         # 而被检查的 workflow 自己的报错步骤也在同一个 job 里——坏了没人说话。
         # 2026-09-29 的 nightly-status.yml 就是这么静默失效了一段时间。
+        env:
+          # 必须显式给 token：未认证只有 60 次/小时，守卫会一路走 unknown，那就等于把
+          # "没查到"当成"查过了"——正是这次要防的那类静默。
+          # 认证后 5000 次/小时，去重后实际只需 15-30 次，余量很大。
+          GITHUB_TOKEN: ${{ github.token }}
         run: pnpm action:pins
       - name: Validate nginx config syntax with the production nginx
         # 容器是一体化的（node:22-alpine + apk nginx），nginx 配置写错一个字符就是
