@@ -82,29 +82,48 @@ test('annotated tag 要再解一层 object 才算数', async () => {
   );
 });
 
-test('可变 tag 只登记不报错（要不要全钉由人决定）', async () => {
-  const entries = parseUses('      - uses: actions/checkout@v5\n', 'ci.yml');
-  const { problems, mutable } = await check(entries, async () => null);
-  assert.deepEqual(problems, []);
-  assert.equal(mutable.length, 1);
+test('可变 tag：存在则只登记不报错；tag 与分支都查不到才报', async () => {
+  const entries = parseUses('      - uses: actions/checkout@v5', 'ci.yml');
+  // 存在（tag 命中）
+  const ok = await check(entries, async () => ({ ref: 'refs/tags/v5' }));
+  assert.deepEqual(ok.problems, [], '存在性通过就不该报错');
+  assert.equal(ok.mutable.length, 1, '但仍要登记：不锁内容这件事得看得见');
+  // 不存在（tag 与分支都查不到）——上游改名/删除就是这种失败，形态与钉假 SHA 一样
+  const gone = await check(entries, async (p) => (p.includes('/git/ref/') ? null : null));
+  assert.equal(gone.problems.length, 1);
+  assert.match(gone.problems[0], /可变引用解析不到/);
+  // 同一个 repo@ref 只问一次（否则 @v5 几十处会当场烧光未认证额度）
+  let calls = 0;
+  const counting = async () => {
+    calls++;
+    return { ref: 'refs/tags/v5' };
+  };
+  const many = parseUses(
+    '      - uses: actions/checkout@v5' +
+      String.fromCharCode(10) +
+      '      - uses: actions/checkout@v5',
+    'ci.yml'
+  );
+  assert.equal(many.length, 2);
+  await check(many, counting);
+  assert.equal(calls, 1, '两个相同引用应只查一次，实际查了 ' + calls + ' 次');
 });
 
-test('仓库现状：三处钉版全部可解析、注释版本对得上', async () => {
-  // 直接吃真实 workflow 目录：这条会随时间变，但正因为如此才值得钉住
-  const { collectUses } = await import('./check-action-pins.mjs');
-  const entries = collectUses();
-  const pinned = entries.filter((e) => e.pinned);
-  assert.ok(pinned.length >= 1, '至少 nightly-status.yml 的三处钉版应在册');
-  const fakeFetch = async (path) => {
-    const m = /commits\/([0-9a-f]{40})/.exec(path);
-    if (m) return { sha: m[1] };
-    const t = /tags\/([\w.]+)$/.exec(path);
-    if (t) return { object: { type: 'commit', sha: pinned[0].ref } };
-    return null;
-  };
-  const versions = [...new Set(pinned.map((e) => e.version).filter(Boolean))];
-  assert.equal(versions.length >= 1, true, '钉版处应写明声称版本，否则注释等于没写');
-  const bad = pinned.filter((e) => !/^[0-9a-f]{40}$/.test(e.ref));
-  assert.deepEqual(bad, [], '钉版必须是完整 40 位 SHA');
-  await check(entries, fakeFetch); // 假 fetch 下不抛异常即可，真判定由 CLI 负责
+test('问不到（限流/5xx）既不判红也不假装通过', async () => {
+  const entries = parseUses('      - uses: actions/checkout@v5', 'ci.yml');
+  const r = await check(entries, async () => {
+    throw new Error('HTTP 403');
+  });
+  assert.deepEqual(r.problems, [], '额度耗尽不是代码缺陷，不该判红');
+  assert.deepEqual(r.unknown, ['actions/checkout@v5'], '但必须报出来，不能悄悄当成通过');
+});
+
+test('钉版查不动时也走 unknown，而不是把守卫自己跑挂', async () => {
+  const entries = parseUses('      - uses: actions/checkout@' + SHA_A + ' # v5.1.0', 'n.yml');
+  const r = await check(entries, async () => {
+    throw new Error('HTTP 403');
+  });
+  assert.deepEqual(r.problems, []);
+  assert.equal(r.unknown.length, 1);
+  assert.match(r.unknown[0], /查询失败/);
 });
