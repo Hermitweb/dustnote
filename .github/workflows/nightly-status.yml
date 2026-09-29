@@ -58,6 +58,7 @@ jobs:
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           for n in $(gh issue list --state open --search '[status-probe] in:title' --json number --jq '.[].number'); do
             gh issue close "$n" --comment "拨测已恢复绿：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -80,6 +81,9 @@ jobs:
       - name: Open or update issue
         env:
           GH_TOKEN: ${{ github.token }}
+          # gh 需要 repo 上下文。本 job 刻意不 checkout（少一处会坏的地方），那就必须显式给；
+          # 演练实测：不给就是「正文生成成功、gh issue create 却 exit 1」——报警器自己哑掉。
+          GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           node -e "
