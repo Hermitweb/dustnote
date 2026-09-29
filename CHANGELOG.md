@@ -2,6 +2,27 @@
 
 本项目所有显著变更记录于此。格式基于 [Keep a Changelog](https://keepachangelog.com/)，版本遵循 [Semantic Versioning](https://semver.org/)。
 
+## [未发布]
+
+### 新增：项目官网
+
+- `site/` 工作区包（Vite + Tailwind + 原生 TS）发布到 GitHub Pages：
+  <https://hermitweb.github.io/dustnote/>。复用产品的设计令牌与 mist-blue 主题种子，
+  正文为全静态 HTML（不开 JavaScript 也能读全），零第三方请求。
+- 官网内容由测试钉住：版本、平台表、安全结论、工程承诺、文档卡片可达性、
+  锚点落点、配色与产品同源、品牌中文名与 i18n 一致、HTML 标签配对。
+  官网写歪比没有官网更糟——所以它每条声明都得可证。
+
+### 新增：文档与门禁
+
+- `docs/README.md` 成为全部 markdown 的唯一索引；新增 `docs/architecture.md` 与 `docs/adr/`（5 篇决策记录）；
+  `docs/api.md` 改为从路由代码生成（57 条路由 / 13 条公开），不再手抄。
+- 四条新门禁：`docs:check`（死链/锚点/孤儿文档）、`api:check`（端点清单漂移）、`action:pins`（钉版可解析性）、
+  `workflows:check`（workflow 结构合法性：缺 `runs-on` 会让整份文件被 GitHub 拒绝加载）。
+- `pnpm verify` 补齐 CI 里跑着、本地却漏掉的三条（`i18n:check`、`sw:check`、`readme:check`），
+  现在 17 条命令串成一条：本地能跑完的才算规矩。
+- 测试：单测 607 例（八包）、运维脚本测试 53 例。
+
 ## [2.5.46] - 2026-09-27
 
 ### 设计系统落地（UI 阶段 0-2）
@@ -1510,7 +1531,7 @@ v2.1.0 落实 production-readiness.md 中全部 8 项代码层 P1 任务，让�
 
 ### 重大变更 — 单机/联机双模式架构
 
-DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全没有服务器的情况下也能独立运行。详见 [standalone-mode.md](./.trae/documents/standalone-mode.md)。
+DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全没有服务器的情况下也能独立运行。详见 `standalone-mode.md`（standalone-mode.md，早期设计稿未入库）。
 
 #### 新增 — shared 层
 
@@ -1583,16 +1604,16 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 
 ### 文档
 
-- 新增 [standalone-mode.md](./.trae/documents/standalone-mode.md)（单机模式完整说明）
-- 更新 [PRD.md](./.trae/documents/PRD.md)：添加 v2.0.0 双模式需求章节
-- 更新 [roadmap.md](./.trae/documents/roadmap.md)：新增 M8 里程碑（v2.0.0 双模式架构）
-- 更新 [tech-architecture.md](./.trae/documents/tech-architecture.md)：添加数据访问层抽象、双模式架构、单机鉴权章节
-- 更新 [data-flow.md](./.trae/documents/data-flow.md)：添加单机模式数据流、模式切换数据迁移流程
-- 更新 [update-strategy.md](./.trae/documents/update-strategy.md)：添加 v2.0.0 资产命名约定、三分区 Release body、单机/联机更新策略
-- 更新 [security.md](./.trae/documents/security.md)：添加单机模式安全模型章节（威胁模型、masterKey 双重包装、客户端锁定、与联机模式差异对比）
-- 更新 [production-readiness.md](./.trae/documents/production-readiness.md)：版本号 v2.0.0、MMKV/AsyncStorage 选择说明、单机模式生产就绪检查项
-- 更新 [v1.1-medium-low-priority.md](./.trae/documents/v1.1-medium-low-priority.md)：标注全部任务完成状态
-- 更新 [integrate-velopack.md](./.trae/documents/integrate-velopack.md)：标注集成完成、添加 v2.0.0 Release 工作流改造说明
+- 新增 `standalone-mode.md`（standalone-mode.md，早期设计稿未入库）（单机模式完整说明）
+- 更新 `PRD.md`（PRD.md，早期设计稿未入库）：添加 v2.0.0 双模式需求章节
+- 更新 `roadmap.md`（roadmap.md，早期设计稿未入库）：新增 M8 里程碑（v2.0.0 双模式架构）
+- 更新 `tech-architecture.md`（tech-architecture.md，早期设计稿未入库）：添加数据访问层抽象、双模式架构、单机鉴权章节
+- 更新 `data-flow.md`（data-flow.md，早期设计稿未入库）：添加单机模式数据流、模式切换数据迁移流程
+- 更新 `update-strategy.md`（update-strategy.md，早期设计稿未入库）：添加 v2.0.0 资产命名约定、三分区 Release body、单机/联机更新策略
+- 更新 `security.md`（security.md，早期设计稿未入库）：添加单机模式安全模型章节（威胁模型、masterKey 双重包装、客户端锁定、与联机模式差异对比）
+- 更新 `production-readiness.md`（production-readiness.md，早期设计稿未入库）：版本号 v2.0.0、MMKV/AsyncStorage 选择说明、单机模式生产就绪检查项
+- 更新 `v1.1-medium-low-priority.md`（v1.1-medium-low-priority.md，早期设计稿未入库）：标注全部任务完成状态
+- 更新 `integrate-velopack.md`（integrate-velopack.md，早期设计稿未入库）：标注集成完成、添加 v2.0.0 Release 工作流改造说明
 - 更新 [README.md](./README.md)：双模式介绍、快速开始（单机/联机）
 - 更新 [docs/user-guide.md](./docs/user-guide.md)：模式选择、setup/unlock、CRUD、导入/导出、模式切换
 - 更新 [docs/self-hosting.md](./docs/self-hosting.md)：链接到 DEPLOY.md
@@ -1630,13 +1651,13 @@ DustNote v2.0.0 引入**单机/联机双模式架构**，让客户端在完全�
 
 ### 文档
 
-- [PRD](./.trae/documents/PRD.md)
-- [技术架构](./.trae/documents/tech-architecture.md)
-- [主题系统](./.trae/documents/theme-system.md)
-- [导入导出与分享](./.trae/documents/data-flow.md)
-- [安全规范](./.trae/documents/security.md)
-- [研发路线图](./.trae/documents/roadmap.md)
-- [生产上线检查单](./.trae/documents/production-readiness.md)
+- `PRD.md`（PRD，早期设计稿未入库）
+- `tech-architecture.md`（技术架构，早期设计稿未入库）
+- `theme-system.md`（主题系统，早期设计稿未入库）
+- `data-flow.md`（导入导出与分享，早期设计稿未入库）
+- `security.md`（安全规范，早期设计稿未入库）
+- `roadmap.md`（研发路线图，早期设计稿未入库）
+- `production-readiness.md`（生产上线检查单，早期设计稿未入库）
 
 [Unreleased]: https://github.com/Hermitweb/dustnote/compare/v2.2.0...HEAD
 [2.2.0]: https://github.com/Hermitweb/dustnote/releases/tag/v2.2.0
