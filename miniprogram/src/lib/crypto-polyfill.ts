@@ -15,7 +15,7 @@
  * 必须在应用入口最先引入（app.tsx 顶部），保证任何加密操作前已就绪。
  */
 
-import { setSecureRandomSource } from '@dustnote/shared';
+import { setSecureRandomSource, setUniquenessRandomSource } from '@dustnote/shared';
 
 /** wx getRandomValues 单次请求上限 */
 const POOL_CAPACITY = 1024;
@@ -126,28 +126,25 @@ export function ensureRandomReady(timeoutMs = 8000): Promise<void> {
 /**
  * 同步从池中取 n 字节（单次请求不得超过池容量）。
  *
- * 默认强语义：池耗尽即抛，密钥材料绝不降级。只有 opts.uniquenessOnly 为真时
- * 才允许返回「时间戳+递增计数器+Math.random」的兜底字节——那类请求要的是唯一性
- * 而不是保密性（AES-GCM 的 IV 正是如此，重复才是它的灾难，泄露不是）。
+ * 只有强语义：池耗尽即抛。密钥材料绝不降级。
  *
- * 这条分界以前只写在注释里、靠调用方自觉先 await ensureRandomReady()；现在由
- * shared 的 randomBytes 把用途传进来，忘了声明也拿不到弱字节（CodeQL #6/#7/#8）。
+ * 这条分界以前只写在注释里、靠调用方自觉先 await ensureRandomReady()；后来改成
+ * 一个布尔参数（randomBytes(n, {uniquenessOnly})），设计上是收紧了，但污点图没变——
+ * 两条分支的返回值汇成同一个变量，Math.random 照样能流到 deriveSecrets 的盐，
+ * 所以 CodeQL #6/#7/#8 一条都没关。现在弱兜底单独注册给 setUniquenessRandomSource，
+ * 只有 randomUniqueBytes（GCM 的 IV）看得见它：这里靠的是结构，不是自觉。
  */
-function takeFromPool(n: number, opts: { uniquenessOnly?: boolean } = {}): Uint8Array {
+function takeFromPool(n: number): Uint8Array {
   if (n > POOL_CAPACITY) {
     throw new Error('安全随机请求超过单次上限');
   }
   if (poolPos + n > pool.length) {
     // 开发者工具模拟器上 wx 安全随机 API 可能整体不可用（真机可用），池永远填不上。
-    // 此时若用途只是 nonce：退化为「时间戳+计数器+Math.random」，熵弱但保证唯一，
-    // 让模拟器上的功能调试得以继续；若是密钥材料：直接抛，宁可失败不可弱生成。
-    if (!opts.uniquenessOnly) {
-      throw new Error(
-        '安全随机池未就绪（wx 安全随机 API 不可用？），已拒绝为密钥材料生成弱随机字节'
-      );
-    }
-    console.warn('[DustNote] 安全随机池耗尽，本次走弱随机兜底（仅 IV/nonce）');
-    return localFallbackBytes(n);
+    // 这时宁可让密钥生成失败：nonce 那类只要唯一性的请求由 shared 转去问唯一性源，
+    // 不会走到这里来要弱字节。
+    // 抛错而不是降级：shared 侧 randomBytes 会把它变成明确的生成失败，
+    // 而 randomUniqueBytes 会改问唯一性源（同一个 localFallbackBytes）。
+    throw new Error('安全随机池未就绪（wx 安全随机 API 不可用？），已拒绝生成弱随机密钥字节');
   }
   const out = new Uint8Array(n);
   out.set(pool.subarray(poolPos, poolPos + n));
@@ -162,8 +159,9 @@ function takeFromPool(n: number, opts: { uniquenessOnly?: boolean } = {}): Uint8
 let fallbackCounter = 0;
 /**
  * 池未就绪时的本地同步兜底：毫秒时间戳(8B) + 递增计数器(4B) + Math.random 补位。
- * 熵不足以产密钥，只保证「同一进程内不重复」；唯一调用门是 takeFromPool 的
- * uniquenessOnly 分支——新代码不要直接用它。
+ * 熵不足以产密钥，只保证「同一进程内不重复」。它唯一的出口是注册给 shared 的
+ * setUniquenessRandomSource，因此只可能被 randomUniqueBytes（GCM 的 IV）取用；
+ * 新增调用点请先想清楚：你要的是保密还是不撞车。
  */
 function localFallbackBytes(n: number): Uint8Array {
   const out = new Uint8Array(n);
@@ -185,7 +183,9 @@ function localFallbackBytes(n: number): Uint8Array {
 // 启动即预填充
 void refillPool();
 
+// 两个源分开注册：弱兜底绝不进 secure 通道，于是它在调用图上根本到不了密钥路径
 setSecureRandomSource(takeFromPool);
+setUniquenessRandomSource(localFallbackBytes);
 
 // ========== crypto.getRandomValues 垫片 ==========
 // randomBytes 的第一优先路径是 crypto.getRandomValues;若运行时有 crypto
@@ -196,9 +196,9 @@ if (!gAny.crypto || typeof gAny.crypto.getRandomValues !== 'function') {
   const base = (gAny.crypto ?? {}) as object;
   gAny.crypto = Object.assign({}, base, {
     getRandomValues: (arr: Uint8Array): Uint8Array => {
-      // 垫片对外就代表「安全随机源」，因此只走强语义；shared 那边若声明了
-      // uniquenessOnly，这里抛出后还会再经 secureRandomFn 拿到兜底字节。
-      arr.set(takeFromPool(arr.length, { uniquenessOnly: false }));
+      // 垫片对外就代表「安全随机源」，所以只有强语义：池耗尽即抛。
+      // shared 的 randomUniqueBytes 抓到这个错后，才会去问唯一性源。
+      arr.set(takeFromPool(arr.length));
       return arr;
     },
   });
