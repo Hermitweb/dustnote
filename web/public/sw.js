@@ -166,6 +166,10 @@ async function staleWhileRevalidate(request) {
 // Message：接收前端指令（如强制更新）
 // ====================================================================
 self.addEventListener('message', (event) => {
+  // 只接受同源客户端的指令。skipWaiting 会立刻启用新版本 SW，
+  // 不该由任何能 postMessage 进来的东西触发——同源是最低限度的凭据。
+  // （ServiceWorkerMessageEvent 的 origin 来自发送方客户端；跨源直接忽略。）
+  if (event.origin !== self.location.origin) return;
   if (event.data === 'skipWaiting') {
     self.skipWaiting();
   }

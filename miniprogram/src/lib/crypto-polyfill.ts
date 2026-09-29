@@ -123,18 +123,30 @@ export function ensureRandomReady(timeoutMs = 8000): Promise<void> {
   });
 }
 
-/** 同步从池中取 n 字节（单次请求不得超过池容量） */
-function takeFromPool(n: number): Uint8Array {
+/**
+ * 同步从池中取 n 字节（单次请求不得超过池容量）。
+ *
+ * 默认强语义：池耗尽即抛，密钥材料绝不降级。只有 opts.uniquenessOnly 为真时
+ * 才允许返回「时间戳+递增计数器+Math.random」的兜底字节——那类请求要的是唯一性
+ * 而不是保密性（AES-GCM 的 IV 正是如此，重复才是它的灾难，泄露不是）。
+ *
+ * 这条分界以前只写在注释里、靠调用方自觉先 await ensureRandomReady()；现在由
+ * shared 的 randomBytes 把用途传进来，忘了声明也拿不到弱字节（CodeQL #6/#7/#8）。
+ */
+function takeFromPool(n: number, opts: { uniquenessOnly?: boolean } = {}): Uint8Array {
   if (n > POOL_CAPACITY) {
     throw new Error('安全随机请求超过单次上限');
   }
   if (poolPos + n > pool.length) {
-    // 开发者工具模拟器上 wx 安全随机 API 可能整体不可用（真机可用），
-    // 池永远填不上。此时退化为「时间戳+计数器+Math.random」本地兜底：
-    // 熵弱于 wx 安全随机，但保证 IV 唯一性（GCM nonce 的硬性要求），
-    // 让模拟器上的功能调试可以继续；生产数据以真机安全源为准。
-    // 长期密钥材料不得走此路径——调用方须先 await ensureRandomReady()。
-    console.warn('[DustNote] 安全随机池耗尽，本次走弱随机兜底（仅应为 IV/nonce）');
+    // 开发者工具模拟器上 wx 安全随机 API 可能整体不可用（真机可用），池永远填不上。
+    // 此时若用途只是 nonce：退化为「时间戳+计数器+Math.random」，熵弱但保证唯一，
+    // 让模拟器上的功能调试得以继续；若是密钥材料：直接抛，宁可失败不可弱生成。
+    if (!opts.uniquenessOnly) {
+      throw new Error(
+        '安全随机池未就绪（wx 安全随机 API 不可用？），已拒绝为密钥材料生成弱随机字节'
+      );
+    }
+    console.warn('[DustNote] 安全随机池耗尽，本次走弱随机兜底（仅 IV/nonce）');
     return localFallbackBytes(n);
   }
   const out = new Uint8Array(n);
@@ -148,7 +160,11 @@ function takeFromPool(n: number): Uint8Array {
 }
 
 let fallbackCounter = 0;
-/** 池未就绪时的本地同步兜底：毫秒时间戳(8B) + 递增计数器(4B) + Math.random 补位 */
+/**
+ * 池未就绪时的本地同步兜底：毫秒时间戳(8B) + 递增计数器(4B) + Math.random 补位。
+ * 熵不足以产密钥，只保证「同一进程内不重复」；唯一调用门是 takeFromPool 的
+ * uniquenessOnly 分支——新代码不要直接用它。
+ */
 function localFallbackBytes(n: number): Uint8Array {
   const out = new Uint8Array(n);
   let v = Date.now();
@@ -180,7 +196,9 @@ if (!gAny.crypto || typeof gAny.crypto.getRandomValues !== 'function') {
   const base = (gAny.crypto ?? {}) as object;
   gAny.crypto = Object.assign({}, base, {
     getRandomValues: (arr: Uint8Array): Uint8Array => {
-      arr.set(takeFromPool(arr.length));
+      // 垫片对外就代表「安全随机源」，因此只走强语义；shared 那边若声明了
+      // uniquenessOnly，这里抛出后还会再经 secureRandomFn 拿到兜底字节。
+      arr.set(takeFromPool(arr.length, { uniquenessOnly: false }));
       return arr;
     },
   });

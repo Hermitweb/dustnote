@@ -6,7 +6,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { config } from '../env.js';
 import { compareSemver } from '@dustnote/shared';
@@ -36,21 +36,37 @@ const hashCache = new Map<string, { mtimeMs: number; size: number; hash: string 
  */
 function artifactFor(filename: string): { url: string; hash: string; size: number } | undefined {
   const path = join(DOWNLOADS_DIR, filename);
-  if (!existsSync(path)) return undefined;
-  const stat = statSync(path);
-  const cached = hashCache.get(path);
-  let hash: string;
-  if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
-    hash = cached.hash;
-  } else {
-    hash = `sha256:${createHash('sha256').update(readFileSync(path)).digest('hex')}`;
-    hashCache.set(path, { mtimeMs: stat.mtimeMs, size: stat.size, hash });
+  /*
+   * 只打开一次，之后 stat 与 read 都落在同一个 fd 上（CodeQL #16 file-system-race）。
+   * 原先是 existsSync → statSync → readFileSync 三次独立寻径：中间文件被换掉时，
+   * 清单会把「旧文件的 size/mtime」与「新文件的 hash」拼在一起发给客户端，
+   * 于是升级校验对着一个从没存在过的组合。fd 版本让这份组合至少自洽。
+   */
+  let fd: number | undefined;
+  try {
+    fd = openSync(path, 'r');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw err;
   }
-  return {
-    url: `${config.webOrigin}/downloads/${filename}`,
-    hash,
-    size: stat.size,
-  };
+  try {
+    const stat = fstatSync(fd);
+    const cached = hashCache.get(path);
+    let hash: string;
+    if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+      hash = cached.hash;
+    } else {
+      hash = `sha256:${createHash('sha256').update(readFileSync(fd)).digest('hex')}`;
+      hashCache.set(path, { mtimeMs: stat.mtimeMs, size: stat.size, hash });
+    }
+    return {
+      url: `${config.webOrigin}/downloads/${filename}`,
+      hash,
+      size: stat.size,
+    };
+  } finally {
+    closeSync(fd);
+  }
 }
 
 function getStaticArtifacts() {

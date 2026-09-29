@@ -29,7 +29,16 @@ function stopServer(srv) {
   return new Promise((resolve) => srv.close(() => resolve()));
 }
 
-function startServer(healthVersion) {
+/** 与 deploy/nginx.conf 里那份策略同形；测试用它验证探针的 CSP 断言 */
+// 显式 + 连接：相邻字符串字面量在 JS 里不会自动拼接（那是 C/Python 的习惯），
+// ASI 会把它们变成三条独立语句——于是 CSP_OK 只剩第一段，测试就在'应判绿'处红掉。
+const CSP_OK =
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" +
+  " img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';" +
+  " object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+
+function startServer(healthVersion, opts = {}) {
+  const { omitCsp = false } = opts;
   return new Promise((resolve) => {
     const srv = http.createServer((req, res) => {
       res.setHeader('content-type', 'application/json');
@@ -44,6 +53,7 @@ function startServer(healthVersion) {
         return res.end('{}');
       }
       res.setHeader('content-type', 'text/html');
+      if (!omitCsp) res.setHeader('content-security-policy', CSP_OK);
       res.end('<html>ok</html>');
     });
     srv.listen(0, () => resolve(srv));
@@ -178,5 +188,55 @@ test('网络回包的 HTML/链接载荷不得进入状态页表格', async () =>
     if (existsSync(backup)) copyFileSync(backup, target);
     rmSync(dir, { recursive: true, force: true });
     await stopServer(srv);
+  }
+});
+
+/**
+ * 边缘 CSP 必须实测，不能信配置文件「写过了」。
+ *
+ * nginx 的 add_header 不继承：子 location 只要自己声明过任何 add_header，父级的安全头
+ * 就整个不再出现在该路径的响应上——deploy/nginx.conf 因此在三处各抄了同一份头。这种
+ * 「抄三份」的结构，一次改动就可能漏一处，而漏掉的正好是页面。代码里看不见这个失败
+ * （helmet 的 CSP 本来就是关的），只有拨测看得见。
+ */
+test('页面响应没有 CSP 头 → 判红（边缘安全头不能靠配置自证）', async () => {
+  const srv = await startServer('2.5.46', { omitCsp: true });
+  try {
+    const r = await runProbe(srv.address().port);
+    assert.equal(r.code, 1, '缺 CSP 必须整体判红');
+    const rep = JSON.parse(r.out);
+    const item = rep.results.find((x) => x.name === 'csp-page');
+    assert.ok(item, '应有 csp-page 探测项');
+    assert.equal(item.ok, false);
+    assert.match(item.note, /Content-Security-Policy/);
+  } finally {
+    await stopServer(srv);
+  }
+});
+
+test('CSP 在位但缺关键 directive → 判红，且只报缺哪一项', async () => {
+  const weak = http.createServer((req, res) => {
+    if (req.url.includes('/health')) {
+      res.setHeader('content-type', 'application/json');
+      return res.end(JSON.stringify({ ok: true, db: 'ok', version: '2.5.46' }));
+    }
+    res.setHeader('content-type', 'text/html');
+    // 只给 default-src：script-src / object-src / frame-ancestors / base-uri 全缺
+    res.setHeader('content-security-policy', "default-src 'self'");
+    res.end('<html>ok</html>');
+  });
+  await new Promise((r) => weak.listen(0, r));
+  try {
+    const r = await runProbe(weak.address().port);
+    assert.equal(r.code, 1);
+    const item = JSON.parse(r.out).results.find((x) => x.name === 'csp-page');
+    assert.equal(item.ok, false);
+    assert.match(item.note, new RegExp('script-src .self.'));
+    // 报告里不回填响应头原文（那是网络数据），只列缺失的 directive
+    assert.ok(!item.note.includes('unsafe-inline'), 'note 不得回显响应头原文');
+  } finally {
+    weak.closeAllConnections?.();
+    weak.unref?.();
+    await new Promise((r) => weak.close(() => r()));
   }
 });

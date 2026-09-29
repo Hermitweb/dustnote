@@ -2,8 +2,12 @@
  * 笔记路由数据层单元测试
  *
  * notesRouter 的 handler 是 DB 查询的薄封装（路由层无独立业务逻辑）。
- * 测试 HTTP 层需要 supertest（未安装），因此这里直接验证 handler 依赖的
- * DB 查询语义：乐观锁、软删除/恢复/永久删除、includeDeleted 过滤。
+ * 这里直接验证 handler 依赖的 DB 查询语义：乐观锁、软删除/恢复/永久删除、
+ * includeDeleted 过滤。
+ *
+ * （原先这里写着 「supertest 未安装」——它其实装着，app.test.ts 就在用。
+ *  但 notes 路由的 auth 中间件在参数校验之前就返回 401，走 HTTP 拿不到
+ *  invalid_since/invalid_cursor 这条路，所以查询参数的类型面在文末直接测 schema。）
  *
  * 这样能捕获：schema 约束违反、WHERE 条件错误、version 自增逻辑等回归。
  * 加密本身由 shared/test/crypto.test.ts 覆盖，ciphertext 当作不透明字符串。
@@ -392,5 +396,57 @@ describe('notes data layer (queries used by notesRouter handlers)', () => {
       const page2 = listSql(last1.server_updated_at, last1.id);
       expect(page2.map((r) => r.id)).toEqual(['pg-a', 'pg-old']);
     });
+  });
+});
+
+/**
+ * GET /notes 查询参数的类型面（CodeQL #2/#3/#4
+ * type-confusion-through-parameter-tampering）。
+ *
+ * 路由里原先写 `req.query.cursor as string | undefined`——这个 cast 是谎言：
+ * `?cursor[]=a&cursor[]=b` 给 Express 的是数组，`?cursor[a]=1` 是对象，
+ * 而下一行就对它做 cursor.lastIndexOf('|')。旧代码挡住攻击面靠的是
+ * 「正则 test 会把数组先转成字符串、于是匹配不上」——那是巧合，不是检查：
+ * 谁把判断换成 includes/startsWith，防线当场消失。
+ */
+describe('GET /notes 查询参数的类型', () => {
+  const ISO = '2026-09-27T00:00:00.000Z';
+  const CURSOR = ISO + '|11111111-2222-3333-4444-555555555555';
+
+  async function schema() {
+    const { ListNotesQuerySchema } = await import('./notes.js');
+    return ListNotesQuerySchema;
+  }
+
+  it('数组形态的参数直接拒——数组里装一个合法值也拒', async () => {
+    const S = await schema();
+    expect(S.safeParse({ since: [ISO, ISO] }).success).toBe(false);
+    expect(S.safeParse({ cursor: [CURSOR, CURSOR] }).success).toBe(false);
+    // 单元素数组转成字符串后「看起来就像合法的」，正是旧写法的侥幸所在
+    expect(S.safeParse({ cursor: [CURSOR] }).success).toBe(false);
+  });
+
+  it('对象形态的参数（?cursor[a]=1）同样拒', async () => {
+    const S = await schema();
+    expect(S.safeParse({ cursor: { a: CURSOR } }).success).toBe(false);
+    expect(S.safeParse({ since: { a: ISO } }).success).toBe(false);
+  });
+
+  it('合法字符串参数原样通过（老客户端零行为变化）', async () => {
+    const S = await schema();
+    const ok = S.safeParse({ since: ISO, cursor: CURSOR });
+    expect(ok.success).toBe(true);
+    if (ok.success) {
+      expect(ok.data.since).toBe(ISO);
+      expect(ok.data.cursor).toBe(CURSOR);
+    }
+    expect(S.safeParse({}).success).toBe(true);
+  });
+
+  it('两个都非法时报 invalid_since（沿用原先两段 if 的优先级）', async () => {
+    const S = await schema();
+    const bad = S.safeParse({ since: 'yesterday', cursor: 'not-a-cursor' });
+    expect(bad.success).toBe(false);
+    if (!bad.success) expect(bad.error.issues[0]?.path?.[0]).toBe('since');
   });
 });

@@ -59,6 +59,23 @@ jobs:
         # tokens.css / tailwind-colors.mjs，而 CI 的 docker build 是 main-only，
         # 缺口一路活到现场构建。此静态守卫在所有分支的 lint job 即拦
         run: pnpm docker:check
+      - name: Verify nginx security headers survive add_header inheritance
+        # nginx 的 add_header 不继承：某 location 一旦自己写过任意 add_header
+        # （哪怕只是 Cache-Control），父级整套安全头就静默消失。线上实测到 /api/
+        # 与 /metrics 就是这样丢了 nginx 的 CSP——配置文本里完全看不出来。
+        run: pnpm security:headers
+      - name: Validate nginx config syntax with the production nginx
+        # 容器是一体化的（node:22-alpine + apk nginx），nginx 配置写错一个字符就是
+        # 下次升级起不来，而 node 侧所有门禁都碰不到它。刻意用同一个基础镜像跑
+        # apk 的 nginx：官方 nginx:alpine 的 include 路径是 conf.d 而非 http.d，
+        # 拿它验等于没验。本机没有 docker，因此这一步只在 CI 生效。
+        run: |
+          docker run --rm -v "$PWD/deploy:/deploy:ro" node:22-alpine sh -c '
+            apk add --no-cache nginx >/dev/null 2>&1 || exit 1 
+            mkdir -p /run/nginx /var/log/nginx /var/lib/nginx /app/web-dist 
+            cp /deploy/nginx.conf /etc/nginx/http.d/default.conf 
+            nginx -t
+          '
 
       - name: Check i18n keys
         run: node scripts/check-i18n.mjs
