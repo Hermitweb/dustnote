@@ -8,9 +8,9 @@
 
 - [ ] README.md 中快速开始已更新
 - [ ] CHANGELOG.md 已写入本版本
-- [ ] [.trae/documents/PRD.md](../.trae/documents/PRD.md) 与实际功能一致
-- [ ] [.trae/documents/tech-architecture.md](../.trae/documents/tech-architecture.md) 与代码一致
-- [ ] [.trae/documents/security.md](../.trae/documents/security.md) §15 安全清单全部勾选
+- [ ] `PRD.md`（.trae/documents/PRD.md，早期设计稿未入库） 与实际功能一致
+- [ ] `tech-architecture.md`（.trae/documents/tech-architecture.md，早期设计稿未入库） 与代码一致
+- [ ] `security.md`（.trae/documents/security.md，早期设计稿未入库） §15 安全清单全部勾选
 - [ ] [docs/user-guide.md](./user-guide.md) 截图与 UI 一致
 - [ ] [docs/self-hosting.md](./self-hosting.md) 跑通一次
 - [ ] [docs/faq.md](./faq.md) 覆盖本期变更
