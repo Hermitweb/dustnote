@@ -18,6 +18,9 @@ out/
 # 状态页由 scripts/status-probe.mjs --update 整段重写（表格列宽随实测数据变）。
 # prettier 的表格对齐按东亚字符宽度算列宽，复刻进探针是拿脆弱换安静；
 # 拨测一次就会变一次，让 CI 挑生成器的笔迹属于稳定误报。
+# 机器生成的 markdown：表格宽度由生成器决定，prettier 会重排列宽，两者互相打
+# （api.md 由 scripts/gen-api-inventory.mjs 生成；status.md 由 status-probe 生成）
+docs/api.md
 docs/status.md
 coverage/
 *.tsbuildinfo
