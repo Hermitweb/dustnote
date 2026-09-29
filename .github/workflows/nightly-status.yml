@@ -2,17 +2,21 @@
 # 与服务器本机监控互补——它看不见「整机宕机/ISP 断流」，GitHub 跑在外部网络，
 # 挂了这个就是用户视角的「你的服务器没了」。失败自动开 issue（去重），恢复自动关闭。
 #
-# 这条 workflow 连着两次以同一种难看的方式失败，两段教训都留在文件里：
+# 这条 workflow 连着两轮以同一种方式失败：坏了，但不吭声。两段教训都留在文件里。
 #
-#  (1) 2026-09-29 上午：三个 uses 钉版 SHA 全是查无此 commit 的值（API 422），job 根本
-#      起不来；而「失败就开 issue」的步骤就在同一个 job 里，于是它连「我坏了」都说不出口。
-#      钉版的可解析性已由 pnpm action:pins 守（每次 push 都跑，不依赖被检查者自己）。
+#  (1) 三个 uses 钉版 SHA 全是查无此 commit 的值（API 422），job 在 Set up job 阶段就死掉。
+#      它进 main 之后 09-27 16:12 至 09-29 03:43 共 6 次排期运行，6 次全部这样失败，日志首条
+#      错误一字不差；而「失败就开 issue」的步骤就在同一个 job 里，于是它连「我坏了」都说不
+#      出口——那两天外部视角的验证量是 0。现在由 pnpm action:pins 守（每次 push 都跑，不依赖
+#      被检查者自己），且可变引用的存在性也一并验。
 #
-#  (2) 同日修好钉版后的第一次真跑：job 起来了，却死在 pnpm/action-setup 的版本冲突上
-#      （workflow 写 version: 9，package.json 的 packageManager 写 pnpm@9.12.0）。探针依然
-#      一步没跑，而「开 issue」那步因为读不到 probe.json 也一起失败——结果还是没有 issue。
-#      教训：报警器和被报警的东西不能在同一个失效域里。所以下面把上报拆成独立的 report job
-#      （needs: probe + if: failure()），且 probe.json 缺失时它照样开单，写明「探针未跑完」。
+#  (2) 钉版修好后的第一次运行：job 起来了，却死在 pnpm/action-setup 的版本冲突上（workflow
+#      写 version: 9，package.json 的 packageManager 写 pnpm@9.12.0）。探针依然一步没跑，而
+#      「开 issue」那步因为读不到 probe.json 也一起失败——结果还是没有 issue。
+#
+#  所以根因不是某个配置写错，而是**报警器和被报警的东西在同一个失效域里**。下面把上报拆成
+#  独立的 report job（needs: probe + if: failure()）：probe.json 缺失时它照样开单，写明
+#  「探针未执行完成」。改动做过一次真演练（把 (2) 的冲突装回去），确认会响、也会自动关单。
 
 name: Status Probe
 
