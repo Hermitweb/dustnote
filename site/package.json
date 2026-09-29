@@ -1,0 +1,24 @@
+{
+  "name": "@dustnote/site",
+  "version": "2.5.46",
+  "private": true,
+  "type": "module",
+  "description": "DustNote 项目官网（GitHub Pages 静态站，复用 shared 设计令牌）",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b --noEmit && vite build",
+    "preview": "vite preview --port 4180",
+    "typecheck": "tsc -b --noEmit",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  }
+}

@@ -8,6 +8,8 @@ dist/
 build/
 out/
 .next/
+# 官网构建产物（Pages 由 CI 构建，不入库）
+site/dist/
 .turbo/
 *.tsbuildinfo
 
