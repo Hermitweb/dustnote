@@ -140,37 +140,45 @@ export function fromBase64Url(s: string): Uint8Array {
   return fromBase64(b64.padEnd(Math.ceil(b64.length / 4) * 4, '='));
 }
 
-export interface RandomOptions {
-  /**
-   * 本次请求只要「唯一」，不要「保密」。用于 AES-GCM 的 IV/nonce：
-   * nonce 泄露无害，重复才是灾难，所以允许走弱随机兜底换取可用性。
-   *
-   * 缺省 false = 密钥材料（盐、主密钥、恢复码、token）：拿不到安全随机源时必须
-   * 抛错，绝不能静默拿到 时间戳+计数器+Math.random 的字节。
-   *
-   * 这个开关为什么存在：小程序随机池耗尽时，原先的降级是**无条件**的（只
-   * console.warn 一句），而「长期密钥不得走降级路径」全靠调用方记得先
-   * await ensureRandomReady()——一条只写在注释里的约束。现在把决定权收到签名上：
-   * 想要降级必须显式声明用途（CodeQL #6/#7/#8 insecure-randomness 指的就是这个洞）。
-   */
-  uniquenessOnly?: boolean;
-}
+/** 随机源函数：给 n 字节；给不出安全字节就抛 */
+type RandomSource = (n: number) => Uint8Array;
 
-type SecureRandomFn = (n: number, opts: RandomOptions) => Uint8Array;
-
-let secureRandomFn: SecureRandomFn | null = null;
+/** 严格安全随机源：密钥材料的唯一入口 */
+let secureRandomFn: RandomSource | null = null;
+/** 唯一性兜底源：只有 randomUniqueBytes 看得见它 */
+let uniqueRandomFn: RandomSource | null = null;
 
 /**
  * 注册同步安全随机源。
- * 微信小程序等无 WebCrypto 的运行环境在启动时调用（内部用 wx 的安全随机
- * API 预填充随机池，供同步取用）。契约：opts.uniquenessOnly 为假时**必须**返回
- * 密码学安全字节或抛错；只有为真时才允许返回唯一性兜底字节。
+ *
+ * 微信小程序等无 WebCrypto 的运行环境启动时调用（内部用 wx 的安全随机 API 预填充
+ * 随机池供同步取用）。契约只有一条：给不出密码学安全字节就抛错，不许拿弱随机凑数
+ * ——那种字节请另外注册给 setUniquenessRandomSource。
  */
-export function setSecureRandomSource(fn: SecureRandomFn): void {
+export function setSecureRandomSource(fn: RandomSource): void {
   secureRandomFn = fn;
 }
 
-/** 检测当前运行时是否提供 WebCrypto subtle（浏览器 / Node 20+ / RN quick-crypto 有，微信小程序等无） */
+/**
+ * 注册「只要唯一、不要保密」的兜底源。
+ *
+ * 为什么是第二个源、而不是一个布尔参数（上一版就是 randomBytes(n, { uniquenessOnly })）：
+ * 参数式约束只在人眼里成立，在污点图上不成立——两条分支的返回值汇成同一个变量，
+ * Math.random 到 deriveSecrets(salt) 的路径照旧连通，所以 CodeQL #6/#7/#8 一条都没关
+ * （合并后 main 实测 16 → 9，这三条仍在，见台账）。拆成两个源、两个出口之后，弱随机
+ * 在调用图里根本到不了密钥路径：这一次是结构，不是自觉。
+ */
+export function setUniquenessRandomSource(fn: RandomSource): void {
+  uniqueRandomFn = fn;
+}
+
+/**
+ * 检测当前运行时是否提供 WebCrypto subtle。
+ *
+ * 浏览器 / Node 20+ / RN quick-crypto 有，微信小程序等没有——它决定 AES-GCM 与 HKDF
+ * 走原生还是回落到 noble 纯 JS 实现。上一版重构随机源时把这个函数一起删掉了，
+ * typecheck 当场报 4 处 Cannot find name：门禁救了一次场。
+ */
 function hasWebCryptoSubtle(): boolean {
   try {
     const c = globalThis.crypto as Crypto | undefined;
@@ -179,27 +187,22 @@ function hasWebCryptoSubtle(): boolean {
     return false;
   }
 }
-
-export function randomBytes(n: number, opts: RandomOptions = {}): Uint8Array {
-  // 优先 WebCrypto getRandomValues
+/**
+ * 严格安全随机：WebCrypto → 注入源（其失败再试 noble）→ noble；全部拿不到即抛。
+ *
+ * 小程序上 crypto.getRandomValues 可能就是我们自己装的垫片：池耗尽时它抛错，而抛错
+ * 正是这里要的失败姿态——宁可生成不了，也不要静默弱密钥。
+ */
+function strictRandomBytes(n: number): Uint8Array {
   const c = globalThis.crypto as Crypto | undefined;
   if (c && typeof c.getRandomValues === 'function') {
     const out = new Uint8Array(n);
-    try {
-      c.getRandomValues(out);
-      return out;
-    } catch (err) {
-      // 小程序上这里可能是我们自己的垫片（池耗尽即抛）。密钥请求原样抛出就是
-      // 正确姿态；只有 uniquenessOnly 才继续往下找降级源。
-      if (!opts.uniquenessOnly) throw err;
-    }
+    c.getRandomValues(out);
+    return out;
   }
-  // 平台注入的安全随机源（小程序）。注入源可能因随机池尚未就绪而抛错，
-  // 捕获后尝试 noble 兜底；都失败时抛出注入源的原始错误（如「池未就绪」），
-  // 比笼统的「无安全随机源」更有利于定位。
   if (secureRandomFn) {
     try {
-      return secureRandomFn(n, opts);
+      return secureRandomFn(n);
     } catch (e) {
       try {
         return nobleRandomBytes(n);
@@ -214,6 +217,29 @@ export function randomBytes(n: number, opts: RandomOptions = {}): Uint8Array {
     throw new Error(
       '当前运行环境无安全随机源（缺少 crypto.getRandomValues / wx 安全随机 API），无法生成密钥'
     );
+  }
+}
+
+/**
+ * 密钥材料一律走这里：盐、主密钥、恢复码、share token、jti……
+ * 拿不到密码学安全字节就抛错，永不降级（CodeQL #6/#7/#8 的洞就在这条边界上）。
+ */
+export function randomBytes(n: number): Uint8Array {
+  return strictRandomBytes(n);
+}
+
+/**
+ * 只要唯一性的字节：优先安全源，拿不到才用注册的唯一性源。
+ *
+ * 全仓唯一合法调用点是 AES-GCM 的 IV（见 encrypt）：nonce 泄露无害，重复才是灾难，
+ * 所以它要的是「不撞车」而不是「保密」。别拿它生成盐、密钥或 token。
+ */
+export function randomUniqueBytes(n: number): Uint8Array {
+  try {
+    return strictRandomBytes(n);
+  } catch (err) {
+    if (!uniqueRandomFn) throw err;
+    return uniqueRandomFn(n);
   }
 }
 
@@ -634,8 +660,8 @@ export async function encrypt(
   keyVersion = 1,
   aad?: Uint8Array
 ): Promise<Ciphertext> {
-  // IV 只要唯一、不需保密，是允许降级的唯一用途；盐/密钥/恢复码都走默认强随机分支。
-  const nonce = randomBytes(12, { uniquenessOnly: true });
+  // 全仓唯一一处允许降级的用途：GCM 的 IV 要的是不重复，不是保密（详见 randomUniqueBytes）。
+  const nonce = randomUniqueBytes(12);
   const ct = await aesGcmEncrypt(key, nonce, plaintext, aad);
   return {
     v: 1,

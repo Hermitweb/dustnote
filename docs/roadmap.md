@@ -754,19 +754,19 @@ _但 CodeQL 转绿不是因为它认了我的净化_（这是上一轮会说错�
 做法是先读每条的数据流再定性，不信工具给的标签。结论：**10 条是真缺陷已改代码修掉，
 6 条是口径差异需带理由 dismiss**——而这个分类还不是终点（见最后一段）。
 
-| #     | 规则                                       | 定性                             | 依据与处置                                                                                                                                                                                                                                                                                    |
-| ----- | ------------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | polynomial-redos                           | 真缺陷（已修）                   | shared/src/crypto.ts 两处 `/=+$/`：一串 = 后跟非 = 字符即二次方。实测 10 万规模 6014ms → 尾部线性扫描 1ms                                                                                                                                                                                     |
-| 2/3/4 | type-confusion-through-parameter-tampering | 真缺陷（已修）                   | routes/notes.ts 的 `req.query.cursor as string` 是谎言：`?cursor[]=a` 给数组、`?cursor[a]=1` 给对象，下一行就 lastIndexOf。旧代码挡住它靠的是「正则 test 先把数组转成字符串」这个巧合。改成本仓库已有的 zod query 惯例                                                                        |
-| 6/7/8 | insecure-randomness                        | 真缺陷（已修，且比告警说的更深） | 三条都指着 KDF 入参，病灶在小程序垫片：随机池耗尽时无条件降级成 时间戳+计数器+Math.random，只 warn 一句，而「长期密钥不得走此路」全靠调用方自觉 await ensureRandomReady()。现在用途必须显式声明 randomBytes(n, {uniquenessOnly})，缺省即密钥材料，拿不到安全熵就失败；只有 GCM 的 IV 允许降级 |
-| 10    | stack-trace-exposure                       | 真缺陷（已修）                   | /metrics 在 METRICS_TOKEN 未配置时是公开的，原先把 String(err) 原样吐进响应体                                                                                                                                                                                                                 |
-| 14    | missing-origin-check                       | 半真（已加固）                   | sw.js 的 message 处理器加同源校验。诚实边界：web/src 里目前没有任何调用方 postMessage('skipWaiting')，所以这条今天不改变行为，是给以后接「立即重启更新」预设的防线                                                                                                                            |
-| 16    | file-system-race                           | 真缺陷（已修）                   | update-manifest.ts 的 existsSync→statSync→readFileSync 是三次独立寻径：文件中途被换，清单会把「旧文件的 size」和「新文件的 hash」拼一起发出。改成 openSync 一次 + fstat(fd) + readFileSync(fd)                                                                                                |
-| 9     | insecure-helmet-configuration              | 口径差异（但引出真问题）         | 页面从来不由 express 发出：容器一体化，nginx root /app/web-dist 静态吐出。给 express 开 CSP 只会给 JSON 响应多挂一条不起作用的头。顺着查出的实际问题见下一节                                                                                                                                  |
-| 15    | missing-origin-check                       | 口径差异                         | argon2-worker.ts 是 dedicated worker，onmessage 只可能来自它的宿主上下文，不存在需要校验的外部 origin；畸形消息已被 try/catch 收敛成 error 响应                                                                                                                                               |
-| 17    | user-controlled-bypass                     | 口径差异                         | shares.ts:245 的 if (!token) 是入参存在性校验，不是授权决策。分享链接里 token 本身就是能力凭证，真正的把关是 DB 查找 + 密码校验 + 失败锁定                                                                                                                                                    |
-| 5     | missing-token-validation                   | 口径差异                         | refresh cookie 是 httpOnly + sameSite:'strict' + path:/api/v1/auth（routes/auth.ts:114-121）。strict 下跨站请求根本不带该 cookie，没有 CSRF 面可守                                                                                                                                            |
-| 19/23 | file-access-to-http / http-to-file-access  | 上一轮已论证保留                 | 见「2026-09-27 落」§4：source 是仓库自己的 package.json，sink 是白名单净化后的生成区文本                                                                                                                                                                                                      |
+| #     | 规则                                       | 定性                                | 依据与处置                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----- | ------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | polynomial-redos                           | 真缺陷（已修）                      | shared/src/crypto.ts 两处 `/=+$/`：一串 = 后跟非 = 字符即二次方。实测 10 万规模 6014ms → 尾部线性扫描 1ms                                                                                                                                                                                                                                                                                   |
+| 2/3/4 | type-confusion-through-parameter-tampering | 真缺陷（已修）                      | routes/notes.ts 的 `req.query.cursor as string` 是谎言：`?cursor[]=a` 给数组、`?cursor[a]=1` 给对象，下一行就 lastIndexOf。旧代码挡住它靠的是「正则 test 先把数组转成字符串」这个巧合。改成本仓库已有的 zod query 惯例                                                                                                                                                                      |
+| 6/7/8 | insecure-randomness                        | 真缺陷（第一版没修掉，见 09-29 落） | 三条都指着 KDF 入参，病灶在小程序垫片：随机池耗尽时它**无条件**降级成 时间戳+计数器+Math.random，只 console.warn 一句，而「长期密钥不得走此路」全靠调用方自觉先 await ensureRandomReady()。第一版把它收成了 `randomBytes(n, {uniquenessOnly})` 布尔参数——语义紧了、污点图没变（两条分支返回值汇成同一个变量），合并后 main 实测这三条仍 open；第二版改成两个源两个出口，见「2026-09-29 落」 |
+| 10    | stack-trace-exposure                       | 真缺陷（已修）                      | /metrics 在 METRICS_TOKEN 未配置时是公开的，原先把 String(err) 原样吐进响应体                                                                                                                                                                                                                                                                                                               |
+| 14    | missing-origin-check                       | 半真（已加固）                      | sw.js 的 message 处理器加同源校验。诚实边界：web/src 里目前没有任何调用方 postMessage('skipWaiting')，所以这条今天不改变行为，是给以后接「立即重启更新」预设的防线                                                                                                                                                                                                                          |
+| 16    | file-system-race                           | 真缺陷（已修）                      | update-manifest.ts 的 existsSync→statSync→readFileSync 是三次独立寻径：文件中途被换，清单会把「旧文件的 size」和「新文件的 hash」拼一起发出。改成 openSync 一次 + fstat(fd) + readFileSync(fd)                                                                                                                                                                                              |
+| 9     | insecure-helmet-configuration              | 口径差异（但引出真问题）            | 页面从来不由 express 发出：容器一体化，nginx root /app/web-dist 静态吐出。给 express 开 CSP 只会给 JSON 响应多挂一条不起作用的头。顺着查出的实际问题见下一节                                                                                                                                                                                                                                |
+| 15    | missing-origin-check                       | 口径差异                            | argon2-worker.ts 是 dedicated worker，onmessage 只可能来自它的宿主上下文，不存在需要校验的外部 origin；畸形消息已被 try/catch 收敛成 error 响应                                                                                                                                                                                                                                             |
+| 17    | user-controlled-bypass                     | 口径差异                            | shares.ts:245 的 if (!token) 是入参存在性校验，不是授权决策。分享链接里 token 本身就是能力凭证，真正的把关是 DB 查找 + 密码校验 + 失败锁定                                                                                                                                                                                                                                                  |
+| 5     | missing-token-validation                   | 口径差异                            | refresh cookie 是 httpOnly + sameSite:'strict' + path:/api/v1/auth（routes/auth.ts:114-121）。strict 下跨站请求根本不带该 cookie，没有 CSRF 面可守                                                                                                                                                                                                                                          |
+| 19/23 | file-access-to-http / http-to-file-access  | 上一轮已论证保留                    | 见「2026-09-27 落」§4：source 是仓库自己的 package.json，sink 是白名单净化后的生成区文本                                                                                                                                                                                                                                                                                                    |
 
 **#9 引出的真问题（这一批最值钱的一条）**
 
@@ -807,6 +807,56 @@ CSP / frame-ancestors 'none' / 两年 HSTS 全都不在它们的响应上。线�
 - 改的是生产 nginx 配置，而本机没有 docker：`nginx -t` 的第一次真验发生在 CI，
   合并后要去看那一步的结果。
 
+### 2026-09-29 落：合并后复核——7 条关闭、3 条没关（推翻上一轮的修法），外加拨测从未跑起来过
+
+上一轮的账只能靠下一次 main 的分析来还。实测：**open 16 → 9**。
+
+| 关闭（fixed）            | 说明                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| #1 polynomial-redos      | 尾部线性扫描生效                                                                     |
+| #2/#3/#4 type-confusion  | zod query 校验**被模型认下**了——正是我上一轮写「不提前替它保证」的那三条，现在有答案 |
+| #10 stack-trace-exposure | 响应体改通用文案                                                                     |
+| #14 missing-origin-check | sw.js 的同源校验被识别                                                               |
+| #16 file-system-race     | openSync + fstat(fd) + readFileSync(fd)                                              |
+
+**#6/#7/#8 insecure-randomness 一条都没关。** 这不是工具不近人情，是我的修法停在半路：
+`randomBytes(n, { uniquenessOnly })` 把「能不能降级」变成调用方必须声明的参数，语义确实收紧了，
+但污点图上两条分支的返回值汇成同一个变量——`Math.random` 到 `deriveSecrets(salt)` 的路径照旧
+连通。工具报的就是这条路径，而路径真的还在。
+
+第二轮改成**两个源、两个出口**：`setSecureRandomSource` 只收强随机（给不出就抛），
+`setUniquenessRandomSource` 单独注册弱兜底，只有 `randomUniqueBytes()` 看得见它，而它全仓唯一
+的调用点是 GCM 的 IV。这一次弱随机在调用图上到不了密钥路径：靠的是结构，不是自觉，也不再
+要求评审者读懂一个布尔参数。测试跟着钉住边界——唯一性源在册时 `randomBytes` 也不得交出兜底
+字节；把它改回「参数式汇流」的写法，用例即红。
+
+（重构途中我把夹在中间的 `hasWebCryptoSubtle` 一起删了，typecheck 当场报 4 处 `Cannot name`
+级别的错——门禁救了一次场。这种侥幸不值得，记下来。）
+
+**另一件更要紧：外部拨测从未执行过。**
+
+上一轮我说把 CSP「升级成每晚实测」。今天去看它的第一次真跑结果：`Status Probe` 排期
+2026-09-28 22:51 **failure**，而失败发生在业务之前——`nightly-status.yml` 的三个 `uses` 钉版
+SHA 全是查无此 commit 的值（API 422：`34e1148…`、`204124f…`、`2028fbc…` 都不存在），job 根本
+起不来；而「开 issue 报障」的步骤就在同一个 job 里，于是它连「我坏了」都说不出口。schedule
+只在默认分支跑，这个洞从 2026-09-25 写下那天起就在，只是没人看得见。
+
+处置：
+
+- 三个钉版换成 API 实测可解析、且与注释版本一致的 commit（v5.1.0 / v4.3.0 / v5.0.0）。我第一版
+  注释凭记忆写的是 v5.0.2 / v4.0.1，被自己刚写的守卫抓了出来——这条也记着，别把「注释像对的」
+  当成对的；
+- 新增 `scripts/check-action-pins.mjs` + 7 例测试：钉 SHA 必须能解析；注释里写了版本的，SHA 必须
+  真是那个 tag 指向的提交（annotated tag 要二次解引用）；可变 tag 只登记不拦（全钉还是留 tag 是
+  人的决定，不由脚本替仓库改姿势）。`pnpm action:pins` 进 CI 的 lint job——**关键是放在每次
+  push 都跑的地方**，不依赖被检查者自己；
+- 变异验证：把 checkout 钉版退回那个不存在的 SHA → 守卫 exit 1，且报错文案直接写明「job 会直接
+  起不来，而且报不出错」。
+
+教训不是「记得钉版」，而是：**任何只在默认分支上跑的东西，都要有一条每次 push 都跑的门禁替它
+盯着它自己能不能跑。** 同一把尺也量得出上一轮那条 Docker 结论的问题——「构建成功」不等于
+「运行没炸」，口径要一层一层往下追。
+
 ### 仍待办（下一轮起点）
 
 UI 这条线（阶段 1 / 2 / 3 的可量化部分）与 P0-1、P0-2、P0-6、TEST-004 均已收口。剩下的：
@@ -820,12 +870,13 @@ UI 这条线（阶段 1 / 2 / 3 的可量化部分）与 P0-1、P0-2、P0-6、TE
 4. **图标轨档（56px）读标签名**：浮层已能用，但形态还可以更好（同上，属打磨）。
 5. 备份**可恢复性**演练：`docs/operations-runbook.md` 有人工步骤，但没有自动化断言；
    状态页现在明确不声明它（见「拨测不覆盖的部分」）。
-6. **CodeQL 告警分诊：已做完，剩两个收尾动作**（逐条结论见「2026-09-27 落（续）」）。
-   16 条 open 里 10 条是真缺陷、已改代码并配变异验证的回归用例；6 条是口径差异，理由
-   写在表里。剩下的两件事：
-   - **6 条 dismiss 需要有 `security_events` 写权限的人去点**（Security 页：#5 CSRF、
-     #9 helmet CSP、#15 worker origin、#17 token 存在性、#19/#23 上一轮那两条）。
-     设备流实测拿不到该 scope，理由文本已在表里，可直接粘贴。
-   - **合并后复核告警是否真的自动关闭**：尤其 #2/#3/#4 —— 我改成了 zod query 校验，
-     但 CodeQL 认不认 zod 作为类型收窄没验证过，不提前替它保证。若不认，就补
-     `typeof x === 'string'` 的显式守卫（那条才是该查询文档认可的修法）。
+6. **CodeQL 分诊后的收尾（详见「2026-09-29 落」）**：
+   - 6 条口径差异仍需有 `security_events` 写权限的人在 Security 页逐条 dismiss：#5 CSRF、
+     #9 helmet CSP、#15 worker origin、#17 token 存在性、#19/#23 上一轮那两条；理由文本
+     已在「2026-09-27 落（续）」表里，可直接粘贴。设备流实测拿不到该 scope。
+   - 第二轮随机源改造（两源两出口）合并后，复核 #6/#7/#8 是否真的转 fixed。若不转，
+     说明模型连函数边界也不认，那时再决定是补 `typeof` 类显式守卫还是带理由 dismiss——
+     不提前替它保证。
+   - 常驻教训：只在默认分支上跑的 workflow（schedule / 手动触发）必须由一条每次 push 都
+     跑的门禁盯着「它自己能不能跑」。本轮已给 action 钉版加了 `pnpm action:pins`；
+     其余同类 workflow（release.yml 只在 tag 上跑）仍按同一把尺待查。

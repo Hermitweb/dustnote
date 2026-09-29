@@ -2,6 +2,12 @@
 # 与服务器本机监控互补——它看不见"整机宕机/ISP 断流"，GitHub 跑在外部网络，
 # 挂了这个就是用户视角的"你的服务器没了"。失败自动开 issue（去重），
 # 恢复自动关闭；issue + Actions 红邮件双通道即"零订阅告警"。
+#
+# 2026-09-29 教训：这个 workflow 的三个 uses 钉版 SHA 全是查无此 commit 的值
+# （API 422），而 schedule 只在默认分支跑——于是它从写下那天起一次都没成功执行过，
+# 合并进 main 后的第一次真跑直接挂。更糟的是它连「我坏了」都报不出来：开 issue 的
+# 步骤在同一个 job 里，job 起不来就没有 issue。所以钉版可解析性改由
+# `pnpm action:pins` 守（在每次 push 都跑的 lint job 里，不依赖本 workflow）。
 
 name: Status Probe
 
@@ -19,11 +25,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@34e1148743cd2429552c65b9afb2257b8cd2ca0a # v4, pinned 2026-09-25
-      - uses: pnpm/action-setup@204124f5c4f0e1261a7e1051a1a461616a23309c # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0（与 ci.yml 同 major）
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 9
-      - uses: actions/setup-node@2028fbcdd3ab9697c9c37d552483f52fdf96ff78 # v4
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
       - name: Run status probe

@@ -64,6 +64,11 @@ jobs:
         # （哪怕只是 Cache-Control），父级整套安全头就静默消失。线上实测到 /api/
         # 与 /metrics 就是这样丢了 nginx 的 CSP——配置文本里完全看不出来。
         run: pnpm security:headers
+      - name: Verify pinned actions resolve (supply-chain guard)
+        # 钉 SHA 是供应链姿势，但钉一个不存在的 commit 比不钉更糟：job 直接起不来，
+        # 而被检查的 workflow 自己的报错步骤也在同一个 job 里——坏了没人说话。
+        # 2026-09-29 的 nightly-status.yml 就是这么静默失效了一段时间。
+        run: pnpm action:pins
       - name: Validate nginx config syntax with the production nginx
         # 容器是一体化的（node:22-alpine + apk nginx），nginx 配置写错一个字符就是
         # 下次升级起不来，而 node 侧所有门禁都碰不到它。刻意用同一个基础镜像跑

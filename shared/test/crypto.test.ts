@@ -17,6 +17,8 @@ import {
   fromBase64Url,
   randomBytes,
   setSecureRandomSource,
+  setUniquenessRandomSource,
+  randomUniqueBytes,
   zeroize,
   KDF_PARAMS,
 } from '../src/crypto';
@@ -366,34 +368,40 @@ describe('zeroize', () => {
  * 三条告警指着 KDF 的入参和被包裹的主密钥，病灶不在那里，而在小程序垫片：
  * 随机池耗尽时它曾**无条件**降级成「时间戳+计数器+Math.random」，只 console.warn
  * 一句；「长期密钥不得走降级路径」全靠调用方自觉先 await ensureRandomReady()——
- * 一条只写在注释里的约束。现在用途必须由调用方显式声明（uniquenessOnly）。
+ * 一条只写在注释里的约束。第一版改成布尔参数（randomBytes(n, {uniquenessOnly})）收紧了
+ * 设计，但污点图没变、告警一条没关；现在是两个源两个出口——弱随机到不了密钥路径，
+ * 靠的是结构而不是自觉。下面的用例钉的就是这条边界。
  */
 describe('randomBytes 强度契约', () => {
   const WEAK = 0xab;
 
-  it('熵不足时密钥请求失败，不静默交出弱字节；nonce 请求仍可降级保可用', () => {
-    setSecureRandomSource((k, opts) => {
-      // 模拟「池耗尽」：只肯给唯一性用途返回可预测的兜底字节
-      if (!opts.uniquenessOnly) throw new Error('安全随机池未就绪');
-      return new Uint8Array(k).fill(WEAK);
+  it('熵不足时：密钥请求抛错，只有唯一性请求拿得到兜底字节', () => {
+    // 模拟「池耗尽」的垫片：强源一律抛错，唯一性源给可预测的兜底字节
+    setSecureRandomSource(() => {
+      throw new Error('安全随机池未就绪');
     });
+    setUniquenessRandomSource((k) => new Uint8Array(k).fill(WEAK));
     vi.stubGlobal('crypto', {
-      // 运行时的取随机函数「存在但会抛」——正是垫片池耗尽时的样子
       getRandomValues: () => {
         throw new Error('池耗尽');
       },
     });
     try {
-      // 强语义：失败就失败，绝不拿弱字节当盐/密钥
       expect(() => randomBytes(16)).toThrow('池耗尽');
-      // 弱语义：GCM IV 要的是不重复，降级路径必须仍然走得通
-      const nonce = randomBytes(12, { uniquenessOnly: true });
-      expect(Array.from(nonce)).toEqual(new Array(12).fill(WEAK));
+      expect(Array.from(randomUniqueBytes(12))).toEqual(new Array(12).fill(WEAK));
     } finally {
       vi.unstubAllGlobals();
-      // 交还一个等价于默认行为的源，避免给后续用例留后门或后遗症
       setSecureRandomSource((k) => globalThis.crypto.getRandomValues(new Uint8Array(k)));
     }
+  });
+
+  it('唯一性源在册也污染不到 randomBytes——两个源在图上不连通', () => {
+    setUniquenessRandomSource((k) => new Uint8Array(k).fill(WEAK));
+    const salt = randomBytes(16);
+    expect(salt.every((b) => b === WEAK)).toBe(false);
+    // 上一版这里是会通过的：那时降级只是一个布尔参数，两条分支汇成同一个返回值，
+    // 所以 Math.random 到 deriveSecrets(盐) 的污点路径照旧连通（CodeQL #6/#7/#8 实测未关）。
+    // 这条用例守住的就是「别再退回去」。
   });
 
   it('恢复默认后 randomBytes 照常工作且字节不复用', () => {
@@ -401,12 +409,6 @@ describe('randomBytes 强度契约', () => {
     expect(randomBytes(0).length).toBe(0);
   });
 });
-
-/**
- * CodeQL #1 polynomial-redos：`=+$` 在「一长串 '=' 后面跟个非 '=' 字符」的输入上
- * 要逐起始位置回溯，成本随长度二次增长。这类输入来自存储/网络里的密文信封，
- * 长度由对方决定——所以不是理论问题。现在改成从尾部线性扫描。
- */
 describe('base64 填充剥离是线性的', () => {
   it('十万个 = 结尾仍能毫秒级完成，且与不带动填充的结果一致', () => {
     vi.stubGlobal('atob', undefined); // atob 在时走原生分支，测不到纯 JS 路径
