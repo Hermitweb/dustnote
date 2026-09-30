@@ -314,6 +314,7 @@ pnpm clean      # 清理构建产物
 | `pnpm security:headers`      | nginx `add_header` 不继承导致整套安全头静默消失                       | 线上实测 `/api/`、`/metrics` 丢了 CSP                                 |
 | `pnpm action:pins`           | 钉了不存在 / 与注释版本不符的 action SHA                              | nightly 拨测因假 SHA 静默失效，6 次排期全没跑                         |
 | `pnpm docs:check`            | 文档死链、锚点无落点、孤儿文档                                        | 首跑揪出 67 处，其中 18 条指向早已删除的 `.trae/documents/`           |
+| `pnpm env:check`             | 部署清单与代码读取的变量双向不一致                                    | 少一个变量的表现不是构建失败，而是「照文档装完，某功能静默走默认值」  |
 | `pnpm workflows:check`       | workflow 文件结构（缺 runs-on / needs 拼错 / 无超时）                 | GitHub 对 workflow 是整份拒绝，本地没有任何命令会因此变红             |
 | `pnpm api:check`             | `docs/api.md` 与真实路由表漂移                                        | 清单由 `api:gen` 从 `app.ts` 挂载顺序生成，不手抄                     |
 | `pnpm i18n:check`            | 三端词典键不齐、文案里混进 emoji 图标                                 | 图标一律走 `docs/ui-icon-map.md` + SVG                                |

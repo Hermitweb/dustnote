@@ -45,3 +45,28 @@
 `architecture.md` 与 `adr/` 记的是「现在为什么这样」；`audit-fixes-*` 与 `archive/` 记的是
 「当时发生过什么」。后者是历史叙述，**不会为了让链接好看而改写**——里面出现过的死链
 一律降级成行内代码（文字保留，不再假装能点开），这也正是 `docs:check` 能长绿的前提。
+
+## 想知道某个目录的事，看哪儿
+
+文档分两层：**这份索引管「为什么与怎么办」**，各目录的 README 管「那里有什么、怎么跑、
+改它要连带改什么」。两边不重复内容，只互相指路。
+
+| 位置           | 文档                                                                                    | 回答的问题                                       |
+| -------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `shared/`      | [shared/README.md](../shared/README.md)                                                 | 哪些算法/契约是五端共用的？改加密参数会牵连谁？  |
+| `client-core/` | [client-core/README.md](../client-core/README.md)                                       | 同步、冲突合并、仓库层现在只有一份在哪儿         |
+| `server/`      | [server/README.md](../server/README.md)                                                 | 路由怎么挂、环境变量在哪读、端点清单从哪生成     |
+| `web/`         | [web/README.md](../web/README.md)                                                       | 界面规矩（图标、材质、两栏舞台）与桌面端复用关系 |
+| `site/`        | [site/README.md](../site/README.md)                                                     | 官网为什么带 24 条测试、怎么发布到 Pages         |
+| `scripts/`     | [scripts/README.md](../scripts/README.md)                                               | 每条门禁对应哪次事故、门禁自己归谁测             |
+| `e2e/`         | [e2e/README.md](../e2e/README.md)                                                       | 视觉基线与对比度断言怎么跑、什么不许顺手更新     |
+| `extensions/`  | [extensions/README.md](../extensions/README.md)                                         | 网页剪藏扩展的权限与明文边界                     |
+| `deploy/`      | [deploy/README.md](../deploy/README.md) · [monitoring/](../deploy/monitoring/README.md) | 部署包结构；监控栈与告警链路                     |
+| 全局           | [CONTRIBUTING.md](../CONTRIBUTING.md)                                                   | 门禁总表与来历、提交与 PR 流程、变异验证文化     |
+
+## 一条判断标准
+
+写文档前先问：**这条信息变了会不会有人挨打？**
+会——它该是门禁（`scripts/` 里一条带测试的脚本），而不只是一段话；
+不会——它才留在文档里。这两天反复出现的「全绿但线上炸」，根因都是本该是门禁的东西
+只写成了文字。

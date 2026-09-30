@@ -89,6 +89,7 @@ shared  ←─ client-core ←─┬─ web ─┐
 - `pnpm docs:check` / `api:check` / `i18n:check`：文档链接与锚点、端点清单漂移、三端词典对称；
 - `pnpm tokens:check`：小程序令牌必须与 shared 种子同源；
 - `pnpm workflows:check`：CI workflow 自身的结构合法性（缺 runs-on、needs 拼错、无超时都会让 CI 静默不跑）；
+- `pnpm env:check`：部署清单（.env.example / .env.monitoring.example）与代码读取的变量双向一致；
 - `pnpm verify`：把上面这些串成一条命令，与 CI 的 lint job 同源——本地能跑完的才算规矩，否则只是愿望。
 
 ## 明确不做的事

@@ -81,6 +81,11 @@ jobs:
         # GitHub 对 workflow 的校验是整份拒绝：一个 job 缺 runs-on，这个文件里所有
         # job 都不跑，而本地没有任何命令会因此变红。这条守卫补上那个盲区。
         run: pnpm workflows:check
+      - name: Check env var manifests match the code
+        # 部署清单与代码读取的变量双向核对：少一个变量的表现不是构建失败，
+        # 而是「照文档装完，某个功能静默走默认值」（备份写到没挂载的目录、
+        # 字段加密悄悄回退用 JWT_SECRET 派生）。主栈与监控栈各查各的清单。
+        run: pnpm env:check
       - name: Check API inventory is not stale
         run: pnpm api:check
       - name: Validate nginx config syntax with the production nginx
