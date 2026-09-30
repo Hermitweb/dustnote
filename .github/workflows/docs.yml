@@ -37,13 +37,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9.12.0
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
+          # setup-node 的 package-manager-cache 默认为真：它会按 package.json 的
+          # packageManager 去缓存 pnpm store。这个 job 刻意不 install 任何东西，
+          # store 目录因此不存在，Post 步骤直接 "Path Validation Error" 让 job 变红
+          # （PR #16 首跑实测）。用不到的缓存必须显式关掉。
+          package-manager-cache: false
       - name: Check docs links, anchors and index coverage
+        # 断链与孤儿文档不会让任何测试变红，它只会在人点进去时变成 404。
         run: node scripts/check-docs.mjs
       - name: Check API inventory is not stale
         # 这两个检查都是零依赖脚本，不必 install 整个工作区：少一层会坏的地方。

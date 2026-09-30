@@ -41,6 +41,12 @@ jobs:
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
+          # 这个 job 不 install 任何依赖（拨测脚本零依赖），而 setup-node 的
+          # package-manager-cache 默认为真：命中缓存时看不出问题，一旦 pnpm-lock.yaml
+          # 变了、新 key 无缓存可恢复，store 目录就不存在，Post 保存缓存那步会直接报
+          # Path Validation Error 把 job 跑红（PR #16 的 Docs workflow 实测如此）。
+          # 用不到的缓存必须显式关掉。
+          package-manager-cache: false
       - name: Run status probe
         run: node scripts/status-probe.mjs > probe.json
         continue-on-error: true

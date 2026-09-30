@@ -108,6 +108,50 @@ test('复用工作流（uses）的 job 不要求 runs-on / steps', () => {
   assert.deepEqual(checkWorkflow(reusable, 'reusable.yml'), []);
 });
 
+// setup-node 的 package-manager-cache 默认是真：job 不装依赖时 store 目录不存在，
+// Post 步骤会报 Path Validation Error 把 job 跑红。PR #16 的 Docs workflow 首跑即如此。
+const NODE_VERSION_LINE = "          node-version: '22'";
+const NODE_ONLY = [
+  'name: demo',
+  'on: [push]',
+  'jobs:',
+  '  probe:',
+  '    runs-on: ubuntu-latest',
+  '    timeout-minutes: 10',
+  '    steps:',
+  '      - uses: actions/checkout@v5',
+  '      - uses: actions/setup-node@v5',
+  '        with:',
+  NODE_VERSION_LINE,
+  '      - run: node scripts/check-docs.mjs',
+].join(String.fromCharCode(10));
+
+test('用 setup-node 但不装依赖、又没关缓存，必须报', () => {
+  const problems = checkWorkflow(NODE_ONLY, 'node-only.yml');
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /package-manager-cache/);
+});
+
+test('显式关掉 package-manager-cache 即放行', () => {
+  const off = NODE_ONLY.replace(
+    NODE_VERSION_LINE,
+    NODE_VERSION_LINE + String.fromCharCode(10) + '          package-manager-cache: false'
+  );
+  assert.notEqual(off, NODE_ONLY, '构造的变体要真的加了那行');
+  assert.deepEqual(checkWorkflow(off, 'node-only.yml'), []);
+});
+
+test('真的跑 install 的 job 不必关缓存（store 存在，缓存有效）', () => {
+  const installs = NODE_ONLY.replace(
+    '      - run: node scripts/check-docs.mjs',
+    '      - run: pnpm install --frozen-lockfile' +
+      String.fromCharCode(10) +
+      '      - run: node scripts/check-docs.mjs'
+  );
+  assert.notEqual(installs, NODE_ONLY, '构造的变体要真的加了 install 步骤');
+  assert.deepEqual(checkWorkflow(installs, 'node-only.yml'), []);
+});
+
 test('仓库里真实的 workflow 全部通过', () => {
   const { files, problems } = checkAll();
   assert.ok(files.length >= 5, '至少该扫到几份 workflow，实际 ' + files.length);

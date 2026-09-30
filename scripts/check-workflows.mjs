@@ -14,6 +14,13 @@
  *  4. needs 指向的 job 必须存在于同一份文件——拼错的 needs 让 job 永不启动；
  *  5. 每个 job 有 timeout-minutes：没超时就可能挂到 GitHub 的 6 小时上限；
  *  6. environment.url 必须是 https（表达式形式放行）。
+ *  7. 用 actions/setup-node 却不装任何依赖的 job，必须显式 package-manager-cache: false。
+ *     该输入默认是真，setup-node 会按 package.json 的 packageManager 去恢复/保存 pnpm store。
+ *     job 不 install 时 store 目录根本不存在——缓存**命中**时看不出问题（恢复即建目录），
+ *     一旦 pnpm-lock.yaml 变了、新 key 无缓存可恢复，Post 保存那步直接 Path Validation
+ *     Error 把 job 跑红。PR #16 的 Docs workflow 首跑即如此；同一形状的 nightly-status.yml
+ *     拨测 job 当时只是运气好命中缓存，已一并关掉。这类「平时绿、换锁文件就红」的
+ *     间歇故障最难查，所以做成结构检查而不是等人踩。
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -62,6 +69,24 @@ export function checkWorkflow(text, label) {
             : Object.keys(job.needs);
       for (const n of list)
         if (!names.includes(n)) problems.push(at + ' 的 needs 指向不存在的 job：' + n);
+    }
+    // setup-node 的 package-manager-cache 默认是真：它会按 package.json 的 packageManager
+    // 去缓存 pnpm store。job 若不装依赖，store 目录不存在，Post 步骤直接报错把 job 跑红。
+    const steps = Array.isArray(job.steps) ? job.steps : [];
+    const nodeStep = steps.find(
+      (st) => typeof st?.uses === 'string' && st.uses.startsWith('actions/setup-node@')
+    );
+    if (nodeStep) {
+      const installs = steps.some(
+        (st) => typeof st?.run === 'string' && /\b(pnpm|npm|yarn)\s+(install|ci|add)\b/.test(st.run)
+      );
+      const withs = nodeStep.with || {};
+      const cacheOff = withs['package-manager-cache'] === false || withs.cache === '';
+      if (!installs && !cacheOff)
+        problems.push(
+          at +
+            ' 用 setup-node 却不装依赖，必须显式 package-manager-cache: false（锁文件一变、新 key 无缓存可恢复，Post 保存就会报 Path Validation Error）'
+        );
     }
     const env = job.environment;
     if (env && typeof env === 'object' && env.url) {
