@@ -4,6 +4,15 @@
   "private": true,
   "description": "DustNote · 尘渊笔记 - 极简跨端个人笔记系统",
   "license": "MIT",
+  "homepage": "https://hermitweb.github.io/dustnote/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hermitweb/dustnote.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Hermitweb/dustnote/issues",
+    "email": "security@dustnote.local"
+  },
   "engines": {
     "node": ">=20.0.0 <25.0.0",
     "pnpm": ">=9.0.0"
@@ -35,12 +44,23 @@
     "test:coverage": "turbo run test:coverage",
     "format": "prettier --write \"**/*.{ts,tsx,mts,mjs,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,mts,mjs,js,jsx,json,md,yml,yaml}\"",
+    "verify": "pnpm typecheck && pnpm lint && pnpm lint:scripts && pnpm format:check && pnpm test && pnpm test:monitoring && pnpm docker:check && pnpm tokens:check && pnpm security:headers && pnpm action:pins && pnpm docs:check && pnpm workflows:check && pnpm api:check && pnpm i18n:check && pnpm sw:check && pnpm readme:check && pnpm build:site",
     "clean": "pnpm -r exec rm -rf dist build .turbo node_modules/.cache",
     "audit": "pnpm audit --prod",
     "prepare": "node -e \"try{require('husky').install()}catch(_){}\"",
     "tokens:gen": "node scripts/gen-mp-tokens.mjs",
     "test:monitoring": "node --test \"deploy/monitoring/*.test.mjs\" \"scripts/*.test.mjs\"",
-    "tokens:check": "node scripts/gen-mp-tokens.mjs --check"
+    "tokens:check": "node scripts/gen-mp-tokens.mjs --check",
+    "i18n:check": "node scripts/check-i18n.mjs",
+    "sw:check": "node scripts/check-sw-version.mjs",
+    "readme:check": "node scripts/check-readme-version.mjs",
+    "workflows:check": "node scripts/check-workflows.mjs",
+    "docs:check": "node scripts/check-docs.mjs",
+    "api:gen": "node scripts/gen-api-inventory.mjs",
+    "api:check": "node scripts/gen-api-inventory.mjs --check",
+    "dev:site": "pnpm --filter @dustnote/site dev",
+    "build:site": "pnpm --filter @dustnote/site build",
+    "preview:site": "pnpm --filter @dustnote/site preview"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.5.0",
@@ -54,6 +74,7 @@
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^4.6.2",
     "husky": "^9.1.6",
+    "js-yaml": "^5.4.2",
     "lint-staged": "^15.2.10",
     "prettier": "^3.2.0",
     "turbo": "^2.10.12",
@@ -65,8 +86,9 @@
       "fast-uri": "^3.1.6",
       "browserslist": "^4.28.7",
       "@xmldom/xmldom": "^0.8.15",
-      "brace-expansion@<1.1.18": "1.1.18",
+      "brace-expansion@<1.1.20": "1.1.20",
       "vm2@3.11.5": "^3.11.6",
+      "joi@<17.13.7": "~17.13.7",
       "minimatch@9.0.3": "~9.0.9",
       "nanoid@3.3.15": "~3.3.18",
       "postcss@8.5.15": "~8.5.26",

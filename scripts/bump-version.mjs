@@ -37,6 +37,7 @@ const VERSION_FILES = [
   'server/package.json',
   'shared/package.json',
   'web/package.json',
+  'site/package.json',
   'desktop/src-tauri/tauri.conf.json',
   'desktop/src-tauri/Cargo.toml',
   'desktop/src-tauri/Cargo.lock',

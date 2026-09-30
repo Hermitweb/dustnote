@@ -505,6 +505,7 @@ jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # 任一平台构建失败即不发布(此前 desktop/mobile 失败仍发布,用户点
     # notes 里的下载链接会 404)
     needs: [build-web, build-miniprogram, build-desktop, build-mobile, build-server-zip]

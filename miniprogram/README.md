@@ -36,7 +36,7 @@ pnpm dev:weapp
 ## 已知限制
 
 - **小程序端加密强度有限**：JS 环境没有完整的 WebCrypto API
-- **真正的 E2EE 方案**：见 [security.md §5.7](../../.trae/documents/security.md)，需要后端代理 + 同声传译
+- **真正的 E2EE 方案**：见 `security.md`（security.md §5.7，早期设计稿未入库），需要后端代理 + 同声传译
 - **iOS 端后台限制**：进入后台后 WS 可能断开，回到前台需手动刷新
 
 ## 提交审核
@@ -46,7 +46,7 @@ pnpm dev:weapp
 ### 提审材料
 
 - 服务类目：工具 → 效率
-- 隐私协议：引用 [privacy-policy.md](../../docs/privacy-policy.md)
+- 隐私协议：引用 [privacy-policy.md](../docs/privacy-policy.md)
 - 备案：域名 ICP 备案 + 公安备案
 - 内容安全：所有内容用户自创建，无需预审
 

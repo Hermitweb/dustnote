@@ -1,0 +1,395 @@
+/*
+ * 官网样式：只做两件事——
+ *   1. 引入设计系统的静态令牌（shared/styles/tokens.css），官网不另立一套色值；
+ *   2. 写入本站的种子色与少量版式工具。
+ *
+ * 种子值必须与 shared/src/theme-seeds.ts 的 mist-blue 一致，site/src/content.test.ts
+ * 会把两边逐条比对——否则官网迟早变成「另一个产品」。
+ *
+ * 材质沿用产品约定：极光只画在 body::before 一层，含文字的容器必须落在
+ * glass-1 / glass-2 或实色表面上（tokens.css 里写明的硬约束）。
+ */
+@import '../../shared/styles/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* 官网比产品界面浓一档（产品默认 0.5）：营销页需要景深。
+     记下踩过的坑：CSS 注释不嵌套，本块曾因少了闭合符，把紧随的声明整段吞进注释里，
+     表现成「改了没生效」。这类问题只能看渲染结果，不能只看 diff。 */
+  --mn-aurora: 0.8;
+  /* mist-blue · light */
+  --mn-bg: 241 245 249;
+  --mn-fg: 15 23 42;
+  --mn-fg-muted: 71 85 105;
+  --mn-border: 203 213 225;
+  --mn-card: 255 255 255;
+  --mn-accent: 59 130 246;
+  --mn-accent-soft: 219 234 254;
+}
+
+html[data-mode='dark'] {
+  /* mist-blue · dark */
+  --mn-bg: 15 23 42;
+  --mn-fg: 226 232 240;
+  --mn-fg-muted: 148 163 184;
+  --mn-border: 51 65 85;
+  --mn-card: 30 41 59;
+  --mn-accent: 96 165 250;
+  --mn-accent-soft: 30 58 138;
+  --mn-glass-1: 30 41 59 / 0.62;
+  --mn-glass-2: 30 41 59 / 0.8;
+  --mn-glass-line: 226 232 240 / 0.1;
+  --mn-scrim: 2 6 23 / 0.55;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 84px;
+}
+
+html {
+  /* 底色必须挂在 html 上：tokens.css 的极光画在 body::before 且 z-index:-1，
+     若背景色写在 body，就会把整层极光盖掉——第一版截图里页面是一片死平的深蓝，
+     构建与 lint 都不会报，只有看图才发现。 */
+  background-color: rgb(var(--mn-bg));
+}
+
+body {
+  margin: 0;
+  font-family: var(--mn-font);
+  line-height: var(--mn-line-height);
+  color: rgb(var(--mn-fg));
+  background: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 首屏没有 JS 也必须是深色的：站点默认走 mist-blue dark */
+html:not([data-mode]) {
+  color-scheme: dark;
+}
+
+.shell {
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+  padding-inline: 22px;
+}
+
+.hero-title {
+  font-size: clamp(2.1rem, 1.35rem + 3.1vw, 3.55rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  margin: 0;
+}
+
+.section-title {
+  font-size: clamp(1.35rem, 1.1rem + 1vw, 1.9rem);
+  letter-spacing: -0.01em;
+  font-weight: 650;
+  margin: 0 0 6px;
+}
+
+.lede {
+  color: rgb(var(--mn-fg-muted));
+  max-width: 62ch;
+}
+
+.mono {
+  font-family: var(--mn-font-mono, ui-monospace, monospace);
+}
+
+::selection {
+  background: rgb(var(--mn-accent) / 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ---------- 组件工具类（页面里用到的都得有定义，否则会静默散架） ----------
+   注意：这些是 @layer components，所以 Tailwind 的 utility 永远能覆盖它们。*/
+@layer components {
+  .navlink {
+    color: rgb(var(--mn-fg-muted));
+    font-size: 13.5px;
+    text-decoration: none;
+    transition: color var(--mn-duration-fast) var(--mn-ease);
+  }
+  .navlink:hover,
+  .navlink[aria-current='true'] {
+    color: rgb(var(--mn-fg));
+  }
+
+  .inlinelink {
+    color: rgb(var(--mn-accent));
+    text-decoration: none;
+    border-bottom: 1px solid rgb(var(--mn-accent) / 0.32);
+  }
+  .inlinelink:hover {
+    border-bottom-color: rgb(var(--mn-accent));
+  }
+
+  .btn-primary,
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    padding-inline: 18px;
+    border-radius: var(--mn-radius-md);
+    font-size: 13.5px;
+    font-weight: 550;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background-color: rgb(var(--mn-accent));
+    color: rgb(var(--mn-on-accent));
+    box-shadow: 0 6px 18px rgb(var(--mn-accent) / 0.24);
+  }
+  .btn-primary:hover {
+    background-color: rgb(var(--mn-accent-strong-hover, var(--mn-accent)));
+  }
+  .btn-ghost {
+    border: 1px solid rgb(var(--mn-border));
+    color: rgb(var(--mn-fg));
+    background-color: rgb(var(--mn-card) / 0.55);
+  }
+  .btn-ghost:hover {
+    border-color: rgb(var(--mn-border-strong));
+  }
+
+  .btn-tiny {
+    border: 1px solid rgb(var(--mn-border));
+    border-radius: var(--mn-radius-sm);
+    background: transparent;
+    color: rgb(var(--mn-fg-muted));
+    font-size: 11.5px;
+    line-height: 1;
+    padding: 5px 9px;
+    cursor: pointer;
+  }
+  .btn-tiny:hover {
+    color: rgb(var(--mn-fg));
+  }
+
+  .chip {
+    display: inline-block;
+    border: 1px solid rgb(var(--mn-border));
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: 11.5px;
+    color: rgb(var(--mn-fg-muted));
+    background-color: rgb(var(--mn-accent-soft) / 0.5);
+  }
+
+  .fact {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 13.5px;
+    color: rgb(var(--mn-fg-secondary, var(--mn-fg)));
+  }
+  .fact::before {
+    content: '';
+    flex: none;
+    width: 7px;
+    height: 7px;
+    margin-top: 7px;
+    border-radius: 999px;
+    background-color: rgb(var(--mn-accent));
+  }
+
+  .pill-ok,
+  .pill-wip {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 11.5px;
+    border: 1px solid transparent;
+  }
+  .pill-ok {
+    color: rgb(var(--mn-success));
+    background-color: rgb(var(--mn-success-soft) / 0.75);
+    border-color: rgb(var(--mn-success) / 0.28);
+  }
+  .pill-wip {
+    color: rgb(var(--mn-warning));
+    background-color: rgb(var(--mn-warning-soft) / 0.7);
+    border-color: rgb(var(--mn-warning) / 0.26);
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgb(var(--mn-border) / 0.55),
+      rgb(var(--mn-border) / 0.25),
+      rgb(var(--mn-border) / 0.55)
+    );
+    background-size: 220% 100%;
+    animation: sk 2.4s var(--mn-ease) infinite;
+  }
+}
+
+@keyframes sk {
+  0% {
+    background-position: 130% 0;
+  }
+  100% {
+    background-position: -30% 0;
+  }
+}
+
+/* 玻璃关掉时（系统降级 / 不支持）保证仍有可读底色：材质是装饰，信息不是 */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-1,
+  .glass-2 {
+    background-color: rgb(var(--mn-card));
+  }
+}
+
+/* ---------- 首屏示意图：三栏结构，窄屏整列隐藏而非压缩 ---------- */
+.mock {
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--mn-radius-xl);
+}
+.mock-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 14px;
+  border-bottom: 1px solid rgb(var(--mn-glass-line));
+}
+.mock-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background-color: rgb(var(--mn-border-strong));
+}
+.mock-title {
+  margin-left: 6px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  color: rgb(var(--mn-fg-muted));
+}
+.mock-body {
+  display: grid;
+  grid-template-columns: 46px minmax(150px, 200px) 1fr;
+  min-height: 268px;
+}
+.mock-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-right: 1px solid rgb(var(--mn-glass-line));
+}
+.rail-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: rgb(var(--mn-fg-muted));
+}
+.rail-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.rail-btn.is-active {
+  background-color: rgb(var(--mn-accent-soft));
+  color: rgb(var(--mn-accent));
+}
+.mock-list {
+  margin: 0;
+  padding: 10px;
+  list-style: none;
+  border-right: 1px solid rgb(var(--mn-glass-line));
+}
+.mock-list li {
+  padding: 9px 10px;
+  border-radius: 10px;
+}
+.mock-list li.is-active {
+  background-color: rgb(var(--mn-accent-soft));
+}
+.mock-list .t {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: rgb(var(--mn-fg));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mock-list .d {
+  margin: 3px 0 0;
+  font-size: 10.5px;
+  color: rgb(var(--mn-fg-muted));
+}
+.mock-detail {
+  padding: 18px 20px;
+}
+.mock-detail .h {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+}
+.mock-detail .meta {
+  margin: 5px 0 14px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 10.5px;
+  color: rgb(var(--mn-fg-muted));
+}
+.mock-detail .ln {
+  display: block;
+  height: 8px;
+  margin-bottom: 9px;
+  border-radius: 999px;
+  background-color: rgb(var(--mn-border) / 0.75);
+}
+.mock-detail .chips {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+/* 图标：与产品同规矩——只用图标体系，不往文案里塞 emoji */
+.ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background-color: rgb(var(--mn-accent-soft));
+  color: rgb(var(--mn-accent));
+}
+.ico svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 640px) {
+  /* 隐藏而不是压缩：压缩会让文字叠在一起，第一版就是这么坏的 */
+  .mock-body {
+    grid-template-columns: 46px 1fr;
+  }
+  .mock-detail {
+    display: none;
+  }
+}

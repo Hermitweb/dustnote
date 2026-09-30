@@ -74,6 +74,15 @@ jobs:
           # 认证后 5000 次/小时，去重后实际只需 15-30 次，余量很大。
           GITHUB_TOKEN: ${{ github.token }}
         run: pnpm action:pins
+      - name: Check docs links, anchors and index coverage
+        # 断链不会让任何测试变红，但它就是官网与文档的 404；孤儿文档等于不存在。
+        run: pnpm docs:check
+      - name: Check workflow files are structurally valid
+        # GitHub 对 workflow 的校验是整份拒绝：一个 job 缺 runs-on，这个文件里所有
+        # job 都不跑，而本地没有任何命令会因此变红。这条守卫补上那个盲区。
+        run: pnpm workflows:check
+      - name: Check API inventory is not stale
+        run: pnpm api:check
       - name: Validate nginx config syntax with the production nginx
         # 容器是一体化的（node:22-alpine + apk nginx），nginx 配置写错一个字符就是
         # 下次升级起不来，而 node 侧所有门禁都碰不到它。刻意用同一个基础镜像跑
@@ -88,11 +97,11 @@ jobs:
           '
 
       - name: Check i18n keys
-        run: node scripts/check-i18n.mjs
+        run: pnpm i18n:check
       - name: Verify SW_VERSION matches package.json
-        run: node scripts/check-sw-version.mjs
+        run: pnpm sw:check
       - name: Verify README badge version matches package.json
-        run: node scripts/check-readme-version.mjs
+        run: pnpm readme:check
 
   typecheck:
     name: TypeScript Type Check
@@ -197,6 +206,8 @@ jobs:
               // C 类：无补丁 / 已废弃，待 Taro 主版本升级根治
               'GHSA-hmx5-qpq5-p643', // swiper critical：@tarojs/components 钉死 6.x
               'GHSA-mp2f-45pm-3cg9', // decompress critical：download-git-repo 链路
+              'GHSA-hrh2-vp3x-79xf', // decompress 同一条链路的第二个 GHSA：上游只修了 @xhmikosr/
+              // decompress（11.1.4 / 10.2.2），decompress 4.x 本身无修复版本，包已废弃
               'GHSA-8jmw-wjr8-2x66', // git-clone：download-git-repo 链路
               'GHSA-pfq8-rq6v-vf5m', // html-minifier：webpack5-runner
               'GHSA-w3rx-r6r6-pgpr', 'GHSA-5p2g-fcmc-qvqq', // image-size：less/metro
@@ -545,3 +556,46 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  site:
+    name: Build Site (GitHub Pages)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Build site
+        run: pnpm build:site
+      - name: Assert Pages base path
+        # base 写成 / 时站点在 project page 下会 404 掉全部资源，而且只在部署后看得见，
+        run: |
+          grep -q '/dustnote/assets/' site/dist/index.html || { echo '::error::site/dist/index.html 缺 /dustnote/ 前缀，SITE_BASE 配错了'; exit 1; }
+          grep -q 'hermitweb.github.io/dustnote' site/dist/index.html || { echo '::error::canonical/og:url 与实际 Pages 地址不一致'; exit 1; }
+      - name: Upload built site for Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/dist
+
+  deploy-site:
+    name: Deploy Site to GitHub Pages
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [site]
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: https://hermitweb.github.io/dustnote/
+    steps:
+      - uses: actions/deploy-pages@v4

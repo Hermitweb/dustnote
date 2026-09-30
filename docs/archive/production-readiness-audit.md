@@ -2,7 +2,7 @@
 
 > 审计时间：2026-07-30
 > 当前版本：v2.1.3（即将发布 v2.2.0）
-> 审计基准：[docs/production-checklist.md](./production-checklist.md)、[.trae/documents/roadmap.md](../.trae/documents/roadmap.md)、[CHANGELOG.md](../CHANGELOG.md)
+> 审计基准：[docs/production-checklist.md](../production-checklist.md)、`roadmap.md`（.trae/documents/roadmap.md，早期设计稿未入库）、[CHANGELOG.md](../../CHANGELOG.md)
 > 审计视角：可上线生产产品
 
 ---

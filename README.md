@@ -9,13 +9,15 @@
 ![Platforms](https://img.shields.io/badge/platforms-5-brightgreen)
 ![Modes](https://img.shields.io/badge/modes-standalone%20%2F%20online-teal)
 
+> 项目官网：<https://hermitweb.github.io/dustnote/>（站内零第三方请求，页面即仓库 `site/`，由 GitHub Pages 发布）
+
 ## 特性
 
 - 🔐 **端到端加密**——AES-256-GCM，服务端仅存密文，完全看不到明文；两步验证（TOTP）可选
 - 🏠 **单机/联机双模式**——无服务器也能独立运行（单机模式），连接服务器解锁跨设备同步（联机模式）
 - 📝 **Markdown 编辑器**——左编辑右预览 + 所见即所得（WYSIWYG）双模式
 - 🔍 **秒级全文检索**——客户端中文分词建索引（E2EE 下服务端无法检索），标题加权 + 命中高亮
-- 🎨 **多套主题 × 亮暗双模式**——薄荷绿 / 月光蓝 / 日落橙等皮肤，小程序/移动端暗色跟随系统
+- 🎨 **七套主题 × 亮暗双模式**——尘心晨光 / 雾霭蓝调 / 暮色森林 / 焦糖暖光 / 樱粉物语 / 极简白 / 液态玻璃，玻璃材质可开关，小程序与移动端暗色跟随系统
 - 🎙️ **语音听写**——Android 编辑页一键语音转文字，实时追加正文
 - 📄 **模板新建**——内置预设模板 + 占位符填充，从列表页一键创建
 - 📥📤 **导入导出**——支持 .txt / .md / .docx 导入；导出 Markdown / HTML / PDF / JSON 备份
@@ -190,14 +192,19 @@ NODE_ENV=production DB_PATH=./data/dustnote.db WEB_ORIGIN=https://your-domain.co
 
 ```
 dustnote/
-├── shared/           # 跨端共享（加密/API/类型），纯 JS
-├── server/           # 后端 (Express + SQLite + WebSocket)
-├── web/              # Web 端 (React + Vite + Tailwind)
-├── desktop/          # 桌面端 (Tauri 2，复用 web/)
+├── shared/           # 跨端共享：加密原语、API 契约、类型、主题种子、设计令牌
+├── server/           # 后端 (Express + better-sqlite3 + WebSocket)
+├── web/              # Web 端 (React + Vite + Tailwind)，桌面端复用它
+├── desktop/          # 桌面端 (Tauri 2)
 ├── mobile/           # 移动端 (React Native)
-├── miniprogram/      # 小程序 (Taro 3，多平台)
-├── deploy/           # 部署配置 (nginx + supervisor)
-├── Dockerfile        # 多阶段 Docker 构建
+├── miniprogram/      # 小程序与 H5 (Taro 3)
+├── site/             # 项目官网 (Vite + Tailwind)，发布到 GitHub Pages
+├── client-core/      # 三端共用的客户端内核（仓库层 / 同步 / 加密编排）
+├── scripts/          # 门禁与工程脚本（每条门禁都有同名 *.test.mjs）
+├── deploy/           # 自托管部署包 + monitoring/（Prometheus/Alertmanager/拨测）
+├── docs/             # 文档，索引见 docs/README.md
+├── .github/workflows/# CI、发版、拨测、Pages 部署
+├── Dockerfile        # 多阶段构建（COPY 是白名单，由 docker:check 守）
 └── docker-compose.yml
 ```
 
@@ -259,42 +266,61 @@ pnpm docker:up          # Docker 部署
 
 ## 文档
 
-> 产品/技术设计文档见下方 `docs/`。
+**全部文档的索引在 [docs/README.md](./docs/README.md)**——那一份是唯一权威目录，
+`pnpm docs:check` 会保证每篇文档都能从索引走到（孤儿文档直接拦下）。
 
-### 用户与运维文档
+常用入口：
 
-- [用户使用手册](./docs/user-guide.md)
-- [安装与卸载指南](./docs/installation-guide.md)（v2.4.0 新增，覆盖全平台安装/卸载/静默部署/自动更新）
-- [常见问题 FAQ](./docs/faq.md)
-- [自托管指南](./docs/self-hosting.md)
-- [兼容性矩阵](./docs/compatibility-matrix.md)
-- [服务状态](./docs/status.md)
-- [运维手册](./docs/operations-runbook.md)
-- [上线检查单](./docs/production-checklist.md)
-- [隐私政策](./docs/privacy-policy.md)
-- [服务条款](./docs/terms-of-service.md)
-- [Cookie 政策](./docs/cookie-policy.md)
-- [发展路线图](./docs/roadmap.md)（季度更新，含现状体检与不做清单）
-- [UI 优化方案](./docs/ui-optimization.md)（设计系统地基 + 三阶段改造 + 可量化验收）
+| 我要…                      | 看这里                                                                                                                 |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 第一次用、搞清双模式       | [用户使用手册](./docs/user-guide.md)                                                                                   |
+| 装客户端 / 卸载 / 静默部署 | [安装与卸载指南](./docs/installation-guide.md)                                                                         |
+| 自己起一台服务器           | [引导式自托管](./docs/self-hosting.md) · [部署参考手册](./DEPLOY.md) · [上线检查单](./docs/production-checklist.md)    |
+| 想知道系统怎么搭的         | [架构总览](./docs/architecture.md) · [架构决策记录](./docs/adr/)                                                       |
+| 看接口                     | [API 清单](./docs/api.md)（由 `pnpm api:gen` 从路由代码生成，`api:check` 防漂移）                                      |
+| 出问题了                   | [常见问题](./docs/faq.md) · [运维手册](./docs/operations-runbook.md) · [兼容性矩阵](./docs/compatibility-matrix.md)    |
+| 关心隐私与合规             | [隐私政策](./docs/privacy-policy.md) · [服务条款](./docs/terms-of-service.md) · [Cookie 政策](./docs/cookie-policy.md) |
+| 看它现在到底什么状态       | [服务状态页](./docs/status.md) · [发展路线图](./docs/roadmap.md)（含台账与不做清单）                                   |
+| 想改界面                   | [UI 优化方案](./docs/ui-optimization.md) · [图标对照表](./docs/ui-icon-map.md)                                         |
 
-### 部署文档
-
-- [DEPLOY.md](./DEPLOY.md) — 完整服务端部署文档（v2.0.0 新增）
-- [deploy/README.md](./deploy/README.md) — 部署配置说明
-
-### 更新日志
-
-- [CHANGELOG.md](./CHANGELOG.md) — 持续更新；近期：v2.5.28 全平台设置回填服务器地址 + 批量选择修复 + 语音听写；v2.5.24 起全端 KDF 统一 PBKDF2 100000
+更新日志见 [CHANGELOG.md](./CHANGELOG.md)。
 
 ## 开发
 
 ```bash
-pnpm install         # 安装依赖
-pnpm dev             # 启动开发环境
-pnpm typecheck       # 全量类型检查
-pnpm build           # 构建所有包
-pnpm clean           # 清理构建产物
+pnpm install    # 安装依赖
+pnpm dev        # 起后端 + Web
+pnpm verify     # 本地跑完 CI 的全部门禁（提交前该过的都在这一条里）
+pnpm build      # 构建所有包
+pnpm clean      # 清理构建产物
 ```
+
+> `pnpm verify` 与 CI 的 lint job 是同一套命令，不是「本地宽松、CI 严格」。
+> 新增门禁时同时加进 verify 与 ci.yml，否则它会变成一条只有人记得跑才生效的规矩。
+
+### 门禁总表
+
+每条门禁都对应一次真实踩坑，不是预防性装饰。
+
+| 命令                         | 拦的是什么                                                            | 由来                                                                  |
+| ---------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `pnpm typecheck`             | 跨包类型漂移（shared 改一处，五端都要重算）                           | —                                                                     |
+| `pnpm lint` / `format:check` | 风格与危险写法                                                        | prettier 与生成器互打的表已进 `.prettierignore`，避免「格式化即漂移」 |
+| `pnpm lint:scripts`          | 门禁脚本自己写错                                                      | 守卫没人守卫，就得自己可 lint                                         |
+| `pnpm test`                  | 582 条单测（七包）                                                    | 覆盖率阈值 CI 强制                                                    |
+| `pnpm test:monitoring`       | 告警桥、拨测、nginx 守卫、action 钉版守卫的自测                       | 监控系统自己也得被监控                                                |
+| `pnpm docker:check`          | Dockerfile `COPY` 白名单漏文件                                        | v2.5.46 升级现场连挂两次：CI 全绿、本地全绿，服务器构建必炸           |
+| `pnpm tokens:check`          | 小程序令牌与 `shared` 设计令牌漂移                                    | 小程序曾自己抄一份色值，改主题只改一半                                |
+| `pnpm security:headers`      | nginx `add_header` 不继承导致整套安全头静默消失                       | 线上实测 `/api/`、`/metrics` 丢了 CSP                                 |
+| `pnpm action:pins`           | 钉了不存在 / 与注释版本不符的 action SHA                              | nightly 拨测因假 SHA 静默失效，6 次排期全没跑                         |
+| `pnpm docs:check`            | 文档死链、锚点无落点、孤儿文档                                        | 首跑揪出 67 处，其中 18 条指向早已删除的 `.trae/documents/`           |
+| `pnpm workflows:check`       | workflow 文件结构（缺 runs-on / needs 拼错 / 无超时）                 | GitHub 对 workflow 是整份拒绝，本地没有任何命令会因此变红             |
+| `pnpm api:check`             | `docs/api.md` 与真实路由表漂移                                        | 清单由 `api:gen` 从 `app.ts` 挂载顺序生成，不手抄                     |
+| `pnpm i18n:check`            | 三端词典键不齐、文案里混进 emoji 图标                                 | 图标一律走 `docs/ui-icon-map.md` + SVG                                |
+| `pnpm sw:check`              | Service Worker 缓存版本没跟着发布走                                   | 老 SW 兜住新页面是典型的「用户看不到更新」                            |
+| `pnpm readme:check`          | README 徽章版本与实际版本不符                                         | 版本号靠 `bump-version.mjs` 多点同步，漏一处即拦                      |
+| `pnpm build:site`            | 官网构建 + 内容守卫（版本、平台表、安全结论、零第三方请求、配色同源） | 官网写歪比没有官网更糟                                                |
+| nginx -t（仅 CI）            | 部署配置语法                                                          | 本机无 docker 时跑不到，容器是一体化的，写错就是下次升级起不来        |
 
 ## 贡献
 

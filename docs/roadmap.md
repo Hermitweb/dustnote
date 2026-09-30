@@ -937,9 +937,117 @@ GCM IV **完全由时间戳+计数器决定**，而计数器原先每次从 0 �
 再加一条自我提醒：**给监控加监控之前，先算一遍它自己会不会成为新的静默点。** 这次
 守卫两次把自己跑挂，都是因为它自己就是那个会静默的东西。
 
+### 2026-09-29 落（续）：项目官网、文档索引，以及「守了个寂寞」的六条门禁
+
+#### 做了什么
+
+- 新增 workspace 包 `site/`（Vite + Tailwind + 原生 TS），发布到 GitHub Pages：<https://hermitweb.github.io/dustnote/>。
+  复用产品的设计令牌与 mist-blue 种子，正文是**全静态 HTML**（无 JS 也能读全），`main.ts` 只做版本回填、
+  移动菜单、复制、scroll-spy；零第三方请求（不引外链字体、不引 shields 徽章），这一点由测试钉住。
+- 文档收口：`docs/README.md` 成为 45 篇 markdown 的唯一索引；新增 `docs/architecture.md` 与 `docs/adr/`（5 篇）；
+  `docs/api.md` 由 `pnpm api:gen` 从 `server/src/app.ts` 的挂载顺序生成（57 条路由 / 13 条公开），不再手抄。
+- `pnpm verify` 补三条：`i18n:check`、`sw:check`、`readme:check` 此前只在 CI 里跑、本地没有——
+  「本地一条命令等于 CI 全部门禁」这句话之前是假的。现在 17 条命令串成一条。
+
+#### 自我纠错（六条，全是「看起来成功、实际没生效」那一类）
+
+1. **官网把产品中文名写成「尘心笔记」**。那是主题 `mint-dawn` 显示名「尘心晨光」的头两个字，
+   真名以 `web/src/lib/i18n.ts` 的 `name` 为准：**尘渊笔记**。凭空造名字属于最不该犯的那类错。
+   已全量改回，并加测试：页面上每一处「DustNote · X」品牌串都必须由 i18n 的 `name` 拼出
+   （产品示意图里的假标题栏不算声明，比对前先摘掉）。变异验证：把 title 改回「尘心笔记」即红。
+2. **配色同源测试是假通过**。它用 slice(from, indexOf(「};」, from)) 取种子块，而「};」在文件末尾，
+   于是 dark 段混进了后面所有种子的值，`Object.fromEntries` 后者覆盖前者——实际比对的是最后一个种子。
+   改成按缩进切到下一个种子键之后，第一次跑就红（因为原来根本没在比 mist-blue）。已变异验证：改错任一色值即红。
+3. **`deploy-site` job 漏写 `runs-on`**。GitHub 对 workflow 是**整份拒绝**：不是那一个 job 不跑，
+   是整个 `ci.yml` 的 15 个 job 一起不跑。而本地、lint、typecheck、单测、`build:site` 全绿
+   （js-yaml 也照样解析成功——它读语法，不校验语义）。为此新增 `pnpm workflows:check`：
+   runs-on / steps / needs 目标存在性 / timeout-minutes / environment.url 必须 https，9 条测试。
+   顺手补上 `release.yml` 的 `create-release` 缺的 `timeout-minutes`（那是扫描时报出的第二条真问题）。
+4. **`check-docs.mjs` 的闭栏正则里写的是单反斜杠加 s**。在 JS 字符串里那等于字母 s，
+   于是「尾随空格的闭栏」不再被认，围栏之后的整篇内容被当代码吞掉，
+   表现恰好是它自己要防的那种「一片假锚点故障」。已改成双反斜杠，并补尾随空格用例；
+   变异验证：把双反斜杠改回单反斜杠，测试立刻红。
+
+   同一条脚本还有第二处毛病：被测试 import 时它会把整份文档扫一遍并打印（守卫自己带副作用）。
+   已按兄弟脚本的写法加上「只有直接执行才跑 main」的闸门。
+
+5. 新写的 `check-workflows.mjs` 第一版把 `needs: build`（单个字符串，合法写法）用 `Object.keys` 拆成字符下标，
+   报出「needs 指向不存在的 job：0、1、2、3、4」。它自己就是刚写出来就错的那类守卫——已修并补用例。
+
+6. **`gen-api-inventory.mjs` 此前一条测试都没有**（它是四条新门禁里唯一没有 `.test.mjs` 的那条）。
+   补测试时把它拆成收 `read` 参数的纯函数，顺手撞出两处真问题：
+   其一，`openapi.yaml` 的 path 若写成带引号的 `  '/notes':`，那条正则一条都匹配不到，
+   文档就会理直气壮地写「覆盖 0 条」——把「解析器瞎了」汇报成「一个结论」；现在两种写法都认，
+   并且当文件里明明有 `paths:` 而解析结果为零时直接 FAIL。其二，数组式挂载与公开表优先性
+   原本只是「看起来对」，现在有 9 条断言钉住。
+
+#### PR #16 首跑：CI 撞出两条，其中一条是我自己带的
+
+开 PR 后 CI 与 Docs 两条 workflow 各挂一处。都不是「门禁太严」，而是门禁真的在工作：
+
+1. **Docs workflow 挂在 setup-node 的 Post 步骤**：`package-manager-cache` 默认是真，它会按
+   `package.json` 的 `packageManager` 去恢复/保存 pnpm store。这个 job 刻意不 install（两条检查都是
+   零依赖脚本），于是 store 目录不存在 → **缓存命中时看不出问题，一旦 `pnpm-lock.yaml` 变了、新 key
+   无缓存可恢复，Post 保存就报 Path Validation Error 把 job 跑红**。
+   同形状的 `nightly-status.yml` 拨测 job 当时只是**运气好命中缓存**——它已经在 main 上成功跑过几轮，
+   但下一次锁文件变更就会让它每次排期都红。两处都已显式 `package-manager-cache: false`，
+   并把这条做成 `workflows:check` 的第 7 项规则（新增 3 条测试，共 12 条）。
+   这类「平时绿、换锁文件才红」的间歇故障最难查，所以做成结构检查而不是等人踩。
+2. **Security Audit 挂在 vite(high) + vitest(critical)**：是我带的。官网包初版把 devDeps 钉在
+   `vite ^5.4.10` / `vitest ^2.1.4`，而仓库其余七包早已是 vite 6.4.3 / vitest 3.2.6（补丁版）。
+   新公示的两条 advisory 正好覆盖旧版本。已把 `site/` 对齐到 `vite ^6.4.3` / `vitest ^3.2.6`，
+   构建与 24 条测试全过、三档截图渲染无变化。
+   顺带把审计期间新公示的三条一起处理：`brace-expansion` 与 `joi` 有补丁 → 走 `pnpm.overrides`
+   （1.1.18→1.1.20、17.13.4→~17.13.7，与仓库既有做法一致）；`decompress` 的第二条 GHSA 上游只修了
+   `@xhmikosr/decompress`、4.x 本身无修复版本且包已废弃 → 登记进豁免清单并写明理由。
+   现在 high/critical 剩 7 条，全部在清单内（脚本核对：未登记 0 条）。
+
+   教训一句话：**新增工作区包时，devDeps 必须对齐既有包的版本区间**，否则等于把仓库已经
+   治理过的漏洞重新引进来——而且只有审计会吭，构建与测试全绿。
+
+#### CodeQL 的 PR 闸门：4 条新告警，两条其实是我写弱了
+
+合并前 CodeQL 的 PR 检查报「4 new alerts including 4 high」，全在 `site/src/content.test.ts`。
+逐条看，不是同一性质的东西：
+
+- **`v.includes('github.com/')` 这类子串判定**（`js/incomplete-url-substring-sanitization`）：
+  告警本身在测试代码里不算「漏洞」，但它指出的写法是真的弱——换成
+  `https://evil.example/?x=/Hermitweb/dustnote` 就绕过。已改成 `new URL()` 解析后
+  比 `hostname` 白名单 + `pathname` 前缀，并补一条断言：`LINKS` 里每个主机都必须在名单内。
+  变异验证：把 releases 链接改成上面那个绕过形状，测试立刻红。
+- **`not.toMatch(/shields\.io/)` 这类「整页搜子串」**：负向断言里不锚定其实是最严的形态，
+  告警是误报；但顺着它把断言换成了更好的写法——收集页面里所有绝对 URL、逐个比主机名。
+  新写法是严格超集：任何没点名的第三方域名（poster、data-src 也算）都会红，
+  而旧写法只认两个已知域名。
+- **`html.replace(/<!--[\s\S]*?-->/g, '')` 被判成不完整的 HTML 清洗**：确实是「剥一层再当
+  HTML 用」的形态。改成直接取标签之间的文本节点（`/>[^<>]+/`），注释体根本不会被取到，
+  顺带去掉一次多余的清洗；并补 `textNodes > 0` 的自检——拿不到节点是正则失效，
+  不等于页面干净，这两件事必须分开报。
+
+顺带被自己的 lint 抓一次：字符类里写 `\['` 属于 `no-useless-escape`，`pnpm verify` 直接拦下。
+
+教训：**告警分两类**——「写法确实弱」和「扫描器误报」。前者要顺着改强，后者也要借机换成
+更强的表达；只有两边都不成立时才谈豁免。这次四条全部落在前两类，没有一条是靠注释压掉的。
+
+#### 数字
+
+| 项            | 值                                                                               |
+| ------------- | -------------------------------------------------------------------------------- |
+| 单测          | **607**（八包；site 新增 24）                                                    |
+| 运维脚本测试  | **57**（桥 9 + 钉版 8 + 文档 5 + 安全头 6 + workflow 12 + API 清单 10 + 拨测 7） |
+| `pnpm verify` | 17 条命令，全绿                                                                  |
+| `docs:check`  | 45 篇 markdown、220 条本地链接、11 条站内锚点                                    |
+| 官网产物      | index.html 31.89 kB / css 21.48 kB / js 2.23 kB（vite 6 构建）                   |
+| 渲染核验      | 1280 / 768 / 390 三档截图，consoleErrors 0、横向溢出 0、15 条锚点全有落点        |
+| 极光强度      | 官网 `--mn-aurora: 0.8`（产品默认 0.5）；底色挂 `html`、`body` 透明              |
+
+最后一条值得记：第一版把底色写在 `body` 上，极光层（`body::before`，`z-index:-1`）被整个盖掉，
+页面是一片死平的深蓝——而构建、lint、测试全绿。材质类问题只能看渲染结果，这条已写进 CONTRIBUTING。
+
 ### 仍待办（下一轮起点）
 
-UI 这条线（阶段 1 / 2 / 3 的可量化部分）与 P0-1、P0-2、P0-6、TEST-004 均已收口。剩下的：
+UI 这条线（阶段 1 / 2 / 3 的可量化部分）与 P0-1、P0-2、P0-6、TEST-004 均已收口；
+官网与文档索引（2026-09-29 续）也已收口，Pages 首跑要在合入 main 后核对一次。剩下的：
 
 1. **R1 供应链 / 签名 / 备案** —— 需要外部资源：代码签名证书、应用商店与推送的开发者账号、
    ICP 备案主体。不是能在这台机器上做完的事。
@@ -963,3 +1071,10 @@ UI 这条线（阶段 1 / 2 / 3 的可量化部分）与 P0-1、P0-2、P0-6、TE
      跑的门禁盯着「它自己能不能跑」。本轮已给 action 钉版加了 `pnpm action:pins`；
      `release.yml` 等 tag-only workflow 的 action 引用存在性已被 action:pins 覆盖，但
      「真的跑起来过没有」仍无断言——留到下次发版顺手核对 run，不为它另造机制。
+
+7. **官网 Pages 首跑核对**（本轮做完代码，部署要等合入 main）：CI 的 `site` 与 `deploy-site` 只在
+   `refs/heads/main` 上传产物/部署。合并后确认 <https://hermitweb.github.io/dustnote/> 返回 200、
+   资源带 `/dustnote/` 前缀、canonical 与实际地址一致。Pages 源已设为 workflow（build_type=workflow）。
+8. **官网只在「构建 + 内容断言 + 三档截图」这一层被守**。它没有 e2e：交互（移动菜单、复制按钮、
+   scroll-spy）目前靠手测。若官网继续长，考虑把这三件事纳入 Playwright；在那之前，
+   `workflows:check` 与 `build:site` 只保证「它存在且不说谎」，不保证「点了有反应」。
