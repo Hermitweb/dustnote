@@ -206,6 +206,8 @@ jobs:
               // C 类：无补丁 / 已废弃，待 Taro 主版本升级根治
               'GHSA-hmx5-qpq5-p643', // swiper critical：@tarojs/components 钉死 6.x
               'GHSA-mp2f-45pm-3cg9', // decompress critical：download-git-repo 链路
+              'GHSA-hrh2-vp3x-79xf', // decompress 同一条链路的第二个 GHSA：上游只修了 @xhmikosr/
+              // decompress（11.1.4 / 10.2.2），decompress 4.x 本身无修复版本，包已废弃
               'GHSA-8jmw-wjr8-2x66', // git-clone：download-git-repo 链路
               'GHSA-pfq8-rq6v-vf5m', // html-minifier：webpack5-runner
               'GHSA-w3rx-r6r6-pgpr', 'GHSA-5p2g-fcmc-qvqq', // image-size：less/metro
