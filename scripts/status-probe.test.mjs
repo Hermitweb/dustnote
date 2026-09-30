@@ -13,6 +13,7 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, readFileSync, copyFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { plaintextTargets, plaintextVerdict } from './plaintext-targets.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PROBE = join(ROOT, 'scripts/status-probe.mjs');
@@ -238,5 +239,47 @@ test('CSP 在位但缺关键 directive → 判红，且只报缺哪一项', asyn
     weak.closeAllConnections?.();
     weak.unref?.();
     await new Promise((r) => weak.close(() => r()));
+  }
+});
+
+// —— 明文收口：目标端口与判定（见 scripts/plaintext-targets.mjs 的由来注释）——
+test('标准 https 域名要探两处：80 与绕过前置代理的 8080', () => {
+  const t = plaintextTargets('https://napi.iniess.cn');
+  assert.deepEqual(
+    t.map((x) => x.label),
+    ['80', '8080']
+  );
+  assert.equal(t[0].url, 'http://napi.iniess.cn');
+  assert.equal(t[1].url, 'http://napi.iniess.cn:8080');
+});
+
+test('base 里已写明端口时不臆造 8080 旁路，只探那一个', () => {
+  const t = plaintextTargets('http://127.0.0.1:4567');
+  assert.equal(t.length, 1);
+  assert.equal(t[0].label, '4567');
+});
+
+test('收口判定：3xx 与 404 算收口，200 算仍在服务', () => {
+  for (const s of [301, 302, 307, 308, 404]) assert.match(plaintextVerdict(s), /^明文已收口/);
+  for (const s of [200, 204, 300]) assert.match(plaintextVerdict(s), /仍可服务/);
+  // 300 是多选，不是跳转到 https——不能算收口，否则一个错误的分类就能刷绿
+  assert.match(plaintextVerdict(200), /R1 HTTPS 收口待办/);
+});
+
+test('探针为每个目标端口各出一条 informational 行，且不牵连总红', async () => {
+  const srv = await startServer('2.5.46');
+  try {
+    const r = await runProbe(srv.address().port);
+    const rep = JSON.parse(r.out);
+    const rows = rep.results.filter((x) => x.name.startsWith('http-plaintext'));
+    // base 带显式端口 → 只有一个目标；若这里变成 0 或 2，说明目标推导或命名漂了
+    assert.equal(rows.length, 1, '实际行名：' + rows.map((x) => x.name).join(','));
+    for (const row of rows) {
+      assert.equal(row.informational, true, row.name + ' 必须是 informational');
+      assert.match(row.name, /^http-plaintext:\d+\(informational\)$/);
+    }
+    assert.equal(r.code, 0, '明文项存在时整体仍应绿');
+  } finally {
+    await stopServer(srv);
   }
 });

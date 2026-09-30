@@ -16,6 +16,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { plaintextTargets, plaintextVerdict } from './plaintext-targets.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const URL_BASE = (process.env.STATUS_PROBE_URL || 'https://napi.iniess.cn').replace(/\/+$/, '');
@@ -192,29 +193,34 @@ results.push(
 );
 
 // 4) 明文 HTTP 收口状况——informational（不计入 ok）：
-//    R1「强制 HTTPS」落地前明文可达是已知现状，红它 = 制造告警疲劳
-try {
-  const res = await fetch(URL_BASE.replace(/^https:/, 'http:') + '/api/v1/health', {
-    redirect: 'manual',
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  const hardened = [301, 302, 307, 308].includes(res.status) || res.status === 404;
-  results.push({
-    name: 'http-plaintext(informational)',
-    informational: true,
-    ok: true,
-    ms: 0,
-    status: res.status,
-    note: hardened ? '明文已收口' : `明文仍可服务（status=${res.status}，R1 HTTPS 收口待办）`,
-  });
-} catch (err) {
-  results.push({
-    name: 'http-plaintext(informational)',
-    informational: true,
-    ok: true,
-    ms: 0,
-    note: `明文不可达：${String(err?.message ?? err)}`,
-  });
+//    R1「强制 HTTPS」落地前明文可达是已知现状，红它 = 制造告警疲劳。
+//
+//    必须逐个端口探，不能只探 80：容器把 8080 直接发布到公网，那条路**绕过前置代理**，
+//    由容器内 nginx 自己回页面。只验 80 会得出假绿——80 上 301 了，明文却还在 8080 上
+//    正常服务（2026-09-30 实测 napi.iniess.cn 的 80 与 8080 都是 200，无一处跳转）。
+for (const t of plaintextTargets(URL_BASE)) {
+  try {
+    const res = await fetch(t.url + '/api/v1/health', {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    results.push({
+      name: 'http-plaintext:' + t.label + '(informational)',
+      informational: true,
+      ok: true,
+      ms: 0,
+      status: res.status,
+      note: plaintextVerdict(res.status),
+    });
+  } catch (err) {
+    results.push({
+      name: 'http-plaintext:' + t.label + '(informational)',
+      informational: true,
+      ok: true,
+      ms: 0,
+      note: '明文不可达：`String(err?.message ?? err).slice(0, 60)`',
+    });
+  }
 }
 
 const allOk = results.filter(isHard).every((r) => r.ok);
