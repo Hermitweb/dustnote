@@ -94,24 +94,39 @@ describe('链接卫生', () => {
     for (const u of used) expect(ids.has(u)).toBe(true);
   });
 
-  it('外链全为 https，GitHub 链接只指本仓库', () => {
-    for (const m of html.matchAll(/href="http:\/\/([^"/]+)/g))
-      expect.unreachable('发现 http 外链：' + m[1]);
+  // 自有主机：Pages 站点、仓库，以及官方托管实例（只是链接目标，页面不从它加载任何资源）。
+  const ALLOWED_HOSTS = new Set(['hermitweb.github.io', 'github.com', 'napi.iniess.cn']);
+
+  it('外链全为 https、主机在名单内，GitHub 链接只指本仓库', () => {
     for (const v of Object.values(LINKS)) {
-      expect(v.startsWith('https://')).toBe(true);
-      if (v.includes('github.com/'))
-        expect(v.startsWith('https://github.com/Hermitweb/dustnote')).toBe(true);
+      const u = new URL(v);
+      expect(u.protocol).toBe('https:');
+      // 先过主机名单，再看路径：只看 pathname.startsWith 会被
+      // https://evil.example/?x=/Hermitweb/dustnote 这种形状绕过。
+      expect(ALLOWED_HOSTS.has(u.hostname)).toBe(true);
+      if (u.hostname === 'github.com') {
+        expect(u.pathname.startsWith('/Hermitweb/dustnote')).toBe(true);
+      }
     }
   });
 
-  it('零第三方资源：不加载外部 css/js/图片/字体/徽章', () => {
-    expect(html).not.toMatch(/<link[^>]+rel="stylesheet"[^>]+href="http/);
-    expect(html).not.toMatch(/<script[^>]+src="http/);
-    expect(html).not.toMatch(/<img[^>]+src="http/);
+  // 判定依据是「解析出来的主机名」，不是在整页里搜子串。子串式断言既弱（换个没点名的
+  // 第三方域名就看不见）又会被判成不完整的 URL 校验——github.com 这几个字能出现在
+  // 任意主机的路径或查询里。改成白名单后断言更强：任何不在名单内的绝对 URL 都会红。
+  // 任何属性值里的绝对 URL 都算，不限 href/src —— poster、data-src 是同一条后门。
+  const ABSOLUTE_URL_ATTR = /=["'][a-z][a-z0-9+.-]*:\/\/[^"'\s]+/gi;
+  const urlOf = (attr: string) => attr.replace(/^=["']/, '');
+  const absoluteHosts = (src: string) =>
+    [...src.matchAll(ABSOLUTE_URL_ATTR)].map((m) => new URL(urlOf(m[0])).hostname);
+
+  it('零第三方资源：页面与样式引用的绝对 URL 只允许自有主机', () => {
     expect(html).not.toMatch(/<iframe/);
-    expect(html).not.toMatch(/fonts\.(googleapis|gstatic)\.com/);
-    expect(html).not.toMatch(/shields\.io/);
-    expect(css).not.toMatch(/@import url\( ?['"]?http/);
+    expect(css).not.toMatch(/@import\s+url\((["']?)https?:/i);
+    const hosts = absoluteHosts(html);
+    expect(hosts.length).toBeGreaterThan(0);
+    for (const h of hosts) expect(ALLOWED_HOSTS.has(h)).toBe(true);
+    // 外链字体与徽章是这类页面最常见的两个后门，单独点名留痕（名单本身已能拦住）
+    expect(html).not.toMatch(/googleapis|gstatic|shields\./i);
   });
 });
 
@@ -160,14 +175,18 @@ describe('中文排版', () => {
   // HTML 里文本节点内的换行会渲染成一个空格。英文无所谓，中文句子里凭空多出一格，
   // 而构建、lint、类型检查全都不会因此变红——只能把它变成断言。
   it('中文与中文之间不夹空格（换行即空格）', () => {
-    const noComments = html.replace(/<!--[\s\S]*?-->/g, '');
-    const segments = noComments.split(/<[^>]+>/);
+    // 直接取标签之间的文本节点。不做「先把注释剥掉、再把结果当 HTML 用」那种半吊子清洗——
+    // 那正是会被扫成漏洞的形态，而且没必要：注释体紧跟在 < 之后，下面的正则取不到它。
     const offenders: string[] = [];
-    for (const seg of segments) {
-      const t = seg.replace(/^\s+|\s+$/g, '');
-      const m = t.match(/[\u4e00-\u9fff，。、；：）」』]\s+[\u4e00-\u9fff]/g);
-      if (m) offenders.push(...m.map((x) => x.replace(/\s+/g, '␣')));
+    let textNodes = 0;
+    for (const m of html.matchAll(/>([^<>]+)/g)) {
+      textNodes += 1;
+      const t = m[1].replace(/^\s+|\s+$/g, '');
+      const hit = t.match(/[\u4e00-\u9fff，。、；：）」』]\s+[\u4e00-\u9fff]/g);
+      if (hit) offenders.push(...hit.map((x) => x.replace(/\s+/g, '␣')));
     }
+    // 拿不到节点 = 正则失效，那和「页面干净」是两回事，必须分开报
+    expect(textNodes).toBeGreaterThan(0);
     expect(offenders).toEqual([]);
   });
 });
