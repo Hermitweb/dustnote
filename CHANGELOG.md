@@ -21,7 +21,19 @@
   `workflows:check`（workflow 结构合法性：缺 `runs-on` 会让整份文件被 GitHub 拒绝加载）。
 - `pnpm verify` 补齐 CI 里跑着、本地却漏掉的三条（`i18n:check`、`sw:check`、`readme:check`），
   现在 17 条命令串成一条：本地能跑完的才算规矩。
-- 测试：单测 607 例（八包）、运维脚本测试 57 例。
+- 测试：单测 607 例（八包）、运维脚本测试 61 例。
+
+### 新增：环境变量清单门禁与目录级文档
+
+- `pnpm env:check`（第 18 条门禁）：代码/compose 读了但清单没登记的变量、
+  清单登记了但没人读的变量，双向都算不一致；主栈与监控栈分面各查各的清单。
+- 补 `.env.example` 缺的 9 项并写明默认值与不设的后果：`DB_PATH`、`BACKUP_DIR`、
+  `BACKUP_RETENTION`、`DOWNLOADS_DIR`、`FIELD_ENCRYPTION_KEY`、`COOKIE_SECURE`、
+  `SENTRY_DSN`、`APK_MIRROR`、`NPM_REGISTRY`。
+- 补齐 8 个目录级 README（shared / server / web / client-core / site / scripts / e2e /
+  extensions），并在 `docs/README.md` 增加「想知道某个目录的事看哪儿」对照表。
+- 拨测明文收口项改为按端口逐个探测（只验 80 会得到假绿：8080 绕过前置代理）。
+  测试：单测 607 例（八包）、运维脚本测试 68 例。
 
 ## [2.5.46] - 2026-09-27
 
