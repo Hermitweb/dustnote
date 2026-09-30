@@ -66,6 +66,12 @@ const fake =
     return map[p];
   };
 
+test('公开表按精确与前缀两类读出，不猜也不漏', () => {
+  const pub = parsePublic(fake());
+  assert.deepEqual([...pub.exact].sort(), '/auth/setup,/health'.split(',').sort());
+  assert.deepEqual([...pub.prefix], ['/share/']);
+});
+
 test('挂载顺序决定认证：authMiddleware 之前的路由公开，之后按需', () => {
   const { rows } = buildInventory(fake());
   const byPath = Object.fromEntries(rows.map((r) => [r.method + ' ' + r.path, r.auth]));
