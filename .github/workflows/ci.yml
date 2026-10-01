@@ -199,6 +199,9 @@ jobs:
       #   fast-uri        小程序构建链 > ajv              → override 3.1.5 → ^3.1.6
       #   js-yaml ×2      eslint / 小程序构建链          → override 抬到 3.15.2 / 4.3.2
       #   svgo            小程序构建链                    → override 2.8.3 → 2.8.4
+      # 2026-10-02 新增（有补丁 → 已用 pnpm.overrides 修复，不豁免）：
+      #   axios ×7      纯传递依赖（根 + @tarojs/cli），一次公示 7 条 high，全部在 1.20.0
+      #                 修复 → override ^1.20.0。仓库里没有直接依赖 axios，所以抬版本零风险。
       - name: Security Audit
         run: |
           set +e
