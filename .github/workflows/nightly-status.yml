@@ -108,10 +108,36 @@ jobs:
           # 用默认 GITHUB_TOKEN 提交，提交作者就是机器人身份；不配 SSH/key，少一处秘密。
           fetch-depth: 1
       - name: Fetch the regenerated status page
+        # path 必须是 docs：upload-artifact v5 对单文件产物会拍平目录，下载到 . 得到的
+        # 是 ./status.md 而不是 ./docs/status.md。这一度让本 job 全绿而 git diff 为空，
+        # 于是「无变化不提交」把一次路径错误读成了正常情形，状态页照旧停在昨天。
+        # 2026-10-01 第一次真跑才暴露——**流水线绿不等于事情做成了**。
         uses: actions/download-artifact@v5
         with:
           name: status-md
-          path: .
+          path: docs
+      - name: Guard - the page we are about to keep must be fresh
+        # 这条自检是给上面那个路径错误准备的：作业可以全绿，但全绿不等于拿到的文件
+        # 真是本次拨测写的。生成区时间戳若落后本次运行超过 1 小时，说明产物没落到
+        # docs/status.md 上——那时「无变化不提交」是假阴性，必须响。
+        run: |
+          node -e "
+          const fs = require("fs");
+          const md = fs.readFileSync("docs/status.md", "utf8");
+          const m = /最近拨测：([0-9-]{10} [0-9:]{5}) UTC/.exec(md);
+          if (!m) {
+            console.error("::error::docs/status.md 里找不到生成区时间戳，产物没落到该文件上");
+            process.exit(1);
+          }
+          const stamp = Date.parse(m[1].replace(" ", "T") + "Z");
+          const ageMin = (Date.now() - stamp) / 60000;
+          if (!(ageMin >= -5 && ageMin < 60)) {
+            console.error("::error::生成区时间戳 " + m[1] + " UTC 距本次运行 " + Math.round(ageMin) + " 分钟，超出 1 小时窗口");
+            process.exit(1);
+          }
+          console.log("生成区新鲜：" + m[1] + " UTC（" + Math.round(ageMin) + " 分钟前）");
+          "
+
       - name: Commit if changed
         env:
           RUN_URL: ${github.server_url}/${github.repository}/actions/runs/${github.run_id}
