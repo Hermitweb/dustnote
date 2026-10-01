@@ -27,6 +27,11 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3210',
         changeOrigin: true,
+        // ws: true 不能省。生产环境 nginx 会带 Upgrade 头转发 /api/，
+        // 而 vite 默认**不代理 WebSocket 升级**——于是开发/e2e 里
+        // /api/v1/sync/ws 这条实时同步链路根本连不上，且客户端只会静默退避重连，
+        // 看起来像「同步不灵」而不是「环境缺了传输」。2026-10-01 补实时同步 e2e 时撞出来的。
+        ws: true,
       },
     },
   },

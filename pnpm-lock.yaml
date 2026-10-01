@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  axios: ^1.20.0
   lodash-es: ^4.18.1
   fast-uri: ^3.1.6
   browserslist: ^4.28.7
@@ -4455,8 +4456,8 @@ packages:
   aws4@1.13.2:
     resolution: {integrity: sha512-lHe62zvbTB5eEABUVi/AwVh0ZKY9rMMDhmm+eeyuuUQbQ3+J+fONVQOZyj+DdrvD4BY33uYniyRJ4UJIaSKAfw==}
 
-  axios@1.18.1:
-    resolution: {integrity: sha512-3nTvFlvpn9Zu/RkHUqtc7/+al4UpRW5az71ap5zccp6e8RAYEzhMTecX8Dz1wWDYrPpUoB1HAQEGEAEvUr7S9g==}
+  axios@1.20.0:
+    resolution: {integrity: sha512-r8aOh8j9cGKpgQAqpzrUHnSIc6a59Y3Xf/cv8sy1DrHCkZHzQGEuoq1tARk6qSyDdtQGSDgpb9kFlruzPvrgwg==}
 
   babel-core@7.0.0-bridge.0:
     resolution: {integrity: sha512-poPX9mZH/5CSanm50Q+1toVci6pv5KSRv/5TWCwtzQS5XEwn40BcCrgIeMFWP9CKKIniKXNxoIOnOq4VVlGXhg==}
@@ -13517,7 +13518,9 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/core'
       - '@babel/preset-env'
+      - bufferutil
       - supports-color
+      - utf-8-validate
 
   '@react-native/normalize-colors@0.74.83': {}
 
@@ -13871,7 +13874,7 @@ snapshots:
       '@tarojs/service': 3.6.40(@tarojs/shared@3.6.40)(@tarojs/taro@3.6.40(@tarojs/helper@3.6.40)(@tarojs/runtime@3.6.40(@tarojs/shared@3.6.40))(@types/react@18.3.31)(@types/webpack@4.41.40)(postcss@8.5.26))
       '@tarojs/shared': 3.6.40
       adm-zip: 0.6.1
-      axios: 1.18.1
+      axios: 1.20.0
       cli-highlight: 2.1.11
       download-git-repo: 2.0.0
       envinfo: 7.21.0
@@ -15834,7 +15837,7 @@ snapshots:
 
   aws4@1.13.2: {}
 
-  axios@1.18.1:
+  axios@1.20.0:
     dependencies:
       follow-redirects: 1.16.0
       form-data: 4.0.6

@@ -10,7 +10,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, readFileSync, copyFileSync, existsSync } from 'node:fs';
+import {
+  mkdtempSync,
+  rmSync,
+  readFileSync,
+  writeFileSync,
+  copyFileSync,
+  existsSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { plaintextTargets, plaintextVerdict } from './plaintext-targets.mjs';
@@ -280,6 +287,80 @@ test('探针为每个目标端口各出一条 informational 行，且不牵连�
     }
     assert.equal(r.code, 0, '明文项存在时整体仍应绿');
   } finally {
+    await stopServer(srv);
+  }
+});
+/**
+ * 生成区标记丢了必须判红。
+ *
+ * 这是 2026-09-30 盘点抓到的真实失效形态的**另一半**：当时探针确实在跑、也确实成功，
+ * 但没有任何人把结果写回 docs/status.md，于是页面自称「下一次拨测会覆盖」而实际四天没动。
+ * 如果标记被手抖删掉，旧实现会静默不命中——replace 没匹配上、探针照样 exit 0、
+ * 状态页继续显示旧数据。这条测试把「静默」变成「exit 1」。
+ */
+test('标记丢失时 --update 必须 exit 1，且不许改动文件', async () => {
+  const srv = await startServer('2.5.46');
+  const dir = mkdtempSync(join(ROOT, '.probe-test-'));
+  const target = join(ROOT, 'docs/status.md');
+  const backup = join(dir, 'status.md.bak');
+  try {
+    copyFileSync(target, backup);
+    const original = readFileSync(target, 'utf8');
+    // 造一个「标记没了」的页面
+    writeFileSync(
+      target,
+      original.replace(
+        /<!-- status-probe:start -->[\s\S]*?<!-- status-probe:end -->/g,
+        '（标记被误删）'
+      )
+    );
+    assert.ok(
+      !readFileSync(target, 'utf8').includes('status-probe:start'),
+      '构造的坏页面要真的没有标记'
+    );
+    const r = await runProbe(srv.address().port, ['--update']);
+    assert.equal(r.code, 1, '标记丢失必须判失败，不能 exit 0 假装更新过');
+    assert.match(r.err, /缺少生成区标记/);
+    const after = readFileSync(target, 'utf8');
+    assert.ok(after.includes('（标记被误删）'), '失败时不该写任何东西进去');
+    assert.equal(after, readFileSync(target, 'utf8'));
+  } finally {
+    if (existsSync(backup)) copyFileSync(backup, target);
+    rmSync(dir, { recursive: true, force: true });
+    await stopServer(srv);
+  }
+});
+
+/**
+ * 探针全绿时 --update 要真的落盘——否则 publish job 会拿到一份没变的文件，
+ * 而「无变化」和「没写进去」在 git diff 眼里长得一样。
+ */
+test('拨测全绿时 --update 会把生成区写成绿，并报告已更新', async () => {
+  const srv = await startServer('2.5.46');
+  const dir = mkdtempSync(join(ROOT, '.probe-test-'));
+  const target = join(ROOT, 'docs/status.md');
+  const backup = join(dir, 'status.md.bak');
+  try {
+    copyFileSync(target, backup);
+    // 先把生成区改成明显不同的内容，确保「写入了」可被观察到
+    const cur = readFileSync(target, 'utf8');
+    writeFileSync(
+      target,
+      cur.replace(
+        /(<!-- status-probe:start -->)[\s\S]*?(<!-- status-probe:end -->)/,
+        '$1' + String.fromCharCode(10) + 'SENTINEL' + String.fromCharCode(10) + '$2'
+      )
+    );
+    const r = await runProbe(srv.address().port, ['--update']);
+    assert.equal(r.code, 0, '期望版本一致时应判绿：' + r.err);
+    const md = readFileSync(target, 'utf8');
+    assert.ok(!md.includes('SENTINEL'), '哨兵内容必须被真实结果覆盖');
+    assert.match(md, /当前状态：🟢 正常/);
+    assert.match(md, /v2\.5\.46/);
+    assert.match(r.err, /已按拨测结果更新/);
+  } finally {
+    if (existsSync(backup)) copyFileSync(backup, target);
+    rmSync(dir, { recursive: true, force: true });
     await stopServer(srv);
   }
 });

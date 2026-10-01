@@ -454,6 +454,50 @@ export function Editor() {
     };
   }, [autoSave, note, viewMode, title, content, plain, updateNote]);
 
+  /**
+   * 卸载时补存防抖窗口内的草稿（2026-10-01 补，e2e 实测到的真丢数据）。
+   *
+   * 上面那个 effect 的清理只在「笔记 id 变了」时补存，因为它每次按键都会重跑，
+   * 无条件补存等于每敲一个字发一次 PATCH。但**切视图**（全部笔记 / 概览 / 收藏 /
+   * 文件夹）时笔记 id 没变、组件整个卸载，于是 800ms 防抖窗口里刚打的内容被
+   * clearTimeout 掉且无人补存——实测 POST 之后没有任何 PATCH，内容永久丢失。
+   * beforeunload 那道防线只管关页面，管不了应用内导航。
+   *
+   * 用空依赖的卸载 effect + ref 读最新草稿：只在真正卸载时跑一次，
+   * 不与按键重跑混在一起。回收站只读，不补存。
+   */
+  const draftRef = useRef({
+    noteId: null as string | null,
+    title: '',
+    content: '',
+    plainTitle: undefined as string | undefined,
+    plainContent: undefined as string | undefined,
+    trash: false,
+  });
+  draftRef.current = {
+    noteId: note?.id ?? null,
+    title,
+    content,
+    plainTitle: plain?.title,
+    plainContent: plain?.content,
+    trash: viewMode === 'trash',
+  };
+  useEffect(() => {
+    return () => {
+      const d = draftRef.current;
+      if (!d.noteId || d.trash || savingInFlight.current) return;
+      if (d.title !== d.plainTitle || d.content !== d.plainContent) {
+        savingInFlight.current = true;
+        const id = d.noteId;
+        void updateNote(id, { title: d.title, content: d.content }).finally(() => {
+          savingInFlight.current = false;
+        });
+      }
+    };
+    // 只在卸载时清理：依赖数组为空是这条修复的关键，不能加
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // beforeunload：防抖窗口内（默认 800ms）的未保存修改丢失
   // 自动保存会兜底，但用户在 800ms 内关闭窗口/刷新会丢内容，这里再拦一道
   useEffect(() => {
