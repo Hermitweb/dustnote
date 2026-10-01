@@ -14,6 +14,13 @@
 #      写 version: 9，package.json 的 packageManager 写 pnpm@9.12.0）。探针依然一步没跑，而
 #      「开 issue」那步因为读不到 probe.json 也一起失败——结果还是没有 issue。
 #
+#  (3) 钉版与版本冲突都修好之后，2026-09-30 盘点发现第三层问题：docs/status.md 的生成区写着
+#      「最近拨测：2026-09-27」，而 09-29 起十次排期拨测**全部成功**。原因是这个 workflow 只把
+#      probe.json 传成 artifact，**既不传 --update、也没有任何提交**——探针算出的表格从来没落进
+#      仓库。页面却写着「手改无效：下一次拨测会覆盖」。这不是配置错，是**承诺与实现不符**：
+#      状态页存在的唯一意义就是「外部可核实的线上事实」，而它当时是一页 4 天没动的旧数据。
+#      现在由下面的 publish job 负责把生成区提交回 main（带 [skip ci]，避免自己触发自己）。
+
 #  所以根因不是某个配置写错，而是**报警器和被报警的东西在同一个失效域里**。下面把上报拆成
 #  独立的 report job（needs: probe + if: failure()）：probe.json 缺失时它照样开单，写明
 #  「探针未执行完成」。改动做过一次真演练（把 (2) 的冲突装回去），确认会响、也会自动关单。
@@ -48,7 +55,9 @@ jobs:
           # 用不到的缓存必须显式关掉。
           package-manager-cache: false
       - name: Run status probe
-        run: node scripts/status-probe.mjs > probe.json
+        run: node scripts/status-probe.mjs --update > probe.json
+        # --update 让探针顺手重写 docs/status.md 的生成区。写不进去不算探测失败——
+        # 那由下面的 publish job 单独报错，不混进「线上挂没挂」的判定里。
         continue-on-error: true
       - name: Evaluate
         run: |
@@ -64,6 +73,15 @@ jobs:
           name: probe-json
           path: probe.json
           if-no-files-found: ignore
+      - name: Upload the regenerated status page
+        # 探针写进工作区的 docs/status.md 随作业传出来，交给 publish job 提交。
+        # 刻意不在这里判红：文件没变（线上状态没动）是正常情形，不是故障。
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: status-md
+          path: docs/status.md
+          if-no-files-found: error
       - name: Close issue on recovery
         if: success()
         env:
@@ -74,9 +92,52 @@ jobs:
             gh issue close "$n" --comment "拨测已恢复绿：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           done
 
+  publish:
+    name: Publish status page to main
+    needs: probe
+    # 只在探针成功时提交：拨测判红的时候，页面上那份旧数据至少比"把红色状态写进 main"
+    # 更容易被注意到——红会由 report job 开 issue，不该由这里抢着改文档。
+    if: success()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # 用默认 GITHUB_TOKEN 提交，提交作者就是机器人身份；不配 SSH/key，少一处秘密。
+          fetch-depth: 1
+      - name: Fetch the regenerated status page
+        uses: actions/download-artifact@v5
+        with:
+          name: status-md
+          path: .
+      - name: Commit if changed
+        env:
+          RUN_URL: ${github.server_url}/${github.repository}/actions/runs/${github.run_id}
+        run: |
+          set -e
+          if git diff --quiet -- docs/status.md; then
+            echo "生成区无变化（线上状态未动），不提交。"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/status.md
+          # [skip ci] 是必需的：这条提交落在 main 上，会再触发一次全量 CI 与一次拨测，
+          # 而拨测又会提交一次——不切断就是自我循环的提交风暴。
+          git commit -m "docs(status): 拨测生成区更新 [skip ci]" -m "由 Status Probe 作业生成，run: $RUN_URL"
+          git push
+      - name: Say so loudly if publishing failed
+        if: failure()
+        env:
+          RUN_URL: ${github.server_url}/${github.repository}/actions/runs/${github.run_id}
+        run: |
+          echo "::error::拨测通过但状态页没提交出去——docs/status.md 会停在旧数据上，而页面自称「下一次拨测会覆盖」。看 $RUN_URL"
+
   report:
     name: Report probe failure
-    needs: probe
+    needs: [probe, publish]
     # 独立 job：探针那侧无论怎么坏（包括「业务一步都没跑」的坏法），报警这条路都得是通的。
     if: failure()
     runs-on: ubuntu-latest
@@ -95,6 +156,9 @@ jobs:
           # 演练实测：不给就是「正文生成成功、gh issue create 却 exit 1」——报警器自己哑掉。
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # 探针绿、但状态页没提交出去，是**另一种**故障：不是线上挂了，是报告板挂了。
+          # 两者必须分开说，否则读者会按「服务器宕机」去查，而真正过期的是 docs/status.md。
+          PUBLISH_RESULT: ${needs.publish.result}
         run: |
           node -e "
           const fs = require('fs');
@@ -107,8 +171,16 @@ jobs:
             const detail = bad.length
               ? bad.map((x) => '- **' + x.name + '**: ' + (x.note || 'HTTP ' + x.status)).join(NL)
               : '（整体判红但无单项明细，见 run 日志）';
-            body = '拨测：' + r.url + '（期望版本 v' + r.expected + '）' + NL + NL + detail +
-              NL + NL + 'run: ' + run;
+            const publishFailed = process.env.PUBLISH_RESULT && process.env.PUBLISH_RESULT !== 'success';
+            if (r.ok && publishFailed) {
+              // 探针全绿却进了这里 => 红的是 publish job
+              body = '**状态页发布失败**：拨测本身全部通过，但 docs/status.md 没提交出去。' + NL + NL +
+                '这不是线上故障，而是**报告板故障**——页面会停在旧数据上，而它自称「下一次拨测会覆盖」。' +
+                '按此口径读到的任何「绿」都要先看生成区时间戳。' + NL + NL + 'run: ' + run;
+            } else {
+              body = '拨测：' + r.url + '（期望版本 v' + r.expected + '）' + NL + NL + detail +
+                NL + NL + 'run: ' + run;
+            }
           } catch (e) {
             // 这就是 2026-09-29 那两次的情形：probe.json 压根不存在，探针一步都没跑。
             body = '**探针未执行完成**：probe.json 读不到（' + e.message + '）。' + NL + NL +

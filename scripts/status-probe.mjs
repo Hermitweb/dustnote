@@ -279,11 +279,18 @@ if (UPDATE) {
     new RegExp(`${MARK_START}[\\s\\S]*${MARK_END}`),
     generated.replace(/\$/g, '$$$$')
   );
-  if (next === md) {
-    console.error('docs/status.md 缺少探针标记，未写入');
+  // 判据必须是「标记在不在」，不是「内容变没变」：内容没变是正常情形（线上状态未动），
+  // 而标记丢了才是真故障——那时 replace 静默不命中、探针照样 exit 0，
+  // 状态页就会永远停在旧数据上而没人知道。这正是 2026-09-30 盘点抓到的那类失效。
+  const marked = md.includes(MARK_START) && md.includes(MARK_END);
+  if (!marked) {
+    console.error('::error::docs/status.md 缺少生成区标记，--update 无法落笔');
+    process.exitCode = 1;
+  } else if (next === md) {
+    console.error('docs/status.md 生成区无变化（线上状态未动）');
   } else {
     writeFileSync(statusPath, next);
-    console.error(`docs/status.md 已按拨测结果更新（${allOk ? '绿' : '红'}）`);
+    console.error('docs/status.md 已按拨测结果更新（' + (allOk ? '绿' : '红') + '）');
   }
 }
 
@@ -293,4 +300,9 @@ if (UPDATE) {
  * （Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)，退出码 0xC0000409），
  * 于是"探针判定"在最需要它自检的开发机上反而是坏的。
  */
-process.exitCode = allOk ? 0 : 1;
+/*
+ * 退出码取「已置的失败」与「本次判定」的较大者：--update 那条「标记丢失」已经先把
+ * exitCode 置成 1，而 `allOk` 仍是 true——直接赋值会把失败抹平。
+ * 新加的标记测试正是这样抓到它的（写完测试才发现实现里藏着这个覆盖）。
+ */
+process.exitCode = Math.max(process.exitCode || 0, allOk ? 0 : 1);
