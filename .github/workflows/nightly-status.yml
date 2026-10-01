@@ -122,22 +122,21 @@ jobs:
         # docs/status.md 上——那时「无变化不提交」是假阴性，必须响。
         run: |
           node -e "
-          const fs = require("fs");
-          const md = fs.readFileSync("docs/status.md", "utf8");
+          const fs = require('fs');
+          const md = fs.readFileSync('docs/status.md', 'utf8');
           const m = /最近拨测：([0-9-]{10} [0-9:]{5}) UTC/.exec(md);
           if (!m) {
-            console.error("::error::docs/status.md 里找不到生成区时间戳，产物没落到该文件上");
+            console.error('::error::docs/status.md 里找不到生成区时间戳，产物没落到该文件上');
             process.exit(1);
           }
-          const stamp = Date.parse(m[1].replace(" ", "T") + "Z");
+          const stamp = Date.parse(m[1].replace(' ', 'T') + 'Z');
           const ageMin = (Date.now() - stamp) / 60000;
           if (!(ageMin >= -5 && ageMin < 60)) {
-            console.error("::error::生成区时间戳 " + m[1] + " UTC 距本次运行 " + Math.round(ageMin) + " 分钟，超出 1 小时窗口");
+            console.error('::error::生成区时间戳 ' + m[1] + ' UTC 距本次运行 ' + Math.round(ageMin) + ' 分钟，超出 1 小时窗口');
             process.exit(1);
           }
-          console.log("生成区新鲜：" + m[1] + " UTC（" + Math.round(ageMin) + " 分钟前）");
+          console.log('生成区新鲜：' + m[1] + ' UTC（' + Math.round(ageMin) + ' 分钟前）');
           "
-
       - name: Commit if changed
         env:
           RUN_URL: ${github.server_url}/${github.repository}/actions/runs/${github.run_id}
