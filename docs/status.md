@@ -2,17 +2,17 @@
 
 <!-- status-probe:start -->
 
-> 最近拨测：2026-10-01 17:30 UTC · 🟢 全部通过 · 期望版本 v2.5.46
+> 最近拨测：2026-10-01 22:13 UTC · 🟢 全部通过 · 期望版本 v2.5.46
 
 **当前状态：🟢 正常** — 线上 **v2.5.46**（探针判定，非人工声明）
 
 | 探测项 | 结果 | 耗时 | HTTP | 说明 |
 | --- | --- | --- | --- | --- |
-| health | ✅ | 520ms | 200 |  |
-| update-manifest | ✅ | 507ms | 200 |  |
-| web | ✅ | 96ms | 200 |  |
-| csp-page | ✅ | 87ms | 200 |  |
-| share-api | ✅ | 87ms | 404 |  |
+| health | ✅ | 652ms | 200 |  |
+| update-manifest | ✅ | 452ms | 200 |  |
+| web | ✅ | 62ms | 200 |  |
+| csp-page | ✅ | 101ms | 200 |  |
+| share-api | ✅ | 97ms | 404 |  |
 | http-plaintext:80(informational) | ℹ️ | 0ms | 200 | 明文仍可服务（status=200，R1 HTTPS 收口待办） |
 | http-plaintext:8080(informational) | ℹ️ | 0ms | 200 | 明文仍可服务（status=200，R1 HTTPS 收口待办） |
 
