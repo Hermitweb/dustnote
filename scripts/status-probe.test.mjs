@@ -81,7 +81,10 @@ async function hardenedPlaintextUrls() {
     hardSrv = await new Promise((resolve) => {
       const s = http.createServer((req, res) => {
         res.statusCode = 301;
-        res.setHeader('location', 'https://hardened.invalid' + req.url);
+        // Location 用常量：把 req.url 拼进去等于"目标由请求自己决定"，CodeQL 判
+        // js/server-side-unvalidated-url-redirection（告警 #29）。测试只关心 301 这个
+        // 收口形态，不关心跳去哪，所以这里不需要那个拼接。
+        res.setHeader('location', 'https://hardened.invalid/moved');
         res.end('moved');
       });
       s.listen(0, () => resolve(s));
