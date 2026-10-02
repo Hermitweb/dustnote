@@ -2,19 +2,19 @@
 
 <!-- status-probe:start -->
 
-> 最近拨测：2026-10-02 03:36 UTC · 🟢 全部通过 · 期望版本 v2.5.46
+> 最近拨测：2026-10-02 07:50 UTC · 🟢 全部通过 · 期望版本 v2.5.46
 
 **当前状态：🟢 正常** — 线上 **v2.5.46**（探针判定，非人工声明）
 
 | 探测项 | 结果 | 耗时 | HTTP | 说明 |
 | --- | --- | --- | --- | --- |
-| health | ✅ | 643ms | 200 |  |
-| update-manifest | ✅ | 326ms | 200 |  |
-| web | ✅ | 72ms | 200 |  |
-| csp-page | ✅ | 71ms | 200 |  |
-| share-api | ✅ | 74ms | 404 |  |
-| http-plaintext:80(informational) | ℹ️ | 0ms | 200 | 明文仍可服务（status=200，R1 HTTPS 收口待办） |
-| http-plaintext:8080(informational) | ℹ️ | 0ms | 200 | 明文仍可服务（status=200，R1 HTTPS 收口待办） |
+| health | ✅ | 2038ms | 200 |  |
+| update-manifest | ✅ | 999ms | 200 |  |
+| web | ✅ | 240ms | 200 |  |
+| csp-page | ✅ | 232ms | 200 |  |
+| share-api | ✅ | 211ms | 404 |  |
+| http-plaintext:80 | ✅ | 0ms | 301 | 明文已收口（status=301） |
+| http-plaintext:8080 | ✅ | 0ms | - | 明文不可达（该端口未对外发布）：fetch failed |
 
 _未列入本表的组件（WebSocket 同步、/metrics）探针不覆盖，状态见下方「拨测不覆盖的部分」。_
 <!-- status-probe:end -->

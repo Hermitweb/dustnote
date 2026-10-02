@@ -1508,3 +1508,13 @@ DNS A 记录，所以现阶段**两路同投**（公网 ntfy.sh + 本机自托�
   `https://ntfy.sh` 那项摘掉即可——bridge 无需改代码，topic 也建议顺手轮换一次。
 - 面板 MCP 的 `0.0.0.0:8765` 仍公网可达（静态 bearer token + 自签 CA）。这是上一落记
   下的账，本轮没动它；收法要么换 ACME 证书 + IP 白名单，要么只在运维网段开放。
+- 合入与产线复验：PR #22 → `main`（merge `ae9460f`），CI 13 项 pass；升硬后的拨测在产线
+  实测 **8/8 全 PASS**（`http-plaintext:80` = 301、`:8080` = 端口未发布），状态页已刷新。
+- **诚实边界**：`DRILL_PASS` 这一行没打印出来——那一轮演练跑在修好 `alert_state` **之前**，
+  它必然检测不到 firing。但时延与送达不靠它：Prometheus `activeAt`、Alertmanager `startsAt`、
+  bridge `lastAt` 三个独立源交叉出 2m40s，且 `/stats` 计数与自托管实例的回读都吻合；修好后
+  的 `--smoke` 已 SMOKE_PASS。完整 `DRILL_PASS` 留到下次发版顺手复跑，**不为此再停机一次**。
+- 新增的挂载源断言做了变异验证：正向（线上已跟到 v2.5.46）通过；把挂载假装成 v2.5.45 →
+  `die` 分支会触发。旧那份 2590 B 的 bridge（sha `e0a95db5…`）留在原目录作证据，没删。
+- 80 上裸 IP 的**个人主页**（`html_154.217.234.125.conf`，`server_name _`）刻意未动：它没有
+  独立域名与可信证书，要不要一起收是另一个决定（R1 这条待办的范围从来是 napi 与 8080）。
