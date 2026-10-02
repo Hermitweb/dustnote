@@ -55,6 +55,8 @@ export const RUNTIME_VARS = {
   STATUS_PROBE_URL: '拨测目标；CI 用它在本地假服务器上跑回归，生产走默认值',
   EXPECT_VERSION: '拨测期望版本，由 CI 从 package.json 注入，避免两处手写漂',
   ALERT_DRILL: 'alert-drill.sh 的演练开关，运维临时量，不是常驻配置',
+  STATUS_PROBE_PLAINTEXT_URLS:
+    '拨测明文收口的目标端口覆盖；只在非 80/8080 的前置代理部署或回归测试里指路',
   TZ: '容器时区，compose 里已设',
 };
 

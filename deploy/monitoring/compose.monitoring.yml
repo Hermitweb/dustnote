@@ -9,7 +9,7 @@
 # 前提：主栈 .env 已设 METRICS_ENABLED=true 与 METRICS_TOKEN（本栈经宿主 8080 抓取）。
 #
 # 告警链路：prometheus（30s 抓 dustnote /metrics + 自身存活）→ rules.yml 判定
-# → alertmanager 分组去重 → ntfy-bridge（15 行 node，无第三方镜像）→ ntfy 推送手机。
+# → alertmanager 分组去重 → ntfy-bridge（自写 node，可注入多个 ntfy 目标）→ 手机推送。
 # 端到端演练：scripts/alert-drill.sh（拔容器→2 分钟内收到 DustnoteEndpointDown）。
 
 name: dustnote-monitoring
@@ -66,6 +66,26 @@ services:
       - ./bridge.mjs:/app/bridge.mjs:ro
     ports: []
 
+  # 自托管 ntfy（2026-10-02 R1 收口配套）。为什么必须自己跑一个：此前 NTFY_SERVER 被
+  # 手改成 http://ntfy:5000，而本文件从未定义 ntfy 服务——最后一跳的目标根本不存在，
+  # 告警从来到不了手机，而旧 bridge 照样回 ok:true（详见 docs/roadmap.md 同名落）。
+  #
+  # 只绑 127.0.0.1：手机侧要能订阅还缺一条 DNS A 记录（*.iniess.cn 泛解析指向另一台
+  # 154.217.234.79），记录补齐后再加 TLS 反代、把 NTFY_SERVER 里公网那项摘掉。
+  # 在它可用之前，bridge 同时投自托管与公网两个目标，任一路送达即算送达。
+  ntfy:
+    image: binwiederhier/ntfy:v2.28.0
+    restart: unless-stopped
+    command: ['serve']
+    # 刻意不写 environment：ntfy 的默认值（匿名可发布/订阅、历史保留 12h、无鉴权）正是这里要的。
+    # 而配置键经环境变量注入时连字符要写成下划线（NTFY_KEEP_HISTORY，不是 NTFY_KEEP-HISTORY）——
+    # 写错不会报错，只会静默不生效。少一个会踩的旋钮，比多一个装饰性旋钮好。
+    volumes:
+      - ntfy-data:/var/lib/ntfy
+    ports:
+      - '127.0.0.1:5000:5000' # 仅本机；对外一律经反代 + TLS
+
 volumes:
+  ntfy-data:
   prom-data:
   am-data:

@@ -16,7 +16,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { plaintextTargets, plaintextVerdict } from './plaintext-targets.mjs';
+import { plaintextTargets, plaintextVerdict, plaintextUnreachable } from './plaintext-targets.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const URL_BASE = (process.env.STATUS_PROBE_URL || 'https://napi.iniess.cn').replace(/\/+$/, '');
@@ -103,7 +103,9 @@ async function probe(name, path, check, headers) {
 
 const results = [];
 /**
- * 红绿判定只看"硬探测项"：informational（明文收口这类已知现状）不参与，
+ * 红绿判定只看"硬探测项"：带 informational 标记的项不参与。
+ * 2026-10-02 起明文收口项已升为硬断言，当前没有 informational 项；机制留着是给
+ * "已知现状先记不判"这类过渡期用的，用它就必须同时写下什么时候升硬，否则它会变成静默的豁免。
  * 否则会制造告警疲劳。注意必须在结尾**求值时**再过滤——
  * results 是逐条 push 的，提前快照会得到空数组，
  * 而 `[].every()` 恒为 true：这个 bug 曾让探针无论什么都报绿、exit 0，
@@ -192,34 +194,48 @@ results.push(
   })
 );
 
-// 4) 明文 HTTP 收口状况——informational（不计入 ok）：
-//    R1「强制 HTTPS」落地前明文可达是已知现状，红它 = 制造告警疲劳。
-//
-//    必须逐个端口探，不能只探 80：容器把 8080 直接发布到公网，那条路**绕过前置代理**，
-//    由容器内 nginx 自己回页面。只验 80 会得出假绿——80 上 301 了，明文却还在 8080 上
-//    正常服务（2026-09-30 实测 napi.iniess.cn 的 80 与 8080 都是 200，无一处跳转）。
-for (const t of plaintextTargets(URL_BASE)) {
+// 4) 明文 HTTP 收口状况——**硬断言**（2026-10-02 起，此前是 informational）：
+//    当年记而不红的理由是"R1 落地前明文可达是已知现状，红它 = 告警疲劳"。R1 已于当日
+//    收口：前置 80→301，且容器端口默认只绑回环（compose 的 PORT_BIND），8080 不再公网发布。
+//    判据随之从"记录现状"升格为"守住结论"——明文还能服务就是收口漏了，必须让它红。
+/**
+ * 明文收口探哪些 URL。
+ *
+ * 默认从 URL_BASE 推导（80 + 绕过前置代理的 8080）。可被 STATUS_PROBE_PLAINTEXT_URLS
+ * 覆盖，格式 `label=url,label=url`。留这个口子不是为测试，是自托管现实：前置代理不一定
+ * 在 80（deploy/README 的反代模式里就出现过 8081/8443），那种部署要能指着自己真实的明文
+ * 端口判收口，而不是被 80/8080 的臆测牵着走。设为空串 = 用默认推导。
+ */
+function resolvePlaintextTargets(urlBase) {
+  const raw = process.env.STATUS_PROBE_PLAINTEXT_URLS;
+  if (raw === undefined || raw.trim() === '') return plaintextTargets(urlBase);
+  const out = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((tok) => {
+      const i = tok.indexOf('=');
+      return i > 0 ? { label: tok.slice(0, i), url: tok.slice(i + 1) } : { label: tok, url: tok };
+    });
+  if (out.length === 0) {
+    console.error('STATUS_PROBE_PLAINTEXT_URLS 解析后为空，回落默认推导');
+    return plaintextTargets(urlBase);
+  }
+  return out;
+}
+
+for (const t of resolvePlaintextTargets(URL_BASE)) {
+  const name = 'http-plaintext:' + t.label;
   try {
     const res = await fetch(t.url + '/api/v1/health', {
       redirect: 'manual',
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    results.push({
-      name: 'http-plaintext:' + t.label + '(informational)',
-      informational: true,
-      ok: true,
-      ms: 0,
-      status: res.status,
-      note: plaintextVerdict(res.status),
-    });
+    const v = plaintextVerdict(res.status);
+    results.push({ name, ok: v.hardened, ms: 0, status: res.status, note: v.note });
   } catch (err) {
-    results.push({
-      name: 'http-plaintext:' + t.label + '(informational)',
-      informational: true,
-      ok: true,
-      ms: 0,
-      note: '明文不可达：`String(err?.message ?? err).slice(0, 60)`',
-    });
+    const v = plaintextUnreachable(err?.message ?? err);
+    results.push({ name, ok: v.hardened, ms: 0, note: v.note });
   }
 }
 

@@ -6,7 +6,7 @@
  * 于是无论线上怎样都报绿、都 exit 0，nightly 告警形同虚设。
  * 这类"守卫自己失效"只能靠假服务器回归。
  */
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
@@ -20,7 +20,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { plaintextTargets, plaintextVerdict } from './plaintext-targets.mjs';
+import { plaintextTargets, plaintextVerdict, plaintextUnreachable } from './plaintext-targets.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PROBE = join(ROOT, 'scripts/status-probe.mjs');
@@ -68,13 +68,44 @@ function startServer(healthVersion, opts = {}) {
   });
 }
 
-function runProbe(port, args = []) {
+/**
+ * "明文已收口"的桩：对任何请求回 301，全测试文件共用一个。
+ *
+ * 为什么需要：探针的明文目标默认由 URL_BASE 推导（80 与 8080），而假服务器只有一个随机
+ * 端口——不指桩就永远造不出"全绿"前提（同一端口无法既给 /api/v1/health 回 200、又给明文
+ * 回 301）。R1 之后线上的正确形态本来就是 301/不可达，所以桩代表常态，特例才显式覆盖。
+ */
+let hardSrv = null;
+async function hardenedPlaintextUrls() {
+  if (!hardSrv) {
+    hardSrv = await new Promise((resolve) => {
+      const s = http.createServer((req, res) => {
+        res.statusCode = 301;
+        res.setHeader('location', 'https://hardened.invalid' + req.url);
+        res.end('moved');
+      });
+      s.listen(0, () => resolve(s));
+    });
+  }
+  const p = hardSrv.address().port;
+  return `80=http://127.0.0.1:${p},8080=http://127.0.0.1:${p}`;
+}
+
+after(async () => {
+  if (hardSrv) await stopServer(hardSrv);
+  hardSrv = null;
+});
+
+async function runProbe(port, args = [], extraEnv = {}) {
+  const plaintextUrls = await hardenedPlaintextUrls();
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [PROBE, ...args], {
       env: {
         ...process.env,
         STATUS_PROBE_URL: `http://127.0.0.1:${port}`,
         EXPECT_VERSION: '2.5.46',
+        STATUS_PROBE_PLAINTEXT_URLS: plaintextUrls,
+        ...extraEnv,
       },
     });
     let out = '';
@@ -118,16 +149,23 @@ test('线上版本落后 → exit 1（nightly 靠它开 issue，永绿等于没�
   }
 });
 
-test('明文收口项是 informational：它失败不牵连总红', async () => {
-  // 假服务器没有 https→http 的重定向语义，该项必然记为"明文仍可服务"，
-  // 但它不该让整体变红（否则 R1 落地前 nightly 天天误报）
+test('明文仍可服务 → 该项判不过、整体判红（R1 已收口，不再是 informational）', async () => {
+  // 假服务器对明文回 200 = 明文仍在服务。收口做到位之后，这种现状必须能被抓出来：
+  // 比如有人把 PORT_BIND 改回 0.0.0.0、或前置 301 被删，nightly 要当场红，而不是继续打ℹ️。
   const srv = await startServer('2.5.46');
   try {
-    const r = await runProbe(srv.address().port);
+    const r = await runProbe(srv.address().port, [], {
+      // 显式让明文指向这台 200 的假服务器（默认桩是 301，代表已收口的常态）
+      STATUS_PROBE_PLAINTEXT_URLS: `80=http://127.0.0.1:${srv.address().port}`,
+    });
     const rep = JSON.parse(r.out);
-    const info = rep.results.find((x) => x.name.startsWith('http-plaintext'));
-    assert.ok(info, '应有明文探测项');
-    assert.equal(r.code, 0, '明文项存在时整体仍应绿');
+    const row = rep.results.find((x) => x.name === 'http-plaintext:80');
+    assert.ok(row, '应有明文探测项');
+    assert.equal(row.ok, false, '明文回 200 必须判不过：' + row.note);
+    assert.match(row.note, /R1 HTTPS 收口已漏/);
+    assert.equal(row.informational, undefined, '明文项已升为硬断言，不该再带 informational');
+    assert.equal(rep.ok, false);
+    assert.notEqual(r.code, 0, '明文未收口时探针必须非零退出（nightly 靠它开 issue）');
   } finally {
     await stopServer(srv);
   }
@@ -266,26 +304,73 @@ test('base 里已写明端口时不臆造 8080 旁路，只探那一个', () => 
   assert.equal(t[0].label, '4567');
 });
 
-test('收口判定：3xx 与 404 算收口，200 算仍在服务', () => {
-  for (const s of [301, 302, 307, 308, 404]) assert.match(plaintextVerdict(s), /^明文已收口/);
-  for (const s of [200, 204, 300]) assert.match(plaintextVerdict(s), /仍可服务/);
+test('收口判定返回结构化结论：3xx 与 404 算收口，200/400/5xx 不算', () => {
+  for (const s of [301, 302, 307, 308, 404]) {
+    const v = plaintextVerdict(s);
+    assert.equal(v.hardened, true, 'HTTP ' + s + ' 应判收口');
+    assert.match(v.note, /^明文已收口/);
+  }
+  for (const s of [200, 204, 300, 400, 500]) {
+    const v = plaintextVerdict(s);
+    assert.equal(v.hardened, false, 'HTTP ' + s + ' 仍有明文服务');
+    assert.match(v.note, /仍可服务/);
+  }
   // 300 是多选，不是跳转到 https——不能算收口，否则一个错误的分类就能刷绿
-  assert.match(plaintextVerdict(200), /R1 HTTPS 收口待办/);
+  assert.match(plaintextVerdict(200).note, /R1 HTTPS 收口已漏/);
 });
 
-test('探针为每个目标端口各出一条 informational 行，且不牵连总红', async () => {
+test('连接层失败算收口，但只有真失败才算（4xx/5xx 不许走这条路刷绿）', () => {
+  const v = plaintextUnreachable('connect ECONNREFUSED 127.0.0.1:8080');
+  assert.equal(v.hardened, true);
+  assert.match(v.note, /未对外发布/);
+  assert.match(v.note, /ECONNREFUSED/);
+  // 端口在应答就必须走状态分类：400 不是"没在监听"
+  assert.equal(plaintextVerdict(400).hardened, false);
+});
+
+test('明文端口真的没对外发布 → 该项判过，整体保持绿', async () => {
+  // 借一个刚关掉的端口，拿到的就是 ECONNREFUSED（R1 之后 8080 收回环就是这个形态）
+  const dead = await new Promise((resolve) => {
+    const s = http.createServer();
+    s.listen(0, () => resolve(s));
+  });
+  const deadPort = dead.address().port;
+  await stopServer(dead);
   const srv = await startServer('2.5.46');
   try {
-    const r = await runProbe(srv.address().port);
+    const r = await runProbe(srv.address().port, [], {
+      STATUS_PROBE_PLAINTEXT_URLS: `8080=http://127.0.0.1:${deadPort}`,
+    });
+    const rep = JSON.parse(r.out);
+    const row = rep.results.find((x) => x.name === 'http-plaintext:8080');
+    assert.ok(row, '应有明文探测项');
+    assert.equal(row.ok, true, row.note);
+    assert.equal(r.code, 0, '明文端口未发布时整体应判绿：' + r.err);
+  } finally {
+    await stopServer(srv);
+  }
+});
+
+test('多目标覆盖：每个 label 各出一行，且都不带 informational', async () => {
+  const srv = await startServer('2.5.46');
+  try {
+    const p = srv.address().port;
+    const r = await runProbe(srv.address().port, [], {
+      STATUS_PROBE_PLAINTEXT_URLS: `80=http://127.0.0.1:${p},8080=http://127.0.0.1:${p}`,
+    });
     const rep = JSON.parse(r.out);
     const rows = rep.results.filter((x) => x.name.startsWith('http-plaintext'));
-    // base 带显式端口 → 只有一个目标；若这里变成 0 或 2，说明目标推导或命名漂了
-    assert.equal(rows.length, 1, '实际行名：' + rows.map((x) => x.name).join(','));
+    assert.equal(
+      rows.length,
+      2,
+      '两个 label 应各出一行，实际：' + rows.map((x) => x.name).join(',')
+    );
     for (const row of rows) {
-      assert.equal(row.informational, true, row.name + ' 必须是 informational');
-      assert.match(row.name, /^http-plaintext:\d+\(informational\)$/);
+      assert.match(row.name, /^http-plaintext:\d+$/);
+      assert.equal(row.informational, undefined, row.name + ' 已升为硬断言');
+      assert.equal(row.ok, false, '明文 200 应判不过');
     }
-    assert.equal(r.code, 0, '明文项存在时整体仍应绿');
+    assert.equal(r.code, 1, '两项都不过 → 退出码 1');
   } finally {
     await stopServer(srv);
   }
