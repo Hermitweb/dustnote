@@ -77,9 +77,13 @@ services:
     image: binwiederhier/ntfy:v2.28.0
     restart: unless-stopped
     command: ['serve']
-    # 刻意不写 environment：ntfy 的默认值（匿名可发布/订阅、历史保留 12h、无鉴权）正是这里要的。
-    # 而配置键经环境变量注入时连字符要写成下划线（NTFY_KEEP_HISTORY，不是 NTFY_KEEP-HISTORY）——
-    # 写错不会报错，只会静默不生效。少一个会踩的旋钮，比多一个装饰性旋钮好。
+    # 唯一一个必须显式写的旋钮，而且是实测出来的：镜像里 ntfy 默认监听 :80（日志
+    # 'Listening on :80[http]'），而 bridge 要按 http://ntfy:5000 投它、宿主也按
+    # 127.0.0.1:5000 发布它 —— 不设这一行就是 connection refused。注意配置键走环境
+    # 变量时连字符要写成下划线（是 NTFY_LISTEN_HTTP，不是 NTFY_LISTEN-HISTORY 那种拼法），
+    # 写错不会报错、只会静默不生效，所以这里刻意只留这一个旋钮并写清来源。
+    environment:
+      - NTFY_LISTEN_HTTP=:5000
     volumes:
       - ntfy-data:/var/lib/ntfy
     ports:

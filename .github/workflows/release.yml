@@ -476,6 +476,13 @@ jobs:
           mkdir -p "$STAGE/deploy"
           cp -r deploy/. "$STAGE/deploy/"
 
+          # 4.5 运维脚本（2026-10-02 补）。alert-drill.sh 是告警链路的验收工具，此前从未进包：
+          #     服务器上没有 scripts/，"到服务器跑一次 alert-drill.sh"这条写在文档里的验收步骤
+          #     从构造上就无法执行——这也是它六年没人跑过的原因之一（见 docs/roadmap.md 同名落）。
+          mkdir -p "$STAGE/scripts"
+          cp scripts/alert-drill.sh "$STAGE/scripts/"
+          chmod +x "$STAGE/scripts/alert-drill.sh"
+
           # 5. 部署文档（顶层）
           if [ -f DEPLOY.md ]; then
             cp DEPLOY.md "$STAGE/"
@@ -492,6 +499,17 @@ jobs:
 
           echo "=== Staged tree (top 2 levels) ==="
           find "$STAGE" -maxdepth 2 -mindepth 1 | sort
+
+          # 6.5 打包自检：少任何一个文件，自托管用户都会在服务器上撞墙。
+          #     动因是同类事故的既有形态——Dockerfile 的 COPY 白名单漏文件时 CI 全绿、部署必挂；
+          #     这里管的是"部署包"这一层的同类盲区。
+          MISSING=0
+          for f in docker-compose.yml Dockerfile .env.example VERSION \
+            deploy/monitoring/compose.monitoring.yml deploy/monitoring/bridge.mjs \
+            deploy/monitoring/prometheus.yml deploy/upgrade.sh scripts/alert-drill.sh; do
+            if [ ! -f "$STAGE/$f" ]; then echo "::error::部署包缺 $f"; MISSING=1; fi
+          done
+          [ "$MISSING" = 0 ] || exit 1
 
           # 7. 打包 zip
           zip -r "dustnote-server-${RELEASE_TAG}.zip" "$STAGE"
@@ -710,7 +728,8 @@ jobs:
             - `shared/` —— 共享类型与工具
             - `docker-compose.yml` + `Dockerfile` —— 容器化部署
             - `.env.example` —— 环境变量模板
-            - `deploy/` —— Nginx / Caddy 反向代理配置
+            - `deploy/` —— Nginx / Caddy 反代配置、监控栈（prometheus/alertmanager/ntfy-bridge/ntfy）、升级脚本
+            - `scripts/alert-drill.sh` —— 告警链路验收与演练（冒烟不动主栈；全量拔容器实测端到端时延）
             - `DEPLOY.md` —— 完整部署文档
             - `VERSION` —— 版本元信息
 

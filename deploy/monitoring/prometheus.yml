@@ -17,12 +17,20 @@ rule_files:
 scrape_configs:
   - job_name: dustnote
     metrics_path: /metrics
+    scheme: https
     static_configs:
-      - targets: ['host.docker.internal:8080']
-    # token 走 credentials_file（2026-09-25 部署实锤：${METRICS_TOKEN} env 展开
-    # 在此挂载链路上发出空 credentials → node 层 401，而容器 env 里 token 完好）。
-    # credentials_file 不做 env 展开、配置里不落明文，由 compose 只读挂载
-    # /opt/metrics-token.txt（纯 token 单行，600 权限，主栈 METRICS_TOKEN 同值）
+      - targets: ['napi.iniess.cn:443']
+    # 为什么走前置反代、不再用 host.docker.internal:8080：2026-10-02 R1 收口把主栈端口
+    # 默认绑到 127.0.0.1（compose 的 PORT_BIND），而 host.docker.internal 解析到宿主
+    # **网关网卡**地址、不是回环，两者并存时抓取会静默失败。副带好处：拨的正是用户走的
+    # 那条路——前置 nginx 挂了这里也掉 0，宕机告警不再漏掉反代层。
+    # 换域名自托管时改上面那一行即可：Prometheus 不展开环境变量、配置里也不支持 ${...}，
+    # 这里必须是字面量。
+    #
+    # token 走 credentials_file（2026-09-25 部署实锤：把变量展开写在这条挂载链路上，
+    # 发出的是空 credentials → node 层 401，而容器 env 里 token 完好）。credentials_file
+    # 不做展开、配置里不落明文，由 compose 只读挂载 /opt/metrics-token.txt
+    # （纯 token 单行、600 权限，与主栈 METRICS_TOKEN 同值）。
     authorization:
       type: Bearer
       credentials_file: /run/dustnote/metrics-token

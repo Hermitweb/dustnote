@@ -16,14 +16,25 @@ PROM='http://127.0.0.1:9090'
 AM='http://127.0.0.1:9093'
 MON_DIR="${MON_DIR:-$(cd "$(dirname "$0")/../deploy/monitoring" && pwd)}"
 MAIN_DIR="${MAIN_DIR:-$(ls -d /opt/dustnote-server-v* 2>/dev/null | sort -V | tail -1)}"
+# compose 只自动加载 .env；本栈用的是 .env.monitoring，必须显式 --env-file，
+# 否则 ${NTFY_TOPIC:?} 插值失败，连 exec 都会 exit 1（2026-10-02 实跑抓到）。
+MON_ENV="${MON_ENV:-$MON_DIR/.env.monitoring}"
 SMOKE=0
 [ "${1:-}" = "--smoke" ] && SMOKE=1
 
+compose_mon() {
+  if [ -f "$MON_ENV" ]; then
+    docker compose -f "$MON_DIR/compose.monitoring.yml" --env-file "$MON_ENV" "$@"
+  else
+    docker compose -f "$MON_DIR/compose.monitoring.yml" "$@"
+  fi
+}
+
 # bridge 没有对外发布端口（只在内网），所以经容器内 wget 读它的 /stats
 bridge_stat() {
-  docker compose -f "$MON_DIR/compose.monitoring.yml" exec -T ntfy-bridge \
-    wget -qO- http://127.0.0.1:9095/stats 2>/dev/null || true
+  compose_mon exec -T ntfy-bridge wget -qO- http://127.0.0.1:9095/stats 2>/dev/null || true
 }
+
 bridge_field() {
   bridge_stat | python3 -c "import json,sys
 try: print(json.load(sys.stdin).get('$1', 0))
@@ -44,7 +55,12 @@ except Exception: pass
 
 if [ "$SMOKE" = 1 ]; then
   echo "== 冒烟：向 Alertmanager 投一条合成告警，验证 AM→bridge→ntfy 全链路 =="
-  [ -n "$(bridge_stat)" ] || { echo "[FAIL] 读不到 bridge /stats，监控栈没起来？cd $MON_DIR && docker compose -f compose.monitoring.yml --env-file .env.monitoring up -d"; exit 1; }
+  if [ -z "$(bridge_stat)" ]; then
+    echo "[FAIL] 读不到 bridge /stats，监控栈没起来？现场诊断：" >&2
+    compose_mon ps 2>&1 | tail -6 >&2
+    echo "  若是 required variable NTFY_TOPIC is missing，说明 MON_ENV 不对：MON_ENV=<env 文件路径> $0" >&2
+    exit 1
+  fi
   BEFORE=$(bridge_field published)
   FAILED_BEFORE=$(bridge_field failed)
   TS=$(date -u +%H%M%S)
