@@ -77,6 +77,10 @@ jobs:
       - name: Check docs links, anchors and index coverage
         # 断链不会让任何测试变红，但它就是官网与文档的 404；孤儿文档等于不存在。
         run: pnpm docs:check
+      - name: Check UI scale discipline and token wiring
+        # 令牌定义了不等于类名在读它：--mn-text-* / --mn-space-* 曾经无人消费，
+        # 于是设置里的"密度"只有行高真的在动。这条同时扫越界类名与接线是否还在。
+        run: pnpm ui:check
       - name: Check workflow files are structurally valid
         # GitHub 对 workflow 的校验是整份拒绝：一个 job 缺 runs-on，这个文件里所有
         # job 都不跑，而本地没有任何命令会因此变红。这条守卫补上那个盲区。
