@@ -17,12 +17,8 @@ body {
   background-color: rgb(var(--mn-bg));
   color: rgb(var(--mn-fg));
   transition:
-    background-color 250ms ease,
-    color 250ms ease;
-}
-
-\/30 {
-  background-color: rgb(var(--mn-accent) / 0.15);
+    background-color var(--mn-duration-slow, 240ms) var(--mn-ease),
+    color var(--mn-duration-slow, 240ms) var(--mn-ease);
 }
 
 /* Markdown 渲染样式 */
@@ -109,15 +105,6 @@ mark {
   overscroll-behavior: contain;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-  }
-}
-
 /* ========== 桌面端原生感优化（仅 desktop 平台生效） ========== */
 html[data-platform='desktop'] {
   /* 禁用文本选择（输入框 / 文本区域 / contenteditable / prose 除外） */
@@ -164,16 +151,6 @@ html[data-platform='desktop'] {
 }
 
 /* ========== 无障碍：prefers-reduced-motion ========== */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
 
 /* ========== 无障碍：skip-to-content focus 样式 ========== */
 .sr-only {
@@ -210,3 +187,16 @@ textarea:focus::placeholder {
    glass-line 与极光都在 shared/styles/tokens.css —— web 与桌面端共用同一份，
    否则两边会各写一套磨砂参数（这正是 U-3 的成因）。
    见 docs/ui-optimization.md §2.2。 */
+
+
+/* 无障碍：降低动效（合并了此前重复声明的两段，两处只有字段不同、容易各改一半） */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -743,7 +743,7 @@ export function Editor() {
               placeholder={t('editor.placeholder')}
               aria-label={t('editor.placeholder')}
               disabled={isTrash}
-              className="w-full bg-transparent text-2xl font-bold text-surface-fg placeholder-surface-muted focus:outline-none"
+              className="w-full bg-transparent text-2xl font-bold text-surface-fg placeholder-surface-muted"
             />
           </div>
 
@@ -807,7 +807,7 @@ export function Editor() {
                       onPaste={onPaste}
                       placeholder={t('editor.md_placeholder')}
                       aria-label={t('editor.md_placeholder')}
-                      className={`editor-textarea flex-1 resize-none bg-transparent py-4 text-sm text-surface-fg placeholder-surface-muted focus:outline-none ${mode === 'split' ? 'border-r border-surface-border' : ''}`}
+                      className={`editor-textarea flex-1 resize-none bg-transparent py-4 text-sm text-surface-fg placeholder-surface-muted ${mode === 'split' ? 'border-r border-surface-border' : ''}`}
                     />
                     {showSlash && slashCommands.length > 0 && (
                       <div className="glass-2 absolute bottom-4 left-6 z-50 max-h-60 w-64 overflow-y-auto rounded-xl border border-surface-border bg-surface-card py-1 shadow-xl">

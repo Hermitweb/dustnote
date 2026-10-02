@@ -409,7 +409,7 @@ export function Sidebar() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t('app_bar.search')}
-                className="w-full rounded-lg border border-surface-border bg-surface-bg py-1.5 pl-7 pr-7 text-sm text-surface-fg placeholder-surface-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                className="w-full rounded-lg border border-surface-border bg-surface-bg py-1.5 pl-7 pr-7 text-sm text-surface-fg placeholder-surface-muted focus:border-accent"
                 type="search"
               />
               {searchQuery && (
@@ -431,7 +431,7 @@ export function Sidebar() {
           {showFolderTree && (
             <div className="group/folders mt-4">
               <div className="rail-center mb-1 flex items-center justify-between px-2">
-                <span className="rail-label text-[11px] font-semibold uppercase tracking-[0.07em] text-text-secondary">
+                <span className="rail-label text-2xs font-semibold uppercase tracking-[0.07em] text-text-secondary">
                   {t('sidebar.folders')}
                 </span>
                 {/* 分组操作默认不占视觉重量：hover 或键盘聚焦时才出现（§2.1） */}
@@ -686,7 +686,7 @@ export function Sidebar() {
           {tagList.length > 0 && (
             <div className="group/tags mt-4">
               <div className="rail-center mb-1 flex items-center justify-between px-2">
-                <span className="rail-label text-[11px] font-semibold uppercase tracking-[0.07em] text-text-secondary">
+                <span className="rail-label text-2xs font-semibold uppercase tracking-[0.07em] text-text-secondary">
                   {t('sidebar.tags')}
                 </span>
                 <button
@@ -761,7 +761,7 @@ export function Sidebar() {
                 className="glass-2 fixed bottom-16 left-2 z-40 max-h-[60vh] w-56 overflow-y-auto rounded-xl border border-surface-border bg-surface-card p-2 shadow-2xl"
               >
                 <div className="mb-1 flex items-center justify-between px-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.07em] text-text-secondary">
+                  <span className="text-2xs font-semibold uppercase tracking-[0.07em] text-text-secondary">
                     {t('sidebar.tags')}
                   </span>
                   <button
@@ -829,7 +829,7 @@ export function Sidebar() {
                   onClick={() => setViewMode(d.mode)}
                   aria-pressed={on}
                   title={t(d.k)}
-                  className={`rail-center flex min-w-0 items-center gap-1 truncate rounded-md px-1.5 py-1.5 text-[11px] leading-none transition-colors ${
+                  className={`rail-center flex min-w-0 items-center gap-1 truncate rounded-md px-1.5 py-1.5 text-2xs leading-none transition-colors ${
                     on
                       ? 'bg-accent-soft/40 font-semibold text-accent-text dark:bg-accent/30 dark:text-accent-text'
                       : 'text-surface-fg hover:bg-surface-bg'
@@ -895,7 +895,7 @@ export function Sidebar() {
       {/* 右键菜单 */}
       {ctxMenu && (
         <div
-          className="fixed inset-0 z-[60]"
+          className="fixed inset-0 z-confirm"
           onClick={closeCtxMenu}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -903,7 +903,7 @@ export function Sidebar() {
           }}
         >
           <div
-            className="fixed z-[61] min-w-[180px] rounded-lg border border-surface-border bg-surface-card py-1 shadow-xl"
+            className="fixed z-nested min-w-[180px] rounded-lg border border-surface-border bg-surface-card py-1 shadow-xl"
             style={{
               left: Math.min(ctxMenu.x, window.innerWidth - 200),
               top: Math.min(ctxMenu.y, window.innerHeight - 320),
@@ -1036,7 +1036,7 @@ export function Sidebar() {
       {/* 重命名对话框 */}
       {renameTarget && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6"
+          className="fixed inset-0 z-nested flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6"
           onClick={() => setRenameTarget(null)}
         >
           <div
@@ -1054,7 +1054,7 @@ export function Sidebar() {
                 if (e.key === 'Enter') void confirmRename();
                 if (e.key === 'Escape') setRenameTarget(null);
               }}
-              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-accent focus:outline-none"
+              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-accent"
             />
             <div className="mt-3 flex gap-2">
               <button
@@ -1077,7 +1077,7 @@ export function Sidebar() {
       {/* 移动对话框 */}
       {moveTarget && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6"
+          className="fixed inset-0 z-nested flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6"
           onClick={() => setMoveTarget(null)}
         >
           <div
@@ -1166,7 +1166,7 @@ function Chevron({ expanded }: { expanded: boolean }) {
       strokeWidth="2.6"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={`transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}
+      className={`transition-transform duration-fast ${expanded ? 'rotate-90' : ''}`}
       aria-hidden="true"
     >
       <polyline points="9 18 15 12 9 6" />

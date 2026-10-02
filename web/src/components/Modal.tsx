@@ -2,7 +2,7 @@
  * 弹窗外壳（阶段 2.5 · docs/ui-optimization.md §2.5）
  *
  * 改造前 13 个弹窗各写一套外壳：遮罩有 black/40 与 black/50 两种、圆角有 rounded-lg
- * 与 rounded-2xl 两种、标题字号跟着感觉走、有的能内滚动有的一屏就顶到浏览器边框。
+ * 与 rounded-xl 两种、标题字号跟着感觉走、有的能内滚动有的一屏就顶到浏览器边框。
  * 这里把规格固定下来：
  *   遮罩  rgba(0,0,0,.55) + 轻微背景模糊
  *   面板  surface-2 底 + shadow-2xl + radius-xl + 最大高度 72vh 且内部滚动
@@ -17,11 +17,11 @@ import { useTranslation } from 'react-i18next';
 import { Icon } from './Icon';
 
 const Z: Record<number, string> = {
-  40: 'z-40',
-  50: 'z-50',
-  60: 'z-[60]',
-  70: 'z-[70]',
-  90: 'z-[90]',
+  40: 'z-drawer',
+  50: 'z-overlay',
+  60: 'z-confirm',
+  70: 'z-nested',
+  90: 'z-stacked',
 };
 
 const SIZE: Record<string, string> = {
@@ -73,7 +73,7 @@ export function Modal({
 
   return (
     <div
-      className={`fixed inset-0 ${Z[z] ?? 'z-50'} flex justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6 ${
+      className={`fixed inset-0 ${Z[z] ?? 'z-overlay'} flex justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6 ${
         align === 'start' ? 'items-start pt-[12vh]' : 'items-center'
       }`}
       onClick={dismissOnScrim ? onClose : undefined}

@@ -92,7 +92,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
       <div className="w-full max-w-2xl rounded-xl border border-surface-border bg-surface-card p-8 shadow-2xl">
         {/* 标题 */}
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft/60 dark:bg-accent/30">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60 dark:bg-accent/30">
             <Logo className="h-10 w-10" alt="" />
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('mode_select.title')}</h1>
@@ -158,7 +158,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
                   setConnState('idle');
                 }}
                 placeholder={t('mode_select.online_server_url_placeholder')}
-                className="flex-1 rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                className="flex-1 rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm focus:border-accent"
                 autoComplete="off"
               />
               <button

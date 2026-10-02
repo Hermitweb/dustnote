@@ -77,7 +77,7 @@ export function UnlockScreen() {
     <div className="flex h-full items-center justify-center bg-surface-bg p-6">
       <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft/60 text-3xl dark:bg-accent/30">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60 text-3xl dark:bg-accent/30">
             🔓
           </div>
           {mode === 'unlock' ? (
@@ -123,7 +123,7 @@ export function UnlockScreen() {
                   value={totpCode}
                   onChange={(e) => setTotpCode(e.target.value.trim())}
                   placeholder="123456"
-                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm tracking-widest text-surface-fg focus:border-accent focus:outline-none"
+                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm tracking-widest text-surface-fg focus:border-accent"
                 />
               </div>
             )}
@@ -136,7 +136,7 @@ export function UnlockScreen() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoFocus
-                className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-accent"
                 autoComplete="current-password"
               />
             </div>
@@ -183,7 +183,7 @@ export function UnlockScreen() {
                 autoCapitalize="characters"
                 placeholder="A7K2M-9PQR3"
                 spellCheck={false}
-                className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-center font-mono text-2xl tracking-widest focus:border-accent focus:outline-none"
+                className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-center font-mono text-2xl tracking-widest focus:border-accent"
               />
             </div>
             <div>

@@ -132,7 +132,7 @@ export function AdminConfig({ onClose }: { onClose: () => void }) {
                   value={cfg.apiBase}
                   onChange={(e) => setCfg((p) => ({ ...p, apiBase: e.target.value }))}
                   placeholder="https://api.your-domain.com/api/v1"
-                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft"
+                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-accent"
                 />
                 <p className="mt-1 text-xs text-surface-muted">{t('admin.api_base_hint')}</p>
               </div>
@@ -145,7 +145,7 @@ export function AdminConfig({ onClose }: { onClose: () => void }) {
                   value={cfg.appName}
                   onChange={(e) => setCfg((p) => ({ ...p, appName: e.target.value }))}
                   placeholder="DustNote"
-                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft"
+                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-accent"
                 />
               </div>
 
@@ -157,7 +157,7 @@ export function AdminConfig({ onClose }: { onClose: () => void }) {
                   value={cfg.miniprogramAppId}
                   onChange={(e) => setCfg((p) => ({ ...p, miniprogramAppId: e.target.value }))}
                   placeholder="wxXXXXXXXXXXXXXXXX"
-                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft"
+                  className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-accent"
                 />
               </div>
 
