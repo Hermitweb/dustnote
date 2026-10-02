@@ -74,13 +74,10 @@ const FONT_FAMILIES: Record<Preferences['font'], string> = {
  * 密度同时改**字号 + 行高 + 间距**（改造前只改行高，切换几乎无感知，功能显得是假的）。
  * 见 docs/ui-optimization.md U-5。
  */
-const TYPOGRAPHY: Record<
-  Preferences['density'],
-  { lineHeight: string; base: string; scale: string; space: string }
-> = {
-  comfortable: { lineHeight: '1.85', base: '15px', scale: '1.13', space: '1.08' },
-  standard: { lineHeight: '1.6', base: '14px', scale: '1.1', space: '1' },
-  compact: { lineHeight: '1.35', base: '13px', scale: '1.07', space: '0.9' },
+const TYPOGRAPHY: Record<Preferences['density'], { lineHeight: string; density: string }> = {
+  comfortable: { lineHeight: '1.85', density: '1.08' },
+  standard: { lineHeight: '1.6', density: '1' },
+  compact: { lineHeight: '1.35', density: '0.9' },
 };
 
 /** 写入 CSS 变量，由 index.css / Tailwind 消费 */
@@ -89,9 +86,10 @@ export function applyTypography(font: Preferences['font'], density: Preferences[
   const t = TYPOGRAPHY[density] ?? TYPOGRAPHY.standard;
   root.style.setProperty('--mn-font', FONT_FAMILIES[font]);
   root.style.setProperty('--mn-line-height', t.lineHeight);
-  root.style.setProperty('--mn-text-base', t.base);
-  root.style.setProperty('--mn-type-scale', t.scale);
-  root.style.setProperty('--mn-space-scale', t.space);
+  /* 一个旋钮同时驱动字号与间距：shared/tailwind-colors.mjs 里的 fontSize / spacing 吃它。
+     以前这里写的是 --mn-text-base 与 --mn-space-scale，而类名从来不读它们——于是"密度"
+     只有行高真的在动，设置看起来像坏的。 */
+  root.style.setProperty('--mn-density', t.density);
 }
 
 export function watchSystemTheme(theme: ThemeId, mode: Mode): () => void {

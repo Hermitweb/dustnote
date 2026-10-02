@@ -95,7 +95,7 @@ export function TemplatePicker({ onClose }: TemplatePickerProps) {
                   key={tpl.id}
                   disabled={creating}
                   onClick={() => handlePick(tpl)}
-                  className="group flex flex-col items-start rounded-xl border border-surface-border bg-surface-bg p-3 text-left transition-all hover:border-accent hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                  className="group flex flex-col items-start rounded-xl border border-surface-border bg-surface-bg p-3 text-left transition hover:border-accent hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className="mb-1 text-2xl">{tpl.icon}</span>
                   <span className="text-sm font-semibold text-surface-fg">{tpl.name}</span>
@@ -125,7 +125,7 @@ export function TemplatePicker({ onClose }: TemplatePickerProps) {
                   {customs.map((tpl) => (
                     <div
                       key={tpl.id}
-                      className="group relative flex flex-col items-start rounded-xl border border-surface-border bg-surface-bg p-3 text-left transition-all hover:border-accent hover:shadow-md"
+                      className="group relative flex flex-col items-start rounded-xl border border-surface-border bg-surface-bg p-3 text-left transition hover:border-accent hover:shadow-md"
                     >
                       <button
                         disabled={creating}

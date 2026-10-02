@@ -84,8 +84,7 @@ export function WysiwygEditor({ content, onChange, placeholder }: WysiwygEditorP
     },
     editorProps: {
       attributes: {
-        class:
-          'prose prose-sm max-w-none text-surface-fg dark:prose-invert focus:outline-none min-h-[200px] p-6',
+        class: 'prose prose-sm max-w-none text-surface-fg dark:prose-invert min-h-[200px] p-6',
       },
     },
   });

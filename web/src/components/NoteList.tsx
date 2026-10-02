@@ -168,7 +168,7 @@ export function NoteList() {
           <select
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as typeof sortKey)}
-            className="rounded border border-surface-border bg-surface-bg px-1.5 py-1 text-xs focus:outline-none"
+            className="rounded border border-surface-border bg-surface-bg px-1.5 py-1 text-xs"
             title={t('sidebar.sort_label')}
             aria-label={t('sidebar.sort_label')}
           >
@@ -255,7 +255,7 @@ export function NoteList() {
                     <button
                       onClick={() => toggleSelect(n.id)}
                       aria-pressed={checked}
-                      className={`mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded border text-[11px] font-bold transition-colors ${
+                      className={`mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded border text-2xs font-bold transition-colors ${
                         checked
                           ? 'border-accent-strong bg-accent-strong text-white'
                           : 'border-surface-border text-transparent hover:border-accent'
@@ -289,7 +289,7 @@ export function NoteList() {
                         {plain.content.replace(/[#*>`\n-]/g, ' ').slice(0, 160)}
                       </span>
                     )}
-                    <span className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-surface-muted">
+                    <span className="mt-1.5 flex flex-wrap items-center gap-2 text-2xs text-surface-muted">
                       <span className="tabular-nums">{fmtTime(n.serverUpdatedAt)}</span>
                       {plain?.tags?.slice(0, 3).map((tag) => (
                         <span
@@ -439,7 +439,7 @@ export function NoteList() {
                 if (e.key === 'Enter') void confirmRename();
                 if (e.key === 'Escape') setRenameId(null);
               }}
-              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm focus:border-accent"
             />
             <div className="mt-3 flex gap-2">
               <button

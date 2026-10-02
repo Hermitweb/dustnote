@@ -92,7 +92,7 @@ export function DiagnosticsPanel() {
       {usage.quota > 0 && (
         <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-bg">
           <div
-            className={`h-full rounded-full transition-all ${
+            className={`h-full rounded-full transition-[width] ${
               isWarning ? 'bg-warning-soft0' : 'bg-accent'
             }`}
             style={{ width: `${Math.min(100, usage.usagePercent)}%` }}

@@ -467,7 +467,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
                   onChange={(e) =>
                     setConflictStrategy(e.target.value as 'merge' | 'overwrite' | 'skip')
                   }
-                  className="rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs text-surface-fg focus:outline-none"
+                  className="rounded border border-surface-border bg-surface-bg px-2 py-1 text-xs text-surface-fg"
                 >
                   <option value="merge">{t('import_export.conflict_merge')}</option>
                   <option value="overwrite">{t('import_export.conflict_overwrite')}</option>

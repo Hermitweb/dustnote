@@ -48,24 +48,39 @@
   --mn-glass-2: 255 255 255 / 0.88;
   --mn-glass-line: 30 41 59 / 0.09;
 
-  /* 排版与间距尺度：density 同时改字号 / 行高 / 间距（改造前只改行高，切换几乎无感） */
+  /* 排版与间距尺度（阶段 3 · §3.5 微排版 / §4「密度切换要可测」）
+   *
+   * 一个旋钮 --mn-density：comfortable 1.08 / standard 1 / compact 0.9，**同时**驱动
+   * 字号与间距；行高另有 --mn-line-height，只作用于阅读与编辑两面（.prose / .editor-textarea）。
+   *
+   * 为什么阶梯写成"固定档位 × 乘数"而不是延续 1.1 倍模数：模数一旦启用，
+   * 全仓 461 处 text-* 的像素值会一起漂移——那是重新设计，不是打磨。阶梯在 standard
+   * 下与改造前逐像素相同，密度切换才谈得上"只改该改的"。
+   *
+   * 旧的两个旋钮（--mn-type-scale / --mn-space-scale）合并到此。它们此前**无人消费**：
+   * 变量写了、Tailwind 类名不读，于是设置里的"密度"实际只有行高在动，字号与间距是假的。
+   * 现在 fontSize / spacing 在 shared/tailwind-colors.mjs 里接到这些变量上。
+   */
   --mn-font: 'Manrope', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
   --mn-line-height: 1.6;
-  --mn-text-base: 14px;
-  --mn-type-scale: 1.1;
-  --mn-space-scale: 1;
-  --mn-text-xs: calc(var(--mn-text-base) / var(--mn-type-scale));
-  --mn-text-sm: var(--mn-text-base);
-  --mn-text-md: calc(var(--mn-text-base) * var(--mn-type-scale));
-  --mn-text-lg: calc(var(--mn-text-base) * var(--mn-type-scale) * var(--mn-type-scale));
-  --mn-text-xl: calc(var(--mn-text-lg) * var(--mn-type-scale) * var(--mn-type-scale));
-  --mn-text-2xl: calc(var(--mn-text-xl) * var(--mn-type-scale) * var(--mn-type-scale));
-  --mn-space-1: calc(4px * var(--mn-space-scale));
-  --mn-space-2: calc(8px * var(--mn-space-scale));
-  --mn-space-3: calc(12px * var(--mn-space-scale));
-  --mn-space-4: calc(16px * var(--mn-space-scale));
-  --mn-space-6: calc(24px * var(--mn-space-scale));
-  --mn-space-8: calc(32px * var(--mn-space-scale));
+  --mn-density: 1;
+  --mn-text-2xs: calc(11px * var(--mn-density));
+  --mn-text-xs: calc(12px * var(--mn-density));
+  --mn-text-sm: calc(14px * var(--mn-density));
+  --mn-text-base: calc(16px * var(--mn-density));
+  --mn-text-lg: calc(18px * var(--mn-density));
+  --mn-text-xl: calc(20px * var(--mn-density));
+  --mn-text-2xl: calc(24px * var(--mn-density));
+  --mn-text-3xl: calc(30px * var(--mn-density));
+  --mn-text-4xl: calc(36px * var(--mn-density));
+  --mn-text-5xl: calc(48px * var(--mn-density));
+  --mn-space-1: calc(4px * var(--mn-density));
+  --mn-space-2: calc(8px * var(--mn-density));
+  --mn-space-3: calc(12px * var(--mn-density));
+  --mn-space-4: calc(16px * var(--mn-density));
+  --mn-space-5: calc(20px * var(--mn-density));
+  --mn-space-6: calc(24px * var(--mn-density));
+  --mn-space-8: calc(32px * var(--mn-density));
   --mn-radius-sm: 6px;
   --mn-radius-md: 10px;
   --mn-radius-lg: 14px;
@@ -77,13 +92,45 @@
   --mn-duration-slow: 240ms;
 }
 
-/* 焦点可见性（A11Y-R04）：实描边比半透明光晕在玻璃上更清晰 */
-:focus-visible {
+/* 焦点可见性（§3.4 三态一致 / A11Y-R04）——全站只在这一处定义。
+ *
+ * 双层描边：单靠 accent 实线，在某些暗色主题上与背景同亮度（§3.4 点名的现状）；
+ * 再套一圈 --mn-bg 光晕后，压在浅底、深底、glass-2 面板或极光上都恒可见，且不依赖主题。
+ *
+ * 组件侧不许再用 outline-none 把它掐掉：实测 web 有 26 处 outline-none，其中 13 处
+ * 没有任何 ring/focus-visible 补偿——按层叠顺序，Tailwind 的 utilities 在这条之后展开，
+ * 于是那 13 个输入框/编辑面对键盘用户是"焦点不可见"。已随本次打磨摘除，
+ * 并由 pnpm ui:check 钉住（写 control 类名里出现 focus:outline-none 直接判红）。
+ */
+/* `html ` 前缀是刻意的一次最小特异性提升（0,1,1 > utility 的 0,1,0）：否则任何自带
+ * shadow-lg / shadow-xl 的元素，其 box-shadow 会按同序层叠把光晕顶掉
+ * （实测：Tab 到"跳过导航"链接时 outline 在、光晕没了）。 */
+html :focus-visible {
   outline: 2px solid rgb(var(--mn-accent));
   outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(var(--mn-bg));
   border-radius: var(--mn-radius-sm, 6px);
 }
 
+/* 书写面例外：整块编辑器一旦聚焦就常驻一圈粗环，读起来像界面坏了。
+ * 它们靠光标本身表达焦点，所以这里点名豁免（不是通用逃避口）。 */
+html textarea:focus-visible,
+html [contenteditable='true']:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* 按压反馈（§3.4 三态一致）：全仓 196 处 hover 对 4 处 active——悬停有反应、
+ * 按下去没反应，是"手感廉价"的主要来源。这里给一条全局兜底：用 inset 阴影做
+ * "压下去"的凹陷感，不碰 transform / filter（那两者会给后代 fixed 元素造出
+ * 新的包含块，弹层定位会跟着按钮跑）。:where() 保证特异性为 0，组件自己写的
+ * active: 类照常生效；disabled 不参与。
+ */
+:where(button, [role='button'], [role='menuitem'], [role='tab'], summary, a):active:not(:disabled) {
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.16);
+  /* 按下去要立刻有反馈，所以这一段比 hover 更快 */
+  transition-duration: var(--mn-duration-fast, 120ms);
+}
 /* ================= 材质层（阶段 3 · docs/ui-optimization.md §2.2） =================
  * 玻璃是**材质开关**，不是某个主题的专利：html[data-effect] 只切材质，
  * 布局 / 间距 / 字号零位移（这条是硬要求，切到实色后不能有任何元素挪位）。

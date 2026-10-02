@@ -709,7 +709,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                         <div className="flex items-center gap-1.5 text-sm text-surface-fg">
                           <span className="truncate">{d.name}</span>
                           {d.isCurrent && (
-                            <span className="rounded-full bg-accent-soft/60 px-1.5 py-0.5 text-[10px] text-accent-text dark:bg-accent/30 dark:text-accent-text">
+                            <span className="rounded-full bg-accent-soft/60 px-1.5 py-0.5 text-2xs text-accent-text dark:bg-accent/30 dark:text-accent-text">
                               {t('settings.device_current')}
                             </span>
                           )}
@@ -850,7 +850,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 <input
                   value={apiBase}
                   onChange={(e) => setApiBase(e.target.value)}
-                  className="flex-1 rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft"
+                  className="flex-1 rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg focus:border-accent"
                 />
                 <button
                   onClick={() => {
@@ -1027,7 +1027,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-surface-bg">
                         <div
-                          className="h-full rounded-full bg-accent transition-all"
+                          className="h-full rounded-full bg-accent transition-[width]"
                           style={{ width: `${updateProgress}%` }}
                         />
                       </div>

@@ -339,7 +339,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
               setSelectedIdx(0);
             }}
             placeholder={t('command_palette.placeholder')}
-            className="flex-1 bg-transparent text-sm text-surface-fg outline-none placeholder:text-surface-muted"
+            className="flex-1 bg-transparent text-sm text-surface-fg placeholder:text-surface-muted"
             autoComplete="off"
             spellCheck={false}
             aria-label={t('command_palette.placeholder')}

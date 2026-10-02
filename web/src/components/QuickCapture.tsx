@@ -80,7 +80,7 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={t('quick_capture.title_placeholder')}
-          className="w-full border-b border-surface-border bg-transparent px-4 py-3 text-base font-semibold text-surface-fg placeholder-surface-muted focus:outline-none"
+          className="w-full border-b border-surface-border bg-transparent px-4 py-3 text-base font-semibold text-surface-fg placeholder-surface-muted"
         />
         <textarea
           ref={contentRef}
@@ -88,7 +88,7 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
           onChange={(e) => setContent(e.target.value)}
           placeholder={t('quick_capture.content_placeholder')}
           rows={8}
-          className="w-full resize-none bg-transparent px-4 py-3 font-mono text-sm text-surface-fg placeholder-surface-muted focus:outline-none"
+          className="w-full resize-none bg-transparent px-4 py-3 font-mono text-sm text-surface-fg placeholder-surface-muted"
         />
         <div className="flex items-center justify-between border-t border-surface-border bg-surface-bg px-4 py-2 text-xs text-surface-muted">
           <span>{t('quick_capture.hint')}</span>

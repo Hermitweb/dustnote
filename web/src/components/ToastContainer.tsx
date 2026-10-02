@@ -40,7 +40,7 @@ export function ToastContainer() {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-4 right-4 z-[100] flex flex-col gap-2"
+      className="pointer-events-none fixed bottom-4 right-4 z-toast flex flex-col gap-2"
       role="region"
       aria-label={t('common.notifications')}
     >
