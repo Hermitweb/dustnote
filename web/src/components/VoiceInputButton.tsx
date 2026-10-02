@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Icon } from './Icon';
 
 // Web Speech API 类型声明（浏览器私有，TS 没有）
 interface SpeechRecognitionResultLike {
@@ -126,7 +127,7 @@ export function VoiceInputButton({ onInsert }: { onInsert: (text: string) => voi
         title={t('settings.voice_not_supported')}
         className="rounded p-1.5 text-xs text-surface-muted opacity-40"
       >
-        🎤
+        <Icon name="mic" size={16} />
       </button>
     );
   }
@@ -137,11 +138,11 @@ export function VoiceInputButton({ onInsert }: { onInsert: (text: string) => voi
       title={listening ? t('voice_input.stop') : t('voice_input.start')}
       className={`rounded p-1.5 text-xs ${
         listening
-          ? 'animate-pulse bg-danger-soft text-danger dark:bg-danger-soft'
+          ? 'animate-pulse bg-danger-soft text-danger '
           : 'text-surface-muted hover:bg-surface-bg'
       }`}
     >
-      🎤
+      <Icon name="mic" size={16} />
       {error && (
         <span className="sr-only" role="alert">
           {error}

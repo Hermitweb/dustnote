@@ -5,7 +5,7 @@
  * 我们据此更新 store.isOnline 并触发队列重放。
  *
  * 注意：navigator.onLine 在某些场景（如禁用网卡但保留 Wi-Fi）可能误报，
- *      因此仅作为「尽快重试」的触发器，最终一致性由 WS 重连 + loadAll 保证。
+ * 因此仅作为「尽快重试」的触发器，最终一致性由 WS 重连 + loadAll 保证。
  */
 
 import { useStore } from './store';

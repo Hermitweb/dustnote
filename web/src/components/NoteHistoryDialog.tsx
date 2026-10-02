@@ -231,7 +231,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
                   onClick={() => void selectVersion(v.id)}
                   className={`mb-1 block w-full rounded-lg px-3 py-2 text-left text-xs transition-colors ${
                     selectedId === v.id
-                      ? 'bg-accent-soft/60 text-accent-text dark:bg-accent/30'
+                      ? 'bg-accent-soft/60 text-accent-text '
                       : 'text-surface-fg hover:bg-surface-bg'
                   }`}
                 >
@@ -256,7 +256,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
               <div>
                 <h3 className="mb-3 text-xl font-semibold text-text-primary">{preview.title}</h3>
                 <div
-                  className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
+                  className="prose prose-sm max-w-none text-surface-fg"
                   dangerouslySetInnerHTML={{
                     __html: sanitizeHtml(marked.parse(preview.content || '') as string),
                   }}
@@ -274,9 +274,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
         {(error || success) && (
           <div
             className={`px-4 py-2 text-xs ${
-              error
-                ? 'bg-danger-soft text-danger dark:bg-danger-soft'
-                : 'bg-success-soft text-success dark:bg-success-soft'
+              error ? 'bg-danger-soft text-danger ' : 'bg-success-soft text-success '
             }`}
           >
             {error ?? success}

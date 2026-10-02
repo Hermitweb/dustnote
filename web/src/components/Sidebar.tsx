@@ -13,6 +13,7 @@ import { exportAsMarkdown, downloadBlob, parseNoteFile, detectFormat } from '../
 import { restoreNoteImages } from '../lib/image-store';
 import { apiErrorCode } from '@dustnote/shared';
 import { errorText } from '../lib/error-text';
+import { IconOrText } from './Icon';
 
 /** 右键菜单目标：文件夹或笔记叶子 */
 type CtxTarget =
@@ -338,7 +339,7 @@ export function Sidebar() {
         {/* 顶栏 */}
         <div className="border-b border-surface-border p-4">
           <div className="mb-3 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft/60 dark:bg-accent/30">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft/60">
               <Logo className="h-6 w-6" alt="" />
             </div>
             <h1 className="rail-label flex-1 text-base font-bold text-text-primary">
@@ -347,7 +348,7 @@ export function Sidebar() {
             {/* 离线徽章：断网或有待同步操作时显示 */}
             {(!isOnline || pendingCount > 0) && (
               <span
-                className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning dark:bg-warning-soft dark:text-warning"
+                className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning"
                 title={
                   !isOnline
                     ? `${t('sidebar.offline')} · ${pendingCount} ${t('sidebar.pending_sync')}`
@@ -501,7 +502,7 @@ export function Sidebar() {
                     <div
                       {...dropProps(f.id)}
                       className={`group/row flex h-7 items-center rounded transition-colors ${
-                        isActive ? 'bg-accent-soft/40 dark:bg-accent/30' : 'hover:bg-surface-bg'
+                        isActive ? 'bg-accent-soft/40 ' : 'hover:bg-surface-bg'
                       } ${dropRing(f.id)}`}
                     >
                       {hasContent && (
@@ -529,13 +530,13 @@ export function Sidebar() {
                         aria-label={f.name}
                         data-rail-label={f.name}
                         className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 text-left text-sm ${
-                          isActive
-                            ? 'font-semibold text-accent-text dark:text-accent-text'
-                            : 'text-surface-fg'
+                          isActive ? 'font-semibold text-accent-text ' : 'text-surface-fg'
                         }`}
                       >
                         {f.icon ? (
-                          <span className="flex-none">{f.icon}</span>
+                          <span className="flex-none">
+                            <IconOrText value={f.icon} size={14} />
+                          </span>
                         ) : (
                           <Icon name="folder" size={14} className="flex-none text-text-tertiary" />
                         )}
@@ -631,12 +632,14 @@ export function Sidebar() {
                                   data-rail-label={c.name}
                                   className={`flex min-w-0 flex-1 items-center gap-1.5 rounded pr-2 text-left text-sm ${
                                     viewMode === 'all' && selectedFolderId === c.id
-                                      ? 'bg-accent-soft/40 font-semibold text-accent-text dark:bg-accent/30 dark:text-accent-text'
+                                      ? 'bg-accent-soft/40 font-semibold text-accent-text '
                                       : 'text-surface-fg'
                                   }`}
                                 >
                                   {c.icon ? (
-                                    <span className="flex-none">{c.icon}</span>
+                                    <span className="flex-none">
+                                      <IconOrText value={c.icon} size={14} />
+                                    </span>
                                   ) : (
                                     <Icon
                                       name="folder"
@@ -673,7 +676,7 @@ export function Sidebar() {
                   <div
                     {...dropProps(null)}
                     className={`flex items-center rounded transition-colors ${
-                      isUnfiledScope ? 'bg-accent-soft/40 dark:bg-accent/30' : 'hover:bg-surface-bg'
+                      isUnfiledScope ? 'bg-accent-soft/40 ' : 'hover:bg-surface-bg'
                     } ${dropRing(UNFILED_ID)}`}
                   >
                     <button
@@ -724,7 +727,7 @@ export function Sidebar() {
                       data-rail-label={tg.tag}
                       className={`flex h-6 max-w-full items-center gap-1 truncate rounded-full border px-2 text-xs transition-colors ${
                         on
-                          ? 'border-accent bg-accent-soft/60 font-semibold text-accent-text dark:bg-accent/30'
+                          ? 'border-accent bg-accent-soft/60 font-semibold text-accent-text '
                           : 'border-surface-border text-text-secondary hover:bg-surface-bg'
                       }`}
                     >
@@ -754,7 +757,7 @@ export function Sidebar() {
                 data-rail-label={t('sidebar.tags')}
                 className={`rounded-md p-2 transition-colors ${
                   selectedTag
-                    ? 'bg-accent-soft/60 text-accent-text dark:bg-accent/30'
+                    ? 'bg-accent-soft/60 text-accent-text '
                     : 'text-text-secondary hover:bg-surface-bg'
                 }`}
                 type="button"
@@ -801,7 +804,7 @@ export function Sidebar() {
                         aria-pressed={on}
                         className={`flex h-7 max-w-full items-center gap-1 truncate rounded-full border px-2 text-xs ${
                           on
-                            ? 'border-accent bg-accent-soft/60 font-semibold text-accent-text dark:bg-accent/30'
+                            ? 'border-accent bg-accent-soft/60 font-semibold text-accent-text '
                             : 'border-surface-border text-text-secondary hover:bg-surface-bg'
                         }`}
                         type="button"
@@ -847,7 +850,7 @@ export function Sidebar() {
                   data-rail-label={t(d.k)}
                   className={`rail-center flex min-w-0 items-center gap-1 truncate rounded-md px-1.5 py-1.5 text-2xs leading-none transition-colors ${
                     on
-                      ? 'bg-accent-soft/40 font-semibold text-accent-text dark:bg-accent/30 dark:text-accent-text'
+                      ? 'bg-accent-soft/40 font-semibold text-accent-text '
                       : 'text-surface-fg hover:bg-surface-bg'
                   }`}
                 >
@@ -1161,9 +1164,7 @@ function MenuItem({
     <button
       onClick={onClick}
       className={`block w-full px-3 py-1.5 text-left text-sm ${
-        danger
-          ? 'text-danger hover:bg-danger-soft dark:hover:bg-danger-soft'
-          : 'text-surface-fg hover:bg-surface-bg'
+        danger ? 'text-danger hover:bg-danger-soft ' : 'text-surface-fg hover:bg-surface-bg'
       }`}
     >
       {label}

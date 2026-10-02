@@ -58,6 +58,8 @@ import { SlashCommandMenu } from '../components/SlashCommandMenu';
 import { filterSlashCommands, resolveSlashCommand } from '../lib/slash-commands';
 import { toMergeable, type ConflictContext, type NoteMetadata } from '@dustnote/client-core';
 import { startVoice, stopVoice } from '../lib/voice';
+import { Icon } from '../components/Icon';
+import { IconOrText } from '../components/Icon';
 
 interface NoteEnvelope {
   v: number;
@@ -634,7 +636,7 @@ export function NoteEditScreen() {
         const pt = JSON.parse(json) as { title: string; content: string };
         // 轻量预览：标题 + 前 600 字内容（移动端全屏预览页较重，恢复走独立按钮）
         const body = pt.content.length > 600 ? `${pt.content.slice(0, 600)}…` : pt.content;
-        Alert.alert(`📄 ${pt.title || t('editor.untitled')}`, body, [
+        Alert.alert(pt.title || t('editor.untitled'), body, [
           { text: t('common.close') },
           {
             text: t('history.restore'),
@@ -693,7 +695,7 @@ export function NoteEditScreen() {
   if (loadError) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: colors.fg }}>⚠️ {loadError}</Text>
+        <Text style={{ color: colors.fg }}>{loadError}</Text>
       </View>
     );
   }
@@ -767,7 +769,7 @@ export function NoteEditScreen() {
               disabled={saving}
             >
               <Text style={styles.toolbarBtn}>
-                {listening ? (voiceText ? `🎙 ${voiceText.slice(-18)}` : '🎙 …') : '🎤'}
+                {listening ? (voiceText ? voiceText.slice(-18) : '…') : '…'}
               </Text>
             </TouchableOpacity>
           )}
@@ -775,14 +777,14 @@ export function NoteEditScreen() {
           {!decryptFailed && (
             <TouchableOpacity onPress={() => void togglePin()} disabled={saving}>
               <Text style={[styles.toolbarBtn, note?.isPinned && { color: colors.mint600 }]}>
-                📌
+                <Icon name="pin" size={16} color={colors.muted} />
               </Text>
             </TouchableOpacity>
           )}
           {!decryptFailed && (
             <TouchableOpacity onPress={() => void toggleFavorite()} disabled={saving}>
               <Text style={[styles.toolbarBtn, note?.isFavorite && { color: colors.mint600 }]}>
-                ⭐
+                <Icon name="star" size={16} color={colors.muted} />
               </Text>
             </TouchableOpacity>
           )}
@@ -810,9 +812,7 @@ export function NoteEditScreen() {
                 </Text>
                 {backlinks.map((bl) => (
                   <TouchableOpacity key={bl.id} onPress={() => onBacklinkTap(bl.id)}>
-                    <Text style={[styles.backlinkItem, { color: colors.mint600 }]}>
-                      📄 {bl.title}
-                    </Text>
+                    <Text style={[styles.backlinkItem, { color: colors.mint600 }]}>{bl.title}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -934,7 +934,7 @@ export function NoteEditScreen() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{t('templates.title')}</Text>
             <TouchableOpacity onPress={() => setShowTemplates(false)}>
-              <Text style={styles.modalClose}>✕</Text>
+              <Icon name="close" size={18} color={colors.muted} />
             </TouchableOpacity>
           </View>
           <Text style={styles.modalHint}>{t('templates.subtitle')}</Text>
@@ -946,7 +946,7 @@ export function NoteEditScreen() {
                 style={styles.templateRow}
                 onPress={() => onApplyTemplate(item.content, item.name)}
               >
-                <Text style={styles.templateIcon}>{item.icon}</Text>
+                <IconOrText value={item.icon} size={22} color={colors.muted} />
                 <View style={styles.templateInfo}>
                   <Text style={styles.templateName}>{item.name}</Text>
                   <Text style={styles.templateDesc}>{item.description}</Text>
@@ -963,7 +963,7 @@ export function NoteEditScreen() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{t('history.title')}</Text>
             <TouchableOpacity onPress={() => setShowHistory(false)}>
-              <Text style={styles.modalClose}>✕</Text>
+              <Icon name="close" size={18} color={colors.muted} />
             </TouchableOpacity>
           </View>
           {historyLoading ? (
@@ -973,7 +973,7 @@ export function NoteEditScreen() {
             </View>
           ) : versions.length === 0 ? (
             <View style={styles.center}>
-              <Text style={{ fontSize: 40, marginBottom: 8 }}>🕘</Text>
+              <Icon name="history" size={40} color={colors.accent} />
               <Text style={{ color: colors.muted }}>{t('history.empty')}</Text>
             </View>
           ) : (
@@ -985,7 +985,7 @@ export function NoteEditScreen() {
                   style={styles.templateRow}
                   onPress={() => void onPreviewVersion(item)}
                 >
-                  <Text style={styles.templateIcon}>🕘</Text>
+                  <Icon name="history" size={22} color={colors.muted} />
                   <View style={styles.templateInfo}>
                     <Text style={styles.templateName}>
                       {t('history.version_label', { n: item.noteVersion })}
@@ -1016,7 +1016,7 @@ export function NoteEditScreen() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{t('folders.move_title')}</Text>
             <TouchableOpacity onPress={() => setShowFolders(false)}>
-              <Text style={styles.modalClose}>✕</Text>
+              <Icon name="close" size={18} color={colors.muted} />
             </TouchableOpacity>
           </View>
           {foldersLoading ? (
@@ -1028,7 +1028,7 @@ export function NoteEditScreen() {
             </View>
           ) : folders.length === 0 ? (
             <View style={styles.center}>
-              <Text style={{ fontSize: 40, marginBottom: 8 }}>📁</Text>
+              <Icon name="folder" size={40} color={colors.accent} />
               <Text style={{ color: colors.muted }}>{t('folders.move_empty')}</Text>
             </View>
           ) : (
@@ -1042,7 +1042,7 @@ export function NoteEditScreen() {
                     style={[styles.templateRow, active && { backgroundColor: colors.accentSoft }]}
                     onPress={() => void onMoveToFolder(item.id)}
                   >
-                    <Text style={styles.templateIcon}>📁</Text>
+                    <Icon name="folder" size={22} color={colors.muted} />
                     <View style={styles.templateInfo}>
                       <Text style={styles.templateName}>{item.name}</Text>
                     </View>
@@ -1121,58 +1121,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       lineHeight: 24,
     },
     // 标签编辑
-    tagsContainer: {
-      paddingHorizontal: 16,
-      paddingTop: 4,
-      paddingBottom: 24,
-      borderTopColor: c.border,
-      borderTopWidth: 1,
-      marginTop: 4,
-    },
-    tagsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-      marginBottom: 10,
-    },
-    tagChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: c.bg,
-      borderRadius: 999,
-      paddingHorizontal: 12,
-      paddingVertical: 5,
-      borderWidth: 1,
-      borderColor: c.border,
-      gap: 6,
-    },
-    tagChipText: { fontSize: 13, color: c.mint600, fontWeight: '500' },
-    tagChipClose: { fontSize: 14, color: c.muted, fontWeight: '600' },
-    tagInputRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    tagInput: {
-      flex: 1,
-      backgroundColor: c.bg,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      fontSize: 14,
-      color: c.fg,
-      borderWidth: 1,
-      borderColor: c.border,
-    },
-    tagAddBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 8,
-      backgroundColor: c.mint600,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    tagAddBtnText: { color: 'white', fontSize: 22, fontWeight: '300' },
     // Modal 通用样式
     modalContainer: { flex: 1, backgroundColor: c.bg, padding: 16 },
     modalHeader: {
@@ -1183,7 +1131,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       marginBottom: 8,
     },
     modalTitle: { fontSize: 18, fontWeight: '700', color: c.fg },
-    modalClose: { fontSize: 22, color: c.muted, paddingHorizontal: 8 },
     modalHint: { fontSize: 13, color: c.muted, marginBottom: 12, lineHeight: 18 },
     // 模板 / 历史列表行
     templateRow: {
@@ -1193,7 +1140,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderBottomColor: c.border,
       borderBottomWidth: 1,
     },
-    templateIcon: { fontSize: 28, marginRight: 14 },
     templateInfo: { flex: 1 },
     templateName: { fontSize: 15, fontWeight: '600', color: c.fg, marginBottom: 2 },
     templateDesc: { fontSize: 12, color: c.muted },

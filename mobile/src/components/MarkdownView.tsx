@@ -113,7 +113,7 @@ function InlineText({
                 style={{ color: colors.accent, textDecorationLine: 'underline', fontWeight: '500' }}
                 onPress={() => onWikilink?.(s.url ?? '')}
               >
-                📄 {s.text}
+                {s.text}
               </Text>
             );
           default:
@@ -217,9 +217,7 @@ export function MarkdownView({
       } else {
         blocks.push(
           <View key={key++} style={styles.imagePlaceholder}>
-            <Text style={styles.imagePlaceholderText}>
-              🖼 [{alt}]（仅存于创建设备，此端不可见）
-            </Text>
+            <Text style={styles.imagePlaceholderText}>[{alt}]（仅存于创建设备，此端不可见）</Text>
           </View>
         );
       }

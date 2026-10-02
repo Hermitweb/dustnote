@@ -66,6 +66,7 @@ import { setup2fa, enable2fa, disable2fa, get2faStatus } from '../lib/totp-clien
 import type { CheckUpdateResult } from '@dustnote/shared';
 import { resolveBaseUrl } from '../lib/mode-store';
 import { buildClientHeaders } from '../api';
+import { Icon } from '../components/Icon';
 
 /** 服务端设备列表项（GET /devices 返回结构） */
 interface DeviceItem {
@@ -986,7 +987,9 @@ export function SettingsScreen() {
                 ]}
                 onPress={() => setMode(opt.mode)}
               >
-                <Text style={[styles.modeChipText, active && { color: 'white' }]}>{opt.label}</Text>
+                <Text style={[styles.modeChipText, active && { color: colors.onAccent }]}>
+                  {opt.label}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -1005,7 +1008,7 @@ export function SettingsScreen() {
                 ]}
                 onPress={() => setMaterial(opt.value)}
               >
-                <Text style={[styles.modeChipText, active && { color: 'white' }]}>
+                <Text style={[styles.modeChipText, active && { color: colors.onAccent }]}>
                   {t(opt.key)}
                 </Text>
               </TouchableOpacity>
@@ -1027,7 +1030,7 @@ export function SettingsScreen() {
                 ]}
                 onPress={() => setLanguage(opt.lang)}
               >
-                <Text style={[styles.modeChipText, active && { color: 'white' }]}>
+                <Text style={[styles.modeChipText, active && { color: colors.onAccent }]}>
                   {t(opt.key)}
                 </Text>
               </TouchableOpacity>
@@ -1214,7 +1217,7 @@ export function SettingsScreen() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{t('settings.devices')}</Text>
             <TouchableOpacity onPress={() => setShowDevices(false)}>
-              <Text style={styles.modalClose}>✕</Text>
+              <Icon name="close" size={18} color={colors.muted} />
             </TouchableOpacity>
           </View>
           {devicesLoading ? (
@@ -1257,7 +1260,7 @@ export function SettingsScreen() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{t('settings.import_title')}</Text>
             <TouchableOpacity onPress={() => setShowImport(false)}>
-              <Text style={styles.modalClose}>✕</Text>
+              <Icon name="close" size={18} color={colors.muted} />
             </TouchableOpacity>
           </View>
           <Text style={styles.modalHint}>{t('settings.import_hint')}</Text>
@@ -1290,7 +1293,7 @@ export function SettingsScreen() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{t('settings.switch_title')}</Text>
             <TouchableOpacity onPress={() => setShowSwitchMode(false)}>
-              <Text style={styles.modalClose}>✕</Text>
+              <Icon name="close" size={18} color={colors.muted} />
             </TouchableOpacity>
           </View>
           <Text style={styles.modalHint}>
@@ -1322,10 +1325,11 @@ export function SettingsScreen() {
               <Text
                 style={[
                   styles.switchModeChipText,
-                  switchTarget === 'standalone' && { color: 'white' },
+                  switchTarget === 'standalone' && { color: colors.onAccent },
                 ]}
               >
-                📱 {t('settings.switch_mode_short_standalone')}
+                <Icon name="device" size={16} color={colors.muted} />{' '}
+                {t('settings.switch_mode_short_standalone')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -1339,9 +1343,13 @@ export function SettingsScreen() {
               onPress={() => setSwitchTarget('online')}
             >
               <Text
-                style={[styles.switchModeChipText, switchTarget === 'online' && { color: 'white' }]}
+                style={[
+                  styles.switchModeChipText,
+                  switchTarget === 'online' && { color: colors.onAccent },
+                ]}
               >
-                🌐 {t('settings.switch_mode_short_online')}
+                <Icon name="language" size={16} color={colors.muted} />{' '}
+                {t('settings.switch_mode_short_online')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1377,7 +1385,7 @@ export function SettingsScreen() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{t('settings.change_password')}</Text>
             <TouchableOpacity onPress={() => setShowChangePassword(false)}>
-              <Text style={styles.modalClose}>✕</Text>
+              <Icon name="close" size={18} color={colors.muted} />
             </TouchableOpacity>
           </View>
           <Text style={styles.modalHint}>
@@ -1435,7 +1443,7 @@ export function SettingsScreen() {
                 setTotpCode('');
               }}
             >
-              <Text style={styles.modalClose}>✕</Text>
+              <Icon name="close" size={18} color={colors.muted} />
             </TouchableOpacity>
           </View>
           <Text style={styles.modalHint}>{t('settings.totp_setup_hint')}</Text>
@@ -1646,11 +1654,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       fontWeight: '700',
       color: c.fg,
     },
-    modalClose: {
-      fontSize: 22,
-      color: c.muted,
-      paddingHorizontal: 8,
-    },
     modalHint: {
       fontSize: 13,
       color: c.muted,
@@ -1683,7 +1686,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       backgroundColor: c.danger,
     },
     kickBtnText: {
-      color: 'white',
+      color: c.onAccent,
       fontSize: 13,
     },
     modalInput: {
@@ -1705,7 +1708,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       alignItems: 'center',
     },
     modalButtonText: {
-      color: 'white',
+      color: c.onAccent,
       fontSize: 15,
       fontWeight: '600',
     },

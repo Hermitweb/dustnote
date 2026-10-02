@@ -9,7 +9,8 @@
  */
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { Icon, IconText } from './Icon';
+import { IconText } from './Icon';
+import { CARD_BTN_PRIMARY, CARD_BTN_SECONDARY, StatePlate } from './StatePlate';
 import { logger } from '../lib/diagnostics';
 import i18n from '../lib/i18n';
 
@@ -74,51 +75,44 @@ export class AppErrorBoundary extends Component<Props, State> {
     return (
       <div className="flex h-full items-center justify-center bg-surface-bg p-6">
         <div className="w-full max-w-lg rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
-          <Icon name="warning" size={40} className="mx-auto mb-4 text-danger" />
-          <h1 className="mb-2 text-center text-xl font-bold text-surface-fg">
-            {i18n.t('error_boundary.title')}
-          </h1>
-          <p className="mb-4 text-center text-sm text-surface-muted">
-            {i18n.t('error_boundary.description')}
-          </p>
-
-          <div className="mb-4 rounded-lg bg-surface-bg p-3">
-            <div className="mb-1 flex items-center justify-between text-xs text-surface-muted">
-              <span>{i18n.t('error_boundary.error_code')}</span>
-              <code className="rounded bg-accent-soft/60 px-2 py-0.5 font-mono font-bold text-accent-text dark:bg-accent/30 dark:text-accent-text">
-                {errorCode}
-              </code>
-            </div>
-            {error && (
-              <pre className="overflow-x-auto whitespace-pre-wrap break-all text-xs text-danger">
-                {error.message}
-              </pre>
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={this.handleCopyDiagnostics}
-              className="flex-1 rounded-lg border border-surface-border px-4 py-2.5 text-sm font-medium text-surface-fg hover:bg-surface-bg"
-            >
-              <IconText
-                k="error_boundary.export_diagnostics"
-                label={i18n.t('error_boundary.export_diagnostics')}
-              />
-            </button>
-            <button
-              onClick={this.handleRetry}
-              className="flex-1 rounded-lg border border-surface-border px-4 py-2.5 text-sm font-medium text-surface-fg hover:bg-surface-bg"
-            >
-              <IconText k="error_boundary.retry" label={i18n.t('error_boundary.retry')} />
-            </button>
-            <button
-              onClick={this.handleReload}
-              className="flex-1 rounded-lg bg-accent-strong px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong-hover"
-            >
-              <IconText k="error_boundary.reload" label={i18n.t('error_boundary.reload')} />
-            </button>
-          </div>
+          <StatePlate
+            size="card"
+            icon="warning"
+            tone="danger"
+            title={i18n.t('error_boundary.title')}
+            hint={i18n.t('error_boundary.description')}
+            detail={
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <span>{i18n.t('error_boundary.error_code')}</span>
+                  <code className="rounded bg-accent-soft px-2 py-0.5 font-mono font-bold text-accent-text">
+                    {errorCode}
+                  </code>
+                </div>
+                {error ? (
+                  <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all font-mono text-danger">
+                    {error.message}
+                  </pre>
+                ) : null}
+              </>
+            }
+            actions={
+              <>
+                <button onClick={this.handleCopyDiagnostics} className={CARD_BTN_SECONDARY}>
+                  <IconText
+                    k="error_boundary.export_diagnostics"
+                    label={i18n.t('error_boundary.export_diagnostics')}
+                  />
+                </button>
+                <button onClick={this.handleRetry} className={CARD_BTN_SECONDARY}>
+                  <IconText k="error_boundary.retry" label={i18n.t('error_boundary.retry')} />
+                </button>
+                <button onClick={this.handleReload} className={CARD_BTN_PRIMARY}>
+                  <IconText k="error_boundary.reload" label={i18n.t('error_boundary.reload')} />
+                </button>
+              </>
+            }
+          />
         </div>
       </div>
     );

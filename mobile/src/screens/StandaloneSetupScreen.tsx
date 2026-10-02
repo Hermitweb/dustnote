@@ -29,6 +29,7 @@ import logoImage from '../assets/logo.png';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
+import { Icon } from '../components/Icon';
 
 export function StandaloneSetupScreen() {
   const colors = useColors();
@@ -99,7 +100,7 @@ export function StandaloneSetupScreen() {
   if (recoveryCode) {
     return (
       <View style={styles.container}>
-        <Text style={styles.emoji}>🔑</Text>
+        <Icon name="key" size={40} color={colors.accent} />
         <Text style={styles.title}>{t('auth.recovery_save_title')}</Text>
         <Text style={styles.subtitle}>{t('auth.recovery_save_subtitle')}</Text>
         <View style={styles.codeBox}>
@@ -176,7 +177,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       justifyContent: 'center',
       backgroundColor: 'transparent',
     },
-    emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
     logo: { width: 64, height: 64, alignSelf: 'center', marginBottom: 16 },
     title: {
       fontSize: 24,
@@ -218,7 +218,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       padding: 16,
       alignItems: 'center',
     },
-    buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
+    buttonText: { color: c.onAccent, fontSize: 16, fontWeight: '600' },
     codeBox: {
       backgroundColor: c.mint50,
       borderRadius: 8,

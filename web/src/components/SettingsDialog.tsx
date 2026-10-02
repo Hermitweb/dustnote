@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconText } from './Icon';
+import { Icon, IconText } from './Icon';
 import { ThemeCard } from './ThemeCard';
 import { useStore } from '../lib/store';
 import { THEMES } from '../lib/theme';
@@ -446,7 +446,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               className="text-surface-muted hover:text-surface-fg"
               aria-label={t('common.close')}
             >
-              ✕
+              <Icon name="close" size={14} />
             </button>
           </div>
 
@@ -481,15 +481,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     onClick={() => setMode(m)}
                     className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                       prefs.mode === m
-                        ? 'border-accent bg-accent-soft/40 dark:bg-accent/30 text-surface-fg'
+                        ? 'border-accent bg-accent-soft/40 text-surface-fg'
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                   >
                     {m === 'light'
-                      ? `☀️ ${t('settings.mode_light')}`
+                      ? t('settings.mode_light')
                       : m === 'dark'
-                        ? `🌙 ${t('settings.mode_dark')}`
-                        : `🌓 ${t('settings.mode_auto')}`}
+                        ? t('settings.mode_dark')
+                        : t('settings.mode_auto')}
                   </button>
                 ))}
               </div>
@@ -507,7 +507,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     onClick={() => setLanguage(l)}
                     className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                       prefs.language === l
-                        ? 'border-accent bg-accent-soft/40 dark:bg-accent/30 text-surface-fg'
+                        ? 'border-accent bg-accent-soft/40 text-surface-fg'
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                   >
@@ -532,7 +532,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     aria-pressed={effect === e}
                     className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                       effect === e
-                        ? 'border-accent bg-accent-soft/40 text-surface-fg dark:bg-accent/30'
+                        ? 'border-accent bg-accent-soft/40 text-surface-fg '
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                   >
@@ -553,7 +553,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                         aria-pressed={aurora === a}
                         className={`flex-1 rounded-lg border-2 px-2 py-1.5 text-xs transition-colors ${
                           aurora === a
-                            ? 'border-accent bg-accent-soft/40 text-surface-fg dark:bg-accent/30'
+                            ? 'border-accent bg-accent-soft/40 text-surface-fg '
                             : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                         }`}
                       >
@@ -584,7 +584,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     onClick={() => setPreferences({ font: f })}
                     className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                       prefs.font === f
-                        ? 'border-accent bg-accent-soft/40 dark:bg-accent/30 text-surface-fg'
+                        ? 'border-accent bg-accent-soft/40 text-surface-fg'
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                   >
@@ -610,7 +610,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     onClick={() => setPreferences({ density: d })}
                     className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                       prefs.density === d
-                        ? 'border-accent bg-accent-soft/40 dark:bg-accent/30 text-surface-fg'
+                        ? 'border-accent bg-accent-soft/40 text-surface-fg'
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                   >
@@ -675,7 +675,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <button
                 onClick={() => setLogoutConfirm(true)}
                 disabled={logoutBusy}
-                className="w-full rounded-lg border border-danger/30 px-3 py-2 text-sm font-medium text-danger hover:bg-danger-soft disabled:opacity-50 dark: dark:text-danger dark:hover:bg-danger-soft"
+                className="w-full rounded-lg border border-danger/30 px-3 py-2 text-sm font-medium text-danger hover:bg-danger-soft disabled:opacity-50"
               >
                 {logoutBusy ? t('common.loading') : t('settings.logout')}
               </button>
@@ -709,7 +709,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                         <div className="flex items-center gap-1.5 text-sm text-surface-fg">
                           <span className="truncate">{d.name}</span>
                           {d.isCurrent && (
-                            <span className="rounded-full bg-accent-soft/60 px-1.5 py-0.5 text-2xs text-accent-text dark:bg-accent/30 dark:text-accent-text">
+                            <span className="rounded-full bg-accent-soft/60 px-1.5 py-0.5 text-2xs text-accent-text">
                               {t('settings.device_current')}
                             </span>
                           )}
@@ -726,7 +726,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                       {!d.isCurrent && (
                         <button
                           onClick={() => setKickTargetId(d.id)}
-                          className="flex-shrink-0 rounded bg-danger-soft px-2 py-1 text-xs text-danger hover:bg-danger-soft dark:bg-danger-soft"
+                          className="flex-shrink-0 rounded bg-danger-soft px-2 py-1 text-xs text-danger hover:bg-danger-soft"
                         >
                           {t('settings.device_kick')}
                         </button>
@@ -808,7 +808,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     onClick={() => setPreferences({ autoLock: n })}
                     className={`flex-1 rounded-lg border-2 px-2 py-2 text-sm transition-colors ${
                       prefs.autoLock === n
-                        ? 'border-accent bg-accent-soft/40 dark:bg-accent/30 text-surface-fg'
+                        ? 'border-accent bg-accent-soft/40 text-surface-fg'
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                   >
@@ -828,14 +828,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   onClick={() => setShowImportExport(true)}
                   className="w-full rounded-lg border border-surface-border px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
                 >
-                  <span className="mr-2">📥📤</span>
+                  <Icon name="swap" size={16} className="mr-2 inline-block align-[-3px]" />
                   {t('settings.import_export')}
                 </button>
                 <button
                   onClick={() => setShowShares(true)}
                   className="w-full rounded-lg border border-surface-border px-3 py-2 text-left text-sm text-surface-fg hover:bg-surface-bg"
                 >
-                  <span className="mr-2">🔗</span>
+                  <Icon name="link" size={16} className="mr-2 inline-block align-[-3px]" />
                   {t('settings.shares_mgmt')}
                 </button>
               </div>
@@ -896,12 +896,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   }}
                   className={`flex w-full items-center justify-between rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                     allowScreenshot
-                      ? 'border-accent bg-accent-soft/40 text-surface-fg dark:bg-accent/30'
+                      ? 'border-accent bg-accent-soft/40 text-surface-fg '
                       : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                   }`}
                 >
                   <span className="flex items-center gap-2">
-                    <span>📸</span>
+                    <Icon name="image" size={20} />
                     <span>
                       {allowScreenshot ? t('settings.screenshot_on') : t('settings.screenshot_off')}
                     </span>
@@ -927,12 +927,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   onClick={() => void toggleAutostart(!autostartEnabled)}
                   className={`flex w-full items-center justify-between rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                     autostartEnabled
-                      ? 'border-accent bg-accent-soft/40 text-surface-fg dark:bg-accent/30'
+                      ? 'border-accent bg-accent-soft/40 text-surface-fg '
                       : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                   } ${autostartBusy ? 'opacity-60' : ''}`}
                 >
                   <span className="flex items-center gap-2">
-                    <span>🚀</span>
+                    <Icon name="rocket" size={20} />
                     <span>{t('settings.autostart')}</span>
                   </span>
                   <span
@@ -965,12 +965,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   }}
                   className={`flex w-full items-center justify-between rounded-lg border-2 px-3 py-2 text-sm transition-colors ${
                     diagEnabled
-                      ? 'border-accent bg-accent-soft/40 text-surface-fg dark:bg-accent/30'
+                      ? 'border-accent bg-accent-soft/40 text-surface-fg '
                       : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                   }`}
                 >
                   <span className="flex items-center gap-2">
-                    <span>🩺</span>
+                    <Icon name="medical" size={20} />
                     <span>{t('settings.diagnostics_toggle')}</span>
                   </span>
                   <span
@@ -999,7 +999,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   {/* 检查中 */}
                   {updateState === 'checking' && (
                     <div className="flex items-center gap-2 text-sm text-surface-muted">
-                      <span className="animate-spin">⏳</span>
+                      <Icon name="loader" size={14} className="animate-spin text-text-tertiary" />
                       <span>{t('settings.checking_update')}</span>
                     </div>
                   )}
@@ -1097,9 +1097,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 </button>
               )}
               {pwaInstall.installed && (
-                <div className="mt-2 text-accent-text dark:text-accent-text">
-                  {t('settings.pwa_installed')}
-                </div>
+                <div className="mt-2 text-accent-text">{t('settings.pwa_installed')}</div>
               )}
             </div>
           </div>

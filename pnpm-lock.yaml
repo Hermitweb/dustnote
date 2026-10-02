@@ -84,6 +84,9 @@ importers:
       lint-staged:
         specifier: ^15.2.10
         version: 15.5.2
+      lucide:
+        specifier: 0.554.0
+        version: 0.554.0
       prettier:
         specifier: ^3.2.0
         version: 3.8.5
@@ -178,7 +181,7 @@ importers:
         version: 18.3.7(@types/react@18.3.31)
       '@vitejs/plugin-react':
         specifier: ^4.3.1
-        version: 4.7.0(vite@6.4.3(@types/node@20.19.43)(jiti@1.21.7)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
+        version: 4.7.0(vite@6.4.3(@types/node@20.19.43)(jiti@2.6.1)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
       autoprefixer:
         specifier: ^10.4.19
         version: 10.5.2(postcss@8.5.26)
@@ -193,10 +196,10 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.4.3
-        version: 6.4.3(@types/node@20.19.43)(jiti@1.21.7)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
+        version: 6.4.3(@types/node@20.19.43)(jiti@2.6.1)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.7(@types/debug@4.1.13)(@types/node@20.19.43)(jiti@1.21.7)(jsdom@21.1.2)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@20.19.43)(jiti@2.6.1)(jsdom@21.1.2)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
 
   miniprogram:
     dependencies:
@@ -354,6 +357,9 @@ importers:
       i18next:
         specifier: ^23.11.5
         version: 23.16.8
+      lucide-react-native:
+        specifier: 0.554.0
+        version: 0.554.0(react-native-svg@15.8.0(react-native@0.74.1(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.2.0))(react@18.2.0))(react-native@0.74.1(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.2.0))(react@18.2.0)
       react:
         specifier: 18.2.0
         version: 18.2.0
@@ -581,10 +587,10 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.4.3
-        version: 6.4.3(@types/node@20.19.43)(jiti@2.6.1)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
+        version: 6.4.3(@types/node@20.19.43)(jiti@1.21.7)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.7(@types/debug@4.1.13)(@types/node@20.19.43)(jiti@2.6.1)(jsdom@21.1.2)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@20.19.43)(jiti@1.21.7)(jsdom@21.1.2)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
 
   web:
     dependencies:
@@ -7814,10 +7820,20 @@ packages:
     resolution: {integrity: sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==}
     engines: {node: '>=10'}
 
+  lucide-react-native@0.554.0:
+    resolution: {integrity: sha512-r9BIigpxb05BuU+FOZTDnLkHTdu2huC+h3ZkEdiM00HiSB5VzQjxYxkZK7s+FWxu5gsmmF2OcggElMfpO7SSrA==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-native: '*'
+      react-native-svg: ^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0
+
   lucide-react@0.554.0:
     resolution: {integrity: sha512-St+z29uthEJVx0Is7ellNkgTEhaeSoA42I7JjOCBCrc5X6LYMGSv0P/2uS5HDLTExP5tpiqRD2PyUEOS6s9UXA==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  lucide@0.554.0:
+    resolution: {integrity: sha512-heltqxp+r6FbXs5FKMwARbE9aiDLLz9rlAlOU48NYHU4nWi2oVkQIz+Uv7LHZNsFVfgtgLBv7VOjM7QUvT6F3A==}
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -15274,18 +15290,6 @@ snapshots:
 
   '@ungap/structured-clone@1.3.2': {}
 
-  '@vitejs/plugin-react@4.7.0(vite@6.4.3(@types/node@20.19.43)(jiti@1.21.7)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))':
-    dependencies:
-      '@babel/core': 7.29.7
-      '@babel/plugin-transform-react-jsx-self': 7.29.7(@babel/core@7.29.7)
-      '@babel/plugin-transform-react-jsx-source': 7.29.7(@babel/core@7.29.7)
-      '@rolldown/pluginutils': 1.0.0-beta.27
-      '@types/babel__core': 7.20.5
-      react-refresh: 0.17.0
-      vite: 6.4.3(@types/node@20.19.43)(jiti@1.21.7)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
-    transitivePeerDependencies:
-      - supports-color
-
   '@vitejs/plugin-react@4.7.0(vite@6.4.3(@types/node@20.19.43)(jiti@2.6.1)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.55.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))':
     dependencies:
       '@babel/core': 7.29.7
@@ -19745,9 +19749,17 @@ snapshots:
     dependencies:
       yallist: 4.0.0
 
+  lucide-react-native@0.554.0(react-native-svg@15.8.0(react-native@0.74.1(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.2.0))(react@18.2.0))(react-native@0.74.1(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.2.0))(react@18.2.0):
+    dependencies:
+      react: 18.2.0
+      react-native: 0.74.1(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.2.0)
+      react-native-svg: 15.8.0(react-native@0.74.1(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.2.0))(react@18.2.0)
+
   lucide-react@0.554.0(react@18.2.0):
     dependencies:
       react: 18.2.0
+
+  lucide@0.554.0: {}
 
   lz-string@1.5.0: {}
 

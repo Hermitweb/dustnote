@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { errorText } from '../lib/error-text';
 import { useAuthStore } from '../state/auth';
 import { theme, useColors } from '../theme';
+import { Icon } from '../components/Icon';
 
 export function SetupScreen() {
   const colors = useColors();
@@ -62,7 +63,7 @@ export function SetupScreen() {
   if (recoveryCode) {
     return (
       <View style={styles.container}>
-        <Text style={styles.emoji}>🔑</Text>
+        <Icon name="key" size={40} color={colors.accent} />
         <Text style={styles.title}>{t('auth.recovery_save_title')}</Text>
         <Text style={styles.subtitle}>{t('auth.recovery_save_subtitle_online')}</Text>
         <View style={styles.codeBox}>
@@ -146,7 +147,6 @@ export function SetupScreen() {
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 24, justifyContent: 'center', backgroundColor: 'transparent' },
-  emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
   logo: { width: 64, height: 64, alignSelf: 'center', marginBottom: 16 },
   title: {
     fontSize: 24,
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   strengthCell: { width: 36, height: 4, borderRadius: 2, marginRight: 4 },
   strengthText: { fontSize: 12, color: theme.mutedLight, marginLeft: 8 },
   button: { backgroundColor: theme.mint600, borderRadius: 8, padding: 16, alignItems: 'center' },
-  buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
+  buttonText: { color: theme.onAccent, fontSize: 16, fontWeight: '600' },
   codeBox: {
     backgroundColor: theme.mint50,
     borderRadius: 8,

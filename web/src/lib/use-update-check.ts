@@ -7,14 +7,14 @@
  *
  * 设计要点：
  * 1. module-scope 缓存 in-flight Promise，避开 React StrictMode 双调用
- *    / Fast Refresh 重执行 effect 时重复发请求
+ * / Fast Refresh 重执行 effect 时重复发请求
  * 2. 5s 节流，避免短时间内重复请求
  * 3. 10s 超时：服务端不可达时不会无限等待导致 UI 卡顿
  * 4. Tauri 桌面端用 mode-store 的 serverUrl 拼接绝对地址，
- *    避免 relative path /api/v1 请求 Tauri 资源服务器返回 HTML
+ * 避免 relative path /api/v1 请求 Tauri 资源服务器返回 HTML
  * 5. 不监听 visibilitychange：浏览器在 tab 切到后台或页面卸载时
- *    会主动 abort 进行中的 fetch，并在控制台打印 net::ERR_ABORTED，
- *    JS 的 AbortError catch 无法抑制网络层日志。
+ * 会主动 abort 进行中的 fetch，并在控制台打印 net::ERR_ABORTED，
+ * JS 的 AbortError catch 无法抑制网络层日志。
  */
 
 import { useEffect, useState } from 'react';

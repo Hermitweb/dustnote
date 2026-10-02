@@ -20,6 +20,8 @@ import { useModeStore } from '../../lib/mode-store';
 import { t, useLanguage } from '../../lib/i18n';
 import { errorText } from '../../lib/error-text';
 import { parseServerDate } from '../../lib/date-parse';
+import { Icon } from '../../components/Icon';
+import { StatePlate } from '../../components/StatePlate';
 
 interface ShareItem {
   id: string;
@@ -200,7 +202,7 @@ export default function Shares() {
           {selecting ? (
             <>
               <Text className="topbar-back" onClick={exitSelect}>
-                ✕
+                <Icon name="close" size={16} />
               </Text>
               <Text className="topbar-title" onClick={toggleAll}>
                 {hasAllSelected
@@ -227,10 +229,7 @@ export default function Shares() {
         >
           {loading && <View className="loading">{t('common.loading')}</View>}
           {!loading && shares.length === 0 && (
-            <View className="empty-state">
-              <Text className="empty-state-icon">🔗</Text>
-              <Text className="empty-state-text">{t('share_mgr.empty')}</Text>
-            </View>
+            <StatePlate icon="link" tone="guide" title={t('share_mgr.empty')} />
           )}
           {shares.map((s) => {
             const expired = isExpired(s.expiresAt);
@@ -252,7 +251,7 @@ export default function Shares() {
                       className={`checkbox${checked ? ' checkbox-checked' : ''}`}
                       onClick={() => toggleSelect(s.id)}
                     >
-                      {checked && <Text className="checkbox-mark">✓</Text>}
+                      {checked && <Icon name="check" size={12} className="checkbox-mark" />}
                     </View>
                   )}
                   <Text

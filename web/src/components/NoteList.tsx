@@ -240,9 +240,9 @@ export function NoteList() {
                   onDragEnd={() => setDragNoteId(null)}
                   className={`group flex items-start gap-3 px-5 py-3 transition-colors ${
                     active
-                      ? 'bg-accent-soft/40 dark:bg-accent/20'
+                      ? 'bg-accent-soft/40 '
                       : checked
-                        ? 'bg-accent-soft/25 dark:bg-accent/10'
+                        ? 'bg-accent-soft/25 '
                         : 'hover:bg-surface-bg'
                   }`}
                   onContextMenu={(e) => {

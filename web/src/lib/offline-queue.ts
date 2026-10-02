@@ -12,7 +12,7 @@
  * - 队列持久化到 IndexedDB，刷新不丢
  * - 指数退避重试：delay = min(30s, 1s * 2^attempt) + jitter，最高 8 次
  * - PATCH /notes/:id 入队时携带 conflictCtx（三方合并上下文），
- *   供 flushQueue 409 分支做字段级合并（见 store.ts handleNoteConflict）
+ * 供 flushQueue 409 分支做字段级合并（见 store.ts handleNoteConflict）
  */
 
 import {

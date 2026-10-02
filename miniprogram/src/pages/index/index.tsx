@@ -50,6 +50,8 @@ import { PickSheet, type PickItem } from '../../components/PickSheet';
 import { SearchIndex } from '../../lib/search-index';
 import { t, useLanguage } from '../../lib/i18n';
 import { errorText } from '../../lib/error-text';
+import { Icon } from '../../components/Icon';
+import { StatePlate } from '../../components/StatePlate';
 
 interface Note {
   id: string;
@@ -363,7 +365,7 @@ function IndexBody() {
   const pickFolderFromList = (folderList: Folder[]): Promise<string | null> =>
     openPickSheet({
       title: t('index.pick_folder'),
-      items: folderList.map((f) => ({ key: f.id, label: `📁 ${f.name}` })),
+      items: folderList.map((f) => ({ key: f.id, label: `${f.name}` })),
     });
 
   const batchPatch = async (field: 'isPinned' | 'isFavorite', val: boolean) => {
@@ -743,7 +745,7 @@ function IndexBody() {
           {selecting ? (
             <>
               <Text className="topbar-back" onClick={exitSelect}>
-                ✕
+                <Icon name="close" size={16} />
               </Text>
               <Text className="topbar-title" onClick={toggleAll}>
                 {hasAll
@@ -762,10 +764,10 @@ function IndexBody() {
                   className="icon-btn"
                   onClick={() => Taro.navigateTo({ url: '/pages/settings/index' })}
                 >
-                  ⚙️
+                  <Icon name="settings" size={16} />
                 </Text>
                 <Text className="icon-btn" onClick={() => lock()}>
-                  🔒
+                  <Icon name="lock" size={16} />
                 </Text>
               </View>
             </>
@@ -782,7 +784,7 @@ function IndexBody() {
             />
             {searchQuery ? (
               <Text className="search-clear" onClick={() => setSearchQuery('')}>
-                ✕
+                <Icon name="close" size={16} />
               </Text>
             ) : null}
           </View>
@@ -837,7 +839,7 @@ function IndexBody() {
               <View className="folder-tabs-inner">
                 {subFoldersOf(selectedFolderId, folders as Folder[]).map((f) => (
                   <Text key={f.id} className="folder-chip" onClick={() => selectFolder(f.id)}>
-                    📁 {f.name}
+                    <Icon name="folder" size={16} /> {f.name}
                   </Text>
                 ))}
               </View>
@@ -884,11 +886,11 @@ function IndexBody() {
                   // 选模板:预设 + 服务端自定义(联机)
                   const customItems = serverTemplates.map((tp) => ({
                     key: `c:${tp.id}`,
-                    label: `🗂 ${tp.name}`,
+                    label: `${tp.name}`,
                   }));
                   const presetItems = PRESET_TEMPLATES.map((tp, i) => ({
                     key: `p:${i}`,
-                    label: `${tp.icon} ${tp.name}`,
+                    label: `${tp.name}`,
                   }));
                   // F11：走统一的 openPickSheet（与选文件夹共用 resolver 槽）——
                   // 否则本 Promise 不在守卫内,被其他入口覆盖时会永久悬空
@@ -950,7 +952,7 @@ function IndexBody() {
                 }
               }}
             >
-              🗂 {t('index.tab_template')}
+              <Icon name="archive" size={16} /> {t('index.tab_template')}
             </Text>
           </View>
         )}
@@ -964,27 +966,28 @@ function IndexBody() {
         >
           {loading && <View className="loading">{t('common.loading')}</View>}
           {!loading && loadError && (
-            <View className="empty-state">
-              <Text className="empty-state-icon">⚠️</Text>
-              <Text className="empty-state-text">{t('common.load_failed')}</Text>
-              <Text className="empty-state-retry" onClick={() => void load()}>
-                {t('common.retry')}
-              </Text>
-            </View>
+            <StatePlate
+              icon="warning"
+              tone="danger"
+              title={t('common.load_failed')}
+              actions={
+                <Text className="btn btn-sm" onClick={() => void load()}>
+                  {t('common.retry')}
+                </Text>
+              }
+            />
           )}
           {!loading && !loadError && visibleNotes.length === 0 && (
-            <View className="empty-state">
-              <Text className="empty-state-icon">
-                {viewMode === 'trash' ? '🗑️' : viewMode === 'favorite' ? '⭐' : '📝'}
-              </Text>
-              <Text className="empty-state-text">
-                {viewMode === 'trash'
+            <StatePlate
+              icon={viewMode === 'trash' ? 'trash' : viewMode === 'favorite' ? 'star' : 'note'}
+              title={
+                viewMode === 'trash'
                   ? t('index.empty_trash')
                   : viewMode === 'favorite'
                     ? t('index.empty_favorite')
-                    : t('index.empty_notes')}
-              </Text>
-            </View>
+                    : t('index.empty_notes')
+              }
+            />
           )}
           {visibleNotes.map((n) => {
             const title = plains[n.id]?.title || t('common.unnamed_note');
@@ -1000,12 +1003,12 @@ function IndexBody() {
                       className={`checkbox${checked ? ' checkbox-checked' : ''}`}
                       onClick={() => toggleSelect(n.id)}
                     >
-                      {checked && <Text className="checkbox-mark">✓</Text>}
+                      {checked && <Icon name="check" size={12} className="checkbox-mark" />}
                     </View>
                   )}
                   <View className="note-icons">
-                    {n.isPinned ? <Text>📌</Text> : null}
-                    {n.isFavorite ? <Text>⭐</Text> : null}
+                    {n.isPinned ? <Icon name="pin" size={14} /> : null}
+                    {n.isFavorite ? <Icon name="star" size={14} /> : null}
                   </View>
                   <Text
                     className="note-title"
@@ -1038,7 +1041,7 @@ function IndexBody() {
                 {!selecting && viewMode !== 'trash' && (
                   <View className="note-actions">
                     <Text className="btn btn-sm btn-ghost" onClick={() => void pinSingle(n)}>
-                      {n.isPinned ? `📌 ${t('index.unpin')}` : `📌 ${t('index.pin')}`}
+                      {n.isPinned ? t('index.unpin') : t('index.pin')}
                     </Text>
                     <Text
                       className="btn btn-sm btn-ghost"
@@ -1056,7 +1059,7 @@ function IndexBody() {
                     </Text>
                     {mode === 'online' && (
                       <Text className="btn btn-sm btn-ghost" onClick={() => void shareFromList(n)}>
-                        🔗 {t('index.share')}
+                        <Icon name="link" size={16} /> {t('index.share')}
                       </Text>
                     )}
                     <Text

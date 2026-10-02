@@ -12,6 +12,7 @@ import { useStore } from '../lib/store';
 import { isTauri } from '../lib/platform';
 import { graceRemainingSec } from '../lib/grace-unlock';
 import { errorText } from '../lib/error-text';
+import { Icon } from '../components/Icon';
 
 interface Props {
   onRecover: () => void;
@@ -67,14 +68,12 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
     <div className="flex h-full items-center justify-center bg-surface-bg p-6">
       <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60 text-3xl dark:bg-accent/30">
-            🔓
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60 text-3xl">
+            <Icon name="unlock" size={40} className="mx-auto mb-4 text-accent-text" />
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('auth.unlock_title')}</h1>
           <p className="mt-2 text-sm text-surface-muted">{t('auth.unlock_subtitle')}</p>
-          <p className="mt-1 text-xs text-accent-text dark:text-accent-text">
-            {t('settings.app_mode_standalone')}
-          </p>
+          <p className="mt-1 text-xs text-accent-text">{t('settings.app_mode_standalone')}</p>
         </div>
 
         <form
@@ -88,9 +87,10 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
             <button
               type="button"
               onClick={handleGraceUnlock}
-              className="w-full rounded-lg border border-accent bg-accent-soft/40 px-6 py-3 text-sm font-semibold text-accent-text transition-colors hover:bg-accent-soft/60 dark:bg-accent/20 dark:text-accent-text"
+              className="w-full rounded-lg border border-accent bg-accent-soft/40 px-6 py-3 text-sm font-semibold text-accent-text transition-colors hover:bg-accent-soft/60"
             >
-              ⚡ {t('auth.grace_unlock')}（{Math.floor(graceSec / 60)}:
+              <Icon name="zoom" size={14} className="mr-1 inline-block align-[-2px]" />
+              {t('auth.grace_unlock')}（{Math.floor(graceSec / 60)}:
               {String(graceSec % 60).padStart(2, '0')}）
             </button>
           )}
@@ -111,15 +111,13 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
           </div>
 
           {isLocked && (
-            <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger dark:bg-danger-soft dark:text-danger">
+            <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger">
               {t('auth.locked_retry', { sec: Math.ceil(remainingMs / 1000) })}
             </div>
           )}
 
           {error && !isLocked && (
-            <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger dark:bg-danger-soft dark:text-danger">
-              {error}
-            </div>
+            <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger">{error}</div>
           )}
 
           <button

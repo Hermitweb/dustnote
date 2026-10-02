@@ -17,9 +17,9 @@ export interface ModeSlice {
 }
 
 /** 模式切换的跨模式清理（M13）：离线队列、联机缓存、桌面 refresh token
- *  都属于「旧模式/旧服务器」的会话状态,必须一并清掉,否则遗留 op 会被
- *  重放到新服务器（4xx 直接丢弃）、旧缓存先于新数据渲染、旧 RT 残留被携带。
- *  注意只清 dustnote:notes/folders 缓存键——单机数据在 dustnote:local:* 下,不受影响。 */
+ * 都属于「旧模式/旧服务器」的会话状态,必须一并清掉,否则遗留 op 会被
+ * 重放到新服务器（4xx 直接丢弃）、旧缓存先于新数据渲染、旧 RT 残留被携带。
+ * 注意只清 dustnote:notes/folders 缓存键——单机数据在 dustnote:local:* 下,不受影响。 */
 async function clearCrossModeState(): Promise<void> {
   try {
     const { clearCache } = await import('../db');

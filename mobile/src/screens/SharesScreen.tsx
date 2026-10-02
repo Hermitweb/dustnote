@@ -9,16 +9,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  Share,
-} from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, Share } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -37,6 +28,8 @@ import { createRepository } from '../lib/repository';
 import { resolveBaseUrl } from '../lib/mode-store';
 import { parseEnvelope } from '../lib/envelope';
 import { useColors } from '../theme';
+import { Icon } from '../components/Icon';
+import { StatePlate } from '../components/StatePlate';
 
 interface ShareItem {
   id: string;
@@ -162,25 +155,27 @@ export function SharesScreen() {
   return (
     <View style={styles.container}>
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.mint600} />
-          <Text style={styles.hint}>{t('common.loading')}</Text>
-        </View>
+        <StatePlate busy icon="link" title={t('common.loading')} />
       ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.errorEmoji}>⚠️</Text>
-          <Text style={styles.hint}>{t('share.load_failed_detail', { reason: error })}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => void load()}>
-            <Text style={styles.retryText}>{t('common.retry')}</Text>
-          </TouchableOpacity>
-        </View>
+        <StatePlate
+          size="card"
+          icon="warning"
+          tone="danger"
+          title={t('common.load_failed')}
+          hint={t('share.load_failed_detail', { reason: error })}
+          actions={
+            <TouchableOpacity style={styles.retryBtn} onPress={() => void load()}>
+              <Text style={styles.retryText}>{t('common.retry')}</Text>
+            </TouchableOpacity>
+          }
+        />
       ) : (
         <FlatList
           data={shares}
           keyExtractor={(item) => item.id}
           ListEmptyComponent={
             <View style={styles.center}>
-              <Text style={styles.emptyEmoji}>🔗</Text>
+              <Icon name="link" size={40} color={colors.muted} />
               <Text style={styles.hint}>{t('share.empty')}</Text>
             </View>
           }
@@ -245,8 +240,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: 'transparent' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-    errorEmoji: { fontSize: 48, marginBottom: 12 },
-    emptyEmoji: { fontSize: 48, marginBottom: 12 },
     hint: { fontSize: 14, color: c.muted, textAlign: 'center', marginTop: 8 },
     retryBtn: {
       marginTop: 16,
@@ -255,7 +248,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       backgroundColor: c.mint600,
       borderRadius: 8,
     },
-    retryText: { color: 'white', fontSize: 14, fontWeight: '600' },
+    retryText: { color: c.onAccent, fontSize: 14, fontWeight: '600' },
     card: {
       backgroundColor: c.card,
       marginHorizontal: 12,

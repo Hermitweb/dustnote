@@ -680,7 +680,7 @@ const resources = {
         subtitle: '选择一个模板快速开始新笔记',
         presets: '预设模板',
         custom: '我的模板',
-        custom_empty: '还没有自定义模板。在编辑器中点 📋 把当前笔记存为模板。',
+        custom_empty: '还没有自定义模板。在编辑器菜单里选「存为模板」。',
         custom_desc: '自定义模板',
         creating: '创建中…',
         confirm_delete: '确定删除此模板？',
@@ -818,7 +818,7 @@ const resources = {
         grace_unlock: 'Continue without password',
         locked_retry: 'Account locked, retry in {{sec}}s',
         no_recovery_warning:
-          '⚠️ Forgot the master password with no recovery code = notes lost forever',
+          'Forgot the master password with no recovery code = notes lost forever',
         recover_code_invalid: 'Invalid recovery code format (expected XXXXX-XXXXX)',
         recover_standalone_subtitle:
           'Enter the recovery code to reset the master password (the master key is preserved, so notes stay decryptable)',
@@ -1036,7 +1036,7 @@ const resources = {
         share_invalid_expiry: 'Expiry must be a positive integer between 1 hour and 1 year',
         copy_key: 'Copy',
         key_hint:
-          '🔑 The decryption key is in the # part of the link. The server never sees it. Make sure to copy',
+          'The decryption key is in the # part of the link. The server never sees it. Make sure to copy',
         key_hint_strong: 'the full link',
         key_hint_tail:
           '— truncated links cannot be decrypted, and a leaked link equals leaked content.',
@@ -1464,7 +1464,7 @@ const resources = {
         presets: 'Preset Templates',
         custom: 'My Templates',
         custom_empty:
-          'No custom templates yet. Click 📋 in the editor to save the current note as a template.',
+          'No custom templates yet. use the editor menu to save the current note as a template.',
         custom_desc: 'Custom template',
         creating: 'Creating…',
         confirm_delete: 'Delete this template?',

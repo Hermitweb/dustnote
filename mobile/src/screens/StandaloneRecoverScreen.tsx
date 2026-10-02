@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { errorText } from '../lib/error-text';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
+import { Icon } from '../components/Icon';
 
 export function StandaloneRecoverScreen() {
   const colors = useColors();
@@ -63,7 +64,7 @@ export function StandaloneRecoverScreen() {
   if (newRecoveryCode) {
     return (
       <View style={styles.container}>
-        <Text style={styles.emoji}>🔑</Text>
+        <Icon name="key" size={40} color={colors.accent} />
         <Text style={styles.title}>{t('auth.recovered_title')}</Text>
         <Text style={styles.subtitle}>{t('auth.recovered_subtitle')}</Text>
         <View style={styles.codeBox}>
@@ -85,7 +86,7 @@ export function StandaloneRecoverScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.emoji}>🔄</Text>
+      <Icon name="refresh" size={40} color={colors.accent} />
       <Text style={styles.title}>{t('auth.recover_title')}</Text>
       <Text style={styles.subtitle}>{t('auth.recover_screen_subtitle')}</Text>
 
@@ -136,7 +137,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       justifyContent: 'center',
       backgroundColor: 'transparent',
     },
-    emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
     title: {
       fontSize: 24,
       fontWeight: '700',
@@ -174,7 +174,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       padding: 16,
       alignItems: 'center',
     },
-    buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
+    buttonText: { color: c.onAccent, fontSize: 16, fontWeight: '600' },
     codeBox: {
       backgroundColor: c.mint50,
       borderRadius: 8,

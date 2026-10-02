@@ -17,6 +17,7 @@
 
 const zhCN = {
   common: {
+    load_failed: '加载失败',
     cancel: '取消',
     confirm: '确认',
     delete: '删除',
@@ -143,7 +144,7 @@ const zhCN = {
     // 恢复码展示 / 重置密码
     recovery_save_title: '保存恢复码',
     recovery_save_subtitle:
-      '忘记主密码时唯一的找回方式。请抄写在纸上或保存到密码管理器。\n⚠️ 恢复码仅显示一次，丢失后笔记将永久无法找回。',
+      '忘记主密码时唯一的找回方式。请抄写在纸上或保存到密码管理器。\n恢复码仅显示一次，丢失后笔记将永久无法找回。',
     recovery_save_subtitle_online: '忘记密码时唯一找回方式。请抄写在纸上或保存到密码管理器。',
     recovery_save_hint: '恢复后主密码会重置，但已加密的笔记可继续解密（masterKey 保留）。',
     recovery_save_btn: '我已保存，继续',
@@ -158,7 +159,7 @@ const zhCN = {
     recovering: '恢复中…',
     recover_failed: '恢复失败',
     recovered_title: '密码已重置',
-    recovered_subtitle: '这是你的新恢复码，请重新保存。\n⚠️ 旧恢复码已失效。',
+    recovered_subtitle: '这是你的新恢复码，请重新保存。\n旧恢复码已失效。',
     recovered_hint: 'masterKey 保持不变，已加密的笔记可继续解密。',
     recovered_online_subtitle:
       '已用新主密码重新包装 masterKey，原有笔记全部可正常解密。\n即将进入应用…',
@@ -191,6 +192,8 @@ const zhCN = {
     kdf_diag: '派生 {{ms}}s · {{iters}} 次 · {{path}}',
   },
   notes: {
+    template_pick_title: '选择模板',
+    pick_folder: '选择文件夹',
     search_placeholder: '搜索笔记…',
     empty_text: '还没有笔记',
     empty_hint: '点击右下角按钮创建第一篇',
@@ -227,6 +230,8 @@ const zhCN = {
     ctx_batch_select: '批量选择',
   },
   editor: {
+    version_conflict:
+      '服务器上的内容已被其他设备更新，本次未覆盖对方改动。请先复制当前内容再重试。',
     placeholder: '开始书写...',
     title_placeholder: '标题',
     content_placeholder: '开始记录…\n\n支持 Markdown 语法',
@@ -286,6 +291,7 @@ const zhCN = {
     preview: '预览',
   },
   settings: {
+    privacy_section: '隐私',
     allow_screenshot: '允许截屏(关闭时截图黑屏,防泄露)',
     diagnostics_toggle: '错误诊断上报',
     diagnostics_toggle_detail:
@@ -427,7 +433,7 @@ const zhCN = {
     change_password_success: '修改成功',
     change_password_success_detail: '主密码已更新，历史笔记不受影响。',
     change_password_success_standalone_detail:
-      '主密码已更新，历史笔记不受影响。\n\n⚠️ 新恢复码（请妥善保存，旧恢复码已失效）：\n\n{{code}}',
+      '主密码已更新，历史笔记不受影响。\n\n新恢复码（请妥善保存，旧恢复码已失效）：\n\n{{code}}',
     change_password_failed: '修改失败',
     // 两步验证
     totp_row_on: '两步验证（已开启）',
@@ -516,7 +522,7 @@ const zhCN = {
     expires_at: '过期：{{date}}',
     never_expires: '永不过期',
     load_failed_detail: '加载失败：{{reason}}',
-    empty: '还没有分享，去编辑页点击 🔗 分享笔记',
+    empty: '还没有分享，在编辑页菜单里选「分享笔记」',
     unknown_note: '未知笔记',
     copy_link_btn: '复制链接',
     share_btn: '分享',

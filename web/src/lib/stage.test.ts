@@ -3,8 +3,8 @@
  *
  * 这里锁的是"哪种事实落到哪一态、Esc 按下去做什么"，不是像素。
  * 特别锁两条容易在后续重构里被人顺手改回去的：
- *   1. detail 压在 search 之上（否则点开命中会被结果列表弹回去）
- *   2. 概览只属于 destination='overview'，不再靠"有没有范围"猜
+ * 1. detail 压在 search 之上（否则点开命中会被结果列表弹回去）
+ * 2. 概览只属于 destination='overview'，不再靠"有没有范围"猜
  */
 import { describe, it, expect } from 'vitest';
 import {

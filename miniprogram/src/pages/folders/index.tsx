@@ -17,6 +17,9 @@ import Taro, { useDidShow } from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { getRepo } from '../../lib/get-repo';
 import { t, useLanguage } from '../../lib/i18n';
+import { Icon } from '../../components/Icon';
+import { StatePlate } from '../../components/StatePlate';
+import type { IconName } from '@dustnote/shared';
 
 interface Folder {
   id: string;
@@ -31,7 +34,7 @@ interface Folder {
 /** 文件夹最大嵌套深度（与 server MAX_FOLDER_DEPTH 一致） */
 const MAX_DEPTH = 2;
 
-const BRANCH_ICON: Record<string, string> = { work: '💼', personal: '🌿' };
+const BRANCH_ICON: Record<string, IconName> = { work: 'briefcase', personal: 'archive' };
 
 export default function Folders() {
   const lang = useLanguage();
@@ -96,7 +99,7 @@ export default function Folders() {
 
   // 树形列表：已展开的文件夹 id 集合（默认收起，只显示顶层——对齐安卓端）
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  // 新建名称输入框的受控聚焦（➕ 行内按钮点击后弹键盘）
+  // 新建名称输入框的受控聚焦（<Icon name="add" size={18} /> 行内按钮点击后弹键盘）
   const [nameFocus, setNameFocus] = useState(false);
   const toggleExpanded = (id: string) =>
     setExpanded((prev) => {
@@ -266,7 +269,8 @@ export default function Folders() {
                   <View key={f.id} className="settings-row" onClick={() => void handleMove(f.id)}>
                     <View className="settings-row-label">
                       <Text>
-                        {BRANCH_ICON[f.branch ?? 'work'] ?? '📁'} {f.name}
+                        {<Icon name={BRANCH_ICON[f.branch ?? 'work'] ?? 'folder'} size={16} />}{' '}
+                        {f.name}
                       </Text>
                     </View>
                   </View>
@@ -317,7 +321,7 @@ export default function Folders() {
                     className={`folder-chip${parentSel === f.id ? ' folder-chip-active' : ''}`}
                     onClick={() => setParentSel(f.id)}
                   >
-                    📁 {f.name}
+                    <Icon name="folder" size={16} /> {f.name}
                   </Text>
                 ))}
               </View>
@@ -332,12 +336,9 @@ export default function Folders() {
             >
               {loading && <View className="loading">{t('common.loading')}</View>}
               {!loading && folders.length === 0 && (
-                <View className="empty-state">
-                  <Text className="empty-state-icon">📁</Text>
-                  <Text className="empty-state-text">{t('folders.empty')}</Text>
-                </View>
+                <StatePlate icon="folder" tone="guide" title={t('folders.empty')} />
               )}
-              {/* 目录树：顶层 + 已展开层的子文件夹；行内 ➕/✏️/📁/🗑️（对齐安卓端） */}
+              {/* 目录树：顶层 + 已展开层的子文件夹；行内 加/改/移入子目录/删 四个动作图标（对齐安卓端） */}
               {treeRows.map((f) => {
                 const children = folders.filter((x) => x.parentId === f.id);
                 const hasChildren = children.length > 0;
@@ -356,7 +357,7 @@ export default function Folders() {
                         <Text className="folder-caret">{isExpanded ? '▼' : '▶'}</Text>
                       ) : null}
                       <Text className="folder-row-name">
-                        📁 {f.name}
+                        <Icon name="folder" size={16} /> {f.name}
                         {hasChildren ? ` (${children.length})` : ''}
                       </Text>
                     </View>
@@ -380,7 +381,7 @@ export default function Folders() {
                             });
                           }}
                         >
-                          ➕
+                          <Icon name="add" size={18} />
                         </Text>
                       )}
                       <Text
@@ -390,13 +391,13 @@ export default function Folders() {
                           setRenameText(f.name);
                         }}
                       >
-                        ✏️
+                        <Icon name="pencil" size={16} />
                       </Text>
                       <Text className="folder-row-btn" onClick={() => setMovingId(f.id)}>
-                        📁
+                        <Icon name="folder" size={16} />
                       </Text>
                       <Text className="folder-row-btn" onClick={() => void handleDelete(f)}>
-                        🗑️
+                        <Icon name="trash" size={16} />
                       </Text>
                     </View>
                   </View>

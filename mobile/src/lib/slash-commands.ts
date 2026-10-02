@@ -2,29 +2,31 @@
  * 移动端斜杠命令
  */
 
+import type { IconName } from '@dustnote/shared';
+
 export interface SlashCommand {
   id: string;
   label: string;
-  icon: string;
+  icon: IconName;
   insert: string;
 }
 
 export const SLASH_COMMANDS: SlashCommand[] = [
-  { id: 'date', label: '插入日期', icon: '📅', insert: '{{date}}' },
-  { id: 'datetime', label: '日期时间', icon: '🕐', insert: '{{date}} {{time}}' },
-  { id: 'heading', label: '标题', icon: '📝', insert: '## ' },
-  { id: 'list', label: '列表', icon: '📋', insert: '- ' },
-  { id: 'todo', label: '待办', icon: '✅', insert: '- [ ] ' },
-  { id: 'code', label: '代码块', icon: '💻', insert: '```\n\n```' },
-  { id: 'quote', label: '引用', icon: '💬', insert: '> ' },
-  { id: 'divider', label: '分割线', icon: '➖', insert: '\n---\n' },
+  { id: 'date', label: '插入日期', icon: 'calendar', insert: '{{date}}' },
+  { id: 'datetime', label: '日期时间', icon: 'clock', insert: '{{date}} {{time}}' },
+  { id: 'heading', label: '标题', icon: 'note', insert: '## ' },
+  { id: 'list', label: '列表', icon: 'clipboard', insert: '- ' },
+  { id: 'todo', label: '待办', icon: 'check', insert: '- [ ] ' },
+  { id: 'code', label: '代码块', icon: 'desktop', insert: '```\n\n```' },
+  { id: 'quote', label: '引用', icon: 'quote', insert: '> ' },
+  { id: 'divider', label: '分割线', icon: 'minus', insert: '\n---\n' },
   {
     id: 'table',
     label: '表格',
-    icon: '📊',
+    icon: 'overview',
     insert: '| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| | | |',
   },
-  { id: 'link', label: '双向链接', icon: '🔗', insert: '[[' },
+  { id: 'link', label: '双向链接', icon: 'link', insert: '[[' },
 ];
 
 export function resolveSlashCommand(insert: string): string {

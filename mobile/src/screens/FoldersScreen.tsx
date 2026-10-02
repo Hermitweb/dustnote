@@ -33,6 +33,9 @@ import { useTranslation } from 'react-i18next';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
 import { useColors } from '../theme';
+import { Icon } from '../components/Icon';
+import type { IconName } from '@dustnote/shared';
+import { StatePlate } from '../components/StatePlate';
 
 interface Folder {
   id: string;
@@ -48,7 +51,7 @@ interface Folder {
 /** 文件夹最大嵌套深度（与 server MAX_FOLDER_DEPTH 一致） */
 const MAX_DEPTH = 2;
 
-const BRANCH_ICON: Record<string, string> = { work: '💼', personal: '🌿' };
+const BRANCH_ICON: Record<string, IconName> = { work: 'briefcase', personal: 'archive' };
 
 export function FoldersScreen() {
   const { t } = useTranslation();
@@ -277,7 +280,7 @@ export function FoldersScreen() {
         <Text style={styles.metaLabel}>{t('folders.create_in')}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
           <Chip
-            label={`📁 ${t('folders.parent_top')}`}
+            label={`${t('folders.parent_top')}`}
             active={parentSel === null}
             onPress={() => setParentSel(null)}
             styles={styles}
@@ -285,7 +288,7 @@ export function FoldersScreen() {
           {parentCandidates.map((f) => (
             <Chip
               key={f.id}
-              label={`📁 ${f.name}`}
+              label={`${f.name}`}
               active={parentSel === f.id}
               onPress={() => setParentSel(f.id)}
               styles={styles}
@@ -302,12 +305,7 @@ export function FoldersScreen() {
         })}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>📁</Text>
-            <Text style={styles.emptyText}>{t('folders.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<StatePlate icon="folder" tone="guide" title={t('folders.empty')} />}
         renderItem={({ item }) => {
           const hasChildren = folders.some((f) => f.parentId === item.id);
           const isExpanded = expanded.has(item.id);
@@ -330,7 +328,7 @@ export function FoldersScreen() {
                     {isExpanded ? '▼' : '▶'}
                   </Text>
                 ) : null}
-                <Text style={styles.rowIcon}>📁</Text>
+                <Icon name="folder" size={18} color={colors.muted} />
                 <Text style={styles.rowName} numberOfLines={1}>
                   {item.name}
                   {hasChildren ? ` (${folders.filter((f) => f.parentId === item.id).length})` : ''}
@@ -345,7 +343,7 @@ export function FoldersScreen() {
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
-                <Text style={styles.rowActionText}>➕</Text>
+                <Icon name="add" size={16} color={colors.muted} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.rowAction}
@@ -355,7 +353,7 @@ export function FoldersScreen() {
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
-                <Text style={styles.rowActionText}>✏️</Text>
+                <Icon name="pencil" size={16} color={colors.muted} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.rowAction}
@@ -364,14 +362,14 @@ export function FoldersScreen() {
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
-                <Text style={styles.rowActionText}>📁</Text>
+                <Icon name="folder" size={16} color={colors.muted} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.rowAction}
                 onPress={() => handleDelete(item)}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
-                <Text style={styles.rowActionText}>🗑️</Text>
+                <Icon name="trash" size={16} color={colors.muted} />
               </TouchableOpacity>
             </View>
           );
@@ -393,7 +391,7 @@ export function FoldersScreen() {
             >
               <Text style={styles.modalTitle}>{t('folders.rename_title')}</Text>
               <TouchableOpacity onPress={() => setRenaming(null)}>
-                <Text style={{ fontSize: 18, color: colors.muted }}>✕</Text>
+                <Icon name="close" size={18} color={colors.muted} />
               </TouchableOpacity>
             </View>
             <FTextInput
@@ -436,7 +434,7 @@ export function FoldersScreen() {
                 {t('folders.move_folder')}「{moving?.name}」
               </Text>
               <TouchableOpacity onPress={() => setMoving(null)}>
-                <Text style={{ fontSize: 18, color: colors.muted }}>✕</Text>
+                <Icon name="close" size={18} color={colors.muted} />
               </TouchableOpacity>
             </View>
             {folders.some((f) => f.parentId === moving?.id) && (
@@ -444,7 +442,7 @@ export function FoldersScreen() {
             )}
             <ScrollView style={{ maxHeight: 300 }}>
               <TouchableOpacity style={styles.moveRow} onPress={() => void handleMove(null)}>
-                <Text style={styles.moveRowIcon}>📁</Text>
+                <Icon name="folder" size={18} color={colors.muted} />
                 <Text style={styles.moveRowName}>{t('folders.parent_top')}</Text>
               </TouchableOpacity>
               {moveTargets.map((f) => (
@@ -453,7 +451,11 @@ export function FoldersScreen() {
                   style={styles.moveRow}
                   onPress={() => void handleMove(f.id)}
                 >
-                  <Text style={styles.moveRowIcon}>{BRANCH_ICON[f.branch ?? 'work'] ?? '📁'}</Text>
+                  <Icon
+                    name={BRANCH_ICON[f.branch ?? 'work'] ?? 'folder'}
+                    size={18}
+                    color={colors.muted}
+                  />
                   <Text style={styles.moveRowName}>{f.name}</Text>
                 </TouchableOpacity>
               ))}
@@ -477,7 +479,7 @@ export function FoldersScreen() {
                 {t('folders.create_sub_title')}
               </Text>
               <TouchableOpacity onPress={() => setCreateModal(null)}>
-                <Text style={{ fontSize: 18, color: colors.muted }}>✕</Text>
+                <Icon name="close" size={18} color={colors.muted} />
               </TouchableOpacity>
             </View>
             <FTextInput
@@ -558,7 +560,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       justifyContent: 'center',
       alignItems: 'center',
     },
-    createBtnText: { color: 'white', fontSize: 22, fontWeight: '300' },
+    createBtnText: { color: c.onAccent, fontSize: 22, fontWeight: '300' },
     metaBar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -571,7 +573,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     },
     metaLabel: { fontSize: 12, color: c.muted },
     chipScroll: { flex: 1 },
-    chipRow: { flexDirection: 'row', gap: 8, flex: 1 },
     chip: {
       paddingHorizontal: 10,
       paddingVertical: 5,
@@ -582,7 +583,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     },
     chipActive: { backgroundColor: c.mint600, borderColor: c.mint600 },
     chipText: { fontSize: 12, color: c.fg },
-    chipTextActive: { color: 'white' },
+    chipTextActive: { color: c.onAccent },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -594,14 +595,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderColor: c.border,
       borderWidth: 1,
     },
-    rowIcon: { fontSize: 18, marginRight: 10 },
     rowName: { flex: 1, fontSize: 15, color: c.fg },
-    depthBadge: { fontSize: 10, color: c.muted, marginRight: 6 },
-    deleteBtn: { paddingHorizontal: 8 },
-    deleteText: { fontSize: 16, color: c.muted },
-    empty: { alignItems: 'center', marginTop: 80 },
-    emptyEmoji: { fontSize: 48, marginBottom: 12 },
-    emptyText: { fontSize: 16, color: c.fg, marginBottom: 4 },
     modalMask: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.5)',
@@ -617,14 +611,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     modalTitle: { fontSize: 16, fontWeight: '600', color: c.fg },
     rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', minWidth: 0 },
     rowAction: { paddingHorizontal: 3 },
-    rowActionText: { fontSize: 13 },
-    menuRow: {
-      paddingVertical: 12,
-      paddingHorizontal: 4,
-      borderBottomColor: c.border,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-    },
-    menuRowText: { fontSize: 15, color: c.fg },
     modalHint: { fontSize: 12, color: c.muted },
     modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
     modalBtn: { paddingVertical: 6, paddingHorizontal: 12 },
@@ -638,7 +624,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderBottomWidth: 1,
       borderBottomColor: c.border,
     },
-    moveRowIcon: { fontSize: 16, marginRight: 10 },
     moveRowName: { fontSize: 15, color: c.fg, flex: 1 },
   });
 }

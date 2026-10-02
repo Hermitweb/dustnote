@@ -34,7 +34,7 @@ export const PRESET_TEMPLATES: Template[] = [
     name: '空白笔记',
     description: '从零开始',
     category: 'blank',
-    icon: '📄',
+    icon: 'note',
     content: '',
     isPreset: true,
     sortOrder: 1,
@@ -47,7 +47,7 @@ export const PRESET_TEMPLATES: Template[] = [
     name: '每日日记',
     description: '记录今天的所思所感',
     category: 'journal',
-    icon: '📔',
+    icon: 'notebook',
     content:
       '# {{date}} 日记\n\n## 今日心情\n\n\n## 三件感恩的事\n1. \n2. \n3. \n\n## 自由书写\n\n',
     isPreset: true,
@@ -61,7 +61,7 @@ export const PRESET_TEMPLATES: Template[] = [
     name: '会议记录',
     description: '结构化的会议纪要',
     category: 'meeting',
-    icon: '🗓️',
+    icon: 'calendar',
     content:
       '# 会议主题\n\n- **时间**：\n- **地点**：\n- **参会**：\n\n## 议题\n\n1. \n2. \n\n## 决议\n\n- \n\n## 待办（Owner / 截止）\n\n- [ ]  /  \n',
     isPreset: true,
@@ -75,7 +75,7 @@ export const PRESET_TEMPLATES: Template[] = [
     name: '待办清单',
     description: '可勾选的任务列表',
     category: 'todo',
-    icon: '✅',
+    icon: 'check',
     content:
       '# 待办清单\n\n## 今天\n- [ ] \n- [ ] \n\n## 本周\n- [ ] \n- [ ] \n\n## 已完成\n- [x] \n',
     isPreset: true,
@@ -89,7 +89,7 @@ export const PRESET_TEMPLATES: Template[] = [
     name: '阅读笔记',
     description: '读书摘要与思考',
     category: 'reading',
-    icon: '📚',
+    icon: 'archive',
     content:
       '# 《书名》\n\n- **作者**：\n- **进度**：\n- **评分**：⭐⭐⭐⭐⭐\n\n## 摘要\n\n\n## 关键观点\n1. \n2. \n\n## 我的思考\n\n',
     isPreset: true,
@@ -103,7 +103,7 @@ export const PRESET_TEMPLATES: Template[] = [
     name: '项目计划',
     description: '项目目标与里程碑',
     category: 'project',
-    icon: '🚀',
+    icon: 'rocket',
     content:
       '# 项目名称\n\n## 背景与目标\n\n\n## 范围\n- **包含**：\n- **不包含**：\n\n## 里程碑\n| 里程碑 | 截止日期 | 状态 |\n| ------ | -------- | ---- |\n|        |          |      |\n\n## 风险\n- \n',
     isPreset: true,
@@ -117,7 +117,7 @@ export const PRESET_TEMPLATES: Template[] = [
     name: '书签收藏',
     description: 'URL + 摘要，配合剪贴板一键粘贴',
     category: 'bookmark',
-    icon: '🔗',
+    icon: 'link',
     content:
       '# {{title}}\n\n- **链接**：{{url}}\n- **收录**：{{date}}\n\n## 摘要\n\n\n## 为什么收藏\n\n',
     isPreset: true,

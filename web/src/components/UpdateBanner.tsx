@@ -8,6 +8,7 @@
 import type { CheckUpdateResult } from '@dustnote/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Icon } from './Icon';
 
 export function UpdateBanner({ result }: { result: CheckUpdateResult }) {
   const { t } = useTranslation();
@@ -26,8 +27,8 @@ export function UpdateBanner({ result }: { result: CheckUpdateResult }) {
   return (
     <div className="fixed inset-x-0 bottom-4 z-40 mx-auto max-w-2xl px-4">
       <div className="flex items-center gap-3 rounded-xl border border-surface-border bg-surface-card px-4 py-3 shadow-lg">
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent-soft/60 text-lg dark:bg-accent/30">
-          ✨
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent-soft/60 text-lg">
+          <Icon name="sparkle" size={16} />
         </div>
         <div className="flex-1">
           <div className="text-sm font-semibold text-surface-fg">
@@ -48,10 +49,10 @@ export function UpdateBanner({ result }: { result: CheckUpdateResult }) {
         </a>
         <button
           onClick={() => setDismissed(true)}
-          className="rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-surface-1 hover:text-text-secondary dark:hover:bg-surface-3"
+          className="rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-surface-1 hover:text-text-secondary"
           aria-label={t('common.close')}
         >
-          ✕
+          <Icon name="close" size={14} />
         </button>
       </div>
     </div>

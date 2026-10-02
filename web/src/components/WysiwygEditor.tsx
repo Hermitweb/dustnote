@@ -71,7 +71,7 @@ export function WysiwygEditor({ content, onChange, placeholder }: WysiwygEditorP
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
-          class: 'text-accent-text dark:text-accent-text underline cursor-pointer',
+          class: 'text-accent-text underline cursor-pointer',
         },
       }),
       Image.configure({
@@ -84,7 +84,7 @@ export function WysiwygEditor({ content, onChange, placeholder }: WysiwygEditorP
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none text-surface-fg dark:prose-invert min-h-[200px] p-6',
+        class: 'prose prose-sm max-w-none text-surface-fg min-h-[200px] p-6',
       },
     },
   });

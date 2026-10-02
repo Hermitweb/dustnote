@@ -4,7 +4,7 @@
 
 import type { CheckUpdateResult } from '@dustnote/shared';
 import { useTranslation } from 'react-i18next';
-import { Icon } from './Icon';
+import { CARD_BTN_PRIMARY, StatePlate } from './StatePlate';
 
 export function ForceUpdateOverlay({ result }: { result: CheckUpdateResult }) {
   const { t } = useTranslation();
@@ -22,25 +22,22 @@ export function ForceUpdateOverlay({ result }: { result: CheckUpdateResult }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-0/95 px-6">
-      <div className="max-w-md rounded-xl bg-surface-card p-8 text-center shadow-2xl">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft/60 text-3xl dark:bg-accent/30">
-          <Icon name="refresh" size={32} className="text-accent-text" />
-        </div>
-        <h1 className="mb-2 text-xl font-bold text-text-primary dark:text-text-primary">
-          {t('settings.force_update_title')}
-        </h1>
-        <p className="mb-6 text-sm text-text-secondary dark:text-text-tertiary">
-          {result.message ?? t('update.stopped_support')}
-        </p>
-        {url && (
-          <a
-            href={url}
-            className="inline-flex w-full items-center justify-center rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover"
-          >
-            {t('settings.download')}
-          </a>
-        )}
-        <p className="mt-4 text-xs text-text-secondary">{t('settings.force_update_hint')}</p>
+      <div className="max-w-md rounded-xl bg-surface-card p-8 shadow-2xl">
+        <StatePlate
+          size="card"
+          icon="refresh"
+          tone="guide"
+          title={t('settings.force_update_title')}
+          hint={result.message ?? t('update.stopped_support')}
+          detail={t('settings.force_update_hint')}
+          actions={
+            url ? (
+              <a href={url} className={CARD_BTN_PRIMARY}>
+                {t('settings.download')}
+              </a>
+            ) : null
+          }
+        />
       </div>
     </div>
   );

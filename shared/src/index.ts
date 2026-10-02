@@ -20,6 +20,8 @@ export * from './net-utils.js';
 export * from './error-codes.js';
 // 动效令牌（§3.3）：四端共用的唯一一份时长与曲线，CSS 侧由 ui:check 断言与此一致
 export * from './motion.js';
+// 图标名字表（三端同名同图，图形源 = lucide）
+export * from './icons.js';
 // 主题 token 生成器与种子表（UI 阶段 1.2 / 1.3，四端共用单一真相源）
 export * from './theme-engine.js';
 export * from './theme-seeds.js';

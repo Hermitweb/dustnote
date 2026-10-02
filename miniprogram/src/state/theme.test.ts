@@ -21,7 +21,7 @@ const THEME_KEY = 'dustnote_theme';
 const THEMES: Theme[] = ['light', 'dark', 'auto'];
 
 const cls = (theme: Theme, systemDark: boolean, material: Material, taroEnv = 'weapp'): string =>
-  rootClassOf({ theme, systemDark, material, taroEnv });
+  rootClassOf({ theme, systemDark, material, reducedMotion: false, taroEnv });
 const has = (c: string, token: string): boolean => c.split(' ').includes(token);
 
 describe('rootClassOf：主题反制类', () => {
@@ -60,6 +60,24 @@ describe('rootClassOf：材质档', () => {
         expect(has(cls(t, sd, 'glass'), 'material-flat')).toBe(false);
       }
     }
+  });
+
+  it('降低动效开关只加 motion-flat，不碰主题与材质类（切上去不许改布局）', () => {
+    // cls 的 reducedMotion 恒为 false，它是这条断言的对照组：不开就绝不该出现该后缀
+    expect(cls('light', false, 'glass')).not.toContain('motion-flat');
+    const withMotion = rootClassOf({
+      theme: 'light',
+      systemDark: true,
+      material: 'flat',
+      reducedMotion: true,
+      taroEnv: 'weapp',
+    });
+    expect(withMotion.split(' ')).toEqual([
+      'theme-light',
+      'page-solid',
+      'material-flat',
+      'motion-flat',
+    ]);
   });
 
   it('material-flat 与主题反制类可以共存，且顺序稳定（类名拼接顺序影响可读性与快照）', () => {

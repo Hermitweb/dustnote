@@ -24,6 +24,7 @@ import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { isValidRecoveryCode } from '@dustnote/shared';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
+import { Icon } from '../../components/Icon';
 
 type Strength = { label: string; level: 'weak' | 'medium' | 'strong'; width: number };
 
@@ -92,7 +93,7 @@ export default function StandaloneRecover() {
       <ThemeVars />
       <View className={`setup-container ${darkClass}`}>
         <Text className="hero-logo" style={{ textAlign: 'center' }}>
-          🔑
+          <Icon name="key" size={40} />
         </Text>
         <Text className="hero-title text-center">{t('recover.title')}</Text>
         <Text className="hero-subtitle mb-l text-center">{t('recover.subtitle')}</Text>

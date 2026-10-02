@@ -34,6 +34,7 @@ import { getDeviceId } from '../api';
 import { ApiClient, type AppMode, type ClientChannel, type ClientPlatform } from '@dustnote/shared';
 import { APP_VERSION } from '../lib/version';
 import { isPrivateAddress } from '../lib/net-utils';
+import { Icon } from '../components/Icon';
 
 export function ModeSelectScreen() {
   const colors = useColors();
@@ -153,7 +154,7 @@ export function ModeSelectScreen() {
           style={[styles.card, selected === 'standalone' && styles.cardActive]}
           onPress={onSelectStandalone}
         >
-          <Text style={styles.cardEmoji}>📱</Text>
+          <Icon name="device" size={32} color={colors.muted} />
           <Text style={styles.cardTitle}>{t('mode_select.standalone_title')}</Text>
           <Text style={styles.cardDesc}>{t('mode_select.standalone_desc')}</Text>
           <Text style={styles.cardFeatures}>{t('mode_select.standalone_features')}</Text>
@@ -164,7 +165,7 @@ export function ModeSelectScreen() {
           style={[styles.card, selected === 'online' && styles.cardActive]}
           onPress={onSelectOnline}
         >
-          <Text style={styles.cardEmoji}>🌐</Text>
+          <Icon name="language" size={32} color={colors.muted} />
           <Text style={styles.cardTitle}>{t('mode_select.online_title')}</Text>
           <Text style={styles.cardDesc}>{t('mode_select.online_desc')}</Text>
           <Text style={styles.cardFeatures}>{t('mode_select.online_features')}</Text>
@@ -219,7 +220,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       padding: 24,
       backgroundColor: 'transparent',
     },
-    emoji: { fontSize: 56, textAlign: 'center', marginTop: 32, marginBottom: 12 },
     logo: { width: 56, height: 56, alignSelf: 'center', marginTop: 32, marginBottom: 12 },
     title: {
       fontSize: 24,
@@ -247,7 +247,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderWidth: 2,
       backgroundColor: c.mint50,
     },
-    cardEmoji: { fontSize: 32, marginBottom: 8 },
     cardTitle: {
       fontSize: 18,
       fontWeight: '700',
@@ -304,7 +303,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       marginTop: 16,
     },
     confirmButtonText: {
-      color: 'white',
+      color: c.onAccent,
       fontSize: 16,
       fontWeight: '600',
     },

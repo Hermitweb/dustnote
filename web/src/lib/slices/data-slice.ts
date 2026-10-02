@@ -195,7 +195,7 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
               const pt = await decryptNote(masterKey, envelope, noteAad(n.id, get().userId ?? ''));
               plain.set(n.id, pt);
             } catch {
-              plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
+              plain.set(n.id, { title: '解密失败', content: '', tags: [] });
             }
           }
           // 锁定中止:masterKey 已清零(自动锁屏/pagehide)则丢弃解密结果,
@@ -278,7 +278,7 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
               const pt = await decryptNote(masterKey, envelope, noteAad(n.id, get().userId ?? ''));
               plain.set(n.id, pt);
             } catch {
-              plain.set(n.id, { title: '🔒 解密失败', content: '', tags: [] });
+              plain.set(n.id, { title: '解密失败', content: '', tags: [] });
             }
           }
           // 锁定中止:同上,防止锁后明文重新驻留
@@ -336,7 +336,7 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
               await decryptNote(masterKey, envelope, noteAad(noteId, get().userId ?? ''))
             );
           } catch {
-            plain.set(noteId, { title: '🔒 解密失败', content: '', tags: [] });
+            plain.set(noteId, { title: '解密失败', content: '', tags: [] });
           }
         }
       } catch (err) {
@@ -991,7 +991,7 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
       name,
       description: '',
       category: 'custom',
-      icon: '📝',
+      icon: 'note',
       content: cipherJson,
       sortOrder: 100,
     });
@@ -1001,7 +1001,7 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
       name,
       description: '',
       category: 'custom',
-      icon: '📝',
+      icon: 'note',
       content: cipherJson,
       isPreset: false,
       sortOrder: 100,

@@ -3,15 +3,17 @@
  *
  * 类似 VS Code 的 Ctrl+K / Cmd+K，提供快速命令访问。
  * - 全局快捷键 Ctrl+K（在 use-keyboard-shortcuts.ts 中注册）派发
- *   'app:toggle-command-palette' 事件切换开/关
+ * 'app:toggle-command-palette' 事件切换开/关
  * - 模糊搜索命令列表（子序列匹配 + 评分排序）
  * - 键盘导航：↑↓ 选择，Enter 执行，Esc 关闭
  * - 命令通过 window 自定义事件触发执行（如 'app:new-note' / 'app:lock' /
- *   'app:open-settings'），由 App.tsx 监听并执行实际逻辑
+ * 'app:open-settings'），由 App.tsx 监听并执行实际逻辑
  * - 纯 React + Tailwind 实现，无外部依赖
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Icon } from './Icon';
+import type { IconName } from '@dustnote/shared';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -31,7 +33,7 @@ export interface Command {
   /** 分类 */
   category: CommandCategory;
   /** 图标 emoji */
-  icon: string;
+  icon: IconName;
   /** 额外匹配关键词（用于模糊搜索，不展示） */
   keywords?: string;
   /** 执行命令 */
@@ -151,7 +153,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         id: 'new-note',
         titleKey: 'command_palette.new_note',
         category: 'navigation',
-        icon: '📝',
+        icon: 'note',
         hint: 'Ctrl+N',
         keywords: 'new note create add',
         action: () => window.dispatchEvent(new CustomEvent('app:new-note')),
@@ -160,7 +162,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         id: 'lock',
         titleKey: 'command_palette.lock',
         category: 'navigation',
-        icon: '🔒',
+        icon: 'lock',
         hint: 'Ctrl+L',
         keywords: 'lock logout sign out',
         action: () => window.dispatchEvent(new CustomEvent('app:lock')),
@@ -169,7 +171,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         id: 'settings',
         titleKey: 'command_palette.settings',
         category: 'navigation',
-        icon: '⚙️',
+        icon: 'settings',
         hint: 'Ctrl+,',
         keywords: 'settings preferences config',
         action: () => window.dispatchEvent(new CustomEvent('app:open-settings')),
@@ -178,7 +180,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         id: 'shares',
         titleKey: 'command_palette.shares',
         category: 'navigation',
-        icon: '🔗',
+        icon: 'link',
         keywords: 'share link shares',
         action: () => window.dispatchEvent(new CustomEvent('app:open-shares')),
       },
@@ -186,7 +188,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         id: 'toggle-theme',
         titleKey: 'command_palette.toggle_theme',
         category: 'operations',
-        icon: '🎨',
+        icon: 'theme',
         keywords: 'theme color skin switch',
         action: () => window.dispatchEvent(new CustomEvent('app:toggle-theme')),
       },
@@ -194,7 +196,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         id: 'toggle-mode',
         titleKey: 'command_palette.toggle_mode',
         category: 'operations',
-        icon: '🌓',
+        icon: 'sun',
         keywords: 'mode light dark appearance',
         action: () => window.dispatchEvent(new CustomEvent('app:toggle-mode')),
       },
@@ -202,7 +204,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         id: 'import-export',
         titleKey: 'command_palette.import_export',
         category: 'operations',
-        icon: '📦',
+        icon: 'archive',
         keywords: 'import export backup',
         action: () => window.dispatchEvent(new CustomEvent('app:import-export')),
       },
@@ -210,7 +212,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
         id: 'about',
         titleKey: 'command_palette.about',
         category: 'about',
-        icon: 'ℹ️',
+        icon: 'info',
         keywords: 'about version help info',
         action: () => window.dispatchEvent(new CustomEvent('app:about')),
       },
@@ -329,7 +331,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
       >
         {/* 搜索输入框 */}
         <div className="flex items-center gap-3 border-b border-surface-border px-4 py-3">
-          <span className="text-surface-muted">🔍</span>
+          <Icon name="search" size={16} className="text-text-tertiary" />
           <input
             ref={inputRef}
             type="text"
@@ -387,7 +389,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
                         }`}
                         aria-selected={isSelected}
                       >
-                        <span className="flex-shrink-0 text-base">{entry.cmd.icon}</span>
+                        <Icon name={entry.cmd.icon} size={16} className="flex-shrink-0" />
                         <span className="flex-1 truncate">
                           {renderHighlighted(title, entry.indices)}
                         </span>

@@ -347,7 +347,7 @@ export function Editor() {
       }
       const isUrl = /^https?:\/\/\S+$/i.test(text.trim());
       if (isUrl) {
-        insertTextAtCursor(`🔗 [${text.trim()}](${text.trim()})\n`);
+        insertTextAtCursor(`[${text.trim()}](${text.trim()})\n`);
       } else {
         insertTextAtCursor(text);
       }
@@ -816,9 +816,9 @@ export function Editor() {
                             key={cmd.id}
                             onClick={() => insertSlashCommand(cmd)}
                             onMouseEnter={() => setSlashIndex(i)}
-                            className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${i === slashIndex ? 'bg-accent-soft/60 text-accent-strong dark:bg-accent/30 dark:text-accent-text' : 'text-surface-fg hover:bg-surface-bg'}`}
+                            className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${i === slashIndex ? 'bg-accent-soft/60 text-accent-strong ' : 'text-surface-fg hover:bg-surface-bg'}`}
                           >
-                            <span className="text-base">{cmd.icon}</span>
+                            <Icon name={cmd.icon} size={16} />
                             <div className="flex-1 truncate">
                               <div className="font-medium">
                                 {i18n.language === 'en' ? cmd.labelEn : cmd.label}
@@ -851,7 +851,7 @@ export function Editor() {
                     }}
                   >
                     <div
-                      className="prose prose-sm max-w-none text-surface-fg dark:prose-invert"
+                      className="prose prose-sm max-w-none text-surface-fg"
                       dangerouslySetInnerHTML={{
                         __html: sanitizeHtml(
                           marked.parse(
@@ -870,9 +870,14 @@ export function Editor() {
                             <button
                               key={bl.sourceId}
                               onClick={() => selectNote(bl.sourceId)}
-                              className="block w-full truncate rounded px-2 py-1 text-left text-sm text-accent-text hover:bg-surface-bg dark:text-accent-text"
+                              className="block w-full truncate rounded px-2 py-1 text-left text-sm text-accent-text hover:bg-surface-bg"
                             >
-                              📄 {bl.sourceTitle}
+                              <Icon
+                                name="note"
+                                size={14}
+                                className="mr-1 inline-block align-[-2px]"
+                              />
+                              {bl.sourceTitle}
                             </button>
                           ))}
                         </div>
@@ -983,7 +988,7 @@ function ActBtn({
       type="button"
       className={`rounded-lg p-2 transition-colors ${
         on
-          ? 'bg-accent-soft/60 text-accent-text dark:bg-accent/30'
+          ? 'bg-accent-soft/60 text-accent-text '
           : 'text-surface-muted hover:bg-surface-bg hover:text-surface-fg'
       }`}
     >
@@ -1166,7 +1171,7 @@ function ShareDialog({
                     onClick={() => setExpiresSec(opt.value)}
                     className={`rounded-lg border-2 px-2 py-1.5 text-xs transition-colors ${
                       expiresSec === opt.value
-                        ? 'border-accent bg-accent-soft/40 text-surface-fg dark:bg-accent/30'
+                        ? 'border-accent bg-accent-soft/40 text-surface-fg '
                         : 'border-surface-border text-surface-fg hover:bg-surface-bg'
                     }`}
                     type="button"
@@ -1216,7 +1221,7 @@ function ShareDialog({
                 )}
               </button>
             </div>
-            <p className="rounded-lg bg-warning-soft p-2 text-xs text-warning dark:bg-warning-soft dark:text-warning">
+            <p className="rounded-lg bg-warning-soft p-2 text-xs text-warning">
               {t('editor.key_hint')} <strong>{t('editor.key_hint_strong')}</strong>
               {t('editor.key_hint_tail')}
             </p>

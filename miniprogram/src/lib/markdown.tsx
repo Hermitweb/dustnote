@@ -12,6 +12,7 @@
 import React from 'react';
 import { View, Text, Image } from '@tarojs/components';
 import Taro from '@tarojs/taro';
+import { Icon } from '../components/Icon';
 
 /** 判断链接协议是否安全（仅放行 http/https/相对路径） */
 function isSafeUrl(url: string): boolean {
@@ -81,11 +82,11 @@ function renderInline(
             if (onWikilink) {
               onWikilink(title);
             } else {
-              Taro.showToast({ title: `📄 ${title}`, icon: 'none' });
+              Taro.showToast({ title: `${title}`, icon: 'none' });
             }
           }}
         >
-          📄 {display}
+          <Icon name="note" size={14} /> {display}
         </Text>
       );
     } else if (m[5]) {
@@ -106,7 +107,7 @@ function renderInline(
         } else {
           nodes.push(
             <Text key={key} className="md-em">
-              {`🖼 [${imgMatch[1] || '图片'}](仅存于创建设备,此端不可见)`}
+              {`[${imgMatch[1] || '图片'}](仅存于创建设备,此端不可见)`}
             </Text>
           );
         }

@@ -56,9 +56,7 @@ export function ThemeCard({
       aria-pressed={selected}
       type="button"
       className={`relative flex flex-col gap-1.5 rounded-lg border-2 p-2 text-left transition-colors ${
-        selected
-          ? 'border-accent bg-accent-soft/30 dark:bg-accent/20'
-          : 'border-surface-border hover:bg-surface-bg'
+        selected ? 'border-accent bg-accent-soft/30 ' : 'border-surface-border hover:bg-surface-bg'
       }`}
     >
       <span className="flex items-center gap-1.5">

@@ -33,7 +33,7 @@ type Mode = 'main' | 'importing' | 'exporting';
  * 保存 Blob 到文件
  *
  * Tauri 环境：调用原生保存对话框（__dustnoteSaveFile），用户选择保存位置，
- *   返回保存路径（用户取消时返回 null）。
+ * 返回保存路径（用户取消时返回 null）。
  * Web 环境：触发浏览器下载，返回 undefined（浏览器决定保存位置）。
  *
  * 返回值：
@@ -402,7 +402,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
             }}
             className={`rounded-lg border-2 border-dashed p-4 text-center text-xs transition-colors ${
               dragOver
-                ? 'border-accent bg-accent-soft/40 dark:bg-accent/30'
+                ? 'border-accent bg-accent-soft/40 '
                 : 'border-surface-border text-surface-muted'
             }`}
           >
@@ -567,7 +567,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
 
         {(status || error) && (
           <div
-            className={`break-all rounded p-2 text-xs ${error ? 'bg-danger-soft text-danger dark:bg-danger-soft' : 'bg-success-soft text-success dark:bg-success-soft'}`}
+            className={`break-all rounded p-2 text-xs ${error ? 'bg-danger-soft text-danger ' : 'bg-success-soft text-success '}`}
           >
             {error ?? status}
           </div>

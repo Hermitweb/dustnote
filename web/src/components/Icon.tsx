@@ -13,61 +13,78 @@
  * - 纯装饰图标默认 `aria-hidden`；**没有**相邻文字标签的图标按钮必须自己写 `aria-label`。
  */
 import {
-  AlertTriangle,
+  Apple,
   Archive,
   ArrowLeft,
-  Bold,
+  ArrowLeftRight,
   ArrowRight,
-  Paperclip,
+  Bold,
+  Bot,
+  Briefcase,
+  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  Code,
   Clock,
+  Cloud,
+  CodeXml,
   Copy,
   Download,
+  Ellipsis,
   Eye,
   FileText,
   Folder,
   FolderOpen,
   Globe,
   History,
+  Image,
+  Info,
   Italic,
   KeyRound,
   Keyboard,
-  LayoutDashboard,
   Layers,
-  Info,
+  LayoutDashboard,
   Link2,
   List,
+  LoaderCircle,
   Lock,
   LockOpen,
+  LogIn,
+  LogOut,
   Menu,
-  MoreHorizontal,
   Mic,
+  Minus,
   Monitor,
+  MonitorSmartphone,
   Moon,
-  Notebook,
+  NotebookText,
+  Palette,
+  Paperclip,
   Pencil,
   Pin,
   Plus,
   Quote,
   RefreshCw,
+  Rocket,
   RotateCw,
-  Search,
   Save,
+  Search,
   Settings,
   Share2,
-  Smartphone,
   ShieldCheck,
+  Smartphone,
   Sparkles,
-  SplitSquareHorizontal,
+  SquareSplitHorizontal,
   Star,
+  Stethoscope,
   Sun,
+  Tablet,
   Tag,
   Trash2,
+  TriangleAlert,
   Type,
+  Undo2,
   Upload,
   WifiOff,
   Wrench,
@@ -76,75 +93,110 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { ComponentProps } from 'react';
+import {
+  ICON_SOURCES,
+  ICON_NAMES,
+  isIconName,
+  type IconGlyph,
+  type IconName,
+} from '@dustnote/shared';
 
-/** 语义图标名（不用 lucide 的组件名，避免换库时全站改调用点） */
-export const ICONS = {
-  add: Plus,
-  admin: Wrench,
-  attach: Paperclip,
-  bold: Bold,
-  'chevron-left': ChevronLeft,
-  'chevron-right': ChevronRight,
-  'code-block': Code,
-  info: Info,
-  italic: Italic,
-  list: List,
-  more: MoreHorizontal,
-  overview: LayoutDashboard,
-  quote: Quote,
+/**
+ * lucide 图形名 → 组件。
+ *
+ * 键类型是 `IconGlyph`（= 名字表里所有值的并集），所以**漏一个图形就是编译错误**，
+ * 不会再出现"共享名字表加了图标、某一端悄悄是空的"。这正是 web 之前漂走的形态：
+ * 名字表 73 条、这里的表只有 62 条，缺的那些在 web 上会渲染成空白图标且无人报错。
+ */
+const GLYPHS: Record<IconGlyph, LucideIcon> = {
+  apple: Apple,
   archive: Archive,
   'arrow-left': ArrowLeft,
+  'arrow-left-right': ArrowLeftRight,
+  briefcase: Briefcase,
   'arrow-right': ArrowRight,
+  bold: Bold,
+  bot: Bot,
+  'calendar-days': CalendarDays,
   check: Check,
-  clipboard: ClipboardList,
+  'chevron-left': ChevronLeft,
+  'chevron-right': ChevronRight,
+  'clipboard-list': ClipboardList,
   clock: Clock,
-  close: X,
-  code: Pencil,
+  cloud: Cloud,
+  'code-xml': CodeXml,
   copy: Copy,
   download: Download,
+  ellipsis: Ellipsis,
+  eye: Eye,
+  'file-text': FileText,
   folder: Folder,
   'folder-open': FolderOpen,
+  globe: Globe,
   history: History,
+  image: Image,
+  info: Info,
+  italic: Italic,
+  'key-round': KeyRound,
   keyboard: Keyboard,
   layers: Layers,
-  link: Link2,
+  'layout-dashboard': LayoutDashboard,
+  'link-2': Link2,
+  list: List,
+  'loader-circle': LoaderCircle,
   lock: Lock,
+  'lock-open': LockOpen,
+  'log-in': LogIn,
+  'log-out': LogOut,
   menu: Menu,
   mic: Mic,
+  minus: Minus,
+  monitor: Monitor,
+  'monitor-smartphone': MonitorSmartphone,
   moon: Moon,
-  note: FileText,
-  notebook: Notebook,
+  'notebook-text': NotebookText,
+  palette: Palette,
+  paperclip: Paperclip,
   pencil: Pencil,
   pin: Pin,
-  preview: Eye,
-  refresh: RefreshCw,
-  recovery: KeyRound,
+  plus: Plus,
+  quote: Quote,
+  'refresh-cw': RefreshCw,
+  rocket: Rocket,
+  'rotate-cw': RotateCw,
+  save: Save,
   search: Search,
   settings: Settings,
-  share: Share2,
+  'share-2': Share2,
   'shield-check': ShieldCheck,
-  split: SplitSquareHorizontal,
+  smartphone: Smartphone,
+  sparkles: Sparkles,
+  'square-split-horizontal': SquareSplitHorizontal,
   star: Star,
+  stethoscope: Stethoscope,
   sun: Sun,
+  tablet: Tablet,
   tag: Tag,
-  template: Notebook,
-  theme: Type,
-  trash: Trash2,
-  unlock: LockOpen,
+  'trash-2': Trash2,
+  'triangle-alert': TriangleAlert,
+  type: Type,
+  'undo-2': Undo2,
   upload: Upload,
-  warning: AlertTriangle,
-  'watch-system': Monitor,
   'wifi-off': WifiOff,
-  wysiwyg: Sparkles,
-  zoom: Zap,
-  language: Globe,
-  device: Smartphone,
-  save: Save,
-  rotate: RotateCw,
-} as const;
+  wrench: Wrench,
+  x: X,
+  zap: Zap,
+};
 
-export type IconName = keyof typeof ICONS;
+/**
+ * 语义图标名 → 组件。名字与图形都由 shared/src/icons.ts 决定，三端（web / RN / 小程序）
+ * 拿的是同一张表；这里只是把图形接到 lucide-react 上。
+ */
+export const ICONS = Object.fromEntries(
+  ICON_NAMES.map((name) => [name, GLYPHS[ICON_SOURCES[name]]])
+) as Record<IconName, LucideIcon>;
 
+export type { IconName };
 export interface IconProps extends Omit<ComponentProps<LucideIcon>, 'ref'> {
   name: IconName;
   /**
@@ -239,7 +291,7 @@ export function IconText({
 }: {
   k: string;
   label: string;
-  size?: 14 | 16 | 18 | 20 | 24;
+  size?: 14 | 16 | 18 | 20 | 24 | 28 | 32 | 40;
   gap?: string;
 }) {
   const name = labelIcon(k);
@@ -250,5 +302,27 @@ export function IconText({
       ) : null}
       {label}
     </>
+  );
+}
+
+/**
+ * 「可能是图标名，也可能是历史遗留字符串」的渲染口。
+ *
+ * 模板与文件夹的 icon 字段是用户数据：改造前的默认值存的是 emoji，用户自建的也可能是
+ * 任意字符。直接按 IconName 断言会让老数据渲染成空白，所以这里显式两条路都走。
+ */
+export function IconOrText({
+  value,
+  size = 16,
+  className,
+}: {
+  value: string;
+  size?: 14 | 16 | 18 | 20 | 24 | 28 | 32 | 40;
+  className?: string;
+}) {
+  return isIconName(value) ? (
+    <Icon name={value} size={size} className={className} />
+  ) : (
+    <span className={className}>{value}</span>
   );
 }

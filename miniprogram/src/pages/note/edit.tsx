@@ -36,6 +36,7 @@ import Markdown from '../../lib/markdown';
 import { filterSlashCommands, resolveSlashCommand } from '../../lib/slash-commands';
 import { enqueueOffline, flushOfflineQueue, isNetworkError } from '../../lib/offline-queue';
 import { toMergeable, type ConflictContext, type NoteMetadata } from '@dustnote/client-core';
+import { Icon } from '../../components/Icon';
 
 interface Folder {
   id: string;
@@ -264,7 +265,7 @@ ${text}`
   const openApplyTemplate = () => {
     setTplPick({
       title: t('editor.apply_template'),
-      items: PRESET_TEMPLATES.map((tp, i) => ({ key: String(i), label: `${tp.icon} ${tp.name}` })),
+      items: PRESET_TEMPLATES.map((tp, i) => ({ key: String(i), label: `${tp.name}` })),
       onPick: (key) => {
         setTplPick(null);
         const tpl = PRESET_TEMPLATES[Number(key)];
@@ -317,7 +318,7 @@ ${text}`
       name: name.slice(0, 64),
       description: '',
       category: 'custom',
-      icon: '📝',
+      icon: 'note',
       content: cipherJson,
       sortOrder: 100,
     });
@@ -822,7 +823,18 @@ ${text}`
               {preview ? t('editor.edit') : t('editor.preview')}
             </Text>
             <Text className="icon-btn" onClick={toggleVoice}>
-              {listening ? (voiceText ? `🎙${voiceText.slice(-6)}` : '🎙') : '🎤'}
+              {listening ? (
+                voiceText ? (
+                  <>
+                    <Icon name="mic" size={14} />
+                    {voiceText.slice(-6)}
+                  </>
+                ) : (
+                  <Icon name="mic" size={14} />
+                )
+              ) : (
+                <Icon name="mic" size={16} />
+              )}
             </Text>
             <Text className="btn btn-sm" onClick={onManualSave}>
               {t('editor.save')}
@@ -857,7 +869,7 @@ ${text}`
                       className="backlink-item"
                       onClick={() => onBacklinkTap(bl.id)}
                     >
-                      📄 {bl.title}
+                      <Icon name="note" size={14} /> {bl.title}
                     </Text>
                   ))}
                 </View>
@@ -899,7 +911,7 @@ ${text}`
                         setShowSlash(false);
                       }}
                     >
-                      <Text className="slash-icon">{cmd.icon}</Text>
+                      <Icon className="slash-icon" name={cmd.icon} size={18} />
                       <Text className="slash-label">{cmd.label}</Text>
                     </View>
                   ))}
@@ -991,7 +1003,7 @@ ${text}`
                   void togglePinned();
                 }}
               >
-                📌 {note?.isPinned ? t('editor.unpin') : t('editor.pin')}
+                <Icon name="pin" size={16} /> {note?.isPinned ? t('editor.unpin') : t('editor.pin')}
               </Text>
               <Text
                 className="menu-item"
@@ -1000,7 +1012,7 @@ ${text}`
                   void toggleFavorite();
                 }}
               >
-                {note?.isFavorite ? `⭐ ${t('editor.unfavorite')}` : `⭐ ${t('editor.favorite')}`}
+                {note?.isFavorite ? t('editor.unfavorite') : t('editor.favorite')}
               </Text>
               <Text
                 className="menu-item"
@@ -1009,7 +1021,7 @@ ${text}`
                   onEditTags();
                 }}
               >
-                🏷 {t('editor.edit_tags')}
+                <Icon name="tag" size={16} /> {t('editor.edit_tags')}
               </Text>
               <Text
                 className="menu-item"
@@ -1018,7 +1030,7 @@ ${text}`
                   void onMoveFolder();
                 }}
               >
-                📁 {t('editor.move')}
+                <Icon name="folder" size={16} /> {t('editor.move')}
               </Text>
               <Text
                 className="menu-item"
@@ -1027,7 +1039,7 @@ ${text}`
                   openApplyTemplate();
                 }}
               >
-                📋 {t('editor.apply_template')}
+                <Icon name="clipboard" size={16} /> {t('editor.apply_template')}
               </Text>
               {mode === 'online' && (
                 <Text
@@ -1037,7 +1049,7 @@ ${text}`
                     void openHistory();
                   }}
                 >
-                  🕘 {t('editor.history')}
+                  <Icon name="history" size={16} /> {t('editor.history')}
                 </Text>
               )}
               {mode === 'online' && (
@@ -1048,7 +1060,7 @@ ${text}`
                     openShare();
                   }}
                 >
-                  🔗 {t('editor.share')}
+                  <Icon name="link" size={16} /> {t('editor.share')}
                 </Text>
               )}
               {mode === 'online' && (
@@ -1059,7 +1071,7 @@ ${text}`
                     void saveAsTemplate();
                   }}
                 >
-                  🗂 {t('editor.save_as_template')}
+                  <Icon name="archive" size={16} /> {t('editor.save_as_template')}
                 </Text>
               )}
               <Text
@@ -1069,7 +1081,7 @@ ${text}`
                   onDelete();
                 }}
               >
-                🗑️ {t('common.delete')}
+                <Icon name="trash" size={16} /> {t('common.delete')}
               </Text>
             </View>
           </View>

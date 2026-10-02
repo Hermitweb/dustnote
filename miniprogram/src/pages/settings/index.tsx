@@ -38,6 +38,7 @@ import {
   promptBiometric,
   setBiometricEnabled,
 } from '../../lib/biometric';
+import { Icon } from '../../components/Icon';
 
 /** 微信 showModal 的 editable 输入框运行时可用，但 Taro 类型定义未跟上 */
 interface EditableModalResult {
@@ -81,6 +82,8 @@ export default function Settings() {
   const setTheme = useThemeStore((s) => s.setTheme);
   const material = useThemeStore((s) => s.material);
   const setMaterial = useThemeStore((s) => s.setMaterial);
+  const reducedMotion = useThemeStore((s) => s.reducedMotion);
+  const setReducedMotion = useThemeStore((s) => s.setReducedMotion);
   const mode = useModeStore((s) => s.mode);
   const serverUrl = useModeStore((s) => s.serverUrl);
   const resetMode = useModeStore((s) => s.resetMode);
@@ -774,6 +777,14 @@ export default function Settings() {
               {material === 'flat' ? t('settings.material_flat') : t('settings.material_glass')} ›
             </Text>
           </View>
+          <View className="settings-row" onClick={() => setReducedMotion(!reducedMotion)}>
+            <View className="settings-row-label">
+              <Text>{t('settings.reduced_motion')}</Text>
+            </View>
+            <Text className="settings-row-value">
+              {reducedMotion ? <Icon name="check" size={14} /> : <Icon name="close" size={14} />}
+            </Text>
+          </View>
           <View className="settings-row" onClick={onLanguageChange}>
             <View className="settings-row-label">
               <Text>{t('settings.language')}</Text>
@@ -823,7 +834,9 @@ export default function Settings() {
               <View className="settings-row-label">
                 <Text>{t('settings.biometric_row')}</Text>
               </View>
-              <Text className="settings-row-value">{bioOn ? '✓' : '›'}</Text>
+              <Text className="settings-row-value">
+                {bioOn ? <Icon name="check" size={14} /> : <Icon name="chevron-right" size={14} />}
+              </Text>
             </View>
           )}
           {mode === 'online' && (
@@ -938,7 +951,7 @@ export default function Settings() {
         <View className="settings-group">
           <View className="settings-row" onClick={onCopyGithub}>
             <View className="settings-row-label">
-              <Text>🐙 GitHub</Text>
+              <Icon name="link" size={14} /> GitHub
             </View>
             <Text className="settings-row-value">Hermitweb/dustnote ›</Text>
           </View>

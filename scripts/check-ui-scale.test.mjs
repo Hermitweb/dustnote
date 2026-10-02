@@ -12,6 +12,8 @@ import {
   scanWiring,
   scanMotionSync,
   scanEmoji,
+  scanDeadDarkVariant,
+  emojiHits,
   OUTLINE_NONE_ALLOWLIST,
 } from './check-ui-scale.mjs';
 
@@ -210,4 +212,27 @@ test('emoji 棘轮：超过上限就报，且把数字打出来（不允许悄�
   const over = scanEmoji(sources, 1);
   assert.equal(over.findings.length, 1);
   assert.match(over.findings[0].msg, /从上限 1 涨到了 2/);
+});
+
+test('emoji 棘轮：U+2300 段与当图标用的箭头不再是盲区，键名符号豁免', () => {
+  // ⏳ 在 U+23F3：旧正则从 1F300 直跳 2600，SettingsDialog 因此带着它躲过了棘轮
+  assert.equal(emojiHits('<span>⏳</span>'), 1, '⏳ 必须被数到');
+  // ↩ 在箭头段（2190-21FF 整段仍未纳入），但它被单点列进了图标位黑名单
+  assert.equal(emojiHits("{'↩ ' + t('trash.restore')}"), 1, '↩ 当图标用不算键名');
+  // ⌘↑↓←→↵ 是键名，出现在快捷键提示里，不算界面图标
+  assert.equal(emojiHits('导航 ↑↓ 选择 ⌘K 打开'), 0, '键名符号不得计入');
+  // 变体选择器跟着前一个字符，不单独成数；一行两处仍是两处
+  assert.equal(emojiHits('<span>⚠️</span>'), 1, '⚠️ 是一个图标，不是两个');
+  assert.equal(emojiHits('<span>⏳✦</span>'), 2, '同行两处都要数到');
+});
+
+test('dark: 变体是死代码，出现即报', () => {
+  assert.deepEqual(scanDeadDarkVariant('web/src/A.tsx', 'const a = "p-2 text-sm";'), []);
+  const got = scanDeadDarkVariant(
+    'web/src/A.tsx',
+    'const a = "border-danger/30 dark:bg-accent/30 dark:[&>b]:hidden";'
+  );
+  assert.equal(got.length, 1, '两处 dark: 合成一条，指明文件与数量');
+  assert.equal(got[0].rule, 'dark-variant');
+  assert.match(got[0].msg, /有 2 处/);
 });

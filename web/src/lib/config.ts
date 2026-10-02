@@ -96,7 +96,7 @@ export function generatePlatformConfig(
         ``,
         `// 方法 2：在 config/index.ts 的 defineConstants 中添加：`,
         `defineConstants: {`,
-        `  API_BASE: JSON.stringify('${cfg.apiBase}/api/v1'),`,
+        ` API_BASE: JSON.stringify('${cfg.apiBase}/api/v1'),`,
         `},`,
         ``,
         `// 然后在 src/state/auth.ts 中改为：`,
