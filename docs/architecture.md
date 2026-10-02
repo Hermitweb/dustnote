@@ -64,14 +64,14 @@ shared  ←─ client-core ←─┬─ web ─┐
 
 ## 观测与自证
 
-| 层面         | 手段                                                 | 谁在看着它                                             |
-| ------------ | ---------------------------------------------------- | ------------------------------------------------------ |
-| 服务存活     | `/api/v1/health`（版本 + db 状态）                   | 服务器本机 Prometheus                                  |
-| 指标         | `/metrics`（默认关，可选 Bearer）                    | 本机监控栈                                             |
-| 外部视角     | `scripts/status-probe.mjs` 从 GitHub 网络位置拨测    | `nightly-status.yml` 排期 + 手动触发                   |
-| 状态页       | 由探针生成，不由人手写                               | `docs/status.md` 的生成区标记                          |
-| 告警投递     | Alertmanager → `deploy/monitoring/bridge.mjs` → ntfy | 零送达即 502，让 Alertmanager 重试                     |
-| 报警链路自身 | 拨测失败由**独立 report job** 开 issue               | 见 [ADR-0004](adr/0004-monitor-report-separate-job.md) |
+| 层面         | 手段                                                 | 谁在看着它                                                                                                                         |
+| ------------ | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 服务存活     | `/api/v1/health`（版本 + db 状态）                   | 服务器本机 Prometheus                                                                                                              |
+| 指标         | `/metrics`（默认关，可选 Bearer）                    | 本机监控栈                                                                                                                         |
+| 外部视角     | `scripts/status-probe.mjs` 从 GitHub 网络位置拨测    | `nightly-status.yml` 排期 + 手动触发                                                                                               |
+| 状态页       | 由探针生成，不由人手写                               | `docs/status.md` 的生成区标记                                                                                                      |
+| 告警投递     | Alertmanager → `deploy/monitoring/bridge.mjs` → ntfy | 零送达即 502，让 Alertmanager 重试；**此行描述仓库态。线上是修复前的旧版且 ntfy 目标不存在（2026-10-02 实测），见 roadmap 同名落** |
+| 报警链路自身 | 拨测失败由**独立 report job** 开 issue               | 见 [ADR-0004](adr/0004-monitor-report-separate-job.md)                                                                             |
 
 最后一条是这两天学到的：报警器和分析对象在同一个 job 里时，job 起不来就等于什么都没发生。
 
