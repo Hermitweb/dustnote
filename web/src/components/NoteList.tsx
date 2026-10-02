@@ -261,7 +261,7 @@ export function NoteList() {
                           : 'border-surface-border text-transparent hover:border-accent'
                       }`}
                     >
-                      ✓
+                      <Icon name="check" size={14} />
                     </button>
                   )}
                   <button

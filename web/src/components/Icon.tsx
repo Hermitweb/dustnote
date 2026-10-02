@@ -147,12 +147,16 @@ export type IconName = keyof typeof ICONS;
 
 export interface IconProps extends Omit<ComponentProps<LucideIcon>, 'ref'> {
   name: IconName;
-  /** 五档尺寸，默认 16 */
-  size?: 14 | 16 | 18 | 20 | 24;
+  /**
+   * 尺寸是有限档位，不是任意数：14/16/18/20/24 是界面档（按钮内、行内、标签前），
+   * 28/32/40 是展示档（模式卡、强制更新、错误页那种"图标就是主角"的位置）。
+   * 留成 number 的话，全仓会长出 26/44/48 这类只有当事人知道为什么的尺寸。
+   */
+  size?: 14 | 16 | 18 | 20 | 24 | 28 | 32 | 40;
 }
 
 /** 16px 网格下的统一描边宽度：小尺寸略粗才看得清 */
-const strokeFor = (size: number) => (size <= 16 ? 1.9 : 1.75);
+const strokeFor = (size: number) => (size <= 16 ? 1.9 : size <= 24 ? 1.75 : 1.5);
 
 export function Icon({ name, size = 16, strokeWidth, ...rest }: IconProps) {
   const Cmp = ICONS[name];

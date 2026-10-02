@@ -320,3 +320,78 @@ html[data-effect='glass'] [role='dialog'] .border-surface-border {
     display: flex;
   }
 }
+/* ---------- 图标轨标签浮层（§2.1；组件见 web/src/components/RailLabelTip.tsx） ----------
+ * 只在 1024–1279 的图标档出现（组件内用同一条 @media 判定，两处区间必须一致）。
+ * 挂 body 上：轨道有 backdrop-filter 且可滚动，会把 fixed 后代关进自己造的包含块。
+ */
+.rail-tip {
+  position: fixed;
+  z-index: 100;
+  transform: translateY(-50%);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: var(--mn-radius-sm, 6px);
+  border: 1px solid rgb(var(--mn-glass-line));
+  background: rgb(var(--mn-surface-2) / 0.97);
+  color: rgb(var(--mn-text-primary));
+  font-size: var(--mn-text-xs);
+  line-height: 1.4;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.18);
+  pointer-events: none;
+  animation: mn-rail-tip-in var(--mn-duration-fast) var(--mn-ease);
+}
+
+@keyframes mn-rail-tip-in {
+  from {
+    opacity: 0;
+    transform: translate(-4px, -50%);
+  }
+}
+
+/* ============================ 滚动条与 toast 动效 ============================ */
+
+/*
+ * 滚动条：非桌面端此前完全没有样式——Windows Chrome 下是 17px 系统灰块，
+ * 深色主题里格外扎眼。这里给一档全局细滚动条（Firefox 走 scrollbar-* 标准属性，
+ * WebKit 走伪元素），桌面端仍由 index.css 的 10px 档覆盖（原生感是刻意的）。
+ * 颜色一律吃 --mn-border / --mn-fg-muted，因此跟着主题与明暗模式走。
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--mn-border)) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--mn-border));
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  min-height: 32px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--mn-fg-muted));
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* toast 入场：只做起飞、不做降落——退场直接消失比"往下掉"更符合通知的语义，
+   而退场动画要把节点留在 DOM 里等动画结束，为一层通知不值得引入那套状态。 */
+@keyframes mn-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+.toast-in {
+  animation: mn-toast-in var(--mn-duration-med) var(--mn-ease);
+}

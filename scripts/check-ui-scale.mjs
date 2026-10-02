@@ -175,26 +175,160 @@ export function scanWiring(extras, tokensCss, indexCss) {
   return findings;
 }
 
+/** 界面源码里的 emoji 上限（棘轮：只准降，降了就改小这个数字） */
+export const EMOJI_CEILING = 166;
+
+/*
+ * 变体选择器 \uFE0F 走单独的正则而不是塞进字符类：eslint 的 no-misleading-character-class
+ * 会拦——它是组合符号，放进类里会让人误读成"一个字符"，实际是前一个 emoji 的修饰符。
+ */
+const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/u;
+const EMOJI_VS_RE = /\u{FE0F}/u;
+
+/** 参与 emoji 棘轮的界面源码（测试、i18n 词典、注释都不算） */
+const EMOJI_DIRS = ['web/src', 'mobile/src', 'miniprogram/src'];
+const EMOJI_SKIP = /\.test\.|i18n|locales|node_modules/;
+
+/**
+ * 动效单一事实源：shared/src/motion.ts → tokens.css → 小程序生成文件
+ *
+ * 三端各写一套时长/曲线，是"同一动作看起来不太跟手"却没人能指出差在哪的成因。
+ * 这里不检查风格，只检查**同一个数有没有被抄歪**：
+ *   - motion.ts 是源头（RN 直接 import，CSS 侧读不了 JS，只能落字面量）；
+ *   - tokens.css 的 --mn-duration-* / --mn-ease 必须逐字相等；
+ *   - 小程序的 --duration-* / --ease 由生成器发出，也必须相等；
+ *   - app.scss 里不许再自己定义 --motion-* 或 --ease-*（那是第二套尺子）。
+ */
+export function scanMotionSync(motionTs, tokensCss, mpGenerated, mpAppScss) {
+  const findings = [];
+  const num = (key) => {
+    const m = new RegExp(key + ':\\s*(\\d+)').exec(motionTs);
+    return m ? Number(m[1]) : null;
+  };
+  const ease = /ease:\s*'([^']+)'/.exec(motionTs)?.[1] ?? null;
+  const want = { fast: num('fast'), med: num('med'), slow: num('slow'), ease };
+  for (const [k, v] of Object.entries(want)) {
+    if (v === null) findings.push({ rule: 'motion', msg: `motion.ts 解析失败：${k} 不见了` });
+  }
+  if (findings.length) return findings;
+  const cssExpect = {
+    '--mn-duration-fast:': want.fast + 'ms',
+    '--mn-duration-med:': want.med + 'ms',
+    '--mn-duration-slow:': want.slow + 'ms',
+    '--mn-ease:': want.ease,
+  };
+  for (const [varName, value] of Object.entries(cssExpect)) {
+    const re = new RegExp(varName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '\\s*([^;]+);');
+    const m = re.exec(tokensCss);
+    const got = m ? m[1].trim().replace(/\s+/g, ' ') : null;
+    const norm = (s) =>
+      (s || '')
+        .replace(/cubic-bezier\(\s*/, 'cubic-bezier(')
+        .replace(/\s*,\s*/g, ', ')
+        .replace(/\s*\)/, ')');
+    if (!m) findings.push({ rule: 'motion', msg: `tokens.css 缺少 ${varName}` });
+    else if (norm(got) !== norm(value))
+      findings.push({
+        rule: 'motion',
+        msg: `tokens.css ${varName} = ${got}，motion.ts 要的是 ${value}`,
+      });
+  }
+  const mpExpect = {
+    '--duration-fast:': want.fast + 'ms',
+    '--duration-med:': want.med + 'ms',
+    '--duration-slow:': want.slow + 'ms',
+    '--ease:': want.ease,
+  };
+  for (const [varName, value] of Object.entries(mpExpect)) {
+    if (!mpGenerated.includes(varName + ' ' + value))
+      findings.push({
+        rule: 'motion',
+        msg: `小程序生成文件缺 ${varName} ${value}（跑 node scripts/gen-mp-tokens.mjs）`,
+      });
+  }
+  const secondRuler = /--(motion-[a-z]+|ease-[a-z]+)\s*:/;
+  if (secondRuler.test(mpAppScss))
+    findings.push({
+      rule: 'motion',
+      msg: 'app.scss 又自己定义了时长/曲线变量：那是第二套尺子，删掉、用生成出来的 --duration-* / --ease',
+    });
+  return findings;
+}
+
+/**
+ * 界面源码里的 emoji 棘轮。
+ *
+ * 台账此前写「emoji 归零」，那件事只发生在 i18n 词典里（门禁也只看那里）：
+ * 写在 JSX / RN <Text> / scss 里的 emoji 一个都没被查过。这里把三端界面源码
+ * 纳入计数并**钉一个只降不升的上限**——一次性清零要靠给 RN 造图标组件，
+ * 那是独立工程；但"没人知道还有多少"必须结束。注释里的 emoji 不算（那是历史说明）。
+ */
+export function scanEmoji(sources, ceiling) {
+  const findings = [];
+  let total = 0;
+  const perFile = [];
+  for (const [rel, raw] of sources) {
+    const src = raw
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '')
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+    let c = 0;
+    for (const line of src.split(/\r?\n/)) if (EMOJI_RE.test(line) || EMOJI_VS_RE.test(line)) c++;
+    if (c > 0) {
+      total += c;
+      perFile.push(rel + '=' + c);
+    }
+  }
+  if (total > ceiling) {
+    findings.push({
+      rule: 'emoji',
+      msg:
+        `界面源码里的 emoji 从上限 ${ceiling} 涨到了 ${total}。要降不要涨：` +
+        '新界面请用 <Icon>（web/桌面）或补图标名，别把 emoji 当功能图标。',
+    });
+  }
+  return { findings, total, perFile: perFile.sort() };
+}
 export async function run() {
   const { SEMANTIC_EXTRAS } = await import(
     pathToFileURL(path.join(ROOT, 'shared/tailwind-colors.mjs')).href
   );
-  const tokensCss = fs.readFileSync(path.join(ROOT, 'shared/styles/tokens.css'), 'utf8');
-  const indexCss = fs.readFileSync(path.join(ROOT, 'web/src/index.css'), 'utf8');
-  const findings = [...scanWiring(SEMANTIC_EXTRAS, tokensCss, indexCss)];
+  const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  const tokensCss = read('shared/styles/tokens.css');
+  const indexCss = read('web/src/index.css');
+  const motionTs = read('shared/src/motion.ts');
+  const mpGenerated = read('miniprogram/src/styles/theme-tokens.scss');
+  const mpAppScss = read('miniprogram/src/app.scss');
+  const findings = [
+    ...scanWiring(SEMANTIC_EXTRAS, tokensCss, indexCss),
+    ...scanMotionSync(motionTs, tokensCss, mpGenerated, mpAppScss),
+  ];
   for (const dir of ['web/src', 'desktop/src']) {
     for (const f of walk(path.join(ROOT, dir))) {
       const rel = path.relative(ROOT, f).replace(/\\/g, '/');
       findings.push(...scanClassDiscipline(rel, fs.readFileSync(f, 'utf8')));
     }
   }
-  return findings;
+  const emojiSources = [];
+  for (const dir of EMOJI_DIRS) {
+    for (const f of walk(path.join(ROOT, dir))) {
+      const rel = path.relative(ROOT, f).replace(/\\/g, '/');
+      if (EMOJI_SKIP.test(rel)) continue;
+      if (!/\.(tsx|jsx|scss|css)$/.test(rel)) continue;
+      emojiSources.push([rel, fs.readFileSync(f, 'utf8')]);
+    }
+  }
+  const emoji = scanEmoji(emojiSources, EMOJI_CEILING);
+  findings.push(...emoji.findings);
+  return { findings, emoji };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const findings = await run();
+  const { findings, emoji } = await run();
   if (findings.length === 0) {
-    console.log('OK：UI 尺度纪律与令牌接线都在线（无越界类名、焦点环唯一、密度真的接上了）');
+    console.log(
+      `OK：尺度纪律、令牌接线、动效同源都在线；界面 emoji ${emoji.total} 处（上限 ${EMOJI_CEILING}，只降不升）`
+    );
   } else {
     console.error(`UI 门禁发现 ${findings.length} 处问题：\n`);
     for (const f of findings) {

@@ -5,6 +5,7 @@ import { isTauri, isProduction } from './lib/platform';
 import { initSentry, captureException, Sentry } from './lib/sentry';
 import { installErrorReporter } from './lib/error-reporter';
 import { canRegisterServiceWorker } from './lib/env';
+import { Icon } from './components/Icon';
 import './index.css';
 
 // Sentry 初始化（必须在 React 渲染之前；未配置 DSN 时为 no-op）
@@ -66,7 +67,7 @@ createRoot(root).render(
       fallback={({ error }) => (
         <div className="flex h-full items-center justify-center bg-surface-bg p-6">
           <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
-            <div className="mb-4 text-4xl">💥</div>
+            <Icon name="warning" size={40} className="mx-auto mb-4 text-danger" />
             <h2 className="mb-2 text-lg font-semibold text-surface-fg">应用遇到了问题</h2>
             <p className="mb-4 text-sm text-surface-muted">
               {import.meta.env.PROD

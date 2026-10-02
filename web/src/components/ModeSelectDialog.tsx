@@ -13,6 +13,7 @@ import { useModeStore } from '../lib/mode-store';
 import { ApiClient } from '@dustnote/shared';
 import { getDeviceId } from '../lib/device';
 import { Logo } from './Logo';
+import { Icon } from './Icon';
 
 interface ModeSelectDialogProps {
   /** 关闭回调（设置中切换模式时使用；首次启动时不传） */
@@ -113,7 +114,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
                 : 'border-surface-border hover:border-accent-soft'
             }`}
           >
-            <div className="mb-2 text-2xl">💻</div>
+            <Icon name="device" size={32} className="mx-auto mb-2 text-text-secondary" />
             <h2 className="mb-1 text-lg font-semibold text-surface-fg">
               {t('mode_select.standalone_title')}
             </h2>
@@ -132,7 +133,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
                 : 'border-surface-border hover:border-accent-soft'
             }`}
           >
-            <div className="mb-2 text-2xl">☁️</div>
+            <Icon name="language" size={32} className="mx-auto mb-2 text-text-secondary" />
             <h2 className="mb-1 text-lg font-semibold text-surface-fg">
               {t('mode_select.online_title')}
             </h2>

@@ -24,13 +24,10 @@ page {
   --radius-xl: 32rpx;
   --radius-pill: 999rpx;
 
-  /* 动效令牌：统一时长与曲线。ease-out 系曲线（快起步缓收尾）比默认 ease
-     更跟手；弹层进出场统一走这两个时长，杜绝「生硬直切」 */
-  --motion-fast: 160ms;
-  --motion-base: 240ms;
-  --motion-slow: 340ms;
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+  /* 动效令牌不在这里定义：由 scripts/gen-mp-tokens.mjs 从 shared/src/motion.ts 生成进
+     styles/theme-tokens.scss（--duration-fast/med/slow + --ease）。此前这里自有一套
+     160/240/340ms 与两条曲线，与 web 的 120/180/240 + cubic-bezier(.2,0,0,1) 不一致——
+     同一动作在小程序上就是"不太跟手"，而端间漂移最隐蔽的形态正是曲线不同。 */
 
   background: var(--bg);
   color: var(--fg);
@@ -177,7 +174,7 @@ page {
   color: var(--fg);
   padding: 8rpx 12rpx 8rpx 0;
   min-width: 56rpx;
-  transition: opacity 0.15s;
+  transition: opacity var(--duration-fast);
 }
 .topbar-back:active {
   opacity: 0.5;
@@ -200,7 +197,7 @@ page {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s;
+  transition: background var(--duration-fast);
 }
 .icon-btn:active {
   background: var(--bg-sunken);
@@ -224,10 +221,10 @@ page {
   line-height: 1.4;
   text-align: center;
   transition:
-    background var(--motion-fast) var(--ease-out),
-    transform var(--motion-fast) var(--ease-out),
-    box-shadow var(--motion-fast) var(--ease-out),
-    opacity var(--motion-fast) var(--ease-out);
+    background var(--duration-fast) var(--ease),
+    transform var(--duration-fast) var(--ease),
+    box-shadow var(--duration-fast) var(--ease),
+    opacity var(--duration-fast) var(--ease);
   cursor: default;
   gap: 8rpx;
 }
@@ -287,7 +284,7 @@ page {
   box-shadow: var(--shadow-sm);
   transition:
     box-shadow 0.2s,
-    transform 0.15s;
+    transform var(--duration-fast);
 }
 .card:active {
   background: var(--bg-sunken);
@@ -364,7 +361,7 @@ page {
   min-height: 100vh;
   padding: 64rpx 48rpx;
   text-align: center;
-  animation: page-in var(--motion-slow) var(--ease-out);
+  animation: page-in var(--duration-slow) var(--ease);
 }
 .hero-logo {
   font-size: 96rpx;
@@ -415,9 +412,9 @@ page {
   max-width: 560rpx;
   letter-spacing: 1rpx;
   transition:
-    background var(--motion-fast) var(--ease-out),
-    transform var(--motion-fast) var(--ease-out),
-    box-shadow var(--motion-fast) var(--ease-out);
+    background var(--duration-fast) var(--ease),
+    transform var(--duration-fast) var(--ease),
+    box-shadow var(--duration-fast) var(--ease);
 }
 .hero .btn-block:active {
   background: var(--primary-deep);
@@ -457,9 +454,9 @@ page {
   border: 1rpx solid var(--border);
   box-shadow: var(--shadow-xs);
   transition:
-    transform 0.15s,
-    box-shadow 0.15s,
-    border-color 0.15s;
+    transform var(--duration-fast),
+    box-shadow var(--duration-fast),
+    border-color var(--duration-fast);
 }
 .note-row:active {
   background: var(--bg-sunken);
@@ -531,8 +528,8 @@ page {
   flex-shrink: 0;
   margin-right: 12rpx;
   transition:
-    background 0.15s,
-    border-color 0.15s;
+    background var(--duration-fast),
+    border-color var(--duration-fast);
 }
 .checkbox-checked {
   background: var(--primary-strong);
@@ -566,7 +563,7 @@ page {
   justify-content: space-between;
   z-index: 30;
   box-shadow: 0 -4rpx 12rpx rgba(0, 0, 0, 0.06);
-  animation: sheet-up var(--motion-base) var(--ease-out);
+  animation: sheet-up var(--duration-slow) var(--ease);
 }
 .batch-bar-count {
   font-size: 24rpx;
@@ -633,7 +630,7 @@ page {
   font-size: 24rpx;
   color: var(--fg-secondary);
   text-align: center;
-  transition: color var(--motion-fast) var(--ease-out);
+  transition: color var(--duration-fast) var(--ease);
 }
 .view-tab-action:active {
   color: var(--primary-text);
@@ -844,7 +841,7 @@ page {
   color: var(--primary-strong);
   font-size: 24rpx;
   font-weight: 500;
-  transition: color 0.15s;
+  transition: color var(--duration-fast);
 }
 .hint-mint:active {
   color: var(--primary-deep);
@@ -979,10 +976,10 @@ page {
   font-weight: 500;
   line-height: 1.3;
   transition:
-    background var(--motion-fast) var(--ease-out),
-    color var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) var(--ease-out),
-    box-shadow var(--motion-fast) var(--ease-out);
+    background var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease),
+    border-color var(--duration-fast) var(--ease),
+    box-shadow var(--duration-fast) var(--ease);
 }
 .folder-chip:active {
   background: var(--primary-soft);
@@ -1003,7 +1000,7 @@ page {
   margin: 10rpx 24rpx;
   border: 1rpx solid var(--border);
   box-shadow: var(--shadow-xs);
-  transition: transform 0.15s;
+  transition: transform var(--duration-fast);
 }
 .share-row:active {
   background: var(--bg-sunken);
@@ -1309,7 +1306,7 @@ page {
   align-items: center;
   justify-content: center;
   padding: 48rpx;
-  animation: overlay-in var(--motion-base) var(--ease-out);
+  animation: overlay-in var(--duration-slow) var(--ease);
 }
 .modal-card {
   width: 100%;
@@ -1318,7 +1315,7 @@ page {
   border-radius: var(--radius-lg);
   padding: 36rpx 32rpx;
   box-shadow: var(--shadow-lg);
-  animation: modal-pop var(--motion-base) var(--ease-out);
+  animation: modal-pop var(--duration-slow) var(--ease);
 }
 .modal-title {
   display: block;
@@ -1390,8 +1387,8 @@ page {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  animation: overlay-in var(--motion-base) var(--ease-out);
-  transition: opacity var(--motion-base) var(--ease-out);
+  animation: overlay-in var(--duration-slow) var(--ease);
+  transition: opacity var(--duration-slow) var(--ease);
 }
 .menu-overlay-closing {
   opacity: 0;
@@ -1402,8 +1399,8 @@ page {
   border-radius: 24rpx 24rpx 0 0;
   padding: 16rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
   box-shadow: var(--shadow-lg);
-  animation: sheet-up var(--motion-slow) var(--ease-out);
-  transition: transform var(--motion-base) var(--ease-out);
+  animation: sheet-up var(--duration-slow) var(--ease);
+  transition: transform var(--duration-slow) var(--ease);
 }
 .menu-sheet-closing {
   transform: translateY(100%);
@@ -1416,7 +1413,7 @@ page {
   color: var(--fg);
   border-bottom: 1rpx solid var(--border);
   border-radius: var(--radius-sm);
-  transition: background var(--motion-fast) var(--ease-out);
+  transition: background var(--duration-fast) var(--ease);
 }
 .menu-item:active {
   background: var(--bg-sunken);

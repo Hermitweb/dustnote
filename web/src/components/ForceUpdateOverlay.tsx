@@ -4,6 +4,7 @@
 
 import type { CheckUpdateResult } from '@dustnote/shared';
 import { useTranslation } from 'react-i18next';
+import { Icon } from './Icon';
 
 export function ForceUpdateOverlay({ result }: { result: CheckUpdateResult }) {
   const { t } = useTranslation();
@@ -23,7 +24,7 @@ export function ForceUpdateOverlay({ result }: { result: CheckUpdateResult }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-0/95 px-6">
       <div className="max-w-md rounded-xl bg-surface-card p-8 text-center shadow-2xl">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-accent-soft/60 text-3xl dark:bg-accent/30">
-          🔄
+          <Icon name="refresh" size={32} className="text-accent-text" />
         </div>
         <h1 className="mb-2 text-xl font-bold text-text-primary dark:text-text-primary">
           {t('settings.force_update_title')}

@@ -7,7 +7,13 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { scanClassDiscipline, scanWiring, OUTLINE_NONE_ALLOWLIST } from './check-ui-scale.mjs';
+import {
+  scanClassDiscipline,
+  scanWiring,
+  scanMotionSync,
+  scanEmoji,
+  OUTLINE_NONE_ALLOWLIST,
+} from './check-ui-scale.mjs';
 
 const ids = (list) => list.map((f) => f.rule).sort();
 
@@ -132,4 +138,76 @@ test('降低动效不许出现第二段', () => {
     scanWiring(goodExtras(), goodTokens, '@media (prefers-reduced-motion: reduce) { a{} }'),
     []
   );
+});
+
+/* ── 动效同源 ─────────────────────────────────────────────────────── */
+const MOTION_TS = [
+  'export const MOTION = {',
+  '  fast: 120,',
+  '  med: 180,',
+  '  slow: 240,',
+  "  ease: 'cubic-bezier(0.2, 0, 0, 1)',",
+  '} as const;',
+].join('\n');
+const TOKENS_OK = [
+  '  --mn-duration-fast: 120ms;',
+  '  --mn-duration-med: 180ms;',
+  '  --mn-duration-slow: 240ms;',
+  '  --mn-ease: cubic-bezier(0.2, 0, 0, 1);',
+].join('\n');
+const MP_GEN_OK =
+  '--duration-fast: 120ms;\n--duration-med: 180ms;\n--duration-slow: 240ms;\n--ease: cubic-bezier(0.2, 0, 0, 1);';
+
+test('动效同源：三处一致时不报', () => {
+  assert.deepEqual(scanMotionSync(MOTION_TS, TOKENS_OK, MP_GEN_OK, '.a { color: red; }'), []);
+});
+
+test('动效同源：CSS 抄歪一个数就要报', () => {
+  const drifted = TOKENS_OK.replace('180ms', '150ms');
+  const got = scanMotionSync(MOTION_TS, drifted, MP_GEN_OK, '');
+  assert.equal(got.length, 1, JSON.stringify(got));
+  assert.match(got[0].msg, /--mn-duration-med/);
+});
+
+test('动效同源：小程序生成文件缺档要报（否则 weapp 悄悄用回默认值）', () => {
+  const got = scanMotionSync(MOTION_TS, TOKENS_OK, '--duration-fast: 120ms;', '');
+  assert.ok(got.length >= 3, '应报缺 med/slow/ease，实际 ' + got.length);
+});
+
+test('动效同源：app.scss 再自己定义一套尺子要报', () => {
+  const got = scanMotionSync(MOTION_TS, TOKENS_OK, MP_GEN_OK, '.x { --motion-fast: 160ms; }');
+  assert.ok(
+    got.some((f) => /第二套尺子/.test(f.msg)),
+    JSON.stringify(got)
+  );
+});
+
+test('动效同源：源头解析不出来时必须报，而不是静默通过', () => {
+  const got = scanMotionSync('export const MOTION = {};', TOKENS_OK, MP_GEN_OK, '');
+  assert.ok(got.length >= 1, 'motion.ts 结构变了要立刻知道');
+});
+
+/* ── emoji 棘轮 ───────────────────────────────────────────────────── */
+test('emoji 棘轮：只数界面里的，注释与说明不算', () => {
+  const sources = [
+    [
+      'web/src/A.tsx',
+      'const a = <span>⚠️ 警告</span>;\n// 历史：这里曾经是 ⚠️\n/* 注释里 ⚠️ 不算 */\n',
+    ],
+    ['web/src/B.tsx', '/** 文档 ⚠️ */\nconst b = 1;\n'],
+    ['web/src/C.tsx', 'const c = "干净";\n'],
+  ];
+  const r = scanEmoji(sources, 10);
+  assert.equal(r.total, 1, '只有 A 的那一行该被数到：' + JSON.stringify(r.perFile));
+  assert.deepEqual(r.findings, []);
+});
+
+test('emoji 棘轮：超过上限就报，且把数字打出来（不允许悄悄放宽口径）', () => {
+  const sources = [['web/src/A.tsx', '<span>⚠️</span>\n<span>💔</span>\n']];
+  const at = scanEmoji(sources, 2);
+  assert.equal(at.total, 2);
+  assert.deepEqual(at.findings, []);
+  const over = scanEmoji(sources, 1);
+  assert.equal(over.findings.length, 1);
+  assert.match(over.findings[0].msg, /从上限 1 涨到了 2/);
 });
