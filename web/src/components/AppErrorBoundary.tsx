@@ -9,7 +9,7 @@
  */
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { IconText } from './Icon';
+import { Icon, IconText } from './Icon';
 import { logger } from '../lib/diagnostics';
 import i18n from '../lib/i18n';
 
@@ -74,7 +74,7 @@ export class AppErrorBoundary extends Component<Props, State> {
     return (
       <div className="flex h-full items-center justify-center bg-surface-bg p-6">
         <div className="w-full max-w-lg rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
-          <div className="mb-4 text-center text-5xl">💔</div>
+          <Icon name="warning" size={40} className="mx-auto mb-4 text-danger" />
           <h1 className="mb-2 text-center text-xl font-bold text-surface-fg">
             {i18n.t('error_boundary.title')}
           </h1>

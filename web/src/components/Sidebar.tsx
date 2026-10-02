@@ -6,6 +6,7 @@ import { TemplatePicker } from './TemplatePicker';
 import { toast } from '../lib/toast';
 import { Logo } from './Logo';
 import { Icon, IconText, labelIcon } from './Icon';
+import { RailLabelTip } from './RailLabelTip';
 import { ConfirmDialog } from './ConfirmDialog';
 import JSZip from 'jszip';
 import { exportAsMarkdown, downloadBlob, parseNoteFile, detectFormat } from '../lib/io-client';
@@ -316,6 +317,9 @@ export function Sidebar() {
   const trashCount = Array.from(notes.values()).filter((n) => n.deletedAt).length;
   const isTrash = viewMode === 'trash';
 
+  // 图标轨标签浮层的宿主（1024–1279 才有标签被藏起来）
+  const railRef = useRef<HTMLElement | null>(null);
+
   return (
     <>
       {/* 移动端遮罩：sidebar 显示时点击空白处关闭 */}
@@ -325,6 +329,7 @@ export function Sidebar() {
         aria-hidden="true"
       />
       <aside
+        ref={railRef}
         role="navigation"
         aria-label={t('sidebar.title')}
         data-rail=""
@@ -349,7 +354,9 @@ export function Sidebar() {
                     : `${pendingCount} ${t('sidebar.pending_sync')}`
                 }
               >
-                {!isOnline && <span aria-hidden>⚠</span>}
+                {!isOnline && (
+                  <Icon name="warning" size={14} className="flex-shrink-0 text-warning" />
+                )}
                 <span>
                   {!isOnline
                     ? `${t('sidebar.offline')}${pendingCount > 0 ? ` · ${pendingCount}` : ''}`
@@ -369,7 +376,8 @@ export function Sidebar() {
                 void createNote(target).catch((err: unknown) => toast.error(errorText(err)));
               }}
               className="rail-center flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-strong px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover"
-              title={t('app_bar.new_note')}
+              aria-label={t('app_bar.new_note')}
+              data-rail-label={t('app_bar.new_note')}
             >
               <Icon name="add" size={16} className="rail-mini-only" />
               <span className="rail-label">{t('app_bar.new_note')}</span>
@@ -377,8 +385,8 @@ export function Sidebar() {
             <button
               onClick={() => setShowTemplatePicker(true)}
               className="rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-surface-fg transition-colors hover:bg-surface-3"
-              title={t('templates.open')}
               aria-label={t('templates.open')}
+              data-rail-label={t('templates.open')}
             >
               <Icon name="template" size={16} />
             </button>
@@ -392,7 +400,7 @@ export function Sidebar() {
             <button
               onClick={() => useStore.getState().focusSearch()}
               aria-label={t('app_bar.search')}
-              title={t('app_bar.search')}
+              data-rail-label={t('app_bar.search')}
               className="rail-mini-only w-full items-center justify-center rounded-lg border border-surface-border bg-surface-bg py-1.5 text-text-tertiary hover:bg-surface-3"
               type="button"
             >
@@ -416,8 +424,8 @@ export function Sidebar() {
                 <button
                   onClick={() => setSearchQuery('')}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-text-tertiary hover:bg-surface-3 hover:text-text-primary"
-                  title={t('common.cancel')}
                   aria-label={t('common.cancel')}
+                  data-rail-label={t('common.cancel')}
                   type="button"
                 >
                   <Icon name="close" size={14} />
@@ -442,8 +450,8 @@ export function Sidebar() {
                     setShowNewFolder(true);
                   }}
                   className="rounded p-0.5 text-text-tertiary opacity-0 transition-opacity hover:text-accent-text focus-visible:opacity-100 group-hover/folders:opacity-100"
-                  title={t('sidebar.add_folder')}
                   aria-label={t('sidebar.add_folder')}
+                  data-rail-label={t('sidebar.add_folder')}
                 >
                   <Icon name="add" size={14} />
                 </button>
@@ -518,6 +526,8 @@ export function Sidebar() {
                             depth: f.depth ?? 1,
                           })
                         }
+                        aria-label={f.name}
+                        data-rail-label={f.name}
                         className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 text-left text-sm ${
                           isActive
                             ? 'font-semibold text-accent-text dark:text-accent-text'
@@ -546,8 +556,8 @@ export function Sidebar() {
                             setNewSubParent(f.id);
                           }}
                           className="flex-none rounded p-0.5 text-text-tertiary opacity-0 transition-opacity hover:text-accent-text focus-visible:opacity-100 group-hover/row:opacity-100"
-                          title={t('sidebar.add_subfolder')}
                           aria-label={t('sidebar.add_subfolder')}
+                          data-rail-label={t('sidebar.add_subfolder')}
                         >
                           <Icon name="add" size={14} />
                         </button>
@@ -617,6 +627,8 @@ export function Sidebar() {
                                       depth: c.depth ?? 2,
                                     })
                                   }
+                                  aria-label={c.name}
+                                  data-rail-label={c.name}
                                   className={`flex min-w-0 flex-1 items-center gap-1.5 rounded pr-2 text-left text-sm ${
                                     viewMode === 'all' && selectedFolderId === c.id
                                       ? 'bg-accent-soft/40 font-semibold text-accent-text dark:bg-accent/30 dark:text-accent-text'
@@ -667,7 +679,8 @@ export function Sidebar() {
                     <button
                       onClick={() => selectFolder(UNFILED_ID)}
                       className="flex h-7 flex-1 items-center gap-1.5 overflow-hidden px-2 text-left text-sm text-text-primary"
-                      title={t('editor.unfiled')}
+                      aria-label={t('editor.unfiled')}
+                      data-rail-label={t('editor.unfiled')}
                     >
                       <span className="rail-label truncate">
                         <IconText k="editor.unfiled" label={t('editor.unfiled')} />
@@ -692,7 +705,8 @@ export function Sidebar() {
                 <button
                   onClick={() => setSelectedTag(selectedTag ? null : tagList[0]!.tag)}
                   className="text-text-tertiary opacity-0 transition-opacity hover:text-accent-text focus-visible:opacity-100 group-hover/tags:opacity-100"
-                  title={selectedTag ? t('sidebar.tags_clear') : t('sidebar.tags_filter')}
+                  aria-label={selectedTag ? t('sidebar.tags_clear') : t('sidebar.tags_filter')}
+                  data-rail-label={selectedTag ? t('sidebar.tags_clear') : t('sidebar.tags_filter')}
                   aria-pressed={!!selectedTag}
                 >
                   <Icon name={selectedTag ? 'close' : 'tag'} size={14} />
@@ -706,7 +720,8 @@ export function Sidebar() {
                       key={tg.tag}
                       onClick={() => setSelectedTag(on ? null : tg.tag)}
                       aria-pressed={on}
-                      title={tg.tag}
+                      aria-label={tg.tag}
+                      data-rail-label={tg.tag}
                       className={`flex h-6 max-w-full items-center gap-1 truncate rounded-full border px-2 text-xs transition-colors ${
                         on
                           ? 'border-accent bg-accent-soft/60 font-semibold text-accent-text dark:bg-accent/30'
@@ -736,7 +751,7 @@ export function Sidebar() {
               <button
                 onClick={() => setTagSheetOpen(true)}
                 aria-label={t('sidebar.tags')}
-                title={t('sidebar.tags')}
+                data-rail-label={t('sidebar.tags')}
                 className={`rounded-md p-2 transition-colors ${
                   selectedTag
                     ? 'bg-accent-soft/60 text-accent-text dark:bg-accent/30'
@@ -828,7 +843,8 @@ export function Sidebar() {
                   key={d.k}
                   onClick={() => setViewMode(d.mode)}
                   aria-pressed={on}
-                  title={t(d.k)}
+                  aria-label={t(d.k)}
+                  data-rail-label={t(d.k)}
                   className={`rail-center flex min-w-0 items-center gap-1 truncate rounded-md px-1.5 py-1.5 text-2xs leading-none transition-colors ${
                     on
                       ? 'bg-accent-soft/40 font-semibold text-accent-text dark:bg-accent/30 dark:text-accent-text'
@@ -891,6 +907,7 @@ export function Sidebar() {
           />
         )}
       </aside>
+      <RailLabelTip root={railRef} />
 
       {/* 右键菜单 */}
       {ctxMenu && (

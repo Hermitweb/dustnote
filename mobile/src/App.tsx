@@ -352,15 +352,20 @@ function AppInner() {
               }}
               accessibilityRole="button"
               accessibilityLabel={t('common.retry')}
-              style={{
-                marginTop: 24,
-                paddingHorizontal: 32,
-                paddingVertical: 12,
-                borderRadius: 10,
-                backgroundColor: colors.accent,
-              }}
+              // 按下去必须有反馈：此前这个按钮是静态样式，点下去界面毫无变化
+              // （web 侧同一类问题在 §3.4 里被记为「hover 196 处 / active 4 处」）
+              style={({ pressed }) => [
+                {
+                  marginTop: 24,
+                  paddingHorizontal: 32,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  backgroundColor: colors.accent,
+                },
+                pressed ? { opacity: 0.88, transform: [{ translateY: 1 }] } : null,
+              ]}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '600' }}>
+              <Text style={{ color: colors.onAccent, fontSize: 15, fontWeight: '600' }}>
                 {t('common.retry')}
               </Text>
             </Pressable>

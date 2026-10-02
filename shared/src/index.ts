@@ -18,6 +18,8 @@ export * from './templates.js';
 export * from './net-utils.js';
 // 服务端错误码 → i18n key 映射（客户端统一取词,不再硬匹配中文文案）
 export * from './error-codes.js';
+// 动效令牌（§3.3）：四端共用的唯一一份时长与曲线，CSS 侧由 ui:check 断言与此一致
+export * from './motion.js';
 // 主题 token 生成器与种子表（UI 阶段 1.2 / 1.3，四端共用单一真相源）
 export * from './theme-engine.js';
 export * from './theme-seeds.js';

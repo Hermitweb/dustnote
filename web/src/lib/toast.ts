@@ -20,6 +20,13 @@ export interface ToastItem {
   message: string;
 }
 
+/**
+ * 同屏上限。没有上限时，一次批量失败（导出 30 条笔记全挂、同步逐条报错）会一路
+ * 往下堆到屏幕外——用户既看不到最早那条，也看不到"到底错了多少"。
+ * 溢出时丢最旧的：新信息价值更高，而错误计数在诊断面板里仍然可查。
+ */
+export const TOAST_MAX = 4;
+
 interface ToastStore {
   toasts: ToastItem[];
   show: (kind: ToastKind, message: string, duration?: number) => void;
@@ -28,12 +35,18 @@ interface ToastStore {
 
 let nextId = 0;
 
+/** 纯函数：把一批新 toast 压进已有队列并裁到上限（单独导出以便单测） */
+export function pushCapped(list: ToastItem[], item: ToastItem, max = TOAST_MAX): ToastItem[] {
+  const next = [...list, item];
+  return next.length > max ? next.slice(next.length - max) : next;
+}
+
 export const useToast = create<ToastStore>((set) => ({
   toasts: [],
   show: (kind, message, duration) => {
     const id = ++nextId;
     const ttl = duration ?? (kind === 'error' ? 5000 : 3000);
-    set((s) => ({ toasts: [...s.toasts, { id, kind, message }] }));
+    set((s) => ({ toasts: pushCapped(s.toasts, { id, kind, message }) }));
     setTimeout(() => {
       set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
     }, ttl);

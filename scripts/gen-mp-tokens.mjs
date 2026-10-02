@@ -15,7 +15,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { THEME_SEEDS, deriveTokens, toHex } from '../shared/dist/index.js';
+import { THEME_SEEDS, deriveTokens, toHex, MOTION_CSS_VARS } from '../shared/dist/index.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'miniprogram/src/styles/theme-tokens.scss');
@@ -65,6 +65,16 @@ const VAR_MAP = {
   '--warning-soft': 'warning-soft',
 };
 
+/**
+ * 动效令牌：与 shared/src/motion.ts 同源。app.scss 此前自己定义了一套
+ * --motion-fast/--ease-out（曲线还与 web 不同），三端同一动作的"跟手感"因此不一致，
+ * 而且没人能指出差在哪——曲线与时长现在都从这里发。
+ */
+const motionBlock = () =>
+  Object.entries(MOTION_CSS_VARS)
+    .map(([k, v]) => `  ${k.replace('--mn-', '--')}: ${v};`)
+    .join('\n');
+
 function block(mode) {
   const d = deriveTokens(THEME_SEEDS[THEME_ID][mode], mode);
   const lines = Object.entries(VAR_MAP).map(([name, key]) => `  ${name}: ${toHex(d[key])};`);
@@ -73,11 +83,13 @@ function block(mode) {
 
 const out = `/* 生成文件，请勿手改 —— 由 scripts/gen-mp-tokens.mjs 从 @dustnote/shared 的主题种子派生。
  * 想改颜色改 shared/src/theme-seeds.ts；想改变量名改 scripts/gen-mp-tokens.mjs 的 VAR_MAP。
- * 主题：${THEME_ID}（小程序固定一套，不做 7 主题切换：weapp 包体与审核成本不值） */
+ * 主题：${THEME_ID}（小程序固定一套，不做 7 主题切换：weapp 包体与审核成本不值）
+ * 动效令牌同样来自 shared/src/motion.ts —— 想改时长改那里，别改本文件。 */
 
-/* 浅色默认值（page 元素选择器，优先级最低） */
+/* 浅色默认值（page 元素选择器，优先级最低）+ 动效令牌（与 shared/src/motion.ts 同源） */
 page {
 ${block('light')}
+${motionBlock()}
 }
 
 /* 系统深色：仅在没有手动主题类时生效 */

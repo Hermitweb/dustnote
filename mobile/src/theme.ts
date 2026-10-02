@@ -56,6 +56,8 @@ export interface ThemePalette {
   accentStrong: string;
   /** 强调色当文字用：已保证在各层底色上 ≥ 4.5:1 */
   accentText: string;
+  /** 压在 accent / accentStrong 上的文字色：由引擎按对比度算，不是硬写的 #FFFFFF */
+  onAccent: string;
 }
 
 /**
@@ -91,6 +93,7 @@ export function paletteFor(
     accentSoft: p.accentSoft,
     accentStrong: p.accentStrong,
     accentText: p.accentText,
+    onAccent: p.onAccent,
   };
   // 叠 RN 专属 alpha：把引擎给的 #RRGGBB 变成 #RRGGBBAA
   // 实色档：不叠 RN alpha，card/border 回到引擎给的不透明值

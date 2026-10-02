@@ -1,8 +1,9 @@
 /* 生成文件，请勿手改 —— 由 scripts/gen-mp-tokens.mjs 从 @dustnote/shared 的主题种子派生。
  * 想改颜色改 shared/src/theme-seeds.ts；想改变量名改 scripts/gen-mp-tokens.mjs 的 VAR_MAP。
- * 主题：liquid-glass（小程序固定一套，不做 7 主题切换：weapp 包体与审核成本不值） */
+ * 主题：liquid-glass（小程序固定一套，不做 7 主题切换：weapp 包体与审核成本不值）
+ * 动效令牌同样来自 shared/src/motion.ts —— 想改时长改那里，别改本文件。 */
 
-/* 浅色默认值（page 元素选择器，优先级最低） */
+/* 浅色默认值（page 元素选择器，优先级最低）+ 动效令牌（与 shared/src/motion.ts 同源） */
 page {
   --bg: #e4ebf8;
   --fg: #0f172a;
@@ -27,6 +28,10 @@ page {
   --danger-soft: #f4e4e4;
   --success-soft: #e3ede7;
   --warning-soft: #f2e9e2;
+  --duration-fast: 120ms;
+  --duration-med: 180ms;
+  --duration-slow: 240ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* 系统深色：仅在没有手动主题类时生效 */
