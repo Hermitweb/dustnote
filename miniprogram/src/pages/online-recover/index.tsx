@@ -13,6 +13,7 @@ import { FInput } from '../../components/FInput';
 import { useAuthStore } from '../../state/auth';
 import { t } from '../../lib/i18n';
 import { errorText } from '../../lib/error-text';
+import { Icon } from '../../components/Icon';
 
 /** 恢复码格式（与 standalone-recover 一致：XXXXX-XXXXX） */
 function isValidRecoveryCode(code: string): boolean {
@@ -59,7 +60,7 @@ export default function OnlineRecover() {
       <ThemeVars />
       <View className={`setup-container ${darkClass}`}>
         <Text className="hero-logo" style={{ textAlign: 'center' }}>
-          🔄
+          <Icon name="refresh" size={40} />
         </Text>
         <Text className="hero-title text-center">{t('recover.online_title')}</Text>
         <Text className="hero-subtitle mb-l text-center">{t('recover.online_subtitle')}</Text>

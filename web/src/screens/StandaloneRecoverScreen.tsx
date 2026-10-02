@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { isValidRecoveryCode } from '@dustnote/shared';
 import { useStore } from '../lib/store';
 import { errorText } from '../lib/error-text';
+import { Icon } from '../components/Icon';
 
 interface Props {
   onBack: () => void;
@@ -56,8 +57,8 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
     <div className="flex h-full items-center justify-center bg-surface-bg p-6">
       <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60 text-3xl dark:bg-accent/30">
-            🔑
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60 text-3xl">
+            <Icon name="key" size={40} className="mx-auto mb-4 text-accent-text" />
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('auth.recover_title')}</h1>
           <p className="mt-2 text-sm text-surface-muted">{t('auth.recover_standalone_subtitle')}</p>
@@ -116,9 +117,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
           </div>
 
           {error && (
-            <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger dark:bg-danger-soft dark:text-danger">
-              {error}
-            </div>
+            <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger">{error}</div>
           )}
 
           <button

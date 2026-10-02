@@ -5,7 +5,7 @@
  * `#` 之后的内容浏览器不会发给服务端，所以服务端始终看不到明文。
  *
  * 流程：从 location.hash 取 shareKey → 用 token 拉密文（有密码则先过密码）
- *      → 本地解密 → 净化后渲染 Markdown
+ * → 本地解密 → 净化后渲染 Markdown
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -155,7 +155,7 @@ export function PublicShareView({ token }: { token: string }) {
     return (
       <div className="flex h-screen items-center justify-center overflow-y-auto bg-surface-bg p-4">
         <div className="w-full max-w-md rounded-xl bg-surface-card p-8 shadow-xl">
-          <div className="mb-2 text-center text-3xl">🔐</div>
+          <Icon name="shield-check" size={32} className="mx-auto mb-2 text-accent-text" />
           <h1 className="mb-4 text-center text-lg font-bold text-text-primary">
             {t('public_share.password_title')}
           </h1>
@@ -190,7 +190,7 @@ export function PublicShareView({ token }: { token: string }) {
     return (
       <div className="flex h-screen items-center justify-center overflow-y-auto bg-surface-bg p-4">
         <div className="w-full max-w-md rounded-xl bg-surface-card p-8 text-center shadow-xl">
-          <div className="mb-2 text-3xl">⚠️</div>
+          <Icon name="warning" size={32} className="mx-auto mb-2 text-warning" />
           <p className="text-text-secondary">{state.message}</p>
           <a href="/" className="mt-4 inline-block text-sm text-accent-text hover:underline">
             <Icon name="arrow-left" size={14} className="mr-1 inline align-[-2px]" />
@@ -222,7 +222,7 @@ export function PublicShareView({ token }: { token: string }) {
         <article className="rounded-xl bg-surface-card p-8 shadow-sm">
           <h1 className="mb-6 text-2xl font-bold text-text-primary">{state.title}</h1>
           <div
-            className="prose prose-sm max-w-none text-text-secondary dark:prose-invert "
+            className="prose prose-sm max-w-none text-text-secondary"
             dangerouslySetInnerHTML={{
               // 访客侧渲染的是别人写的内容，必须净化后再注入。
               // P0-3 止血④：正文里的 dustnote-img:// 引用图片本体在作者的

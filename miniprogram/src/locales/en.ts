@@ -27,6 +27,9 @@ const en: typeof zhCN = {
     unknown: 'Unknown error',
   },
   common: {
+    save_failed: 'Save failed',
+    hint: 'Notice',
+    error: 'Action failed',
     cancel: 'Cancel',
     confirm: 'OK',
     ok: 'Got it',
@@ -115,6 +118,7 @@ const en: typeof zhCN = {
     share: 'Share',
   },
   editor: {
+    share_online_only: 'Online sharing needs server mode. Switch to it in Settings first.',
     edit_tags: 'Edit tags',
     pin: 'Pin',
     unpin: 'Unpin',
@@ -184,6 +188,7 @@ const en: typeof zhCN = {
     unnamed_note: 'Untitled note',
   },
   settings: {
+    import_confirm_title: 'Confirm import',
     check_update: 'Check for updates',
     update_unavailable: 'In-app update not available here',
     update_checking: 'Checking for updates…',
@@ -196,6 +201,9 @@ const en: typeof zhCN = {
     material: 'Surface material',
     material_glass: 'Glass',
     material_flat: 'Solid',
+    reduced_motion: 'Reduce motion',
+    reduced_motion_hint:
+      'Turns off transitions and fade-ins. WeChat does not follow the system accessibility setting, so enable it here.',
     material_switched: 'Surface material switched',
     theme_dark: 'Dark',
     theme_auto: 'Follow system',
@@ -345,7 +353,7 @@ const en: typeof zhCN = {
     standalone_desc:
       'No server needed — data stays on this device and the master password is verified locally.',
     standalone_suit: 'Best for: private notes / offline use / full data ownership',
-    webcrypto_warn: "⚠️ WebCrypto isn't supported in this runtime — this mode is unavailable",
+    webcrypto_warn: "WebCrypto isn't supported in this runtime — this mode is unavailable",
     online: 'Online',
     online_desc: 'Connect to a server for multi-device sync and every feature.',
     testing: 'Testing…',
@@ -396,7 +404,7 @@ const en: typeof zhCN = {
       'Your recovery code: {{code}}\n\nWrite it down on paper — this is the only way to recover your notes if you forget the master password.',
     saved_btn: "I've saved it",
     failed: 'Setup failed',
-    warn: "⚠️ The master password can't be recovered — keep your recovery code safe",
+    warn: "The master password can't be recovered — keep your recovery code safe",
     data_warn:
       'Standalone data is stored on this device. Uninstalling the mini program or clearing the cache will erase it.',
   },
@@ -472,8 +480,8 @@ const en: typeof zhCN = {
     status_revoked: 'Revoked',
     status_expired: 'Expired',
     status_label: 'Status: {{status}}',
-    views: '· 👁️ {{count}} views',
-    encrypted: '· 🔐 Encrypted',
+    views: '· {{count}} views',
+    encrypted: '· Encrypted',
     public: '· Public',
     batch_revoke: 'Revoke selected',
     copy_link: 'Copy link',

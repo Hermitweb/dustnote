@@ -47,7 +47,7 @@ export function AboutDialog({ onClose }: Props) {
   return (
     <Modal title={t('app.name')} onClose={onClose} size="sm" z={60}>
       <div className="mb-4 text-center">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60 dark:bg-accent/30">
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60">
           <Logo className="h-10 w-10" alt="DustNote" />
         </div>
         <p className="mt-1 text-xs text-surface-muted">{t('app.tagline')}</p>

@@ -5,6 +5,7 @@
 
 /* 颜色令牌由 shared 主题种子派生，勿在此手改：见 scripts/gen-mp-tokens.mjs */
 @import './styles/theme-tokens.scss';
+@import './styles/mp-icons.scss';
 
 /* ========== 设计令牌（CSS 变量） ========== */
 page {
@@ -422,21 +423,96 @@ page {
   box-shadow: 0 2rpx 8rpx rgba(37, 99, 235, 0.25);
 }
 
-/* ========== 空状态 / 加载 ========== */
-.empty-state {
-  padding: 160rpx 32rpx;
+/* ========== 状态版面（空 / 加载 / 错误）==========
+ * 规格来源 web/src/components/StatePlate.tsx，两端同一节奏，数值按 750 设计稿 ×2 落 rpx。
+ * 两档只差体量，间距不变——从空态切到错误屏不该看见版面重排。
+ */
+.state-plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 160rpx 48rpx;
   text-align: center;
 }
-.empty-state-icon {
-  font-size: 96rpx;
-  opacity: 0.35;
-  display: block;
-  margin-bottom: 16rpx;
+.state-plate--card {
+  padding: 96rpx 48rpx;
 }
-.empty-state-text {
-  font-size: 26rpx;
+/* 图版块：与 web 的 glass-2 小卡同一形态（卡片底 + 描边），不再是裸图标 */
+.state-plate-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88rpx;
+  height: 88rpx;
+  margin-bottom: 24rpx;
+  border: 1rpx solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
   color: var(--fg-muted);
-  display: block;
+}
+.state-plate--card .state-plate-tile {
+  width: 112rpx;
+  height: 112rpx;
+}
+.state-plate-tile--guide {
+  color: var(--primary-text);
+}
+.state-plate-tile--danger {
+  color: var(--danger);
+}
+.state-plate-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--fg);
+}
+.state-plate--card .state-plate-title {
+  font-size: 36rpx;
+}
+.state-plate-hint {
+  margin-top: 12rpx;
+  max-width: 640rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--fg-secondary);
+}
+/* 详情槽：只有错误屏用（原始错误码 / 服务端响应），左对齐才读得完 */
+.state-plate-detail {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 640rpx;
+  margin-top: 24rpx;
+  padding: 16rpx 24rpx;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-size: 22rpx;
+  line-height: 1.6;
+  text-align: left;
+  word-break: break-all;
+  color: var(--fg-secondary);
+}
+.state-plate-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+/* 加载占位与图版块同尺寸：转起来时不许跳版 */
+.state-plate-spinner {
+  width: 40rpx;
+  height: 40rpx;
+  border: 4rpx solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: state-plate-spin var(--duration-slow) linear infinite;
+}
+@keyframes state-plate-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* 降低动效时转圈停住：位置仍在，只是不再动（布局不变） */
+.motion-flat .state-plate-spinner {
+  animation: none;
 }
 .loading {
   padding: 48rpx;
@@ -780,14 +856,6 @@ page {
 .tag-delete {
   padding: 4rpx 8rpx;
   font-size: 28rpx;
-}
-.empty-state-hint {
-  font-size: 22rpx;
-  color: var(--fg-muted);
-  display: block;
-  margin-top: 8rpx;
-  line-height: 1.6;
-  padding: 0 48rpx;
 }
 .btn-disabled {
   opacity: 0.45;
@@ -1570,6 +1638,19 @@ page {
 /* ========== 实色材质档（§2.2，与 web 的 data-effect=flat 同语义） ==========
  * 小程序没有 backdrop-filter，"玻璃"是半透明叠色的近似：卡片透出色底与极光层。
  * 关掉之后必须回到完全不透明的 surface-1，否则文字底下仍有极光在动。 */
+/*
+ * 降低动效（A11Y-R05）。weapp 不吃 @media (prefers-reduced-motion)——媒体查询按容器
+ * 能力判定、不跟随系统无障碍设置，所以对动效敏感的用户在小程序里没有退路。
+ * 这里只让动效归零：不改布局、不改颜色，开关切上切下元素位置必须完全一致。
+ */
+.motion-flat,
+.motion-flat *,
+.motion-flat *::before,
+.motion-flat *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
 .material-flat .glass-aurora {
   display: none;
 }

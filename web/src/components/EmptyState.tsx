@@ -2,18 +2,29 @@
  * 空状态四态（阶段 2.4 · 修 U-7「空状态与响应式脱节」）
  *
  * 改造前所有空态共用一句「还没有笔记」，四种完全不同的处境给同一个答案：
- *   first-use   第一次用 —— 要的是引导（新建 / 导入）
- *   no-results  搜了没有 —— 要的是下一步（换关键词 / 看看标签 / 清掉筛选）
- *   empty-scope 这个范围是空的 —— 要的是往这里放东西的动作
- *   plain       回收站 / 收藏为空 —— 只要说明，不该把动作按钮糊在脸上
+ * first-use 第一次用 —— 要的是引导（新建 / 导入）
+ * no-results 搜了没有 —— 要的是下一步（换关键词 / 看看标签 / 清掉筛选）
+ * empty-scope 这个范围是空的 —— 要的是往这里放东西的动作
+ * plain 回收站 / 收藏为空 —— 只要说明，不该把动作按钮糊在脸上
  *
  * 文案还随断点变：窄屏没有"右上角 +"可指，硬写指错地方比不写更糟（U-7 的另一半）。
  * 这里用两条 CSS 可见性切换，而不是读窗口宽度 —— 断点因此与 Tailwind 同一套，不会漂。
+ *
+ * 版面本身（图版块 / 节奏 / 字号）不在这里定：交给 StatePlate，
+ * 与错误屏、加载屏共用同一起版，切状态时不会看见三种长相。
  */
 import { useTranslation } from 'react-i18next';
+import type { ReactNode } from 'react';
 import { Icon, type IconName } from './Icon';
+import { StatePlate, type StateTone } from './StatePlate';
 
 export type EmptyKind = 'first-use' | 'no-results' | 'empty-scope' | 'plain';
+
+/** 按钮只有两档：主、次。此前四份近似的类名各写一遍，改一处忘三处 */
+const BTN_PRIMARY =
+  'inline-flex items-center gap-1.5 rounded-lg bg-accent-strong px-3 py-1.5 text-xs font-medium text-accent-on transition-colors hover:bg-accent-strong-hover';
+const BTN_SECONDARY =
+  'inline-flex items-center gap-1.5 rounded-lg border border-surface-border px-3 py-1.5 text-xs text-text-primary transition-colors hover:bg-surface-bg';
 
 /**
  * 可选属性一律写成「T | undefined」：仓库开了 exactOptionalPropertyTypes，
@@ -42,6 +53,33 @@ function Both({ wide, narrow }: { wide: string; narrow: string }) {
   );
 }
 
+/** 主/次按钮：动作数量与顺序在这里定，调用点只给行为 */
+function Act({
+  onClick,
+  icon,
+  label,
+  primary = false,
+}: {
+  onClick: () => void;
+  icon: IconName;
+  label: ReactNode;
+  primary?: boolean;
+}) {
+  return (
+    <button onClick={onClick} className={primary ? BTN_PRIMARY : BTN_SECONDARY}>
+      <Icon name={icon} size={14} />
+      {label}
+    </button>
+  );
+}
+
+const TONE: Record<EmptyKind, StateTone> = {
+  'first-use': 'guide',
+  'no-results': 'info',
+  'empty-scope': 'guide',
+  plain: 'info',
+};
+
 export function EmptyState({
   kind,
   plainTitle,
@@ -66,72 +104,51 @@ export function EmptyState({
   const iconName: IconName =
     icon ?? (kind === 'no-results' ? 'search' : kind === 'first-use' ? 'notebook' : 'note');
 
+  const hint =
+    kind === 'first-use' ? (
+      <Both
+        wide={t('sidebar.empty_first_hint_wide')}
+        narrow={t('sidebar.empty_first_hint_narrow')}
+      />
+    ) : kind === 'no-results' ? (
+      <Both
+        wide={t('sidebar.empty_results_hint_wide')}
+        narrow={t('sidebar.empty_results_hint_narrow')}
+      />
+    ) : kind === 'empty-scope' ? (
+      t('sidebar.empty_scope_hint')
+    ) : null;
+
+  const actions: ReactNode[] = [];
+  if ((kind === 'first-use' || kind === 'empty-scope') && onNew) {
+    actions.push(
+      <Act key="new" onClick={onNew} icon="add" label={t('app_bar.new_note')} primary />
+    );
+  }
+  if (kind === 'first-use' && onImport) {
+    actions.push(
+      <Act key="import" onClick={onImport} icon="download" label={t('sidebar.empty_import')} />
+    );
+  }
+  if (kind === 'no-results' && onClearQuery) {
+    actions.push(
+      <Act key="clear" onClick={onClearQuery} icon="close" label={t('sidebar.empty_clear_query')} />
+    );
+  }
+  if (kind === 'no-results' && onShowTags) {
+    actions.push(
+      <Act key="tags" onClick={onShowTags} icon="tag" label={t('sidebar.empty_show_tags')} />
+    );
+  }
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-      <div className="glass-2 flex h-12 w-12 items-center justify-center rounded-xl border border-surface-border bg-surface-card">
-        <Icon name={iconName} size={20} className="text-text-tertiary" />
-      </div>
-      <p className="text-sm font-medium text-text-primary">{title}</p>
-
-      {kind === 'first-use' && (
-        <p className="max-w-md text-xs text-text-secondary">
-          <Both
-            wide={t('sidebar.empty_first_hint_wide')}
-            narrow={t('sidebar.empty_first_hint_narrow')}
-          />
-        </p>
-      )}
-      {kind === 'no-results' && (
-        <p className="max-w-md text-xs text-text-secondary">
-          <Both
-            wide={t('sidebar.empty_results_hint_wide')}
-            narrow={t('sidebar.empty_results_hint_narrow')}
-          />
-        </p>
-      )}
-      {kind === 'empty-scope' && (
-        <p className="max-w-md text-xs text-text-secondary">{t('sidebar.empty_scope_hint')}</p>
-      )}
-
-      <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
-        {(kind === 'first-use' || kind === 'empty-scope') && onNew && (
-          <button
-            onClick={onNew}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent-strong px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-strong-hover"
-          >
-            <Icon name="add" size={14} />
-            {t('app_bar.new_note')}
-          </button>
-        )}
-        {kind === 'first-use' && onImport && (
-          <button
-            onClick={onImport}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-surface-border px-3 py-1.5 text-xs text-text-primary transition-colors hover:bg-surface-bg"
-          >
-            <Icon name="download" size={14} />
-            {t('sidebar.empty_import')}
-          </button>
-        )}
-        {kind === 'no-results' && onClearQuery && (
-          <button
-            onClick={onClearQuery}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-surface-border px-3 py-1.5 text-xs text-text-primary transition-colors hover:bg-surface-bg"
-          >
-            <Icon name="close" size={14} />
-            {t('sidebar.empty_clear_query')}
-          </button>
-        )}
-        {kind === 'no-results' && onShowTags && (
-          <button
-            onClick={onShowTags}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-surface-border px-3 py-1.5 text-xs text-text-primary transition-colors hover:bg-surface-bg"
-          >
-            <Icon name="tag" size={14} />
-            {t('sidebar.empty_show_tags')}
-          </button>
-        )}
-      </div>
-    </div>
+    <StatePlate
+      icon={iconName}
+      tone={TONE[kind]}
+      title={title}
+      hint={hint}
+      actions={actions.length ? actions : undefined}
+    />
   );
 }
 

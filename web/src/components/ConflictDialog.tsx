@@ -110,7 +110,7 @@ export function ConflictDialog() {
                   <span className="w-20 shrink-0 text-xs text-surface-muted">
                     {t('conflict.my_version')}
                   </span>
-                  <span className="flex-1 break-words rounded bg-accent-soft/60 px-2 py-1 text-surface-fg dark:bg-accent/20">
+                  <span className="flex-1 break-words rounded bg-accent-soft/60 px-2 py-1 text-surface-fg">
                     {formatValue(c.field, c.localValue, t)}
                   </span>
                 </div>
@@ -148,7 +148,7 @@ export function ConflictDialog() {
           <button
             onClick={() => void handleChoice('merged')}
             disabled={resolving !== null}
-            className="w-full rounded-lg border border-accent px-4 py-2.5 text-sm font-medium text-accent-text hover:bg-accent-soft/40 disabled:opacity-50 dark:text-accent-text dark:hover:bg-accent/20"
+            className="w-full rounded-lg border border-accent px-4 py-2.5 text-sm font-medium text-accent-text hover:bg-accent-soft/40 disabled:opacity-50"
           >
             {resolving === 'merged'
               ? t('conflict.resolving')

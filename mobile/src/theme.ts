@@ -170,6 +170,8 @@ export const accent = {
   mint700: MINT.accentStrong,
   mint800: MINT.accentStrong,
   mint900: MINT.accentStrong,
+  /** 压在 mint600（= accentStrong）上的文字色：仍由引擎按对比度算，不硬写 white */
+  onAccent: MINT.onAccent,
   ...stateColors('mint-dawn', 'light'),
 };
 

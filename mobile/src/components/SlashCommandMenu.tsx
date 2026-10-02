@@ -6,6 +6,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import type { SlashCommand } from '../lib/slash-commands';
 import type { ThemeColors } from '../theme';
+import { IconOrText } from './Icon';
 
 interface Props {
   commands: SlashCommand[];
@@ -29,7 +30,7 @@ export function SlashCommandMenu({ commands, visible, onSelect, colors }: Props)
             style={[styles.item, { borderBottomColor: colors.border }]}
             onPress={() => onSelect(item)}
           >
-            <Text style={styles.icon}>{item.icon}</Text>
+            <IconOrText value={item.icon} size={18} color={colors.muted} />
             <Text style={[styles.label, { color: colors.fg }]}>{item.label}</Text>
           </TouchableOpacity>
         )}
@@ -47,7 +48,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 5,
@@ -59,10 +59,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  icon: {
-    fontSize: 18,
-    marginRight: 12,
   },
   label: {
     fontSize: 14,

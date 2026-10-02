@@ -49,11 +49,11 @@ export function StandaloneSetupScreen() {
     return (
       <div className="flex h-full items-center justify-center bg-surface-bg p-6">
         <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
-          <div className="mb-4 text-5xl">🔐</div>
+          <Icon name="shield-check" size={40} className="mx-auto mb-4 text-accent-text" />
           <h1 className="mb-2 text-xl font-bold text-surface-fg">
             {t('auth.recovery_code_label')}
           </h1>
-          <div className="my-6 rounded-xl bg-accent-soft/40 p-6 font-mono text-3xl font-bold tracking-widest text-accent-text dark:bg-accent/30 dark:text-accent-text">
+          <div className="my-6 rounded-xl bg-accent-soft/40 p-6 font-mono text-3xl font-bold tracking-widest text-accent-text">
             {recoveryCode}
           </div>
           <p className="mb-6 flex items-start gap-1.5 text-xs text-surface-muted">
@@ -75,14 +75,12 @@ export function StandaloneSetupScreen() {
     <div className="flex h-full items-center justify-center bg-surface-bg p-6">
       <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60 dark:bg-accent/30">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60">
             <img src="/logo.png" alt="" className="h-10 w-10" />
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('auth.setup_title')}</h1>
           <p className="mt-2 text-sm text-surface-muted">{t('auth.setup_subtitle')}</p>
-          <p className="mt-1 text-xs text-accent-text dark:text-accent-text">
-            {t('settings.app_mode_standalone')}
-          </p>
+          <p className="mt-1 text-xs text-accent-text">{t('settings.app_mode_standalone')}</p>
         </div>
 
         <form
@@ -110,9 +108,7 @@ export function StandaloneSetupScreen() {
           />
 
           {error && (
-            <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger dark:bg-danger-soft dark:text-danger">
-              {error}
-            </div>
+            <div className="rounded-lg bg-danger-soft p-3 text-xs text-danger">{error}</div>
           )}
 
           <p className="text-xs text-surface-muted">{t('auth.setup_recovery_hint')}</p>

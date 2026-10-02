@@ -4,11 +4,13 @@
  * 在编辑器中输入 `/` 时弹出命令菜单，快速插入内容。
  */
 
+import type { IconName } from '@dustnote/shared';
+
 export interface SlashCommand {
   id: string;
   label: string;
   labelEn: string;
-  icon: string;
+  icon: IconName;
   description: string;
   descriptionEn: string;
   /** 插入的内容（支持 {{date}}、{{time}} 占位符） */
@@ -20,7 +22,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'date',
     label: '插入日期',
     labelEn: 'Insert date',
-    icon: '📅',
+    icon: 'calendar',
     description: '插入当前日期',
     descriptionEn: 'Insert current date',
     insert: '{{date}}',
@@ -29,7 +31,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'datetime',
     label: '插入日期时间',
     labelEn: 'Insert date & time',
-    icon: '🕐',
+    icon: 'clock',
     description: '插入当前日期和时间',
     descriptionEn: 'Insert current date and time',
     insert: '{{date}} {{time}}',
@@ -38,7 +40,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'heading',
     label: '标题',
     labelEn: 'Heading',
-    icon: '📝',
+    icon: 'note',
     description: '插入二级标题',
     descriptionEn: 'Insert heading',
     insert: '## ',
@@ -47,7 +49,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'list',
     label: '列表',
     labelEn: 'List',
-    icon: '📋',
+    icon: 'clipboard',
     description: '插入无序列表',
     descriptionEn: 'Insert unordered list',
     insert: '- ',
@@ -56,7 +58,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'todo',
     label: '待办',
     labelEn: 'Todo',
-    icon: '✅',
+    icon: 'check',
     description: '插入待办事项',
     descriptionEn: 'Insert todo item',
     insert: '- [ ] ',
@@ -65,7 +67,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'code',
     label: '代码块',
     labelEn: 'Code block',
-    icon: '💻',
+    icon: 'desktop',
     description: '插入代码块',
     descriptionEn: 'Insert code block',
     insert: '```\n\n```',
@@ -74,7 +76,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'quote',
     label: '引用',
     labelEn: 'Quote',
-    icon: '💬',
+    icon: 'quote',
     description: '插入引用块',
     descriptionEn: 'Insert blockquote',
     insert: '> ',
@@ -83,7 +85,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'divider',
     label: '分割线',
     labelEn: 'Divider',
-    icon: '➖',
+    icon: 'minus',
     description: '插入水平分割线',
     descriptionEn: 'Insert horizontal rule',
     insert: '\n---\n',
@@ -92,7 +94,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'table',
     label: '表格',
     labelEn: 'Table',
-    icon: '📊',
+    icon: 'overview',
     description: '插入表格模板',
     descriptionEn: 'Insert table template',
     insert: '| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| | | |',
@@ -101,7 +103,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'link',
     label: '双向链接',
     labelEn: 'Wikilink',
-    icon: '🔗',
+    icon: 'link',
     description: '插入笔记链接 [[标题]]',
     descriptionEn: 'Insert note link [[title]]',
     insert: '[[',

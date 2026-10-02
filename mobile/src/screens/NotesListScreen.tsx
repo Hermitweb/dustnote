@@ -24,6 +24,7 @@ import {
   Share,
 } from 'react-native';
 import { FTextInput } from '../components/FTextInput';
+import { IconOrText } from '../components/Icon';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -51,6 +52,8 @@ import { decryptNote, packEnvelope } from '../lib/envelope';
 import { ensureDefaultContent } from '../lib/default-content';
 import { useColors } from '../theme';
 import { useResponsiveLayout } from '../lib/useResponsiveLayout';
+import { Icon } from '../components/Icon';
+import { StatePlate } from '../components/StatePlate';
 
 interface NotePlaintext {
   title: string;
@@ -459,13 +462,13 @@ export function NotesListScreen() {
           placeholderTextColor={colors.muted}
         />
         <TouchableOpacity onPress={() => navigation.navigate('Folders')} style={styles.iconButton}>
-          <Text style={styles.iconText}>📁</Text>
+          <Icon name="folder" size={18} color={colors.muted} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('Trash')} style={styles.iconButton}>
-          <Text style={styles.iconText}>🗑️</Text>
+          <Icon name="trash" size={18} color={colors.muted} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.iconButton}>
-          <Text style={styles.iconText}>⚙️</Text>
+          <Icon name="settings" size={18} color={colors.muted} />
         </TouchableOpacity>
       </View>
 
@@ -495,7 +498,7 @@ export function NotesListScreen() {
             {subFolders.map((f) => (
               <FilterChip
                 key={f.id}
-                label={`📁 ${f.name}`}
+                label={`${f.name}`}
                 active={false}
                 onPress={() => setFolderFilter(f.id)}
                 colors={colors}
@@ -512,25 +515,28 @@ export function NotesListScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} />}
         ListEmptyComponent={
           error ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>⚠️</Text>
-              <Text style={styles.emptyText}>{error}</Text>
-              <TouchableOpacity onPress={() => void load()} style={styles.retryBtn}>
-                <Text style={styles.retryText}>{t('common.retry')}</Text>
-              </TouchableOpacity>
-            </View>
+            <StatePlate
+              icon="warning"
+              tone="danger"
+              title={error}
+              actions={
+                <TouchableOpacity onPress={() => void load()} style={styles.retryBtn}>
+                  <Text style={styles.retryText}>{t('common.retry')}</Text>
+                </TouchableOpacity>
+              }
+            />
           ) : folderFilter === 'all' && tab === 'all' ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>📁</Text>
-              <Text style={styles.emptyText}>{t('notes.empty_folder_view_text')}</Text>
-              <Text style={styles.emptyHint}>{t('notes.empty_folder_view_hint')}</Text>
-            </View>
+            <StatePlate
+              icon="folder"
+              title={t('notes.empty_folder_view_text')}
+              hint={t('notes.empty_folder_view_hint')}
+            />
           ) : (
-            <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>📝</Text>
-              <Text style={styles.emptyText}>{t('notes.empty_folder_text')}</Text>
-              <Text style={styles.emptyHint}>{t('notes.empty_hint')}</Text>
-            </View>
+            <StatePlate
+              icon="note"
+              title={t('notes.empty_folder_text')}
+              hint={t('notes.empty_hint')}
+            />
           )
         }
         renderItem={({ item }) => (
@@ -551,12 +557,16 @@ export function NotesListScreen() {
           >
             <View style={styles.cardHeader}>
               {selecting ? (
-                <Text style={styles.checkMark}>{selectedIds.has(item.id) ? '☑' : '☐'}</Text>
+                <Text style={styles.checkMark}>
+                  {selectedIds.has(item.id) ? (
+                    <Icon name="check" size={16} color={colors.accent} />
+                  ) : null}
+                </Text>
               ) : null}
-              {item.isPinned ? <Text style={styles.pin}>📌</Text> : null}
-              {item.isFavorite ? <Text style={styles.fav}>⭐</Text> : null}
+              {item.isPinned ? <Icon name="pin" size={14} color={colors.accent} /> : null}
+              {item.isFavorite ? <Icon name="star" size={14} color={colors.accent} /> : null}
               <Text style={styles.cardTitle} numberOfLines={1}>
-                {item.plain?.title ?? '🔒'}
+                {item.plain?.title ?? '—'}
               </Text>
             </View>
             <Text style={styles.cardMeta}>{formatNoteStamp(item.serverUpdatedAt)}</Text>
@@ -578,8 +588,8 @@ export function NotesListScreen() {
             style={[styles.fabLike, tab === 'fav' && { backgroundColor: colors.mint600 }]}
             onPress={() => setTab(tab === 'fav' ? 'all' : 'fav')}
           >
-            <Text style={[styles.fabLikeText, tab === 'fav' && { color: '#fff' }]}>
-              ⭐ {tab === 'fav' ? t('notes.view_all') : t('notes.favorites')}
+            <Text style={[styles.fabLikeText, tab === 'fav' && { color: colors.onAccent }]}>
+              {tab === 'fav' ? t('notes.view_all') : t('notes.favorites')}
             </Text>
           </TouchableOpacity>
           {/* 新建按钮:短按空白笔记;长按从模板新建(动线优化「少点一下」) */}
@@ -702,7 +712,7 @@ export function NotesListScreen() {
                   style={styles.modalItem}
                   onPress={() => void doBatchMove(f.id)}
                 >
-                  <Text style={styles.modalItemText}>📁 {f.name}</Text>
+                  <Text style={styles.modalItemText}>{f.name}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -734,7 +744,7 @@ export function NotesListScreen() {
               }}
             >
               <Text style={styles.modalItemText}>
-                📌 {actionNote?.isPinned ? t('notes.ctx_unpin') : t('notes.ctx_pin')}
+                {actionNote?.isPinned ? t('notes.ctx_unpin') : t('notes.ctx_pin')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -746,7 +756,7 @@ export function NotesListScreen() {
               }}
             >
               <Text style={styles.modalItemText}>
-                ⭐ {actionNote?.isFavorite ? t('notes.ctx_unfavorite') : t('notes.ctx_favorite')}
+                {actionNote?.isFavorite ? t('notes.ctx_unfavorite') : t('notes.ctx_favorite')}
               </Text>
             </TouchableOpacity>
             {mode === 'online' && (
@@ -758,7 +768,7 @@ export function NotesListScreen() {
                   if (item) void shareNote(item);
                 }}
               >
-                <Text style={styles.modalItemText}>🔗 {t('notes.ctx_share')}</Text>
+                <Text style={styles.modalItemText}>{t('notes.ctx_share')}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -769,7 +779,7 @@ export function NotesListScreen() {
                 if (id) enterSelect(id);
               }}
             >
-              <Text style={styles.modalItemText}>☑️ {t('notes.ctx_batch_select')}</Text>
+              <Text style={styles.modalItemText}>{t('notes.ctx_batch_select')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalCancel} onPress={closeAction}>
               <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
@@ -799,10 +809,13 @@ export function NotesListScreen() {
                     setFolderPickVisible(true);
                   }}
                 >
-                  <Text style={styles.modalItemText}>
-                    {tp.icon} {tp.name}
-                    {tp.description ? ` — ${tp.description}` : ''}
-                  </Text>
+                  <View style={styles.modalItemRow}>
+                    <IconOrText value={tp.icon} size={16} color={colors.muted} />
+                    <Text style={styles.modalItemText}>
+                      {tp.name}
+                      {tp.description ? ` — ${tp.description}` : ''}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -833,7 +846,7 @@ export function NotesListScreen() {
                     if (pendingTpl) void createFromTemplate(pendingTpl, f.id);
                   }}
                 >
-                  <Text style={styles.modalItemText}>📁 {f.name}</Text>
+                  <Text style={styles.modalItemText}>{f.name}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -870,7 +883,6 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
       color: c.fg,
     },
     iconButton: { paddingHorizontal: 8, justifyContent: 'center' },
-    iconText: { fontSize: 20 },
     filterBar: {
       paddingTop: 8,
       paddingBottom: 4,
@@ -878,7 +890,6 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
       borderBottomColor: c.border,
       borderBottomWidth: 1,
     },
-    chipRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, marginBottom: 6 },
     folderRow: { paddingHorizontal: 12, marginBottom: 6 },
     chip: {
       paddingHorizontal: 10,
@@ -894,7 +905,7 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
       borderColor: c.mint600,
     },
     chipText: { fontSize: 12, color: c.fg },
-    chipTextActive: { color: 'white', fontWeight: '600' },
+    chipTextActive: { color: c.onAccent, fontWeight: '600' },
     card: {
       backgroundColor: c.card,
       marginHorizontal: l.isTablet ? 16 : 12,
@@ -905,14 +916,8 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
       borderWidth: 1,
     },
     cardHeader: { flexDirection: 'row', alignItems: 'center' },
-    pin: { fontSize: 14, marginRight: 4 },
-    fav: { fontSize: 14, marginRight: 4 },
     cardTitle: { fontSize: l.titleFontSize - 2, fontWeight: '600', color: c.fg, flex: 1 },
     cardMeta: { fontSize: 12, color: c.muted, marginTop: 4 },
-    empty: { alignItems: 'center', marginTop: 80 },
-    emptyEmoji: { fontSize: 48, marginBottom: 12 },
-    emptyText: { fontSize: l.bodyFontSize + 2, color: c.fg, marginBottom: 4 },
-    emptyHint: { fontSize: 12, color: c.muted },
     retryBtn: {
       marginTop: 12,
       paddingHorizontal: 20,
@@ -920,7 +925,7 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
       backgroundColor: c.mint600,
       borderRadius: 8,
     },
-    retryText: { color: 'white', fontSize: l.bodyFontSize, fontWeight: '600' },
+    retryText: { color: c.onAccent, fontSize: l.bodyFontSize, fontWeight: '600' },
     fab: {
       position: 'absolute',
       right: 20,
@@ -955,7 +960,7 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
       elevation: 2,
     },
     fabLikeText: { fontSize: 14, color: c.fg, fontWeight: '600' },
-    fabText: { color: 'white', fontSize: 28, fontWeight: '300' },
+    fabText: { color: c.onAccent, fontSize: 28, fontWeight: '300' },
     // ── 批量操作 ──
     cardSelected: { borderColor: c.mint600, borderWidth: 2 },
     checkMark: { fontSize: 18, marginRight: 4 },
@@ -992,6 +997,11 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
       paddingHorizontal: 8,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
+    },
+    modalItemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
     },
     modalItemText: { fontSize: 15, color: c.fg },
     modalCancel: {

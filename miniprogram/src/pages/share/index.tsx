@@ -15,6 +15,7 @@ import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
 import { getCurrentMode } from '../../lib/mode-store';
 import { t, useLanguage } from '../../lib/i18n';
 import Markdown from '../../lib/markdown';
+import { StatePlate } from '../../components/StatePlate';
 
 /**
  * 解析 API base：
@@ -121,12 +122,7 @@ export default function Share() {
   };
 
   if (!token) {
-    return (
-      <View className="empty-state">
-        <Text className="empty-state-icon">⚠️</Text>
-        <Text className="empty-state-text">{t('share.invalid_link')}</Text>
-      </View>
-    );
+    return <StatePlate size="card" icon="warning" tone="danger" title={t('share.invalid_link')} />;
   }
 
   if (needsPassword) {
@@ -148,16 +144,11 @@ export default function Share() {
   }
 
   if (error) {
-    return (
-      <View className="empty-state">
-        <Text className="empty-state-icon">⚠️</Text>
-        <Text className="empty-state-text">{error}</Text>
-      </View>
-    );
+    return <StatePlate size="card" icon="warning" tone="danger" title={error} />;
   }
 
   if (!title || !content) {
-    return <View className="loading">{t('common.loading')}</View>;
+    return <StatePlate busy icon="note" title={t('common.loading')} />;
   }
 
   return (

@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Icon, IconText } from './Icon';
+import type { IconName } from '@dustnote/shared';
 import {
   getConfig,
   saveConfig,
@@ -18,42 +19,42 @@ type PlatformId = 'web' | 'desktop' | 'miniprogram' | 'android' | 'ios';
 
 const PLATFORMS: {
   id: PlatformId;
-  icon: string;
+  icon: IconName;
   file: string;
   nameKey: string;
   descKey: string;
 }[] = [
   {
     id: 'web',
-    icon: '🌐',
+    icon: 'language',
     file: 'dustnote-web-config.json',
     nameKey: 'admin.plat_web',
     descKey: 'admin.desc_web',
   },
   {
     id: 'desktop',
-    icon: '💻',
+    icon: 'desktop',
     file: 'dustnote-desktop-config.json',
     nameKey: 'admin.plat_desktop',
     descKey: 'admin.desc_desktop',
   },
   {
     id: 'miniprogram',
-    icon: '📱',
+    icon: 'device',
     file: 'dustnote-miniprogram.txt',
     nameKey: 'admin.plat_miniprogram',
     descKey: 'admin.desc_miniprogram',
   },
   {
     id: 'android',
-    icon: '🤖',
+    icon: 'bot',
     file: 'dustnote-android-config.json',
     nameKey: 'admin.plat_android',
     descKey: 'admin.desc_android',
   },
   {
     id: 'ios',
-    icon: '🍎',
+    icon: 'apple',
     file: 'dustnote-ios-config.json',
     nameKey: 'admin.plat_ios',
     descKey: 'admin.desc_ios',
@@ -184,13 +185,13 @@ export function AdminConfig({ onClose }: { onClose: () => void }) {
                   className="rounded-lg border border-surface-border bg-surface-bg p-4"
                 >
                   <div className="mb-2 flex items-center gap-2">
-                    <span className="text-xl">{p.icon}</span>
+                    <Icon name={p.icon} size={20} />
                     <span className="font-semibold text-surface-fg">{t(p.nameKey)}</span>
                   </div>
                   <p className="mb-3 text-xs text-surface-muted">{t(p.descKey)}</p>
                   <button
                     onClick={() => downloadConfig(p.file, generatePlatformConfig(p.id))}
-                    className="rounded bg-accent-soft/60 px-3 py-1.5 text-xs font-medium text-accent-text transition-colors hover:bg-accent-soft dark:bg-accent/30 dark:text-accent-text"
+                    className="rounded bg-accent-soft/60 px-3 py-1.5 text-xs font-medium text-accent-text transition-colors hover:bg-accent-soft"
                   >
                     <IconText
                       k="admin.download_btn"
@@ -205,13 +206,11 @@ export function AdminConfig({ onClose }: { onClose: () => void }) {
           {/* ===== Tab 3: 小程序指引 ===== */}
           {activeTab === 'miniprogram' && (
             <div className="space-y-5">
-              <div className="rounded-lg border border-surface-border bg-warning-soft p-4 dark:bg-warning-soft">
+              <div className="rounded-lg border border-surface-border bg-warning-soft p-4">
                 <p className="text-sm font-semibold text-warning">
                   <IconText k="admin.mp_warning_title" label={t('admin.mp_warning_title')} />
                 </p>
-                <p className="mt-1 text-xs text-warning dark:text-warning">
-                  {t('admin.mp_warning')}
-                </p>
+                <p className="mt-1 text-xs text-warning">{t('admin.mp_warning')}</p>
               </div>
 
               <div className="space-y-3">
@@ -227,7 +226,7 @@ export function AdminConfig({ onClose }: { onClose: () => void }) {
                 </div>
                 <div className="rounded-lg border border-surface-border bg-surface-bg p-4">
                   <p className="mb-2 text-sm text-surface-fg">{t('admin.mp_way2')}</p>
-                  <div className="my-3 flex h-40 w-40 items-center justify-center rounded-lg bg-surface-2 text-xs text-surface-muted dark:bg-surface-3">
+                  <div className="my-3 flex h-40 w-40 items-center justify-center rounded-lg bg-surface-2 text-xs text-surface-muted">
                     {t('admin.mp_qrcode')}
                   </div>
                 </div>
@@ -246,20 +245,18 @@ export function AdminConfig({ onClose }: { onClose: () => void }) {
                   <li>{t('admin.mp_step1')}</li>
                   <li>{t('admin.mp_step2')}</li>
                   <li>
-                    <code className="rounded bg-surface-2 px-1 text-xs dark:bg-surface-3">
+                    <code className="rounded bg-surface-2 px-1 text-xs">
                       miniprogram/src/state/auth.ts
                     </code>{' '}
                     API_BASE
                   </li>
                   <li>
-                    <code className="rounded bg-surface-2 px-1 text-xs dark:bg-surface-3">
+                    <code className="rounded bg-surface-2 px-1 text-xs">
                       pnpm build:miniprogram
                     </code>
                   </li>
                   <li>
-                    <code className="rounded bg-surface-2 px-1 text-xs dark:bg-surface-3">
-                      miniprogram/dist/
-                    </code>
+                    <code className="rounded bg-surface-2 px-1 text-xs">miniprogram/dist/</code>
                   </li>
                   <li>{t('admin.mp_step6')}</li>
                 </ol>

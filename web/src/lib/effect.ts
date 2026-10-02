@@ -3,10 +3,10 @@
  *
  * 为什么不塞进 `Preferences`：
  * 1. 服务端 `preferences` 表是固定列（theme/mode/font/density/auto_lock/language），
- *    多出来的键要么被丢要么 400 —— 见 server/src/routes/account.ts 的显式 SELECT；
+ * 多出来的键要么被丢要么 400 —— 见 server/src/routes/account.ts 的显式 SELECT；
  * 2. 更重要的是它本来就不该跨端同步：玻璃吃 `backdrop-filter`，同一份偏好在
- *    弱机 / 省电模式 / 大屏投影上正确性完全不同。这是**本机渲染偏好**，
- *    和"用哪个主题"不是一类东西。
+ * 弱机 / 省电模式 / 大屏投影上正确性完全不同。这是**本机渲染偏好**，
+ * 和"用哪个主题"不是一类东西。
  *
  * 所以：单独一个 localStorage key + 一个极小的 zustand store（与 lib/toast.ts 同形）。
  */

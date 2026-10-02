@@ -66,7 +66,8 @@ function walk(dir, out = []) {
     if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
     const fp = path.join(dir, e.name);
     if (e.isDirectory()) walk(fp, out);
-    else if (/\.(tsx|jsx)$/.test(e.name)) out.push(fp);
+    // 类名也写在 .ts 里（slash-commands、i18n 之外的拼接处），只扫 .tsx 会漏
+    else if (/\.(tsx|jsx|ts)$/.test(e.name) && !/\.test\.ts$/.test(e.name)) out.push(fp);
   }
   return out;
 }
@@ -176,14 +177,70 @@ export function scanWiring(extras, tokensCss, indexCss) {
 }
 
 /** 界面源码里的 emoji 上限（棘轮：只准降，降了就改小这个数字） */
-export const EMOJI_CEILING = 166;
+/** 界面 emoji 上限：已清零，只准保持 0（要加回就必须先说明为什么它不是界面图标） */
+export const EMOJI_CEILING = 0;
+
+/**
+ * 不计入棘轮的位置：笔记**正文**里的 emoji。
+ * 验收口径写的是「功能图标里的 emoji = 0，正文内容里的 emoji 不计」——
+ * 欢迎笔记的教程文字、书名模板里的 ⭐⭐⭐⭐⭐ 都是用户会编辑的内容，不是界面图标。
+ */
+export const CONTENT_ALLOWLIST = [
+  { file: 'web/src/lib/slices/data-slice.ts', reason: '欢迎笔记正文（教程文字，用户可编辑）' },
+  { file: 'shared/src/templates.ts', reason: '预置模板的正文内容（如书评模板的评分星）' },
+];
 
 /*
  * 变体选择器 \uFE0F 走单独的正则而不是塞进字符类：eslint 的 no-misleading-character-class
  * 会拦——它是组合符号，放进类里会让人误读成"一个字符"，实际是前一个 emoji 的修饰符。
  */
-const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/u;
-const EMOJI_VS_RE = /\u{FE0F}/u;
+/*
+ * 箭头段（U+2190-U+21FF）整段不纳入：← ↑ → ↓ 在界面里是"键名/排版"而不是图标
+ * （CommandPalette 的"↑↓ 选择"、正文里的"A → B"）。但 ↩ ↪ 例外——它们只可能被
+ * 当图标用（RN 回收站的恢复按钮就写了 ↩），所以单点钉进黑名单，不放过。
+ */
+const EMOJI_RE =
+  /[\u{1F300}-\u{1FAFF}\u{21A9}\u{21AA}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/u;
+
+/**
+ * 键名符号不是界面图标：⌘ ⌥ 与方向键 ↑↓←→↵ 是"那个键叫什么"，
+ * 出现在快捷键提示里（CommandPalette 的导航提示、QuickCapture 的 ⌘K）。
+ * 上一版整个漏掉 U+2300-U+23FF 一段，SettingsDialog 的 ⏳ 因此躲过棘轮、
+ * 门禁却照报 0——把误报摁进允许集是为了让输出仍然可信，而不是放宽口径：
+ * ↩(U+21A9) 这类"当图标用的箭头"不在豁免里，它同样被扫了出来（RN 回收站）。
+ */
+export const KEYCAP_CODEPOINTS = new Set([
+  0x2190, // ←
+  0x2191, // ↑
+  0x2192, // →
+  0x2193, // ↓
+  0x21b5, // ↵
+  0x2318, // ⌘
+  0x2325, // ⌥
+]);
+
+/**
+ * 逐字符计数（旧版按行计数：一行两个 emoji 只算一个，数字会偏小）。
+ *
+ * 变体选择器 U+FE0F 是前一个字符的修饰符，不单独成数——否则「⚠️」会算成两处，
+ * 虚高的数字同样毁掉门禁的可信度。它只在前面那个字符没被数到时才补一跳。
+ */
+export function emojiHits(line) {
+  let n = 0;
+  let prev = false;
+  for (const ch of line) {
+    const cp = ch.codePointAt(0);
+    if (cp === 0xfe0f) {
+      if (!prev) n += 1;
+      prev = false;
+      continue;
+    }
+    const hit = !KEYCAP_CODEPOINTS.has(cp) && EMOJI_RE.test(ch);
+    if (hit) n += 1;
+    prev = hit;
+  }
+  return n;
+}
 
 /** 参与 emoji 棘轮的界面源码（测试、i18n 词典、注释都不算） */
 const EMOJI_DIRS = ['web/src', 'mobile/src', 'miniprogram/src'];
@@ -263,17 +320,18 @@ export function scanMotionSync(motionTs, tokensCss, mpGenerated, mpAppScss) {
  * 纳入计数并**钉一个只降不升的上限**——一次性清零要靠给 RN 造图标组件，
  * 那是独立工程；但"没人知道还有多少"必须结束。注释里的 emoji 不算（那是历史说明）。
  */
-export function scanEmoji(sources, ceiling) {
+export function scanEmoji(sources, ceiling, allowlist = CONTENT_ALLOWLIST) {
   const findings = [];
   let total = 0;
   const perFile = [];
   for (const [rel, raw] of sources) {
+    if (allowlist.some((a) => a.file === rel)) continue;
     const src = raw
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/^\s*\/\/.*$/gm, '')
       .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
     let c = 0;
-    for (const line of src.split(/\r?\n/)) if (EMOJI_RE.test(line) || EMOJI_VS_RE.test(line)) c++;
+    for (const line of src.split(/\r?\n/)) c += emojiHits(line);
     if (c > 0) {
       total += c;
       perFile.push(rel + '=' + c);
@@ -289,6 +347,64 @@ export function scanEmoji(sources, ceiling) {
   }
   return { findings, total, perFile: perFile.sort() };
 }
+
+/**
+ * 三端图标对齐：名字表 → web / RN / 小程序
+ *
+ * 存在的理由：三端各自维护一张映射表，漏一个不会构建失败，只会在界面上渲染成空白
+ * ——本轮就实抓到 web 的表比名字表少 11 个（TS 恰好拦住了，但小程序与 RN 拦不住）。
+ * 所以这里显式比对三端覆盖：缺哪个、报哪个。
+ */
+export function scanIconParity(iconsTs, webIcon, rnIcon, mpScss) {
+  const findings = [];
+  const names = [...iconsTs.matchAll(/^ {2}'?([a-z][a-z0-9-]*)'?: '([a-z0-9-]+)',/gm)].map((m) => ({
+    name: m[1],
+    glyph: m[2],
+  }));
+  if (names.length < 50) {
+    findings.push({ rule: 'icons', msg: `名字表只解析出 ${names.length} 条，结构大概变了` });
+    return findings;
+  }
+  const covered = (src) => new Set([...src.matchAll(/^\s*'?([a-z0-9-]+)'?:/gm)].map((m) => m[1]));
+  const webKeys = covered(webIcon.slice(webIcon.indexOf('const GLYPHS')));
+  const rnKeys = covered(rnIcon.slice(rnIcon.indexOf('const GLYPHS')));
+  for (const { name, glyph } of names) {
+    if (!webKeys.has(glyph))
+      findings.push({
+        rule: 'icons',
+        msg: `web 缺图形映射 ${glyph}（名字 ${name}）：界面上会是空白图标`,
+      });
+    if (!rnKeys.has(glyph))
+      findings.push({ rule: 'icons', msg: `RN 缺图形映射 ${glyph}（名字 ${name}）` });
+    if (!mpScss.includes(`.mp-icon--${name} {`))
+      findings.push({
+        rule: 'icons',
+        msg: `小程序缺 .mp-icon--${name}：跑 node scripts/gen-mp-icons.mjs`,
+      });
+  }
+  return findings;
+}
+
+/**
+ * web 源码里的 Tailwind `dark:` 变体永远是死代码：配置写的是 darkMode:'class'，
+ * 而主题引擎落在 html[data-mode] 上（applyTheme 只写 dataset.theme / dataset.mode），
+ * 全站没有任何一处加过 .dark ——本轮清掉 121 处，这条规则保证它不长回来。
+ * 留着的害处不是体积：是让人以为暗色档做过适配，于是下一个暗色 bug 会被"已经适配了"
+ * 的错觉挡在排查路径外面。要按明暗分档请写 html[data-mode="dark"] 选择器，或用语义令牌。
+ */
+export function scanDeadDarkVariant(rel, src) {
+  const hits = [...src.matchAll(/\bdark:[a-z[]/g)].length;
+  if (hits === 0) return [];
+  return [
+    {
+      rule: 'dark-variant',
+      msg:
+        `${rel} 有 ${hits} 处 dark: 变体：暗色由 html[data-mode] 的令牌切换，` +
+        'Tailwind 的 class 变体不会匹配（写了等于没写）。请改用语义令牌或 html[data-mode="dark"] 选择器。',
+    },
+  ];
+}
+
 export async function run() {
   const { SEMANTIC_EXTRAS } = await import(
     pathToFileURL(path.join(ROOT, 'shared/tailwind-colors.mjs')).href
@@ -302,11 +418,19 @@ export async function run() {
   const findings = [
     ...scanWiring(SEMANTIC_EXTRAS, tokensCss, indexCss),
     ...scanMotionSync(motionTs, tokensCss, mpGenerated, mpAppScss),
+    ...scanIconParity(
+      read('shared/src/icons.ts'),
+      read('web/src/components/Icon.tsx'),
+      read('mobile/src/components/Icon.tsx'),
+      read('miniprogram/src/styles/mp-icons.scss')
+    ),
   ];
   for (const dir of ['web/src', 'desktop/src']) {
     for (const f of walk(path.join(ROOT, dir))) {
       const rel = path.relative(ROOT, f).replace(/\\/g, '/');
-      findings.push(...scanClassDiscipline(rel, fs.readFileSync(f, 'utf8')));
+      const src = fs.readFileSync(f, 'utf8');
+      findings.push(...scanClassDiscipline(rel, src));
+      findings.push(...scanDeadDarkVariant(rel, src));
     }
   }
   const emojiSources = [];

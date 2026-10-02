@@ -290,6 +290,50 @@ for (const t of PARITY_TARGETS) {
   }
 }
 
+// ========== 3c. 审计：mobile / miniprogram 用到的 key 是否真的存在 ==========
+/*
+ * 这一条的存在理由很具体：本轮把 RN 分享页的错误屏换成统一版面时，标题写成了
+ * t('common.load_failed') —— RN 词典里没有这个 key，而门禁一片绿：
+ * 上面那段只扫 web/src，两端词典此前**只查中英对称、从不查有没有用到不存在的 key**。
+ * 缺 key 在运行时不是崩溃，是把 "common.load_failed" 直接印在界面上，
+ * 于是这类缺陷能一路活到用户截图回来。
+ */
+function collectUsedKeysIn(dirRel) {
+  const used = new Map(); // key -> 首个出现位置（报告用）
+  const root = new URL('../' + dirRel + '/', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
+  const files = walkDir(root).filter(
+    (fp) => !/\.test\.(ts|tsx)$/.test(fp) && !/[\\/]locales[\\/]/.test(fp)
+  );
+  for (const file of files) {
+    const src = readFileSync(file, 'utf8')
+      .replace(/\/\*[^]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+    let m;
+    T_CALL_RE.lastIndex = 0;
+    while ((m = T_CALL_RE.exec(src)) !== null) {
+      if (!used.has(m[1])) used.set(m[1], file.replace(/^.*[\\/]src[\\/]/, 'src/'));
+    }
+  }
+  return used;
+}
+
+for (const t of PARITY_TARGETS) {
+  const defined = extractLeafKeys(t.zh);
+  const used = collectUsedKeysIn(t.name + '/src');
+  const miss = [...used].filter(([k]) => !defined.has(k));
+  if (miss.length === 0) {
+    console.log(`✓ ${t.name} i18n 校验通过：${used.size} 个用到的 key 全部已定义`);
+  } else {
+    failed = true;
+    console.error(
+      `✗ ${t.name} 用到 ${miss.length} 个词典里没有的 key（运行时会直接印出 key 名）：`
+    );
+    for (const [k, where] of miss.sort((a, b) => a[0].localeCompare(b[0]))) {
+      console.error(`  - ${k}  (${where})`);
+    }
+  }
+}
+
 // ========== 5. 审计 UI 阶段 1.1：i18n 里禁止内嵌 emoji（2026-09-26 已归零，转为硬规则） ==========
 /*
  * 历史上很多按钮把图标写进文案（'⚡ 分屏'、'🗑️ 删除'），于是翻译带着图标、

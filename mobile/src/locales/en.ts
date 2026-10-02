@@ -7,6 +7,7 @@
 
 const en = {
   common: {
+    load_failed: 'Failed to load',
     cancel: 'Cancel',
     confirm: 'Confirm',
     delete: 'Delete',
@@ -138,7 +139,7 @@ const en = {
     // Recovery code display / reset password
     recovery_save_title: 'Save your recovery code',
     recovery_save_subtitle:
-      'This is the only way to recover your notes if you forget the master password. Write it down or store it in a password manager.\n⚠️ The recovery code is shown only once — if lost, notes cannot be recovered.',
+      'This is the only way to recover your notes if you forget the master password. Write it down or store it in a password manager.\nThe recovery code is shown only once — if lost, notes cannot be recovered.',
     recovery_save_subtitle_online:
       'This is the only way to recover your account. Write it down or store it in a password manager.',
     recovery_save_hint:
@@ -156,7 +157,7 @@ const en = {
     recover_failed: 'Recovery failed',
     recovered_title: 'Password reset',
     recovered_subtitle:
-      'This is your new recovery code. Save it again.\n⚠️ The old recovery code is now invalid.',
+      'This is your new recovery code. Save it again.\nThe old recovery code is now invalid.',
     recovered_hint: 'The master key is unchanged; existing encrypted notes remain decryptable.',
     recovered_online_subtitle:
       'masterKey re-wrapped with your new password. All existing notes decrypt normally.\nEntering the app…',
@@ -191,6 +192,8 @@ const en = {
     kdf_diag: 'derive {{ms}}s · {{iters}} · {{path}}',
   },
   notes: {
+    template_pick_title: 'Choose a template',
+    pick_folder: 'Choose a folder',
     search_placeholder: 'Search notes…',
     empty_text: 'No notes yet',
     empty_hint: 'Tap the button below to create your first note',
@@ -227,6 +230,8 @@ const en = {
     ctx_batch_select: 'Select multiple',
   },
   editor: {
+    version_conflict:
+      'The server copy changed on another device, so nothing was overwritten. Copy your edits and try again.',
     placeholder: 'Start writing...',
     title_placeholder: 'Title',
     content_placeholder: 'Start writing…\n\nMarkdown supported',
@@ -286,6 +291,7 @@ const en = {
     preview: 'Preview',
   },
   settings: {
+    privacy_section: 'Privacy',
     allow_screenshot: 'Allow screenshots (off = black screenshots)',
     diagnostics_toggle: 'Error diagnostics',
     diagnostics_toggle_detail:
@@ -431,7 +437,7 @@ const en = {
     change_password_success: 'Password changed',
     change_password_success_detail: 'Master password updated. Existing notes are unaffected.',
     change_password_success_standalone_detail:
-      'Master password updated. Existing notes are unaffected.\n\n⚠️ New recovery code (keep it safe; the old code is now invalid):\n\n{{code}}',
+      'Master password updated. Existing notes are unaffected.\n\nNew recovery code (keep it safe; the old code is now invalid):\n\n{{code}}',
     change_password_failed: 'Failed to change password',
     // Two-factor
     totp_row_on: 'Two-factor (on)',
@@ -521,7 +527,7 @@ const en = {
     expires_at: 'Expires: {{date}}',
     never_expires: 'Never expires',
     load_failed_detail: 'Failed to load: {{reason}}',
-    empty: 'No shares yet. Tap 🔗 in the editor to share a note.',
+    empty: 'No shares yet. Use the editor menu to share a note.',
     unknown_note: 'Unknown note',
     copy_link_btn: 'Copy link',
     share_btn: 'Share',

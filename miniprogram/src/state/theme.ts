@@ -20,6 +20,16 @@ export type Material = 'glass' | 'flat';
 
 const STORAGE_KEY = 'dustnote_theme';
 const MATERIAL_KEY = 'dustnote_material';
+const MOTION_KEY = 'dustnote_reduced_motion';
+
+/*
+ * 降低动效开关（A11Y-R05）。
+ *
+ * 为什么小程序要自己做一个开关：web / 桌面靠 @media (prefers-reduced-motion) 就够了，
+ * 但 weapp 的渲染层不吃这条媒体查询（它按容器能力判定，不跟随系统无障碍设置），
+ * 于是对动效敏感的用户在小程序里没有退路。这里给显式开关，落到根类 motion-flat。
+ * 与 material-flat 同一套机制：纯函数拼类名 + 本地存储记住选择。
+ */
 
 function readInitialTheme(): Theme {
   try {
@@ -95,6 +105,7 @@ export function rootClassOf(opts: {
   theme: Theme;
   systemDark: boolean;
   material: Material;
+  reducedMotion: boolean;
   taroEnv: string;
 }): string {
   const parts: string[] = [];
@@ -102,16 +113,28 @@ export function rootClassOf(opts: {
   else if (opts.theme === 'light' && opts.systemDark) parts.push('theme-light');
   if (opts.taroEnv === 'weapp') parts.push('page-solid');
   if (opts.material === 'flat') parts.push('material-flat');
+  if (opts.reducedMotion) parts.push('motion-flat');
   return parts.join(' ');
 }
 
 interface ThemeStoreState {
   theme: Theme;
   material: Material;
+  reducedMotion: boolean;
   systemDark: boolean;
   refreshSystemTheme: () => void;
   setTheme: (t: Theme) => void;
   setMaterial: (m: Material) => void;
+  setReducedMotion: (v: boolean) => void;
+}
+
+function readInitialReducedMotion(): boolean {
+  try {
+    return Taro.getStorageSync(MOTION_KEY) === true;
+  } catch {
+    /* ignore */
+  }
+  return false;
 }
 
 function readInitialMaterial(): Material {
@@ -127,6 +150,7 @@ function readInitialMaterial(): Material {
 export const useThemeStore = create<ThemeStoreState>((set) => ({
   theme: readInitialTheme(),
   material: readInitialMaterial(),
+  reducedMotion: readInitialReducedMotion(),
   systemDark: false,
   refreshSystemTheme: () => set({ systemDark: systemTheme() === 'dark' }),
   setTheme: (t) => {
@@ -140,5 +164,13 @@ export const useThemeStore = create<ThemeStoreState>((set) => ({
       /* ignore */
     }
     set({ material: m });
+  },
+  setReducedMotion: (v) => {
+    try {
+      Taro.setStorageSync(MOTION_KEY, v);
+    } catch {
+      /* ignore */
+    }
+    set({ reducedMotion: v });
   },
 }));

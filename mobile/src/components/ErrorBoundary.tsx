@@ -11,6 +11,7 @@
  */
 
 import React, { Component, type ReactNode } from 'react';
+import { Icon } from './Icon';
 import {
   View,
   Text,
@@ -82,7 +83,7 @@ export class ErrorBoundary extends Component<Props, State> {
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontSize: 48, textAlign: 'center', marginBottom: 16 }}>⚠️</Text>
+          <Icon name="warning" size={40} color="#DC2626" />
           <Text
             style={{
               fontSize: 18,

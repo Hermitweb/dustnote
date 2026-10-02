@@ -9,6 +9,7 @@ import { applyTheme, watchSystemTheme, applyTypography, THEMES } from './lib/the
 import { applyEffect } from './lib/effect';
 import { useUpdateCheck } from './lib/use-update-check';
 import { Icon } from './components/Icon';
+import { CARD_BTN_PRIMARY, CARD_BTN_SECONDARY, StatePlate } from './components/StatePlate';
 import { ForceUpdateOverlay } from './components/ForceUpdateOverlay';
 import { UpdateBanner } from './components/UpdateBanner';
 import { Sidebar } from './components/Sidebar';
@@ -340,36 +341,40 @@ function App() {
     return (
       <div className="flex h-full items-center justify-center bg-surface-bg p-6">
         <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
-          <div className="mb-4 text-4xl">⚠️</div>
-          <h2 className="mb-2 text-lg font-semibold text-surface-fg">
-            {t('app.connect_failed_title')}
-          </h2>
-          <p className="mb-1 text-sm text-surface-muted">{t('app.connect_failed_hint')}</p>
-          {serverError && (
-            <p className="mb-6 break-all rounded-lg bg-surface-bg px-3 py-2 text-xs text-danger">
-              {serverError}
-            </p>
-          )}
-          <div className="flex gap-3">
-            <button
-              onClick={() => {
-                useModeStore.getState().resetMode();
-                location.reload();
-              }}
-              className="flex-1 rounded-lg border border-surface-border px-4 py-2.5 text-sm font-medium text-surface-fg hover:bg-surface-bg"
-            >
-              {t('app.reselect_mode')}
-            </button>
-            <button
-              onClick={() => {
-                useStore.setState({ authState: 'unknown', serverError: null });
-                void checkStatus();
-              }}
-              className="flex-1 rounded-lg bg-accent-strong px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong-hover"
-            >
-              {t('app.retry')}
-            </button>
-          </div>
+          <StatePlate
+            size="card"
+            icon="warning"
+            tone="danger"
+            title={t('app.connect_failed_title')}
+            hint={t('app.connect_failed_hint')}
+            detail={
+              serverError ? (
+                <span className="block break-all text-danger">{serverError}</span>
+              ) : null
+            }
+            actions={
+              <>
+                <button
+                  onClick={() => {
+                    useModeStore.getState().resetMode();
+                    location.reload();
+                  }}
+                  className={CARD_BTN_SECONDARY}
+                >
+                  {t('app.reselect_mode')}
+                </button>
+                <button
+                  onClick={() => {
+                    useStore.setState({ authState: 'unknown', serverError: null });
+                    void checkStatus();
+                  }}
+                  className={CARD_BTN_PRIMARY}
+                >
+                  {t('app.retry')}
+                </button>
+              </>
+            }
+          />
         </div>
       </div>
     );
@@ -423,7 +428,7 @@ function App() {
           <div className="hidden text-sm text-surface-muted sm:block">{t('app.tagline')}</div>
           <div className="ml-auto flex items-center gap-2">
             {mode === 'standalone' && (
-              <span className="rounded bg-accent-soft/60 px-2 py-0.5 text-xs text-accent-text dark:bg-accent/30 dark:text-accent-text">
+              <span className="rounded bg-accent-soft/60 px-2 py-0.5 text-xs text-accent-text">
                 {t('settings.app_mode_standalone')}
               </span>
             )}

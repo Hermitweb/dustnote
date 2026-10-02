@@ -12,6 +12,7 @@ import { useStore } from '../lib/store';
 import { UNFILED_ID } from '../lib/store-types';
 import type { Template } from '@dustnote/shared';
 import { errorText } from '../lib/error-text';
+import { IconOrText } from './Icon';
 
 interface TemplatePickerProps {
   onClose: () => void;
@@ -97,7 +98,7 @@ export function TemplatePicker({ onClose }: TemplatePickerProps) {
                   onClick={() => handlePick(tpl)}
                   className="group flex flex-col items-start rounded-xl border border-surface-border bg-surface-bg p-3 text-left transition hover:border-accent hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <span className="mb-1 text-2xl">{tpl.icon}</span>
+                  <IconOrText value={tpl.icon} size={24} className="mb-1" />
                   <span className="text-sm font-semibold text-surface-fg">{tpl.name}</span>
                   <span className="mt-0.5 line-clamp-2 text-xs text-surface-muted">
                     {tpl.description}
@@ -132,7 +133,7 @@ export function TemplatePicker({ onClose }: TemplatePickerProps) {
                         onClick={() => handlePick(tpl)}
                         className="flex w-full flex-col items-start disabled:cursor-not-allowed"
                       >
-                        <span className="mb-1 text-2xl">{tpl.icon}</span>
+                        <IconOrText value={tpl.icon} size={24} className="mb-1" />
                         <span className="text-sm font-semibold text-surface-fg">{tpl.name}</span>
                         <span className="mt-0.5 line-clamp-2 text-xs text-surface-muted">
                           {tpl.description || t('templates.custom_desc')}
@@ -140,10 +141,10 @@ export function TemplatePicker({ onClose }: TemplatePickerProps) {
                       </button>
                       <button
                         onClick={(e) => handleDelete(e, tpl.id)}
-                        className="absolute right-1 top-1 hidden rounded bg-danger-soft p-1 text-xs text-danger hover:bg-danger-soft group-hover:block dark:bg-danger-soft dark:text-danger"
+                        className="absolute right-1 top-1 hidden rounded bg-danger-soft p-1 text-xs text-danger hover:bg-danger-soft group-hover:block"
                         title={t('common.delete')}
                       >
-                        🗑️
+                        <Icon name="trash" size={14} />
                       </button>
                     </div>
                   ))}

@@ -95,7 +95,11 @@ mark {
   padding: 0 1px;
   border-radius: 2px;
 }
-.dark mark {
+/* 暗色档的高亮要更亮一点才压得住底色。
+ * 这里以前写的是 .dark mark —— 但 Tailwind 配的是 darkMode:'class'、主题引擎写的却是
+ * html[data-mode]，全站没有任何地方加过 .dark，这条规则从来没生效过（同一个原因，
+ * 源码里 128 处 dark: 工具类全是死代码，本轮一并清掉）。见 docs/roadmap.md 台账。 */
+html[data-mode='dark'] mark {
   background: rgb(var(--mn-accent) / 0.35);
 }
 
@@ -187,7 +191,6 @@ textarea:focus::placeholder {
    glass-line 与极光都在 shared/styles/tokens.css —— web 与桌面端共用同一份，
    否则两边会各写一套磨砂参数（这正是 U-3 的成因）。
    见 docs/ui-optimization.md §2.2。 */
-
 
 /* 无障碍：降低动效（合并了此前重复声明的两段，两处只有字段不同、容易各改一半） */
 @media (prefers-reduced-motion: reduce) {

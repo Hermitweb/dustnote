@@ -18,6 +18,7 @@ import { exportDiagnostics } from '../lib/diagnostics';
 import { getLastBackupTime } from '../lib/auto-backup';
 import { isTauri } from '../lib/platform';
 import { getGraceUnlockMin, setGraceUnlockMin } from '../lib/grace-unlock';
+import { Icon } from './Icon';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -112,7 +113,8 @@ export function DiagnosticsPanel() {
           onClick={() => void exportDiagnostics()}
           className="flex-1 rounded-lg border border-surface-border px-3 py-1.5 text-xs text-surface-fg hover:bg-surface-bg"
         >
-          📋 {t('settings.export_diagnostics')}
+          <Icon name="clipboard" size={14} className="mr-1 inline-block align-[-2px]" />
+          {t('settings.export_diagnostics')}
         </button>
         <button
           onClick={() => void handleCleanup()}

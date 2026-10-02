@@ -185,7 +185,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       shadowOffset: { width: 0, height: 10 },
       elevation: 6,
     },
-    emoji: { fontSize: 64, textAlign: 'center', marginBottom: 16 },
     logo: { width: 64, height: 64, alignSelf: 'center', marginBottom: 16 },
     title: {
       fontSize: 28,
@@ -212,7 +211,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       alignItems: 'center',
       marginTop: 8,
     },
-    buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
+    buttonText: { color: c.onAccent, fontSize: 16, fontWeight: '600' },
     bioButton: { marginTop: 16, padding: 12, alignItems: 'center' },
     bioButtonText: { color: c.mint600, fontSize: 14 },
     recoverButton: { marginTop: 8, padding: 12, alignItems: 'center' },

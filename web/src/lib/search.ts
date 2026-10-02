@@ -80,11 +80,11 @@ export function tokenize(text: string): string[] {
  * 客户端内存倒排索引。
  *
  * 使用方式：
- *   const idx = new SearchIndex();
- *   idx.rebuild(notesPlain);           // 全量构建
- *   idx.update(noteId, plain);          // 增量更新单条
- *   idx.remove(noteId);                 // 删除单条
- *   const hits = idx.search('query');   // 查询
+ * const idx = new SearchIndex();
+ * idx.rebuild(notesPlain); // 全量构建
+ * idx.update(noteId, plain); // 增量更新单条
+ * idx.remove(noteId); // 删除单条
+ * const hits = idx.search('query'); // 查询
  */
 export class SearchIndex {
   /** token → Posting 列表 */

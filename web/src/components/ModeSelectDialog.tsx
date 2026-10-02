@@ -93,7 +93,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
       <div className="w-full max-w-2xl rounded-xl border border-surface-border bg-surface-card p-8 shadow-2xl">
         {/* 标题 */}
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60 dark:bg-accent/30">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60">
             <Logo className="h-10 w-10" alt="" />
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('mode_select.title')}</h1>
@@ -110,7 +110,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
             }}
             className={`rounded-xl border-2 p-5 text-left transition-colors ${
               selectedMode === 'standalone'
-                ? 'border-accent bg-accent-soft/40 dark:bg-accent/20'
+                ? 'border-accent bg-accent-soft/40 '
                 : 'border-surface-border hover:border-accent-soft'
             }`}
           >
@@ -119,7 +119,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
               {t('mode_select.standalone_title')}
             </h2>
             <p className="mb-3 text-xs text-surface-muted">{t('mode_select.standalone_desc')}</p>
-            <p className="text-xs font-medium text-accent-text dark:text-accent-text">
+            <p className="text-xs font-medium text-accent-text">
               {t('mode_select.standalone_features')}
             </p>
           </button>
@@ -129,7 +129,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
             onClick={() => setSelectedMode('online')}
             className={`rounded-xl border-2 p-5 text-left transition-colors ${
               selectedMode === 'online'
-                ? 'border-accent bg-accent-soft/40 dark:bg-accent/20'
+                ? 'border-accent bg-accent-soft/40 '
                 : 'border-surface-border hover:border-accent-soft'
             }`}
           >
@@ -138,7 +138,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
               {t('mode_select.online_title')}
             </h2>
             <p className="mb-3 text-xs text-surface-muted">{t('mode_select.online_desc')}</p>
-            <p className="text-xs font-medium text-accent-text dark:text-accent-text">
+            <p className="text-xs font-medium text-accent-text">
               {t('mode_select.online_features')}
             </p>
           </button>
@@ -171,9 +171,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
               </button>
             </div>
             {connState === 'ok' && (
-              <p className="mt-2 text-xs text-accent-text dark:text-accent-text">
-                {t('mode_select.online_test_ok')}
-              </p>
+              <p className="mt-2 text-xs text-accent-text">{t('mode_select.online_test_ok')}</p>
             )}
             {connState === 'fail' && (
               <p className="mt-2 text-xs text-danger">{t('mode_select.online_test_fail')}</p>

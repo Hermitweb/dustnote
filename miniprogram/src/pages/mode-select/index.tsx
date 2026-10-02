@@ -30,6 +30,7 @@ import { taroFetch } from '../../lib/taro-fetch';
 import { APP_VERSION, useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
 import { isPrivateHost } from '../../lib/net-utils';
+import { Icon } from '../../components/Icon';
 
 /**
  * 检测当前运行时是否可支撑单机模式（本地 AES-GCM + HKDF）
@@ -298,7 +299,11 @@ export default function ModeSelect() {
           <View className="row" style={{ justifyContent: 'center' }}>
             <Text className="text-lg fw-bold">{t('mode_select.standalone')}</Text>
             <Text className="text-mint" style={{ marginLeft: '8rpx' }}>
-              {cryptoAvailable ? '›' : '🔒'}
+              {cryptoAvailable ? (
+                <Icon name="chevron-right" size={14} />
+              ) : (
+                <Icon name="lock" size={14} />
+              )}
             </Text>
           </View>
           <Text className="hint mt-s" style={{ display: 'block' }}>
@@ -340,7 +345,7 @@ export default function ModeSelect() {
               className={`text-xs mt-s ${testResult.ok ? 'success-text' : 'error-text'}`}
               style={{ display: 'block' }}
             >
-              {testResult.ok ? '✓ ' : '✗ '}
+              {testResult.ok ? <Icon name="check" size={14} /> : <Icon name="close" size={14} />}
               {testResult.message}
             </Text>
           )}

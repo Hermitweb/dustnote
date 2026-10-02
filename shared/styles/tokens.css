@@ -395,3 +395,21 @@ html[data-effect='glass'] [role='dialog'] .border-surface-border {
 .toast-in {
   animation: mn-toast-in var(--mn-duration-med) var(--mn-ease);
 }
+/* ---------- 状态版面的加载占位 ----------
+ * 旋转是"唯一该用 linear 的动效"：加减速会让 spinner 看起来在抽搐，
+ * 所以这里是刻意的一次例外，不参与 --mn-ease。
+ * 尺寸与 StatePlate 的图版块一致（44px 盒内 22px 环），保证空态↔加载态切换不跳版。 */
+@keyframes mn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.state-plate-spinner {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid rgb(var(--mn-border));
+  border-top-color: rgb(var(--mn-accent));
+  animation: mn-spin 900ms linear infinite;
+}

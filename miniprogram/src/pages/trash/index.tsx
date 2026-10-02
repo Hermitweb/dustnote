@@ -12,6 +12,8 @@ import { useAuthStore, decryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
 import { noteAad, formatNoteStamp } from '@dustnote/shared';
 import { t, useLanguage } from '../../lib/i18n';
+import { Icon } from '../../components/Icon';
+import { StatePlate } from '../../components/StatePlate';
 
 interface Note {
   id: string;
@@ -165,18 +167,13 @@ export default function Trash() {
           onRefresherRefresh={() => void load()}
         >
           {loading && <View className="loading">{t('common.loading')}</View>}
-          {!loading && notes.length === 0 && (
-            <View className="empty-state">
-              <Text className="empty-state-icon">🗑️</Text>
-              <Text className="empty-state-text">{t('trash.empty')}</Text>
-            </View>
-          )}
+          {!loading && notes.length === 0 && <StatePlate icon="trash" title={t('trash.empty')} />}
           {notes.map((n) => (
             <View key={n.id} className="note-row">
               <View className="note-row-head">
                 <View className="note-icons">
-                  {n.isPinned ? <Text>📌</Text> : null}
-                  {n.isFavorite ? <Text>⭐</Text> : null}
+                  {n.isPinned ? <Icon name="pin" size={14} /> : null}
+                  {n.isFavorite ? <Icon name="star" size={14} /> : null}
                 </View>
                 <Text className="note-title">{titles[n.id] || t('common.unnamed_note')}</Text>
               </View>

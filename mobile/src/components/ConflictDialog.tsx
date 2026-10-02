@@ -109,7 +109,7 @@ export function ConflictDialog(): React.JSX.Element {
               onPress={() => void onChoose('local')}
               style={[styles.btn, { backgroundColor: colors.mint600 }]}
             >
-              <Text style={styles.btnText}>
+              <Text style={[styles.btnText, { color: colors.onAccent }]}>
                 {resolving === 'local' ? t('conflict.resolving') : t('conflict.use_local')}
               </Text>
             </TouchableOpacity>
@@ -127,7 +127,7 @@ export function ConflictDialog(): React.JSX.Element {
               onPress={() => void onChoose('merged')}
               style={[styles.btn, { backgroundColor: colors.mint600 }]}
             >
-              <Text style={styles.btnText}>
+              <Text style={[styles.btnText, { color: colors.onAccent }]}>
                 {resolving === 'merged'
                   ? t('conflict.resolving')
                   : `${t('conflict.use_merged')} · ${t('conflict.merged_hint')}`}
@@ -205,7 +205,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   btnText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },

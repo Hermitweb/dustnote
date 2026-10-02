@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { Icon } from './Icon';
 
 interface LogoProps {
   className?: string;
@@ -16,7 +17,11 @@ export function Logo({ className = 'h-8 w-8', alt = 'DustNote' }: LogoProps) {
   const [error, setError] = useState(false);
 
   if (error) {
-    return <span className={`${className} flex items-center justify-center`}>🌿</span>;
+    return (
+      <span className={`${className} flex items-center justify-center`}>
+        <Icon name="notebook" size={16} />
+      </span>
+    );
   }
 
   return <img src="/logo.png" alt={alt} className={className} onError={() => setError(true)} />;

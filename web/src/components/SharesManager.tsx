@@ -249,7 +249,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
               className="text-surface-muted hover:text-surface-fg"
               aria-label={t('common.close')}
             >
-              ✕
+              <Icon name="close" size={14} />
             </button>
           </div>
         </div>
@@ -279,7 +279,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
               return (
                 <div
                   key={s.id}
-                  className={`rounded-lg border border-surface-border p-3 transition-colors ${s.revoked || expired ? 'bg-surface-2 opacity-60 dark:bg-surface-3/60' : checked ? 'bg-accent-soft/60 dark:bg-accent/20' : 'bg-surface-bg'}`}
+                  className={`rounded-lg border border-surface-border p-3 transition-colors ${s.revoked || expired ? 'bg-surface-2 opacity-60 ' : checked ? 'bg-accent-soft/60 ' : 'bg-surface-bg'}`}
                 >
                   <div className="mb-2 flex items-start justify-between">
                     <div className="flex items-start gap-2">
@@ -290,7 +290,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                           aria-pressed={checked}
                           aria-label={t('shares.select_all')}
                         >
-                          {checked && '✓'}
+                          {checked && <Icon name="check" size={14} />}
                         </button>
                       )}
                       <div>
@@ -306,13 +306,13 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                     </div>
                     <div className="flex gap-1">
                       {s.hasPassword && (
-                        <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs text-warning dark:bg-warning-soft dark:text-warning">
+                        <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs text-warning">
                           <Icon name="lock" size={14} className="mr-0.5 inline align-[-2px]" />
                           {t('shares.password_badge')}
                         </span>
                       )}
                       {s.revoked ? (
-                        <span className="rounded-full bg-danger-soft px-2 py-0.5 text-xs text-danger dark:bg-danger-soft dark:text-danger">
+                        <span className="rounded-full bg-danger-soft px-2 py-0.5 text-xs text-danger">
                           {t('shares.status_revoked')}
                         </span>
                       ) : expired ? (
@@ -320,7 +320,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                           {t('shares.status_expired')}
                         </span>
                       ) : (
-                        <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs text-success dark:bg-success-soft dark:text-success">
+                        <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs text-success">
                           {t('shares.status_active')}
                         </span>
                       )}
@@ -347,7 +347,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                       <div className="ml-auto flex gap-1">
                         <button
                           onClick={() => void copy(s)}
-                          className="rounded bg-accent-soft/60 px-2 py-1 text-xs text-accent-text hover:bg-accent-soft dark:bg-accent/30 dark:text-accent-text"
+                          className="rounded bg-accent-soft/60 px-2 py-1 text-xs text-accent-text hover:bg-accent-soft"
                           aria-label={t('shares.copy_link')}
                         >
                           {copiedId === s.id ? t('shares.copied') : t('shares.copy_link')}
@@ -364,7 +364,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                         {canAct && (
                           <button
                             onClick={() => setRevokeTargetId(s.id)}
-                            className="rounded bg-danger-soft px-2 py-1 text-xs text-danger hover:bg-danger-soft dark:bg-danger-soft"
+                            className="rounded bg-danger-soft px-2 py-1 text-xs text-danger hover:bg-danger-soft"
                             aria-label={t('shares.revoke')}
                           >
                             {t('shares.revoke')}
@@ -394,7 +394,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
               </button>
               <button
                 onClick={() => setShowBatchRevokeConfirm(true)}
-                className="rounded bg-danger-soft px-3 py-1 text-xs text-danger hover:bg-danger-soft dark:bg-danger-soft"
+                className="rounded bg-danger-soft px-3 py-1 text-xs text-danger hover:bg-danger-soft"
               >
                 <IconText k="shares.batch_revoke" label={t('shares.batch_revoke')} />
               </button>

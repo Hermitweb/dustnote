@@ -6,7 +6,7 @@
  * 安全（security.md §3.4：Web IndexedDB 用 masterKey 派生 localDEK 加密）：
  * - 密文行（notes）本身是密文，可直接缓存；
  * - 明文（notesPlain）必须用 localDEK（由 masterKey 经 HKDF 派生）加密后落盘，
- *   调用方在解锁后传入 localKey；无密钥时不落明文。
+ * 调用方在解锁后传入 localKey；无密钥时不落明文。
  * - lock() 时调用 clearPlainCache() 清掉明文缓存，仅保留密文行加速下次解锁加载。
  */
 

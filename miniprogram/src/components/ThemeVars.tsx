@@ -39,6 +39,7 @@ function bindSystemThemeListener(): void {
 export function useThemeDarkClass(): string {
   const theme = useThemeStore((s) => s.theme);
   const material = useThemeStore((s) => s.material);
+  const reducedMotion = useThemeStore((s) => s.reducedMotion);
   const systemDark = useThemeStore((s) => s.systemDark);
   const refreshSystemTheme = useThemeStore((s) => s.refreshSystemTheme);
 
@@ -52,6 +53,7 @@ export function useThemeDarkClass(): string {
     theme,
     systemDark: systemDark === true,
     material,
+    reducedMotion,
     taroEnv: process.env.TARO_ENV ?? '',
   });
 }

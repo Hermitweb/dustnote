@@ -33,6 +33,8 @@ import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
 import { decryptNote } from '../lib/envelope';
 import { useColors } from '../theme';
+import { Icon } from '../components/Icon';
+import { StatePlate } from '../components/StatePlate';
 
 interface NotePlaintext {
   title: string;
@@ -167,16 +169,11 @@ export function TrashScreen() {
         data={notes}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🗑️</Text>
-            <Text style={styles.emptyText}>{t('trash.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<StatePlate icon="trash" title={t('trash.empty')} />}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.cardTitle} numberOfLines={1}>
-              {item.plain?.title ?? '🔒'}
+              {item.plain?.title ?? '—'}
             </Text>
             <Text style={styles.cardMeta}>{formatNoteStamp(item.serverUpdatedAt)}</Text>
             <View style={styles.actions}>
@@ -184,7 +181,8 @@ export function TrashScreen() {
                 style={styles.restoreBtn}
                 onPress={() => void handleRestore(item.id)}
               >
-                <Text style={styles.restoreText}>{'↩ ' + t('trash.restore')}</Text>
+                <Icon name="undo" size={13} color={colors.onAccent} />
+                <Text style={styles.restoreText}>{t('trash.restore')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.permBtn}
@@ -206,7 +204,6 @@ export function TrashScreen() {
 function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: 'transparent' },
-    topTitle: { fontSize: 15, fontWeight: '600', color: c.fg },
     toolbar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -244,8 +241,10 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       backgroundColor: c.mint600,
       paddingVertical: 8,
       alignItems: 'center',
+      flexDirection: 'row',
+      gap: 5,
     },
-    restoreText: { color: 'white', fontSize: 13, fontWeight: '600' },
+    restoreText: { color: c.onAccent, fontSize: 13, fontWeight: '600' },
     permBtn: {
       flex: 1,
       borderRadius: 8,
@@ -256,8 +255,5 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       alignItems: 'center',
     },
     permText: { color: '#dc2626', fontSize: 13, fontWeight: '600' },
-    empty: { alignItems: 'center', marginTop: 80 },
-    emptyEmoji: { fontSize: 48, marginBottom: 12 },
-    emptyText: { fontSize: 16, color: c.fg },
   });
 }
