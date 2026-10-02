@@ -23,7 +23,21 @@ export function plaintextTargets(urlBase) {
 /** 单个端口的收口结论。3xx 与 404 都算收口：前者是期望形态，后者是根本没在监听。 */
 export function plaintextVerdict(status) {
   const hardened = [301, 302, 307, 308].includes(status) || status === 404;
-  return hardened
-    ? '明文已收口（status=' + status + '）'
-    : '明文仍可服务（status=' + status + '，R1 HTTPS 收口待办）';
+  return {
+    hardened,
+    note: hardened
+      ? '明文已收口（status=' + status + '）'
+      : '明文仍可服务（status=' + status + '，R1 HTTPS 收口已漏）',
+  };
+}
+
+/**
+ * 连不上 = 该端口根本没对外发布，比 301 更彻底，判收口。
+ *
+ * 但只把"连接层失败"当不可达：HTTP 4xx/5xx 是有服务在应答，那必须走 plaintextVerdict
+ * 分类，不能在这里刷绿——否则一个回了 400 的明文服务会被读成"没在监听"。
+ */
+export function plaintextUnreachable(errMessage) {
+  const m = String(errMessage ?? '').slice(0, 80);
+  return { hardened: true, note: '明文不可达（该端口未对外发布）：' + m };
 }

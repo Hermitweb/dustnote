@@ -7,10 +7,12 @@
  * 变成"没有告警系统"，而所有人都不知道。这里把两件事钉住：
  *   1. Alertmanager 载荷 → ntfy 消息的映射（含 resolved / critical / 缺字段兜底）
  *   2. 全失败时向上返回"硬失败"，让 Alertmanager 重试
+  3. 多目标（逗号分隔）下的记账：送达判据是"≥1 个目标成功"，部分失败必须记 partial，
+     绝不能因为公网那路通了就把自托管那路的失败读成没发生。
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toNtfyMessages, publishAll, stats } from './bridge.mjs';
+import { toNtfyMessages, publishAll, parseServers, stats } from './bridge.mjs';
 
 const alert = (over = {}) => ({
   status: 'firing',
@@ -71,7 +73,7 @@ test('全部推送失败 → 报告零送达（调用方据此回 502 让 Alertm
       alerts: [alert(), alert({ labels: { alertname: 'B', severity: 'warning' } })],
     });
     assert.equal(r.attempted, 2);
-    assert.equal(r.ok, 0);
+    assert.equal(r.delivered, 0);
     assert.ok(stats.failed > before, 'failed 计数必须增长');
     assert.match(stats.lastError, /B: |DustnoteEndpointDown: /);
   } finally {
@@ -93,7 +95,7 @@ test('部分成功也如实报告条数（不夸大送达）', async () => {
       alerts: [alert(), alert({ labels: { alertname: 'C', severity: 'warning' } })],
     });
     assert.equal(r.attempted, 2);
-    assert.equal(r.ok, 1);
+    assert.equal(r.delivered, 1);
   } finally {
     global.fetch = real;
   }
@@ -109,9 +111,114 @@ test('空批次不算失败（Alertmanager 会发空通知表示全部恢复）'
   try {
     const r = await publishAll({ alerts: [] });
     assert.equal(r.attempted, 0);
-    assert.equal(r.ok, 0);
+    assert.equal(r.delivered, 0);
     assert.equal(called, 0);
   } finally {
     global.fetch = real;
   }
+});
+
+/* ── 多目标投递（2026-10-02，DNS 迁移期同时投自托管与公网）────────────────── */
+
+test('parseServers: 逗号分隔、去空白、去尾斜杠、空值回落公网默认', () => {
+  assert.deepEqual(parseServers(undefined), ['https://ntfy.sh']);
+  assert.deepEqual(parseServers(''), ['https://ntfy.sh']);
+  assert.deepEqual(parseServers('   '), ['https://ntfy.sh']);
+  assert.deepEqual(parseServers('http://ntfy:5000'), ['http://ntfy:5000']);
+  assert.deepEqual(parseServers('https://ntfy.sh/'), ['https://ntfy.sh']);
+  assert.deepEqual(parseServers('https://ntfy.sh , http://ntfy:5000// '), [
+    'https://ntfy.sh',
+    'http://ntfy:5000',
+  ]);
+  assert.deepEqual(parseServers('https://a,,https://b'), ['https://a', 'https://b']);
+});
+
+const okRes = { ok: true, status: 200, text: async () => '' };
+const errRes = { ok: false, status: 500, text: async () => 'boom' };
+const transportOf = (fn) => fn;
+
+test('双目标全通：一条告警 published +2，partial 不涨', async () => {
+  const p0 = stats.published;
+  const pa0 = stats.partial;
+  const seen = [];
+  const r = await publishAll(
+    { alerts: [alert()] },
+    {
+      servers: ['https://pub.example', 'http://local.example:5000'],
+      topic: 'T0PIc',
+      transport: transportOf(async (url) => {
+        seen.push(url);
+        return { ...okRes };
+      }),
+    }
+  );
+  assert.equal(r.attempted, 1);
+  assert.equal(r.delivered, 1);
+  assert.equal(r.targets, 2);
+  assert.equal(stats.published - p0, 2, '两个目标都成功 = published 记 2 次');
+  assert.equal(stats.partial - pa0, 0);
+  assert.deepEqual(seen, ['https://pub.example/T0PIc', 'http://local.example:5000/T0PIc']);
+  assert.ok(
+    stats.byTarget['https://pub.example'].published >= 1,
+    '逐目标账本必须记到 pub.example 的成功'
+  );
+});
+
+test('双目标只通一路：算送达（告警没丢）但必须记 partial，且逐目标可查', async () => {
+  const pa0 = stats.partial;
+  const f0 = stats.failed;
+  const r = await publishAll(
+    { alerts: [alert()] },
+    {
+      servers: ['https://down.example', 'http://up.example:5000'],
+      topic: 'T',
+      transport: transportOf(async (url) =>
+        url.includes('down.example') ? { ...errRes } : { ...okRes }
+      ),
+    }
+  );
+  assert.equal(r.attempted, 1);
+  assert.equal(r.delivered, 1, '≥1 个目标成功就不算丢，Alertmanager 不该再重试同一批');
+  assert.ok(stats.partial - pa0 === 1, '部分失败必须计入 partial');
+  assert.ok(stats.failed - f0 === 1);
+  assert.ok(
+    stats.byTarget['https://down.example'].failed >= 1,
+    '逐目标账本必须记到 down.example 的失败'
+  );
+  assert.match(stats.lastError, /down.example/);
+  assert.match(stats.lastError, /DustnoteEndpointDown/);
+});
+
+test('双目标全不通：delivered=0（这就是回 502 的判据）', async () => {
+  const r = await publishAll(
+    { alerts: [alert(), alert({ labels: { alertname: 'Z' } })] },
+    {
+      servers: ['https://a.example', 'https://b.example'],
+      topic: 'T',
+      transport: transportOf(async () => ({ ...errRes })),
+    }
+  );
+  assert.equal(r.attempted, 2);
+  assert.equal(r.delivered, 0);
+  assert.equal(r.targets, 2);
+});
+
+test('topic 拼进每个目标的 URL，不共用同一个 URL', async () => {
+  const urls = [];
+  await publishAll(
+    { alerts: [alert()] },
+    {
+      servers: ['https://one.example', 'https://two.example', 'https://three.example'],
+      topic: 'SEcRETtOpic',
+      transport: transportOf(async (url) => {
+        urls.push(url);
+        return { ...okRes };
+      }),
+    }
+  );
+  assert.deepEqual(urls, [
+    'https://one.example/SEcRETtOpic',
+    'https://two.example/SEcRETtOpic',
+    'https://three.example/SEcRETtOpic',
+  ]);
 });

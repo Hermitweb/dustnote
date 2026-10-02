@@ -124,7 +124,37 @@ if [[ "${SKIP_DOWNLOADS:-0}" != "1" ]]; then
   log "downloads 完成"
 fi
 
-# ── 7. 缓存回收（每次发版后纪律,v2.5.41 实收 6.4G）─────────────────
+# ── 7. 监控栈跟随换代（2026-10-02 加）──────────────────────────────
+# 事故形态：主栈换代只重建主容器，监控栈的 bind mount 会永远停在**首次部署**的目录。
+# 已实锤一次：deploy/monitoring/bridge.mjs 的 P0-2 修复（零送达回 502 + /stats）进了仓库、
+# 进了测试，线上跑的却还是修复前的旧版 —— 告警最后一跳静默失效 6 天，CI 与状态页全绿。
+# 所以这里既重建、也断言挂载源真的换到了新目录；断言不成立直接 die，不留"大概升级过了"。
+MON_NEW="${NEW_DIR}/deploy/monitoring"
+if docker ps --format '{{.Names}}' | grep -q '^dustnote-monitoring-'; then
+  [[ -d "$MON_NEW" ]] || die "监控栈在运行，但新版本包里没有 deploy/monitoring"
+  MON_ENV="${MON_NEW}/.env.monitoring"
+  if [[ ! -f "$MON_ENV" ]]; then
+    # .env.monitoring 含 topic 与凭据，不进版本包：从上一版目录继承；两边都没有就要求人工建
+    if [[ -f "${OLD_DIR}/deploy/monitoring/.env.monitoring" ]]; then
+      cp "${OLD_DIR}/deploy/monitoring/.env.monitoring" "$MON_ENV"
+      log "监控栈 .env.monitoring 已从 ${OLD_DIR} 继承"
+    else
+      die "找不到监控栈 .env.monitoring（新旧目录都没有）：cd ${MON_NEW} && cp .env.monitoring.example .env.monitoring，填好 NTFY_TOPIC 再升级"
+    fi
+  fi
+  docker compose -f "${MON_NEW}/compose.monitoring.yml" --env-file "$MON_ENV" up -d >/dev/null
+  MOUNT=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/bridge.mjs"}}{{.Source}}{{end}}{{end}}' \
+    dustnote-monitoring-ntfy-bridge-1 2>/dev/null || true)
+  WANT=$(realpath "${MON_NEW}/bridge.mjs")
+  GOT=$(realpath "$MOUNT" 2>/dev/null || echo "$MOUNT")
+  [[ -n "$GOT" && "$GOT" == "$WANT" ]] ||
+    die "监控栈挂载源仍是 ${GOT:-未取到}（应为 ${WANT}）：compose 已重建但 bridge 没跟上，告警链路的修复等于没上线"
+  log "监控栈已跟随换代，挂载源核验通过：${GOT}"
+else
+  log "监控栈未在运行，跳过同步（要启用见 deploy/monitoring/README.md）"
+fi
+
+# ── 8. 缓存回收（每次发版后纪律,v2.5.41 实收 6.4G）─────────────────
 docker builder prune -f | tail -1
 df -h / | tail -1
 

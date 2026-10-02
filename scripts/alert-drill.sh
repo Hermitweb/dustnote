@@ -15,36 +15,73 @@ set -euo pipefail
 PROM='http://127.0.0.1:9090'
 AM='http://127.0.0.1:9093'
 MON_DIR="${MON_DIR:-$(cd "$(dirname "$0")/../deploy/monitoring" && pwd)}"
-MAIN_DIR="${MAIN_DIR:-$(ls -d /opt/dustnote-server-v* 2>/dev/null | sort -V | tail -1)}"
+# 只认目录：upgrade.sh 会把下载来的包留在 /opt（dustnote-server-vX.Y.Z.zip），
+# 而 `ls -d /opt/dustnote-server-v*` 会把它一起列出来，`sort -V` 又让 "2.5.46.zip"
+# 排在 "2.5.46" 之后 —— 2026-10-02 实跑当场踩中，MAIN_DIR 指到 zip 直接 FAIL。
+MAIN_DIR="${MAIN_DIR:-$(find /opt -maxdepth 1 -type d -name 'dustnote-server-v*' 2>/dev/null | sort -V | tail -1)}"
+# compose 只自动加载 .env；本栈用的是 .env.monitoring，必须显式 --env-file，
+# 否则 ${NTFY_TOPIC:?} 插值失败，连 exec 都会 exit 1（2026-10-02 实跑抓到）。
+MON_ENV="${MON_ENV:-$MON_DIR/.env.monitoring}"
 SMOKE=0
 [ "${1:-}" = "--smoke" ] && SMOKE=1
 
+compose_mon() {
+  if [ -f "$MON_ENV" ]; then
+    docker compose -f "$MON_DIR/compose.monitoring.yml" --env-file "$MON_ENV" "$@"
+  else
+    docker compose -f "$MON_DIR/compose.monitoring.yml" "$@"
+  fi
+}
+
 # bridge 没有对外发布端口（只在内网），所以经容器内 wget 读它的 /stats
 bridge_stat() {
-  docker compose -f "$MON_DIR/compose.monitoring.yml" exec -T ntfy-bridge \
-    wget -qO- http://127.0.0.1:9095/stats 2>/dev/null || true
+  compose_mon exec -T ntfy-bridge wget -qO- http://127.0.0.1:9095/stats 2>/dev/null || true
 }
+
 bridge_field() {
   bridge_stat | python3 -c "import json,sys
 try: print(json.load(sys.stdin).get('$1', 0))
 except Exception: print(0)"
 }
 
-alert_state() {
-  curl -sf "$PROM/api/v1/alerts" | python3 -c "
-import json,sys
+# Prometheus 的 /api/v1/alerts 只列 pending/firing；resolved 后条目消失，所以调用方
+# 用「空输出」表示已恢复。解析器拆成纯 stdin 函数，才能在不联网的情况下自检。
+parse_alert_state() {
+  python3 -c '
+import json, sys
+want = sys.argv[1]
 try:
-    d=json.load(sys.stdin)
-    for a in d.get('data',{}).get('alerts',[]):
-        if a.get('labels',{}).get('alertname')==='$1':
-            print(a.get('state')); break
-except Exception: pass
-"
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for a in data.get("data", {}).get("alerts", []):
+    if a.get("labels", {}).get("alertname") == want:
+        print(a.get("state"))
+        break
+' "$1"
 }
+
+alert_state() {
+  curl -sf "$PROM/api/v1/alerts" | parse_alert_state "$1"
+}
+
+# 自检：这个解析器曾经把 JS 的 === 写进 Python，SyntaxError 被管道吞成空输出，
+# 于是「等 firing」空转到 240s 超时、演练结论变成「没观测到 firing」——把工具的坏
+# 说成系统的坏。先喂一条假告警确认解析器可用，坏在这里就当场停。
+if ! printf '%s' '{"data":{"alerts":[{"labels":{"alertname":"__SelfTest__"},"state":"firing"}]}}' |
+  parse_alert_state __SelfTest__ | grep -qx firing; then
+  echo "[FAIL] parse_alert_state 自检失败：演练结论不可信，先修解析器" >&2
+  exit 1
+fi
 
 if [ "$SMOKE" = 1 ]; then
   echo "== 冒烟：向 Alertmanager 投一条合成告警，验证 AM→bridge→ntfy 全链路 =="
-  [ -n "$(bridge_stat)" ] || { echo "[FAIL] 读不到 bridge /stats，监控栈没起来？cd $MON_DIR && docker compose -f compose.monitoring.yml --env-file .env.monitoring up -d"; exit 1; }
+  if [ -z "$(bridge_stat)" ]; then
+    echo "[FAIL] 读不到 bridge /stats，监控栈没起来？现场诊断：" >&2
+    compose_mon ps 2>&1 | tail -6 >&2
+    echo "  若是 required variable NTFY_TOPIC is missing，说明 MON_ENV 不对：MON_ENV=<env 文件路径> $0" >&2
+    exit 1
+  fi
   BEFORE=$(bridge_field published)
   FAILED_BEFORE=$(bridge_field failed)
   TS=$(date -u +%H%M%S)
