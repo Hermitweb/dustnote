@@ -217,6 +217,10 @@ jobs:
             const ignored = new Set([
               // C 类：无补丁 / 已废弃，待 Taro 主版本升级根治
               'GHSA-hmx5-qpq5-p643', // swiper critical：@tarojs/components 钉死 6.x
+          // vm2 一族的 11 条不在此列：3.11.7 已修，用 pnpm.overrides 压版本根治（白名单只留给无解的）
+          'GHSA-86w9-cpqp-85rv', // node-forge high：selfsigned(webpack-dev-server 造 dev 证书) 传递引入，
+          // 上游公告 first_patched=NONE（<=1.4.0 无修复版）。仅构建期使用、不进任何产物；
+          // 与 vm2 不同——vm2 有 3.11.7 修复版，所以那个用 overrides 解决而不是塞这里。
               'GHSA-mp2f-45pm-3cg9', // decompress critical：download-git-repo 链路
               'GHSA-hrh2-vp3x-79xf', // decompress 同一条链路的第二个 GHSA：上游只修了 @xhmikosr/
               // decompress（11.1.4 / 10.2.2），decompress 4.x 本身无修复版本，包已废弃
