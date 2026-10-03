@@ -37,8 +37,12 @@ services:
       # 宿主侧默认只绑回环（PORT_BIND）。Docker 发布端口会绕过 ufw/firewalld 的 INPUT 规则，
       # 所以 0.0.0.0:8080 等于开后门：它绕过前置代理，"强制 HTTPS"永远收不全。
       # 跨机直连的老式部署：PORT_BIND=0.0.0.0
+      #
+      # ⚠️ 8080 这里**只能有一条**：v2.5.47 曾在这条回环绑定的下一行留着旧的
+      # '${PORT:-8080}:8080'（R1 收口"加新忘删旧"），两条绑定互相重叠 → 容器 up
+      # 必定 "address already in use" → upgrade.sh 半程中断、线上中断 2.5 分钟。
+      # 回归门禁：scripts/check-compose-ports.mjs（挂在 pnpm docker:check 第二段）。
       - '${PORT_BIND:-127.0.0.1}:${PORT:-8080}:8080'
-      - '${PORT:-8080}:8080'
     volumes:
       # 持久化 SQLite 数据库（一体化镜像数据目录为 /app/server/data）
       - dustnote-data:/app/server/data
