@@ -598,7 +598,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     rowName: { flex: 1, fontSize: 15, color: c.fg },
     modalMask: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: c.scrim,
       justifyContent: 'center',
       padding: 24,
     },

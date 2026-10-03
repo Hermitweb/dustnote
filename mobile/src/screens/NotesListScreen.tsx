@@ -982,7 +982,7 @@ function makeStyles(c: ReturnType<typeof useColors>, l: ReturnType<typeof useRes
     batchBtnTextStrong: { color: c.mint600, fontWeight: '700' },
     batchBtnTextDanger: { color: '#e5484d', fontWeight: '700' },
     // ── 移动到文件夹弹层 ──
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    modalOverlay: { flex: 1, backgroundColor: c.scrim, justifyContent: 'flex-end' },
     modalSheet: {
       backgroundColor: c.card,
       borderTopLeftRadius: 16,

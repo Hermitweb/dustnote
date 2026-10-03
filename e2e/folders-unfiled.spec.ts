@@ -39,6 +39,38 @@ test.describe('文件夹与未分类', () => {
   });
 });
 
+test.describe('顶栏常驻作用域标题', () => {
+  /*
+   * 图标轨档（1024–1279）把侧栏收成 56px，条目只剩图标；浮层解决"我指着哪个"，
+   * 但"我现在在哪"必须不靠 hover、不靠点也能读到 —— 这一行就是为那个场景存在的。
+   * 断言用真浏览器点出来的结果，不是组件单测能覆盖的（要跨 store 与 i18n）。
+   */
+  test('点文件夹与四个目的地，顶栏标题一路跟着换', async ({ page }) => {
+    await setupStandalone(page);
+
+    const title = page.locator('[data-scope-title]');
+    await expect(title).toBeVisible({ timeout: 10_000 });
+    // 默认文件夹由 ensureDefaultContent 建出来，名字固定
+    const folder = page.getByText('关于尘渊笔记').first();
+    await expect(folder).toBeVisible({ timeout: 10_000 });
+
+    await folder.click();
+    await expect(title).toHaveText('关于尘渊笔记', { timeout: 5_000 });
+
+    // 「未分类」只在有未分类笔记、或一个文件夹都没有时才渲染（H8/M1 的条件），
+    // 这里的场景两者都不满足，所以走四个常驻目的地：它们才是图标轨档下
+    // 唯一"点亮着但读不出名字"的那批条目。
+    await page.getByRole('button', { name: '概览' }).first().click();
+    await expect(title).toHaveText('概览', { timeout: 5_000 });
+
+    await page.getByRole('button', { name: '回收站' }).first().click();
+    await expect(title).toHaveText('回收站', { timeout: 5_000 });
+
+    await page.getByRole('button', { name: '全部笔记' }).first().click();
+    await expect(title).toHaveText('全部笔记', { timeout: 5_000 });
+  });
+});
+
 test.describe('登出（技术债）', () => {
   test('退出登录后回到解锁页并清掉本机 refresh token', async ({ page }) => {
     await setupStandalone(page);

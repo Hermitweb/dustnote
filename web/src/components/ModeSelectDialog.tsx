@@ -87,7 +87,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
       className={
         isInitial
           ? 'fixed inset-0 z-50 flex items-center justify-center bg-surface-bg p-6'
-          : 'fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6'
+          : 'fixed inset-0 z-50 flex items-center justify-center scrim p-6'
       }
     >
       <div className="w-full max-w-2xl rounded-xl border border-surface-border bg-surface-card p-8 shadow-2xl">

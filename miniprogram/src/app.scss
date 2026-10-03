@@ -147,17 +147,15 @@ page {
   min-height: 88rpx;
   box-shadow: var(--shadow-xs);
 }
-/* H5 专享毛玻璃效果（小程序不支持 backdrop-filter） */
+/* H5 专享毛玻璃效果（小程序不支持 backdrop-filter）。
+ * 底色不再这里另发明一份 rgba(255,255,255,.82)：.topbar 已经吃 --bg-elevated
+ * （glass-2，浅色 #ffffffe0 / 深色 #172554cc），@supports 只负责"能不能模糊"。
+ * 以前深色档靠 .theme-dark .topbar 再抄一份 rgba(148,163,184,.16) 补，
+ * 于是顶栏与它下面的面板不是同一档玻璃。 */
 @supports (backdrop-filter: blur(12px)) {
   .topbar {
-    background: rgba(255, 255, 255, 0.82);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-  }
-  /* 注意：开发者工具/真机 webview 渲染模式同样命中 @supports，
-     白色玻璃在深色模式变成白条——.theme-dark 下换暗色玻璃 */
-  .theme-dark .topbar {
-    background: rgba(148, 163, 184, 0.16);
   }
 }
 /* 无侧元素页头（返回统一走原生导航栏）：标题居中 */
@@ -1370,7 +1368,7 @@ page {
 .modal-mask {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--scrim);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -1455,7 +1453,7 @@ page {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--scrim);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;

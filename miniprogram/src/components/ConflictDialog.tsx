@@ -50,7 +50,7 @@ function formatValue(field: string, value: unknown): string {
  */
 function palette(effective: 'light' | 'dark') {
   return {
-    overlay: 'rgba(0,0,0,0.45)',
+    overlay: chromeToken(effective, 'scrim'),
     cardBg: chromeToken(effective, 'glass-2'),
     cardBorder: chromeToken(effective, 'glass-line'),
     fg: chromeToken(effective, 'text-primary'),

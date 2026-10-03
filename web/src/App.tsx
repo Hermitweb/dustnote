@@ -31,6 +31,7 @@ import { ToastContainer } from './components/ToastContainer';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { QuickCapture } from './components/QuickCapture';
 import { Logo } from './components/Logo';
+import { ScopeTitle } from './components/ScopeTitle';
 
 // React.lazy 惰性加载重对话框（首屏不依赖，减少主 bundle 体积）
 const SettingsDialog = lazy(() =>
@@ -425,7 +426,7 @@ function App() {
           >
             <Icon name="menu" />
           </button>
-          <div className="hidden text-sm text-surface-muted sm:block">{t('app.tagline')}</div>
+          <ScopeTitle />
           <div className="ml-auto flex items-center gap-2">
             {mode === 'standalone' && (
               <span className="rounded bg-accent-soft/60 px-2 py-0.5 text-xs text-accent-text">

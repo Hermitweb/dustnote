@@ -29,6 +29,7 @@ const LEGACY: Record<string, ThemePalette> = {
     accentStrong: '',
     accentText: '',
     onAccent: '',
+    scrim: '',
   },
   'mint-dawn.dark': {
     bg: '#0F172A',
@@ -41,6 +42,7 @@ const LEGACY: Record<string, ThemePalette> = {
     accentStrong: '',
     accentText: '',
     onAccent: '',
+    scrim: '',
   },
   'mist-blue.light': {
     bg: '#F1F5F9',
@@ -53,6 +55,7 @@ const LEGACY: Record<string, ThemePalette> = {
     accentStrong: '',
     accentText: '',
     onAccent: '',
+    scrim: '',
   },
   'mist-blue.dark': {
     bg: '#0F172A',
@@ -65,6 +68,7 @@ const LEGACY: Record<string, ThemePalette> = {
     accentStrong: '',
     accentText: '',
     onAccent: '',
+    scrim: '',
   },
   'dusk-forest.light': {
     bg: '#F5F6F0',
@@ -77,6 +81,7 @@ const LEGACY: Record<string, ThemePalette> = {
     accentStrong: '',
     accentText: '',
     onAccent: '',
+    scrim: '',
   },
   'dusk-forest.dark': {
     bg: '#141E18',
@@ -89,6 +94,7 @@ const LEGACY: Record<string, ThemePalette> = {
     accentStrong: '',
     accentText: '',
     onAccent: '',
+    scrim: '',
   },
   'caramel-warm.light': {
     bg: '#FCF8F3',
@@ -101,6 +107,7 @@ const LEGACY: Record<string, ThemePalette> = {
     accentStrong: '',
     accentText: '',
     onAccent: '',
+    scrim: '',
   },
   'caramel-warm.dark': {
     bg: '#1C1610',
@@ -113,6 +120,7 @@ const LEGACY: Record<string, ThemePalette> = {
     accentStrong: '',
     accentText: '',
     onAccent: '',
+    scrim: '',
   },
   'sakura-pink.light': {
     bg: '#FDF4F7',
@@ -125,6 +133,7 @@ const LEGACY: Record<string, ThemePalette> = {
     accentStrong: '',
     accentText: '',
     onAccent: '',
+    scrim: '',
   },
   'sakura-pink.dark': {
     bg: '#1C1418',
@@ -137,6 +146,7 @@ const LEGACY: Record<string, ThemePalette> = {
     accentStrong: '',
     accentText: '',
     onAccent: '',
+    scrim: '',
   },
   'minimal-white.light': {
     bg: '#FFFFFF',
@@ -149,6 +159,7 @@ const LEGACY: Record<string, ThemePalette> = {
     accentStrong: '',
     accentText: '',
     onAccent: '',
+    scrim: '',
   },
   'minimal-white.dark': {
     bg: '#0A0A0A',
@@ -161,6 +172,7 @@ const LEGACY: Record<string, ThemePalette> = {
     accentStrong: '',
     accentText: '',
     onAccent: '',
+    scrim: '',
   },
 };
 

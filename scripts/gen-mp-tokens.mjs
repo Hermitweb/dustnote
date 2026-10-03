@@ -66,6 +66,12 @@ const VAR_MAP = {
   '--primary-strong-on': 'on-accent-strong',
   '--danger-solid': 'danger-solid',
   '--on-danger-solid': 'on-danger-solid',
+  /**
+   * 遮罩。以前 .modal-mask / .menu-overlay / ConflictDialog 各写一份
+   * rgba(0,0,0,.45)，深色档下它和 web 的 0.55 一样都不会变暗 ——
+   * 而引擎本来就按明暗给两档（浅 .42 / 深 .62）。toHex 会把 alpha 折进 8 位 hex。
+   */
+  '--scrim': 'scrim',
   '--success': 'success',
   '--warning': 'warning',
   '--danger': 'danger',

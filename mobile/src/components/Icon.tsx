@@ -88,6 +88,7 @@ import {
 } from 'lucide-react-native';
 import { type ComponentProps } from 'react';
 import { Text } from 'react-native';
+import { useColors } from '../theme';
 import { ICON_SOURCES, isIconName, type IconGlyph, type IconName } from '@dustnote/shared';
 
 /**
@@ -188,12 +189,14 @@ export interface IconProps extends Omit<ComponentProps<LucideIcon>, 'ref'> {
 const strokeFor = (size: number) => (size <= 16 ? 1.9 : size <= 24 ? 1.75 : 1.5);
 
 export function Icon({ name, size = 20, color, strokeWidth, ...rest }: IconProps) {
+  const c = useColors();
   const Cmp = GLYPHS[ICON_SOURCES[name]];
   if (!Cmp) return null;
   return (
     <Cmp
       size={size}
-      color={color ?? '#0F172A'}
+      /* 没显式给色时吃主题前景：以前兜底是硬写的 #0F172A，深色档下漏传一处就是一只近黑图标 */
+      color={color ?? c.fg}
       strokeWidth={strokeWidth ?? strokeFor(size)}
       {...rest}
     />
