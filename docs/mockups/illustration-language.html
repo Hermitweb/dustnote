@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>DustNote · 插画语言提案</title>
+<style>
+  :root{
+    --bg:#e4ebf8; --card:#ffffff; --ac:#3b82f6; --ac-soft:#dbeafe; --ac-text:#295bac;
+    --fg:#0f172a; --muted:#475569; --text3:#717a88; --line:rgba(15,23,42,.09); --danger:#a01b1d;
+    --sunken:#d7deec;
+  }
+  .dark{
+    --bg:#091128; --card:#172554; --ac:#7dd3fc; --ac-soft:#1e3a8a; --ac-text:#bbe8fd;
+    --fg:#e2e8f0; --muted:#94a3b8; --text3:#b1bbcb; --line:rgba(255,255,255,.10); --danger:#fcd9d9;
+    --sunken:#1f273c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#f4f6fb;color:#111827;
+    font:14px/1.65 -apple-system,"Segoe UI","Noto Sans SC",system-ui,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 72px}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:-.01em}
+  .lede{color:#4b5563;margin:0 0 34px;max-width:74ch}
+  h2{font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;
+     margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid #e5e7eb}
+  ol.rules{margin:0;padding-left:22px}
+  ol.rules li{margin:0 0 11px}
+  ol.rules b{color:#111827}
+  code{background:#eef1f6;padding:1px 5px;border-radius:4px;font-size:12.5px}
+  .grid{display:grid;gap:14px}
+  .g6{grid-template-columns:repeat(6,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .cell{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 12px 11px;text-align:center}
+  .cell .name{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#6b7280;margin-top:9px}
+  .cell .use{font-size:12px;color:#9ca3af;margin-top:2px}
+  .panel{border-radius:12px;padding:18px 14px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+  .panel .cap{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#4338ca;margin-left:8px;vertical-align:2px}
+  table{border-collapse:collapse;width:100%;font-size:13px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden}
+  th,td{padding:9px 12px;text-align:left;border-bottom:1px solid #eef1f5;vertical-align:top}
+  th{background:#f7f9fc;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#6b7280}
+  td.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:nowrap}
+  .ok{color:#15803d;font-weight:600}.no{color:#b91c1c;font-weight:600}
+  /* StatePlate 骨架 */
+  .plate{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:26px 14px}
+  .tile{display:flex;align-items:center;justify-content:center;border-radius:8px;
+        border:1px solid var(--line);background:var(--card);color:var(--muted)}
+  .t44{width:44px;height:44px}.t56{width:56px;height:56px}
+  .w88{width:88px;height:64px;border:none;background:transparent}
+  .w120{width:120px;height:88px;border:none;background:transparent}
+  .ttl{font-weight:500}.ttl.s{font-size:14px}.ttl.l{font-size:18px}
+  .hint{font-size:12px;color:var(--muted);max-width:34ch;margin-top:-6px}
+  .btn{font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);color:var(--fg)}
+  /* 主按钮：与 shipped 契约一致 —— bg-accent-strong(#3472d7) + 白字（实测 4.63:1）
+     深色档 #2461e5 + 白字 = 5.36:1。插画里的 accent 只点一处，不拿来当按钮底。 */
+  .btn.pri{background:#3472d7;color:#fff;border-color:transparent;font-weight:600}
+  .dark .btn.pri{background:#2461e5;color:#fff}
+  .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  /* 落地屏 */
+  .screen{display:flex;height:322px;border-radius:12px;overflow:hidden;border:1px solid var(--line);
+          background:var(--bg);color:var(--fg);font-size:12px}
+  .rail{width:56px;flex:none;border-right:1px solid var(--line);background:var(--card);
+        display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 6px}
+  .rbtn{width:36px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+  .rbtn.on{background:var(--ac-soft);color:var(--ac-text)}
+  .list{width:184px;flex:none;border-right:1px solid var(--line);background:var(--card);padding:10px}
+  .lrow{border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:7px;background:var(--bg)}
+  .lrow b{display:block;font-size:12px;font-weight:600}
+  .lrow span{color:var(--text3);font-size:11px}
+  .stage{flex:1;display:flex;flex-direction:column}
+  .bar{height:34px;flex:none;border-bottom:1px solid var(--line);display:flex;align-items:center;
+       gap:8px;padding:0 10px;background:var(--card);font-size:12px}
+  .bar .scope{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar .ic{width:22px;height:22px;border-radius:6px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+  .body{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .err{height:auto;padding:26px 18px 22px;display:flex;align-items:center;justify-content:center}
+  .errcard{max-width:340px;width:100%;border-radius:12px;border:1px solid var(--line);
+           background:var(--card);padding:22px;box-shadow:0 12px 30px rgba(9,17,40,.10)}
+  .danger{color:var(--danger)}
+  .note{font-size:12px;color:#6b7280;margin-top:10px}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .vs .panel{padding:14px}
+  .lbl{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+  svg{display:block}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <g id="ground"><line x1="13" y1="53.5" x2="75" y2="53.5" stroke="currentColor" stroke-opacity=".14" stroke-width="1.5" stroke-linecap="round"/></g>
+  <g id="ground-broken">
+    <line x1="13" y1="53.5" x2="37" y2="53.5" stroke="currentColor" stroke-opacity=".14" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="51" y1="53.5" x2="75" y2="53.5" stroke="currentColor" stroke-opacity=".14" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+
+  <symbol id="ill-first-use" viewBox="0 0 88 64">
+    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M44 19C38.5 14.6 28.6 14.1 22 17.6V45.6C28.6 42.1 38.5 42.6 44 47Z" stroke-opacity=".55"/>
+      <path d="M44 19C49.5 14.6 59.4 14.1 66 17.6V45.6C59.4 42.1 49.5 42.6 44 47Z" stroke-opacity=".55"/>
+      <path d="M44 19V47" stroke-opacity=".38"/>
+    </g>
+    <g fill="none" stroke="var(--ac)" stroke-width="1.75" stroke-linecap="round"><path d="M70 8.5V20.5M64 14.5H76"/></g>
+    <g fill="currentColor">
+      <circle cx="13.5" cy="12" r="1.6" fill-opacity=".3"/><circle cx="21" cy="6.5" r="1.05" fill-opacity=".2"/><circle cx="8" cy="21.5" r="1.05" fill-opacity=".15"/>
+    </g>
+    <use href="#ground"/>
+  </symbol>
+
+  <symbol id="ill-empty-scope" viewBox="0 0 88 64">
+    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 21a2 2 0 0 1 2-2h15l4 5h33a2 2 0 0 1 2 2v21a2 2 0 0 1-2 2H16a2 2 0 0 1-2-2Z" stroke-opacity=".5"/>
+      <rect x="32" y="8.5" width="24" height="14" rx="2" stroke-opacity=".34" stroke-dasharray="3 3"/>
+    </g>
+    <g fill="none" stroke="var(--ac)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M44 25v7M40.8 29l3.2 3.2 3.2-3.2"/></g>
+    <g fill="currentColor"><circle cx="16" cy="12" r="1.3" fill-opacity=".24"/><circle cx="73" cy="16" r="1.05" fill-opacity=".18"/></g>
+    <use href="#ground"/>
+  </symbol>
+
+  <symbol id="ill-no-results" viewBox="0 0 88 64">
+    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <circle cx="37" cy="27" r="13" stroke-opacity=".55"/>
+      <circle cx="37" cy="27" r="6" stroke-opacity=".32" stroke-dasharray="2 3"/>
+      <path d="M46.6 36.6 57.4 47.4" stroke-opacity=".55" stroke-width="2"/>
+    </g>
+    <g fill="none" stroke="var(--ac)" stroke-width="1.75" stroke-linecap="round"><path d="M63.5 10l6.5 6.5M70 10l-6.5 6.5"/></g>
+    <g fill="currentColor"><circle cx="18" cy="10" r="1.3" fill-opacity=".24"/><circle cx="27" cy="6" r="1" fill-opacity=".17"/></g>
+    <use href="#ground"/>
+  </symbol>
+
+  <symbol id="ill-plain" viewBox="0 0 88 64">
+    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+      <rect x="31" y="37.5" width="26" height="15" rx="2.5" stroke-opacity=".3" stroke-dasharray="3 3"/>
+    </g>
+    <g fill="currentColor">
+      <circle cx="44" cy="45" r="1.7" fill-opacity=".4"/>
+      <circle cx="30" cy="20" r="1.2" fill-opacity=".2"/><circle cx="59" cy="14" r="1.5" fill-opacity=".26"/>
+    </g>
+    <use href="#ground"/>
+  </symbol>
+
+  <symbol id="ill-error" viewBox="0 0 88 64">
+    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <path d="M17 33a19 19 0 0 1 17-13" stroke-opacity=".42"/>
+      <path d="M23.5 39.5a11.5 11.5 0 0 1 10-6.5" stroke-opacity=".3"/>
+      <path d="M71 33a19 19 0 0 0-17-13" stroke-opacity=".42"/>
+      <path d="M64.5 39.5a11.5 11.5 0 0 0-10-6.5" stroke-opacity=".3"/>
+      <path d="M40.5 15.5l3 4M47.5 15.5l-3 4" stroke-opacity=".5"/>
+      <path d="M44 35.5 52.5 50h-17Z" stroke-opacity=".62" stroke-linejoin="round"/>
+      <path d="M44 40.5v4.2" stroke-opacity=".62"/>
+    </g>
+    <circle cx="44" cy="47.8" r="1" fill="currentColor" fill-opacity=".62"/>
+    <g fill="currentColor"><circle cx="12" cy="14" r="1.3" fill-opacity=".26"/><circle cx="76" cy="18" r="1.15" fill-opacity=".2"/></g>
+    <use href="#ground-broken"/>
+  </symbol>
+
+  <symbol id="ill-loading" viewBox="0 0 88 64">
+    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <circle cx="44" cy="29" r="12" stroke-opacity=".16"/>
+    </g>
+    <path d="M44 17a12 12 0 0 1 12 12" fill="none" stroke="var(--ac)" stroke-width="2" stroke-linecap="round"/>
+    <g fill="currentColor">
+      <circle cx="26" cy="46" r="1.5" fill-opacity=".3"/><circle cx="44" cy="50" r="1.2" fill-opacity=".2"/><circle cx="62" cy="46" r="1" fill-opacity=".13"/>
+    </g>
+    <use href="#ground"/>
+  </symbol>
+
+  <symbol id="old-note" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/>
+    </g>
+  </symbol>
+  <symbol id="old-warn" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>
+    </g>
+  </symbol>
+  <symbol id="old-search" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></g>
+  </symbol>
+</defs></svg>
+
+<div class="wrap">
+  <h1>DustNote · 插画语言提案</h1>
+  <p class="lede">三态（空 / 加载 / 错误）已经有统一版面 <code>StatePlate</code>，但图版里仍是一枚图标。
+    这份提案给出一套<b>可执行的插画语言</b>：一支笔、两色、一个母题、三种笔法分状态。
+    先请你确认<b>规则</b>与<b>画幅尺寸</b>，再落地到三端。</p>
+
+  <h2>一 · 八条规则</h2>
+  <ol class="rules">
+    <li><b>线稿，不吃填充。</b>与 lucide 图标同一支笔：<code>fill:none</code>、<code>stroke-width:1.5</code>、圆头圆角。插画和图标并排时不会像"贴了张别人的图"。</li>
+    <li><b>两色 + 一档透明。</b>主体走 <code>currentColor</code>（于是自动跟随文字层级与 <code>tone</code>：info 灰、guide 强调、danger 红），<b>accent 只点一处</b>——那个"你现在能做的动作"。第三档是 <code>currentColor</code> 12–16% 的地平线。不引入任何新色相：暗色档下"彩色位图抢过正文"正是 §U-1 点名要消灭的病。</li>
+    <li><b>尘埃母题。</b>3 颗直径 2–3.2px 的圆点沿一条看不见的对角线散开，越远越淡。这是品牌（尘）的签名，也是六个状态之间唯一的共同元素。</li>
+    <li><b>一条地平线。</b>主体坐在一条 <code>currentColor/14%</code> 的短横线上。没有它，东西在飘。</li>
+    <li><b>三种笔法分状态，不靠颜色。</b>空态用<b>虚线</b>轮廓（"这里本该有东西"）；错误用<b>断裂</b>的实线（不连续=出错）；加载用<b>旋转弧</b>（与 spinner 同一支笔）。灰度打印也分得清。</li>
+    <li><b>空得越正常，笔墨越少。</b><code>plain</code>（回收站/收藏为空）只有地平线 + 一粒尘 + 一圈虚线；<code>first-use</code> 最重。读者用余光就能排出优先级。</li>
+    <li><b>画幅只有两档，且必须扩。</b><code>plate</code> 88×64、<code>card</code> 120×88。<b>这是本提案唯一会改变版面密度的地方</b>：现在的图版是 44×44 / 56×56 的方框，插画塞进去就退化成一个图标，等于白做。见第二节。</li>
+    <li><b>插画永远 <code>aria-hidden</code>。</b>语义仍由标题与提示文字承担；屏幕阅读器不该因为一张画多听一句话。尘埃漂移 24s 与极光同档，<code>motion-flat</code> / <code>prefers-reduced-motion</code> 下静止。</li>
+  </ol>
+
+  <h2>二 · 画幅：现状 vs 提案（请重点看这一节）</h2>
+  <div class="vs">
+    <div class="panel">
+      <div class="lbl">现状 · 图标在方框里</div>
+      <div class="plate">
+        <div class="tile t44"><svg width="20" height="20" style="color:var(--text3)"><use href="#old-note"/></svg></div>
+        <div class="ttl s">这个文件夹还是空的</div>
+        <div class="hint">新建一篇，或从别的文件夹把笔记移进来。</div>
+      </div>
+      <div class="plate" style="padding-top:6px">
+        <div class="tile t56"><svg width="28" height="28" style="color:var(--danger)"><use href="#old-warn"/></svg></div>
+        <div class="ttl l">连不上服务器</div>
+        <div class="hint">请确认服务器已启动且地址正确。</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="lbl">提案 · 插画有自己的画幅</div>
+      <div class="plate">
+        <svg class="w88" style="color:var(--muted)" aria-hidden="true"><use href="#ill-empty-scope"/></svg>
+        <div class="ttl s">这个文件夹还是空的</div>
+        <div class="hint">新建一篇，或从别的文件夹把笔记移进来。</div>
+      </div>
+      <div class="plate" style="padding-top:2px">
+        <svg class="w120" style="color:var(--danger)" aria-hidden="true"><use href="#ill-error"/></svg>
+        <div class="ttl l">连不上服务器</div>
+        <div class="hint">请确认服务器已启动且地址正确。</div>
+      </div>
+    </div>
+  </div>
+  <p class="note">代价：plate 高度 44→64（+20px）、card 56→88（+32px）。三态都是<b>整块区域居中</b>的屏，
+    周围本来就是空白，多出的高度不会挤到任何内容；换来的是"这一屏在说什么"一眼可读。</p>
+
+  <h2>三 · 六个状态（浅色 / 深色各一排）</h2>
+  <div class="grid g6">
+    <div class="cell"><div class="panel" style="padding:12px 6px"><svg class="w88" style="color:var(--muted)"><use href="#ill-first-use"/></svg></div><div class="name">first-use</div><div class="use">第一次用 · guide</div></div>
+    <div class="cell"><div class="panel" style="padding:12px 6px"><svg class="w88" style="color:var(--muted)"><use href="#ill-empty-scope"/></svg></div><div class="name">empty-scope</div><div class="use">这个范围是空的</div></div>
+    <div class="cell"><div class="panel" style="padding:12px 6px"><svg class="w88" style="color:var(--muted)"><use href="#ill-no-results"/></svg></div><div class="name">no-results</div><div class="use">搜了没有</div></div>
+    <div class="cell"><div class="panel" style="padding:12px 6px"><svg class="w88" style="color:var(--text3)"><use href="#ill-plain"/></svg></div><div class="name">plain</div><div class="use">回收站 / 收藏为空</div></div>
+    <div class="cell"><div class="panel" style="padding:12px 6px"><svg class="w88" style="color:var(--danger)"><use href="#ill-error"/></svg></div><div class="name">error</div><div class="use">连接失败 / 崩溃</div></div>
+    <div class="cell"><div class="panel" style="padding:12px 6px"><svg class="w88" style="color:var(--muted)"><use href="#ill-loading"/></svg></div><div class="name">loading</div><div class="use">舞台内加载</div></div>
+  </div>
+  <div class="grid g6" style="margin-top:14px">
+    <div class="cell dark" style="background:#0b1330;border-color:#1c2b57"><div class="panel dark" style="padding:12px 6px;border-color:rgba(255,255,255,.08)"><svg class="w88" style="color:var(--muted)"><use href="#ill-first-use"/></svg></div><div class="name" style="color:#7f8db0">first-use</div><div class="use" style="color:#5d6b91">第一次用 · guide</div></div>
+    <div class="cell dark" style="background:#0b1330;border-color:#1c2b57"><div class="panel dark" style="padding:12px 6px;border-color:rgba(255,255,255,.08)"><svg class="w88" style="color:var(--muted)"><use href="#ill-empty-scope"/></svg></div><div class="name" style="color:#7f8db0">empty-scope</div><div class="use" style="color:#5d6b91">这个范围是空的</div></div>
+    <div class="cell dark" style="background:#0b1330;border-color:#1c2b57"><div class="panel dark" style="padding:12px 6px;border-color:rgba(255,255,255,.08)"><svg class="w88" style="color:var(--muted)"><use href="#ill-no-results"/></svg></div><div class="name" style="color:#7f8db0">no-results</div><div class="use" style="color:#5d6b91">搜了没有</div></div>
+    <div class="cell dark" style="background:#0b1330;border-color:#1c2b57"><div class="panel dark" style="padding:12px 6px;border-color:rgba(255,255,255,.08)"><svg class="w88" style="color:var(--text3)"><use href="#ill-plain"/></svg></div><div class="name" style="color:#7f8db0">plain</div><div class="use" style="color:#5d6b91">回收站 / 收藏为空</div></div>
+    <div class="cell dark" style="background:#0b1330;border-color:#1c2b57"><div class="panel dark" style="padding:12px 6px;border-color:rgba(255,255,255,.08)"><svg class="w88" style="color:var(--danger)"><use href="#ill-error"/></svg></div><div class="name" style="color:#7f8db0">error</div><div class="use" style="color:#5d6b91">连接失败 / 崩溃</div></div>
+    <div class="cell dark" style="background:#0b1330;border-color:#1c2b57"><div class="panel dark" style="padding:12px 6px;border-color:rgba(255,255,255,.08)"><svg class="w88" style="color:var(--muted)"><use href="#ill-loading"/></svg></div><div class="name" style="color:#7f8db0">loading</div><div class="use" style="color:#5d6b91">舞台内加载</div></div>
+  </div>
+  <p class="note">同一份几何，两档尺寸；颜色全部来自令牌（<code>--fg-muted</code> / <code>--accent</code> / <code>--danger</code>），插画文件里没有任何硬写色值。</p>
+
+  <h2>四 · 放进真实屏里</h2>
+  <div class="grid" style="grid-template-columns:1fr;gap:20px">
+    <div>
+      <div class="screen">
+        <div class="rail">
+          <div class="rbtn on"><svg width="18" height="18"><use href="#old-note"/></svg></div>
+          <div class="rbtn"><svg width="18" height="18"><use href="#old-search"/></svg></div>
+          <div class="rbtn"><svg width="18" height="18"><use href="#old-warn"/></svg></div>
+        </div>
+        <div class="list">
+          <div class="lrow"><b>关于尘渊笔记</b><span>3 天前</span></div>
+          <div class="lrow"><b>读书 · 夹带</b><span>上周</span></div>
+        </div>
+        <div class="stage">
+          <div class="bar"><span class="scope">工作</span><span class="ic">＋</span></div>
+          <div class="body">
+            <div class="plate" style="padding:18px">
+              <svg class="w88" style="color:var(--muted)" aria-hidden="true"><use href="#ill-empty-scope"/></svg>
+              <div class="ttl s">这个文件夹还是空的</div>
+              <div class="hint">新建一篇，或从别的文件夹把笔记移进来。</div>
+              <div class="row"><span class="btn pri">新建笔记</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note">图标轨档（1024–1279）· <code>empty-scope</code>。顶栏那行"工作"是上一轮加的常驻作用域标题。</p>
+    </div>
+
+    <div>
+      <div class="screen">
+        <div class="rail">
+          <div class="rbtn"><svg width="18" height="18"><use href="#old-note"/></svg></div>
+          <div class="rbtn on"><svg width="18" height="18"><use href="#old-search"/></svg></div>
+          <div class="rbtn"><svg width="18" height="18"><use href="#old-warn"/></svg></div>
+        </div>
+        <div class="list">
+          <div class="lrow"><b>没有匹配的结果</b><span>试试更短的关键词</span></div>
+        </div>
+        <div class="stage">
+          <div class="bar"><span class="scope">搜索 · 阅</span></div>
+          <div class="body">
+            <div class="plate" style="padding:18px">
+              <svg class="w88" style="color:var(--muted)" aria-hidden="true"><use href="#ill-no-results"/></svg>
+              <div class="ttl s">没有包含「阅」的笔记</div>
+              <div class="hint">换个词，或者看看标签。</div>
+              <div class="row"><span class="btn pri">清掉搜索</span><span class="btn">看标签</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note"><code>no-results</code>：放大镜里是<b>虚线</b>空圆——"这里本该有东西"。</p>
+    </div>
+
+    <div>
+      <div class="screen" style="height:298px">
+        <div class="stage err" style="width:100%">
+          <div class="errcard">
+            <div class="plate" style="padding:0">
+              <svg class="w120" style="color:var(--danger)" aria-hidden="true"><use href="#ill-error"/></svg>
+              <div class="ttl l">连不上服务器</div>
+              <div class="hint">请确认服务器已启动且地址正确。</div>
+              <div class="row"><span class="btn">重选模式</span><span class="btn pri">重试</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note"><code>error</code>（card 档）：信号弧<b>从中间断开</b>、地平线也断成两截——不连续就是出错，不靠红色说明。</p>
+    </div>
+  </div>
+
+  <h2>五 · 落地范围与代价</h2>
+  <table>
+    <tr><th>端</th><th>要做的事</th><th>代价</th></tr>
+    <tr><td class="mono">web / desktop</td><td>6 个 SVG 进 <code>shared/src/illustrations.ts</code>（字符串常量），<code>StatePlate</code> 图版槽按 <code>illust</code> 档扩到 88×64 / 120×88</td><td class="ok">小</td></tr>
+    <tr><td class="mono">小程序</td><td>同一批 SVG 生成 <code>mask</code> data-URI（沿用 <code>gen-mp-icons.mjs</code> 的路子，加 <code>.mp-illust--*</code>）</td><td class="ok">小 · 生成器现成</td></tr>
+    <tr><td class="mono">RN</td><td>需要 <code>react-native-svg</code> 渲染 path（依赖已在），或先只做 plate 档</td><td class="no">中 · 要真机验</td></tr>
+    <tr><td class="mono">门禁</td><td><code>ui:check</code> 加一条：插画文件里不得出现硬写色值（只许 <code>currentColor</code> / <code>var(--ac)</code>）</td><td class="ok">小</td></tr>
+  </table>
+
+  <h2>六 · 要你点的三件事</h2>
+  <ol class="rules">
+    <li><b>画幅扩到 88×64 / 120×88</b> 认不认？这是唯一改变版面密度的决定。</li>
+    <li><b>六个状态够不够</b>？还差 <code>overview</code>（概览首屏）与 <code>offline</code>（离线）两张，要不要一并画。</li>
+    <li><b>RN 做不做</b>？RN 要引 <code>react-native-svg</code> 渲染路径，是三端里唯一需要新渲染路径的。</li>
+  </ol>
+</div>
+</body>
+</html>
