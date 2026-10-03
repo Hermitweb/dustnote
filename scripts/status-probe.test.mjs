@@ -54,7 +54,7 @@ function startServer(healthVersion, opts = {}) {
         return res.end(JSON.stringify({ ok: true, db: 'ok', version: healthVersion }));
       }
       if (req.url.includes('/update-manifest')) {
-        return res.end(JSON.stringify({ latest: { version: '2.5.46' } }));
+        return res.end(JSON.stringify({ latest: { version: '2.99.0' } }));
       }
       if (req.url.includes('/share/public')) {
         res.statusCode = 404;
@@ -99,6 +99,14 @@ after(async () => {
   hardSrv = null;
 });
 
+/**
+ * 本文件所有用例共用的**假版本号**：与仓库真实版本解耦（api.test 的 2.99.0 先例）。
+ * 写死具体版本号的测试会在每次 bump 时自己变红——那不是门禁在工作，
+ * 是夹具在跟仓库版本较劲。三处消费点（EXPECT_VERSION / startServer / 断言）
+ * 现在都从这里取，杜绝"改了夹具忘了改断言"这种自相矛盾。
+ */
+const FIXTURE_VERSION = '2.99.0';
+
 async function runProbe(port, args = [], extraEnv = {}) {
   const plaintextUrls = await hardenedPlaintextUrls();
   return new Promise((resolve) => {
@@ -106,7 +114,7 @@ async function runProbe(port, args = [], extraEnv = {}) {
       env: {
         ...process.env,
         STATUS_PROBE_URL: `http://127.0.0.1:${port}`,
-        EXPECT_VERSION: '2.5.46',
+        EXPECT_VERSION: FIXTURE_VERSION,
         STATUS_PROBE_PLAINTEXT_URLS: plaintextUrls,
         ...extraEnv,
       },
@@ -129,7 +137,7 @@ async function runProbe(port, args = [], extraEnv = {}) {
 }
 
 test('版本一致 → exit 0 且报告 ok:true', async () => {
-  const srv = await startServer('2.5.46');
+  const srv = await startServer(FIXTURE_VERSION);
   try {
     const r = await runProbe(srv.address().port);
     assert.equal(r.code, 0, `应判绿，实际 stderr=${r.err.slice(0, 200)}`);
@@ -155,7 +163,7 @@ test('线上版本落后 → exit 1（nightly 靠它开 issue，永绿等于没�
 test('明文仍可服务 → 该项判不过、整体判红（R1 已收口，不再是 informational）', async () => {
   // 假服务器对明文回 200 = 明文仍在服务。收口做到位之后，这种现状必须能被抓出来：
   // 比如有人把 PORT_BIND 改回 0.0.0.0、或前置 301 被删，nightly 要当场红，而不是继续打ℹ️。
-  const srv = await startServer('2.5.46');
+  const srv = await startServer(FIXTURE_VERSION);
   try {
     const r = await runProbe(srv.address().port, [], {
       // 显式让明文指向这台 200 的假服务器（默认桩是 301，代表已收口的常态）
@@ -249,7 +257,7 @@ test('网络回包的 HTML/链接载荷不得进入状态页表格', async () =>
  * （helmet 的 CSP 本来就是关的），只有拨测看得见。
  */
 test('页面响应没有 CSP 头 → 判红（边缘安全头不能靠配置自证）', async () => {
-  const srv = await startServer('2.5.46', { omitCsp: true });
+  const srv = await startServer('2.99.0', { omitCsp: true });
   try {
     const r = await runProbe(srv.address().port);
     assert.equal(r.code, 1, '缺 CSP 必须整体判红');
@@ -267,7 +275,7 @@ test('CSP 在位但缺关键 directive → 判红，且只报缺哪一项', asyn
   const weak = http.createServer((req, res) => {
     if (req.url.includes('/health')) {
       res.setHeader('content-type', 'application/json');
-      return res.end(JSON.stringify({ ok: true, db: 'ok', version: '2.5.46' }));
+      return res.end(JSON.stringify({ ok: true, db: 'ok', version: '2.99.0' }));
     }
     res.setHeader('content-type', 'text/html');
     // 只给 default-src：script-src / object-src / frame-ancestors / base-uri 全缺
@@ -339,7 +347,7 @@ test('明文端口真的没对外发布 → 该项判过，整体保持绿', asy
   });
   const deadPort = dead.address().port;
   await stopServer(dead);
-  const srv = await startServer('2.5.46');
+  const srv = await startServer(FIXTURE_VERSION);
   try {
     const r = await runProbe(srv.address().port, [], {
       STATUS_PROBE_PLAINTEXT_URLS: `8080=http://127.0.0.1:${deadPort}`,
@@ -355,7 +363,7 @@ test('明文端口真的没对外发布 → 该项判过，整体保持绿', asy
 });
 
 test('多目标覆盖：每个 label 各出一行，且都不带 informational', async () => {
-  const srv = await startServer('2.5.46');
+  const srv = await startServer(FIXTURE_VERSION);
   try {
     const p = srv.address().port;
     const r = await runProbe(srv.address().port, [], {
@@ -387,7 +395,7 @@ test('多目标覆盖：每个 label 各出一行，且都不带 informational',
  * 状态页继续显示旧数据。这条测试把「静默」变成「exit 1」。
  */
 test('标记丢失时 --update 必须 exit 1，且不许改动文件', async () => {
-  const srv = await startServer('2.5.46');
+  const srv = await startServer(FIXTURE_VERSION);
   const dir = mkdtempSync(join(ROOT, '.probe-test-'));
   const target = join(ROOT, 'docs/status.md');
   const backup = join(dir, 'status.md.bak');
@@ -424,7 +432,7 @@ test('标记丢失时 --update 必须 exit 1，且不许改动文件', async () 
  * 而「无变化」和「没写进去」在 git diff 眼里长得一样。
  */
 test('拨测全绿时 --update 会把生成区写成绿，并报告已更新', async () => {
-  const srv = await startServer('2.5.46');
+  const srv = await startServer(FIXTURE_VERSION);
   const dir = mkdtempSync(join(ROOT, '.probe-test-'));
   const target = join(ROOT, 'docs/status.md');
   const backup = join(dir, 'status.md.bak');
@@ -444,8 +452,8 @@ test('拨测全绿时 --update 会把生成区写成绿，并报告已更新', a
     const md = readFileSync(target, 'utf8');
     assert.ok(!md.includes('SENTINEL'), '哨兵内容必须被真实结果覆盖');
     assert.match(md, /当前状态：🟢 正常/);
-    assert.match(md, /v2\.5\.46/);
-    assert.match(r.err, /已按拨测结果更新/);
+    (assert.match(md, new RegExp('v' + FIXTURE_VERSION.replace(/\./g, '\\.'))),
+      assert.match(r.err, /已按拨测结果更新/));
   } finally {
     if (existsSync(backup)) copyFileSync(backup, target);
     rmSync(dir, { recursive: true, force: true });

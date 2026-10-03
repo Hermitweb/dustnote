@@ -23,6 +23,16 @@ describe('元数据与版本', () => {
   it('根包 == 站点包 == 页面显示的版本（bump 漏一处即拦下）', () => {
     expect(VERSION).toBe(rootPkg.version);
     expect(sitePkg.version).toBe(rootPkg.version);
+    /*
+     * 标题里写了"页面显示的版本"，但原来只比了两个 package.json。
+     * index.html 里 [data-slot=version] 还有一份**静态兜底文本**（JS 跑起来之前
+     * 无脚本用户看的就是它），它不在 bump 清单里时会永远停在上一版，而测试全绿。
+     * 现在把它也钉上，并把 index.html 加进 scripts/bump-version.mjs 的清单。
+     */
+    // prettier 会把长标签折行（`>v2.5.47</span` 换行再 `>`），所以按正则容忍空白
+    expect(html, `index.html 的静态兜底版本应为 v${rootPkg.version}`).toMatch(
+      new RegExp(`>v${rootPkg.version.replace(/\./g, String.fromCharCode(92) + '.')}\\s*</span`)
+    );
   });
 
   // 产品中文名以 web/src/lib/i18n.ts 的 zh `name` 为准；官网第一版把它写成了

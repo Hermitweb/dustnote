@@ -38,6 +38,9 @@ const VERSION_FILES = [
   'shared/package.json',
   'web/package.json',
   'site/package.json',
+  // 官网 index.html 里 [data-slot=version] 的**静态兜底文本**：JS 跑起来之前，
+  // 无脚本用户看的就是它。不纳入清单它会永远停在上一版。
+  'site/index.html',
   'desktop/src-tauri/tauri.conf.json',
   'desktop/src-tauri/Cargo.toml',
   'desktop/src-tauri/Cargo.lock',
@@ -209,6 +212,17 @@ const RESIDUAL_ALLOW = [
   'docs/roadmap.md',
   'docs/ui-optimization.md',
   'desktop/src/lib/updater.test.ts',
+  /*
+   * 以下六处是**事故复盘的叙述文本**：它们提到 v2.5.46 是在说"那一次事故"，
+   * 不是在声明当前版本。跟着 bump 一起改掉等于让历史说谎——本脚本把 roadmap /
+   * ui-optimization 放进豁免，用的就是同一条理由。
+   */
+  '.github/workflows/ci.yml', // 注释：v2.5.46 服务器升级连挂两次的固化
+  'Dockerfile', // 注释：v2.5.46 服务器升级连撞两次
+  'CONTRIBUTING.md', // 门禁表里 docker:check 的来历
+  'shared/README.md', // 注释：这条规矩的来历是升级现场连挂两次
+  'scripts/check-docker-context.mjs', // 该守卫存在的理由就是那次事故
+  'scripts/alert-drill.sh', // 讲 zip 文件名骗过 sort -V 的实例
 ];
 if (!dryRun) {
   // execFileSync + 参数数组：命令内容不再经过 shell，OLD 也就无从"越狱"
@@ -216,7 +230,11 @@ if (!dryRun) {
   try {
     grepOut = execFileSync(
       'git',
-      ['grep', '-l', OLD, '--', '.', ':(exclude)CHANGELOG.md', ':(exclude)*.lock'],
+      // 必须 -F：不带的话 git grep 按 BRE 解释，`.` 是通配符。
+      // v2.5.47 bump 实战：`2.5.46` 匹配上了 pinned action 的 SHA
+      // `actions/setup-node@a0853c24544627...`（2·5·46 对上 245446），
+      // 于是一条与版本毫无关系的 workflow 被判成残留、发版卡住。
+      ['grep', '-l', '-F', OLD, '--', '.', ':(exclude)CHANGELOG.md', ':(exclude)*.lock'],
       { cwd: ROOT, encoding: 'utf8' }
     );
   } catch (err) {

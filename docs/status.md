@@ -2,9 +2,9 @@
 
 <!-- status-probe:start -->
 
-> 最近拨测：2026-10-03 03:20 UTC · 🟢 全部通过 · 期望版本 v2.5.46
+> 最近拨测：2026-10-03 03:20 UTC · 🟢 全部通过 · 期望版本 v2.5.47
 
-**当前状态：🟢 正常** — 线上 **v2.5.46**（探针判定，非人工声明）
+**当前状态：🟢 正常** — 线上 **v2.5.47**（探针判定，非人工声明）
 
 | 探测项 | 结果 | 耗时 | HTTP | 说明 |
 | --- | --- | --- | --- | --- |
@@ -63,11 +63,11 @@ _未列入本表的组件（WebSocket 同步、/metrics）探针不覆盖，状�
 
 | 渠道          | 版本   | 分发方式                                   |
 | ------------- | ------ | ------------------------------------------ |
-| Web / PWA     | 2.5.46 | 服务器直出，Service Worker 缓存            |
-| Windows x64   | 2.5.46 | 应用内更新 / GitHub Release                |
-| Windows ARM64 | 2.5.46 | 应用内更新 / GitHub Release                |
-| Android       | 2.5.46 | 应用内更新（manifest apk）/ GitHub Release |
-| macOS (ARM64) | 2.5.46 | GitHub Release（未签名 DMG，右键打开）     |
+| Web / PWA     | 2.5.47 | 服务器直出，Service Worker 缓存            |
+| Windows x64   | 2.5.47 | 应用内更新 / GitHub Release                |
+| Windows ARM64 | 2.5.47 | 应用内更新 / GitHub Release                |
+| Android       | 2.5.47 | 应用内更新（manifest apk）/ GitHub Release |
+| macOS (ARM64) | 2.5.47 | GitHub Release（未签名 DMG，右键打开）     |
 | iOS           | —      | 未发布                                     |
 
 ## 历史事件
