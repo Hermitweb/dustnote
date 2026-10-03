@@ -159,7 +159,7 @@ export function SharesScreen() {
       ) : error ? (
         <StatePlate
           size="card"
-          icon="warning"
+          illust="error"
           tone="danger"
           title={t('common.load_failed')}
           hint={t('share.load_failed_detail', { reason: error })}

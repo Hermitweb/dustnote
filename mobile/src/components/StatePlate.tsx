@@ -11,8 +11,9 @@
  */
 import { ActivityIndicator, Text, View } from 'react-native';
 import type { ReactNode } from 'react';
-import type { IconName } from '@dustnote/shared';
+import { ILL_SIZES, type IconName, type IllName, type IllSize } from '@dustnote/shared';
 import { Icon } from './Icon';
+import { Illustration } from './Illustration';
 import { useColors } from '../theme';
 
 export type StateTone = 'info' | 'guide' | 'danger';
@@ -25,7 +26,9 @@ const TILE: Record<StatePlateSize, { box: number; icon: number; title: number }>
 };
 
 export interface StatePlateProps {
-  icon: IconName;
+  /** 图形槽：icon（方框里一枚）或 illust（88x64 / 120x88 画幅），两个都给时 illust 优先 */
+  icon?: IconName;
+  illust?: IllName;
   title: string;
   tone?: StateTone;
   size?: StatePlateSize;
@@ -39,6 +42,7 @@ export interface StatePlateProps {
 
 export function StatePlate({
   icon,
+  illust,
   title,
   tone = 'info',
   size = 'plate',
@@ -50,6 +54,11 @@ export function StatePlate({
   const c = useColors();
   const t = TILE[size];
   const toneColor = tone === 'danger' ? c.danger : tone === 'guide' ? c.accentText : c.muted;
+  /*
+   * 插画的墨色另算：guide 不跟随强调色（那会染整张，违反规则 2），
+   * 只有 danger 整张发红。与 web 的 ILL_INK 同口径。
+   */
+  const illInk = tone === 'danger' ? c.danger : c.muted;
   return (
     <View
       style={{
@@ -59,23 +68,29 @@ export function StatePlate({
         paddingHorizontal: 24,
       }}
     >
+      {/*
+       * 外框尺寸由当前档位决定，且 busy / 插画 / 图标三种都要占同一个盒：
+       * 插画态忙起来若缩回 44 方框，标题就会跳一下。
+       */}
       <View
         style={{
-          width: t.box,
-          height: t.box,
-          borderRadius: 8,
-          borderWidth: 1,
+          width: illust ? ILL_SIZES[size as IllSize].w : t.box,
+          height: illust ? ILL_SIZES[size as IllSize].h : t.box,
+          borderRadius: illust ? 0 : 8,
+          borderWidth: illust ? 0 : 1,
           borderColor: c.border,
-          backgroundColor: c.card,
+          backgroundColor: illust ? undefined : c.card,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
         {busy ? (
           <ActivityIndicator size="small" color={c.accent} />
-        ) : (
+        ) : illust ? (
+          <Illustration name={illust} size={size as IllSize} color={illInk} />
+        ) : icon ? (
           <Icon name={icon} size={t.icon} color={toneColor} />
-        )}
+        ) : null}
       </View>
       <Text
         style={{

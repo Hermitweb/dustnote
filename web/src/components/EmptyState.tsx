@@ -16,6 +16,7 @@
 import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from './Icon';
+import type { IllName } from '@dustnote/shared';
 import { StatePlate, type StateTone } from './StatePlate';
 
 export type EmptyKind = 'first-use' | 'no-results' | 'empty-scope' | 'plain';
@@ -36,7 +37,6 @@ export interface EmptyStateProps {
   plainTitle?: string | undefined;
   /** 搜索词，用于 no-results 的复述 */
   query?: string | undefined;
-  icon?: IconName | undefined;
   onNew?: (() => void) | undefined;
   onImport?: (() => void) | undefined;
   onClearQuery?: (() => void) | undefined;
@@ -84,7 +84,6 @@ export function EmptyState({
   kind,
   plainTitle,
   query,
-  icon,
   onNew,
   onImport,
   onClearQuery,
@@ -101,8 +100,15 @@ export function EmptyState({
           ? t('sidebar.empty_scope_title')
           : (plainTitle ?? t('sidebar.notes_empty'));
 
-  const iconName: IconName =
-    icon ?? (kind === 'no-results' ? 'search' : kind === 'first-use' ? 'notebook' : 'note');
+  /*
+   * 四种处境各配一张插画（几何在 shared/src/illustrations.ts，三端同一份）。
+   *
+   * 这里以前有个 icon 透传口子，调用点用它区分"回收站为空"与"标签下没有笔记"
+   * （trash / tag 两个图标）。插画语言是按**处境**分的，不是按主题分的：
+   * 主题区别由标题文字承担（"回收站是空的"本身就说清了），图形只回答"这是哪种处境"。
+   * 保留那个口子的话，同一块版面会一半插画一半图标，语言就散了 —— 所以删掉。
+   */
+  const illust: IllName = kind;
 
   const hint =
     kind === 'first-use' ? (
@@ -143,7 +149,7 @@ export function EmptyState({
 
   return (
     <StatePlate
-      icon={iconName}
+      illust={illust}
       tone={TONE[kind]}
       title={title}
       hint={hint}

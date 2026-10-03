@@ -127,3 +127,7 @@ shoot.mjs
 # 插画效果图的渲染产物（源文件是 docs/mockups/illustration-language.html，
 # 用 node scripts/shoot-mockups.mjs 随时重生成，不必进版本库）
 docs/mockups/out/
+
+# 由 scripts/render-illustrations.mjs 从节点表生成，可重生成就不入库
+# （手写的提案 illustration-language.html 才是源）
+docs/mockups/illustrations-from-source.html

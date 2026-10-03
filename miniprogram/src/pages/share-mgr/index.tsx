@@ -230,7 +230,7 @@ export default function Shares() {
         >
           {loading && <View className="loading">{t('common.loading')}</View>}
           {!loading && shares.length === 0 && (
-            <StatePlate icon="link" tone="guide" title={t('share_mgr.empty')} />
+            <StatePlate illust="plain" tone="guide" title={t('share_mgr.empty')} />
           )}
           {shares.map((s) => {
             const expired = isExpired(s.expiresAt);

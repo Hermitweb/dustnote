@@ -169,7 +169,7 @@ export function TrashScreen() {
         data={notes}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} />}
-        ListEmptyComponent={<StatePlate icon="trash" title={t('trash.empty')} />}
+        ListEmptyComponent={<StatePlate illust="plain" title={t('trash.empty')} />}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.cardTitle} numberOfLines={1}>

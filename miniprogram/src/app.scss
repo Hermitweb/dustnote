@@ -6,6 +6,7 @@
 /* 颜色令牌由 shared 主题种子派生，勿在此手改：见 scripts/gen-mp-tokens.mjs */
 @import './styles/theme-tokens.scss';
 @import './styles/mp-icons.scss';
+@import './styles/mp-illustrations.scss';
 
 /* ========== 设计令牌（CSS 变量） ========== */
 page {
@@ -454,6 +455,18 @@ page {
 }
 .state-plate-tile--guide {
   color: var(--primary-text);
+}
+/* 插画档不套方框：只负责给"墨"的角色色与下边距（节奏与 tile 同档）。
+   guide 也走中性墨 —— 强调色由插画内部那一处 accent 层负责，不染整张。 */
+.state-plate-illust {
+  margin-bottom: 24rpx;
+  color: var(--fg-muted);
+}
+.state-plate-illust--guide {
+  color: var(--fg-muted);
+}
+.state-plate-illust--danger {
+  color: var(--danger);
 }
 .state-plate-tile--danger {
   color: var(--danger);

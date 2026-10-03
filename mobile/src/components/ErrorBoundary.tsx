@@ -115,7 +115,7 @@ function CrashScreen({
       <ScrollView contentContainerStyle={{ padding: 24, flexGrow: 1, justifyContent: 'center' }}>
         <StatePlate
           size="card"
-          icon="warning"
+          illust="error"
           tone="danger"
           title="DustNote 遇到了问题"
           hint="应用已捕获未处理错误。您可以尝试重新加载，或退出后重新打开。"
