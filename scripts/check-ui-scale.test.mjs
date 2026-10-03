@@ -15,6 +15,7 @@ import {
   scanDeadDarkVariant,
   scanHardcodedInk,
   scanMpThemeId,
+  scanColorLiterals,
   emojiHits,
   OUTLINE_NONE_ALLOWLIST,
 } from './check-ui-scale.mjs';
@@ -261,4 +262,33 @@ test('小程序原生外壳与 CSS 变量必须吃同一份主题种子', () => 
   assert.match(got[0].msg, /两套种子/);
   // 解析不出来也要报，不能静默通过
   assert.equal(scanMpThemeId('没有常量', '也没有').length, 1);
+});
+
+test('颜色字面量只在样式上下文计数：lib 里的 # 片段不误报、shadow 不掺噪音', () => {
+  // 非样式上下文：URL 片段 / 占位串
+  assert.deepEqual(
+    scanColorLiterals('web/src/lib/x.ts', "const u = 'https://a/#frag';").findings,
+    []
+  );
+  // 阴影：RN 与 CSS 的投影档，明确排除
+  assert.deepEqual(scanColorLiterals('mobile/src/A.tsx', "  shadowColor: '#000',").findings, []);
+  // 真字面量：要报，且把位置打出来
+  const got = scanColorLiterals(
+    'mobile/src/A.tsx',
+    "  borderColor: '#dc2626',\n  color: rgba(0, 0, 0, 0.5);"
+  );
+  assert.equal(got.findings.length, 1, '两处合成一条报告，带行号');
+  assert.match(got.findings[0].msg, /A\.tsx:1 #dc2626/);
+  assert.match(got.findings[0].msg, /A\.tsx:2 rgba/);
+  // 逐条豁免：命中允许清单就不报
+  const ok = scanColorLiterals(
+    'miniprogram/src/app.scss',
+    '  border-color: rgba(96, 165, 250, 0.3);'
+  );
+  assert.deepEqual(ok.findings, []);
+  const same = scanColorLiterals(
+    'miniprogram/src/other.scss',
+    '  border-color: rgba(96, 165, 250, 0.3);'
+  );
+  assert.equal(same.findings.length, 1, '豁免按文件生效，不是全局放行');
 });

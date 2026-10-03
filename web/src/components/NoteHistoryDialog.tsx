@@ -197,7 +197,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center scrim p-4 backdrop-blur-[2px] sm:p-6"
       onClick={onClose}
     >
       <div

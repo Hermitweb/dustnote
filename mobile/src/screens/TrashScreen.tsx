@@ -220,9 +220,9 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderWidth: 1,
-      borderColor: '#dc2626',
+      borderColor: c.danger,
     },
-    emptyBtnText: { fontSize: 13, color: '#dc2626' },
+    emptyBtnText: { fontSize: 13, color: c.danger },
     card: {
       backgroundColor: c.card,
       marginHorizontal: 12,
@@ -250,10 +250,10 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderRadius: 8,
       backgroundColor: c.bg,
       borderWidth: 1,
-      borderColor: '#dc2626',
+      borderColor: c.danger,
       paddingVertical: 8,
       alignItems: 'center',
     },
-    permText: { color: '#dc2626', fontSize: 13, fontWeight: '600' },
+    permText: { color: c.danger, fontSize: 13, fontWeight: '600' },
   });
 }

@@ -67,7 +67,7 @@ export function ConflictDialog(): React.JSX.Element {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { backgroundColor: colors.scrim }]}>
         <View style={[styles.card, { backgroundColor: colors.card }]}>
           <Text style={[styles.title, { color: colors.fg }]}>{t('conflict.title')}</Text>
           <Text style={[styles.subtitle, { color: colors.muted }]}>{t('conflict.subtitle')}</Text>
@@ -150,7 +150,6 @@ export function ConflictDialog(): React.JSX.Element {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     padding: 16,
   },

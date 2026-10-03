@@ -68,7 +68,7 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 p-4 backdrop-blur-[2px] pt-[12vh]"
+      className="fixed inset-0 z-50 flex items-start justify-center scrim p-4 backdrop-blur-[2px] pt-[12vh]"
       onClick={onClose}
     >
       <div

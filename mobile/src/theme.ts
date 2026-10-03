@@ -58,6 +58,11 @@ export interface ThemePalette {
   accentText: string;
   /** 压在 accent / accentStrong 上的文字色：由引擎按对比度算，不是硬写的 #FFFFFF */
   onAccent: string;
+  /**
+   * 遮罩：模态背后压暗那一层。引擎本来就按主题/明暗算（浅色 15 23 42/.42、
+   * 深色 0 0 0/.62），此前 RN 四个遮罩各写各的 rgba(0,0,0,.4/.5)。
+   */
+  scrim: string;
 }
 
 /**
@@ -94,6 +99,7 @@ export function paletteFor(
     accentStrong: p.accentStrong,
     accentText: p.accentText,
     onAccent: p.onAccent,
+    scrim: p.scrim,
   };
   // 叠 RN 专属 alpha：把引擎给的 #RRGGBB 变成 #RRGGBBAA
   // 实色档：不叠 RN alpha，card/border 回到引擎给的不透明值

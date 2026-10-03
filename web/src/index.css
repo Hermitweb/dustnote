@@ -109,6 +109,17 @@ html[data-mode='dark'] mark {
   overscroll-behavior: contain;
 }
 
+/* ========== 遮罩 ==========
+ * 引擎本来就按主题/明暗算 scrim（浅色 15 23 42/.42、深色 0 0 0/.62），
+ * 但一直没被暴露：令牌值带 alpha（'r g b / a'），Tailwind 的
+ * rgb(var(--x) / <alpha>) 接法吃不下，所以 0 处使用、17 处各写 bg-black/55。
+ * 这里用 plain CSS 直接 rgb(var(--mn-scrim)) —— 现代 CSS 的空格语法连 alpha 一起进去。
+ * 深色档比原来更暗（0.62 > 0.55）是有意的：暗背景上遮罩要更压得住才分得清层级。
+ */
+.scrim {
+  background-color: rgb(var(--mn-scrim));
+}
+
 /* ========== 桌面端原生感优化（仅 desktop 平台生效） ========== */
 html[data-platform='desktop'] {
   /* 禁用文本选择（输入框 / 文本区域 / contenteditable / prose 除外） */

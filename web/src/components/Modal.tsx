@@ -73,7 +73,7 @@ export function Modal({
 
   return (
     <div
-      className={`fixed inset-0 ${Z[z] ?? 'z-overlay'} flex justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6 ${
+      className={`fixed inset-0 ${Z[z] ?? 'z-overlay'} flex justify-center scrim p-4 backdrop-blur-[2px] sm:p-6 ${
         align === 'start' ? 'items-start pt-[12vh]' : 'items-center'
       }`}
       onClick={dismissOnScrim ? onClose : undefined}

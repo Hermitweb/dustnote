@@ -461,6 +461,71 @@ export function scanMpThemeId(chromeTs, genMjs) {
       ];
 }
 
+/**
+ * 样式上下文里的颜色字面量：上限 0。
+ *
+ * 为什么不是"全仓禁止 hex"：扫过一遍，web/src 的命中全在 lib/（URL 片段、占位串），
+ * naive 扫描只会造出误报，然后开始有人忽略门禁输出。所以只在**颜色属性上下文**里
+ * 计数：行首是 color / background / border / fill / stroke / outline / style /
+ * className / pageStyle 这类样式承载点。
+ *
+ * shadow* 明确排除：RN 的 shadowColor 与 CSS 阴影里的 rgba 是"投影那一档"，
+ * 不是品牌色/语义色，混进来会让规则变成噪音（实测 4 处）。
+ */
+export const COLOR_LITERAL_CEILING = 0;
+const STYLE_PROP_RE =
+  /^\s*(?:[-\w]*color|background|background-color|fill|stroke|border|border-\w+|outline|pageStyle|boxStyle|style|className|class)\s*[:=]/i;
+/*
+ * 三种形式都算颜色字面量：#hex、rgba(...)，以及 Tailwind 的
+ * bg-black/55 这种"类名形式"。最后那种最容易被漏 —— 它看起来像工具类、
+ * 不像颜色，但 17 处遮罩此前正是这么散在各处的。
+ */
+const COLOR_LITERAL_RE =
+  /#[0-9a-fA-F]{3,8}\b|rgba?\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+|\b(?:bg|text|border)-(?:black|white)(?:\/\d+)?\b/g;
+const SHADOW_PROP_RE = /^\s*shadow[a-z-]*\s*[:=]/i;
+
+/*
+ * 逐条给理由的豁免（不是文件级放行）。
+ * 深色玻璃那圈蓝色描边是观感决定：它要"强调色 30% 透明"，而小程序侧没有可靠的
+ * color-mix / rgb(var(--x) / a) 写法来表达带 alpha 的强调色；硬塞不透明的
+ * --primary 会把描边变成一条过亮的实线。
+ */
+export const COLOR_LITERAL_ALLOWLIST = [
+  {
+    file: 'miniprogram/src/app.scss',
+    pattern: /rgba\(96, 165, 250, 0\.3\)/,
+    reason: '深色卡片蓝描边需要带 alpha 的强调色，小程序侧无等价令牌（见上）',
+  },
+];
+
+export function scanColorLiterals(rel, src, ceiling = COLOR_LITERAL_CEILING) {
+  const stripped = src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+  const hits = [];
+  stripped.split('\n').forEach((l, i) => {
+    if (!STYLE_PROP_RE.test(l) || SHADOW_PROP_RE.test(l)) return;
+    if (COLOR_LITERAL_ALLOWLIST.some((a) => a.file === rel && a.pattern.test(l))) return;
+    const m = l.match(COLOR_LITERAL_RE);
+    if (!m) return;
+    hits.push(rel + ':' + (i + 1) + ' ' + m.join(' '));
+  });
+  if (hits.length <= ceiling) return { findings: [], hits };
+  return {
+    hits,
+    findings: [
+      {
+        rule: 'color-literal',
+        msg:
+          `样式上下文里的颜色字面量 ${hits.length} 处（上限 ${ceiling}）：` +
+          hits.slice(0, 6).join(' ; ') +
+          '。请改用语义令牌（web: text-accent-strong-on / bg-surface-*；' +
+          'RN: useColors() 的 c.*；小程序: var(--*) 或 lib/theme-chrome 派生）。',
+      },
+    ],
+  };
+}
 export async function run() {
   const { SEMANTIC_EXTRAS } = await import(
     pathToFileURL(path.join(ROOT, 'shared/tailwind-colors.mjs')).href
@@ -502,6 +567,23 @@ export async function run() {
       if (!/\.(tsx|jsx|scss|css)$/.test(rel)) continue;
       emojiSources.push([rel, fs.readFileSync(f, 'utf8')]);
     }
+  }
+  /*
+   * 颜色字面量：四端源码都扫，但**按文件名去重**。上一版把 emojiSources
+   * （tsx/jsx/scss/css）与 walk()（含 .ts/.tsx）两个循环直接叠在一起，
+   * 于是一个 .tsx 里的违例被报两遍 —— 同一处报两条，"发现 N 处"这个数字
+   * 就失去意义了，而那正是门禁最要紧的东西。
+   */
+  const colorSources = new Map(emojiSources);
+  for (const dir of ['web/src', 'desktop/src', 'mobile/src', 'miniprogram/src']) {
+    for (const fp of walk(path.join(ROOT, dir))) {
+      const rel = path.relative(ROOT, fp).replace(/\\/g, '/');
+      if (EMOJI_SKIP.test(rel)) continue;
+      if (!colorSources.has(rel)) colorSources.set(rel, fs.readFileSync(fp, 'utf8'));
+    }
+  }
+  for (const [rel, src] of colorSources) {
+    findings.push(...scanColorLiterals(rel, src).findings);
   }
   const emoji = scanEmoji(emojiSources, EMOJI_CEILING);
   findings.push(...emoji.findings);

@@ -325,7 +325,7 @@ export function Sidebar() {
     <>
       {/* 移动端遮罩：sidebar 显示时点击空白处关闭 */}
       <div
-        className="fixed inset-0 z-30 bg-black/55 backdrop-blur-[2px] lg:hidden"
+        className="fixed inset-0 z-30 scrim backdrop-blur-[2px] lg:hidden"
         onClick={() => useStore.getState().toggleSidebar()}
         aria-hidden="true"
       />
@@ -1056,7 +1056,7 @@ export function Sidebar() {
       {/* 重命名对话框 */}
       {renameTarget && (
         <div
-          className="fixed inset-0 z-nested flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6"
+          className="fixed inset-0 z-nested flex items-center justify-center scrim p-4 backdrop-blur-[2px] sm:p-6"
           onClick={() => setRenameTarget(null)}
         >
           <div
@@ -1097,7 +1097,7 @@ export function Sidebar() {
       {/* 移动对话框 */}
       {moveTarget && (
         <div
-          className="fixed inset-0 z-nested flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:p-6"
+          className="fixed inset-0 z-nested flex items-center justify-center scrim p-4 backdrop-blur-[2px] sm:p-6"
           onClick={() => setMoveTarget(null)}
         >
           <div

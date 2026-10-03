@@ -318,7 +318,7 @@ export function CommandPalette({ commands }: { commands?: Command[] }) {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center bg-black/55 p-4 backdrop-blur-[2px] pt-[15vh]"
+      className="fixed inset-0 z-40 flex items-start justify-center scrim p-4 backdrop-blur-[2px] pt-[15vh]"
       onClick={() => setOpen(false)}
       role="dialog"
       aria-modal="true"

@@ -1146,7 +1146,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     restoreBtn: { fontSize: 13, color: c.mint600, fontWeight: '600' },
     restoreBtnWrap: { padding: 8 },
     // 「…」更多菜单
-    menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    menuOverlay: { flex: 1, backgroundColor: c.scrim, justifyContent: 'flex-end' },
     menuSheet: {
       backgroundColor: c.card,
       borderTopLeftRadius: 16,
