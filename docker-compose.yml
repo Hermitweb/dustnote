@@ -38,10 +38,14 @@ services:
       # 所以 0.0.0.0:8080 等于开后门：它绕过前置代理，"强制 HTTPS"永远收不全。
       # 跨机直连的老式部署：PORT_BIND=0.0.0.0
       #
-      # ⚠️ 8080 这里**只能有一条**：v2.5.48 曾在这条回环绑定的下一行留着旧的
-      # '${PORT:-8080}:8080'（R1 收口"加新忘删旧"），两条绑定互相重叠 → 容器 up
-      # 必定 "address already in use" → upgrade.sh 半程中断、线上中断 2.5 分钟。
-      # 回归门禁：scripts/check-compose-ports.mjs（挂在 pnpm docker:check 第二段）。
+      # ⚠️ 8080 这里**只能有一条**：R1 收口那次加了回环绑定，却没删旧的
+      # '${PORT:-8080}:8080'（"加新忘删旧"）。两条绑定互相重叠 → 容器 up 必定
+      # "address already in use" → 升级脚本半程中断（旧容器已 down）、线上中断 2.5 分钟。
+      # 复盘见 docs/roadmap.md「发版当晚」一节；回归门禁 scripts/check-compose-ports.mjs。
+      #
+      # 注意：这里的注释**不写版本字面量**——本文件在 bump 的 VERSION_FILES 清单里，
+      # 任何 x.y.z 都会被全局替换（本行原先写的版本号就这么被改成了下一版，
+      # 让"哪一版出的事故"当场说谎）。叙事性版本号只写在 CHANGELOG / roadmap 里。
       - '${PORT_BIND:-127.0.0.1}:${PORT:-8080}:8080'
     volumes:
       # 持久化 SQLite 数据库（一体化镜像数据目录为 /app/server/data）

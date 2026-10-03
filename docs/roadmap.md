@@ -2134,3 +2134,25 @@ diff 里 status.md 只有渠道表 5 行变化，生成区原样。
 把"compose 端口预检"做进 upgrade.sh——在 down 旧容器**之前**判定，失败就完全不动旧栈。
 本轮没做：服务器侧跑静态检查要么依赖宿主 node，要么在容器里跑，都是新增依赖，值得单独一落；
 当前组合（CI 门禁拦 + 失败自动回滚）已把最坏情况压到"中断一次并自动恢复"。
+
+#### 补记（同日深夜）：gradle 镜像抖动砍掉整份发版；tag 的一次重指
+
+- **2.5.48 首次构建死在 Android 作业的 45 分钟上限**：卡在
+  `Downloading https://mirrors.aliyun.com/…/gradle-8.4-all.zip`（212MB、跨境）——
+  13:37:35 开始，14:21:48 仍未下完被取消。而"任一平台构建失败即不发布"是既定策略，
+  于是服务端 / 桌面 / 小程序全都白建，**整份发版没有产物**。
+  为什么 CI 全绿拦不住：Release 的 Android 作业**没有 gradle 缓存**（ci.yml 的 debug 作业有），
+  每次发版都重下那 212MB——v2.5.47 那次同一步 17 分钟（侥幸成功），这次 44 分钟。
+  修法（PR #32）：仓库 wrapper **不动**（国内镜像对本地开发者快，不该为 CI 改），
+  只在 CI 内把 distributionUrl 覆盖成官方 `services.gradle.org`（runner 到 GitHub 同网），
+  并给作业补 `cache: gradle`。重建实证：**Android 4m41s**（原 17 分钟起、最坏撞 45 分钟砍单）。
+  附带收益：镜像内容不受上游校验（wrapper 里 `validateDistributionUrl=false`、也没有
+  `distributionSha256Sum`），CI 回官方源等于把"产物由哪份 Gradle 构建"收回到了可追溯的一侧。
+- **tag 重指（一次写下前提的例外）**：v2.5.48 首跑失败时**没有产生任何 Release 与产物**，
+  因此把 tag 从发版提交移到了含 CI 修复的合并提交后重发。前提必须写清楚：无 Release、
+  无产物、无外部引用；**若已有任一产物，唯一正确做法是发下一个版本**，不允许再动 tag。
+- **叙事性版本号不能写进 VERSION_FILES 里的文件**：docker-compose.yml 在 bump 清单里
+  （它要改 SERVER_VERSION 默认值），我写的事故注释（"v2.5.47 曾双绑"）被全局替换改成了
+  "v2.5.48 曾双绑"——"哪一版出的事故"当场说谎，而这次说谎的是工具而不是人。
+  已把该注释改成不写版本字面量，并把这条规矩写进注释本身；
+  叙事版本号只写 CHANGELOG / roadmap（这两个文件本来就在残留豁免里，理由同源）。
