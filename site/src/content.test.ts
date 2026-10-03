@@ -29,7 +29,7 @@ describe('元数据与版本', () => {
      * 无脚本用户看的就是它），它不在 bump 清单里时会永远停在上一版，而测试全绿。
      * 现在把它也钉上，并把 index.html 加进 scripts/bump-version.mjs 的清单。
      */
-    // prettier 会把长标签折行（`>v2.5.47</span` 换行再 `>`），所以按正则容忍空白
+    // prettier 会把长标签折行（版本号与 </span> 之间可能换行），所以按正则容忍空白
     expect(html, `index.html 的静态兜底版本应为 v${rootPkg.version}`).toMatch(
       new RegExp(`>v${rootPkg.version.replace(/\./g, String.fromCharCode(92) + '.')}\\s*</span`)
     );

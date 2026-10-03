@@ -63,11 +63,11 @@ _未列入本表的组件（WebSocket 同步、/metrics）探针不覆盖，状�
 
 | 渠道          | 版本   | 分发方式                                   |
 | ------------- | ------ | ------------------------------------------ |
-| Web / PWA     | 2.5.47 | 服务器直出，Service Worker 缓存            |
-| Windows x64   | 2.5.47 | 应用内更新 / GitHub Release                |
-| Windows ARM64 | 2.5.47 | 应用内更新 / GitHub Release                |
-| Android       | 2.5.47 | 应用内更新（manifest apk）/ GitHub Release |
-| macOS (ARM64) | 2.5.47 | GitHub Release（未签名 DMG，右键打开）     |
+| Web / PWA     | 2.5.48 | 服务器直出，Service Worker 缓存            |
+| Windows x64   | 2.5.48 | 应用内更新 / GitHub Release                |
+| Windows ARM64 | 2.5.48 | 应用内更新 / GitHub Release                |
+| Android       | 2.5.48 | 应用内更新（manifest apk）/ GitHub Release |
+| macOS (ARM64) | 2.5.48 | GitHub Release（未签名 DMG，右键打开）     |
 | iOS           | —      | 未发布                                     |
 
 ## 历史事件

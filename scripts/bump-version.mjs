@@ -239,6 +239,18 @@ const RESIDUAL_ALLOW = [
   'shared/README.md', // 注释：这条规矩的来历是升级现场连挂两次
   'scripts/check-docker-context.mjs', // 该守卫存在的理由就是那次事故
   'scripts/alert-drill.sh', // 讲 zip 文件名骗过 sort -V 的实例
+  /*
+   * 2026-10-03（2.5.47 部署阻断事故）新增的守卫与复盘，同上：注释与测试名里的
+   * v2.5.47 是在讲"那次事故"，不是在声明当前版本。注意**测试夹具不在此列**——
+   * 夹具里的版本号一律用与仓库解耦的假版本（status-page.test.mjs 的 2.0.0 / 7.7.7），
+   * 不让每次发版都逼着人来改测试。
+   */
+  'deploy/upgrade.sh', // 自动回滚的动机 = 2.5.47 升级实录
+  'scripts/status-page.mjs', // 分区读写的由来 = 2.5.47 发版改写了生成区
+  'scripts/status-page.test.mjs', // 同上（头注释讲事故）
+  'scripts/compose-ports.mjs', // 端口冲突判定的由来 = 2.5.47 双绑
+  'scripts/compose-ports.test.mjs', // 同上（测试名里写着那次事故）
+  'scripts/check-compose-ports.mjs', // 同上（门禁注释）
 ];
 if (!dryRun) {
   // execFileSync + 参数数组：命令内容不再经过 shell，OLD 也就无从"越狱"

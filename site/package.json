@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/site",
-  "version": "2.5.47",
+  "version": "2.5.48",
   "private": true,
   "type": "module",
   "description": "DustNote 项目官网（GitHub Pages 静态站，复用 shared 设计令牌）",
