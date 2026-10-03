@@ -16,7 +16,10 @@
 #   4. downloads 产物 chmod 644 漏做导致 manifest 读 hash EACCES→500;
 #   5. 同版本覆盖产物时 manifest 内存缓存旧 hash 的坑（M1 后按 mtime 失效,
 #      新文件名天然规避）;
-#   6. 每步失败立即退出并打印回滚指引;旧目录与旧卷全程保留可回滚。
+#   6. 每步失败立即退出并打印回滚指引;旧目录与旧卷全程保留可回滚;
+#   7. 启动/健康验证失败**自动回滚**（v2.5.47 实录：新包 compose 里 8080 双绑,
+#      up -d 必失败,而那一刻旧容器已 down → 线上中断 2.5 分钟、恢复靠人工。
+#      迁移是 cp 不是 mv,旧卷一直在,"把旧栈拉回来"永远可行,不该只打印一行指引）。
 #
 # 事后仍需人工:GitHub 上确认 CI 产物存在（脚本按 release 资产直链拉取）。
 set -euo pipefail
@@ -31,6 +34,29 @@ DL_DIR="/opt/dustnote-downloads"
 CONTAINER="dustnote"
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 die() { echo "[FAIL] $*" >&2; exit 1; }
+
+# 自动回滚：新栈起不来就把旧栈原地拉回（旧目录与旧数据卷在迁移后仍完整）。
+#
+# 动机（v2.5.47 升级实录）：`up -d` 因新包 docker-compose.yml 里 8080 被重复声明
+# （回环 + 0.0.0.0 两条互斥绑定）失败；脚本按 set -e 直接退出，那一刻旧容器已 down、
+# 新容器起不来 —— 线上中断 2.5 分钟，恢复靠人工。迁移是 cp 不是 mv，旧卷一直在，
+# 所以"把旧栈拉回来"永远可行，应当自动做掉，而不是只打印一句回滚指引。
+#
+# 诚实边界：
+#  - 回滚会把**旧包的端口绑定**一并带回来（旧包可能弱于新版，如 0.0.0.0 暴露）
+#    —— 先让服务回来，收口问题按日志提示另行核对；
+#  - 迁移之后新容器若已写入，那部分写入留在新卷里，回滚后不可见（升级失败本就该人工看一眼）。
+rollback() {
+  log "[回滚] $*"
+  docker compose -f "${NEW_DIR}/docker-compose.yml" -p "$NEW_PROJECT" down >/dev/null 2>&1 || true
+  if docker compose -f "${OLD_DIR}/docker-compose.yml" -p "$OLD_PROJECT" up -d; then
+    log "[回滚] 旧版本已恢复（数据卷 ${OLD_PROJECT}_dustnote-data 未动）"
+    log "[回滚] 注意：旧版 compose 的端口绑定已随旧包回归，请核对 R1 收口（8080 是否只绑回环）"
+  else
+    log "[回滚] 旧栈也没能起来 —— 需要人工介入（docker logs ${CONTAINER}）"
+  fi
+  die "升级中断，已尝试回滚；新目录 ${NEW_DIR} 保留供排查（先别删）"
+}
 
 # ── 0. 现状反查（label 优先,杜绝目录猜谜）──────────────────────────
 docker inspect "$CONTAINER" >/dev/null 2>&1 || die "容器 $CONTAINER 未在运行,本脚本只处理升级场景"
@@ -98,7 +124,8 @@ log "迁移备份卷 ${OLD_BAK} → ${V_BAK} ..."
 docker run --rm -v "${OLD_BAK}:/src:ro" -v "${V_BAK}:/dst" alpine \
   sh -c 'cp -a /src/. /dst/ && chown -R 1001:0 /dst' || die "backups 卷迁移失败"
 log "启动新版本 ..."
-docker compose -f "${NEW_DIR}/docker-compose.yml" -p "$NEW_PROJECT" up -d
+docker compose -f "${NEW_DIR}/docker-compose.yml" -p "$NEW_PROJECT" up -d \
+  || rollback "新容器启动失败（先查新包 compose 有无重复/互斥的端口绑定，如 8080 双绑 → address already in use）"
 
 # ── 5. 健康验证（版本必须真的是 TARGET）─────────────────────────────
 log "等待 health ..."
@@ -107,7 +134,7 @@ for i in $(seq 1 30); do
   V=$(docker exec "$CONTAINER" node -e 'fetch("http://127.0.0.1:8080/api/v1/health").then(r=>r.json()).then(j=>console.log(j.version)).catch(()=>console.log("ERR"))' 2>/dev/null || echo ERR)
   [[ "$V" == "$TARGET" ]] && break
 done
-[[ "$V" == "$TARGET" ]] || die "健康验证失败: 当前版本=${V}（排查: docker logs $CONTAINER；回滚: cd ${OLD_DIR} && docker compose up -d）"
+[[ "$V" == "$TARGET" ]] || rollback "健康验证失败: 当前版本=${V}（docker logs $CONTAINER 看新栈日志）"
 log "服务端 ${TARGET} 运行正常"
 
 # ── 6. downloads 三件套同步（x64/arm64/apk,旧版本删除）──────────────

@@ -24,6 +24,7 @@ import { readFileSync, writeFileSync, existsSync, renameSync, rmSync } from 'nod
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { probeBlock, stripProbeBlock, normalizeStatusPage } from './status-page.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -48,7 +49,10 @@ const VERSION_FILES = [
   '.env.example',
   'server/.env.example',
   'README.md',
-  'docs/status.md',
+  // docs/status.md **不在**本清单：它含探针生成区（status-probe:start/end），
+  // 全局 split/join 会连"最近拨测：… 期望版本 v旧 / 线上 **v旧**"一起改写——
+  // v2.5.47 发版实测：页面因此声称"探针判定线上已是 2.5.47"，而线上还在跑 2.5.46。
+  // 它走下面的专用处理（只归一渠道表，生成区逐字节保留，见 scripts/status-page.mjs）。
   // 源码内 APP_VERSION / 默认值（脚本写文件不受编辑器 sed 纪律限制，统一在此收口）
   'server/src/env.ts',
   'miniprogram/src/state/auth.ts',
@@ -57,6 +61,13 @@ const VERSION_FILES = [
   'deploy/deploy.sh',
   'deploy/install.sh',
 ];
+
+// 不变量（把 v2.5.47 那次"发版把状态页刷成假绿"固化成会响的断言）：
+// 生成区受保护的文件一旦混进全局替换清单，上面的 split/join 就会替探测说话。
+if (VERSION_FILES.includes('docs/status.md')) {
+  console.error('[中止] docs/status.md 不得进入 VERSION_FILES（生成区只能由探针写）');
+  process.exit(1);
+}
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
@@ -177,14 +188,19 @@ console.log(`versionCode: ${m[1]} -> ${nextCode}`);
 //   以前它还顺手归一"服务端 **vX**"与"最近人工核对：<今天>"，等于**没探测就把状态页刷绿**
 //   （v2.5.43 发版时页面停在 2.5.40；后来更出现页头 🔴 而组件表全 🟢 的自相矛盾）。
 //   "线上跑着什么"现在只能由 scripts/status-probe.mjs 写，且写进它的生成区标记内。
+//   分区读写与回归测试在 scripts/status-page.mjs（这里不再自写正则——
+//   v2.5.47 的教训正是"收窄"写在了通用替换之后，等于没收窄）。
 const statusAbs = join(ROOT, 'docs/status.md');
 const ssrc = readFileSync(statusAbs, 'utf8');
-const snew = ssrc.replace(
-  /(\|[^|\n]+\| )\d+\.\d+\.\d+( ?\|)/g,
-  (_m, pre, post) => `${pre}${NEW}${post}`
-);
-if (snew !== ssrc && !dryRun) writeFileAtomic(statusAbs, snew);
-if (snew !== ssrc) touched.push('docs/status.md（仅客户端渠道表）');
+const { text: snew, changed: sChanged } = normalizeStatusPage(ssrc, NEW);
+// 写盘前的兜底断言：生成区必须逐字节不变。变了就停——宁可发版中断，
+// 不让页面出现"未来的线上版本"（那正是 issue #30 的来源形态）。
+if (probeBlock(snew) !== probeBlock(ssrc)) {
+  console.error('[中止] docs/status.md 的探针生成区被改写（发版动作不得替探测说话）');
+  process.exit(1);
+}
+if (sChanged && !dryRun) writeFileAtomic(statusAbs, snew);
+if (sChanged) touched.push('docs/status.md（仅客户端渠道表）');
 
 // ── roadmap/ui 文档的「基线：vX」行归一（发版即刷新基线；两文档历史段
 //   含旧版本号属正常叙事，进 RESIDUAL_ALLOW 文件级豁免）──
@@ -245,7 +261,17 @@ if (!dryRun) {
     .trim()
     .split('\n')
     .filter(Boolean)
-    .filter((f) => !RESIDUAL_ALLOW.includes(f));
+    .filter((f) => !RESIDUAL_ALLOW.includes(f))
+    /*
+     * docs/status.md 只按「生成区之外」判残留：
+     * - 生成区里的旧版本号是**拨测时刻的历史记录**（"最近拨测：… 期望版本 v旧"），
+     *   发版脚本不许改写它（见上方专用处理），出现在 grep 里不算漏改；
+     * - 渠道表若漏改，下面这步会把它原样留下，照常 FAIL。
+     */
+    .filter(
+      (f) =>
+        f !== 'docs/status.md' || stripProbeBlock(readFileSync(join(ROOT, f), 'utf8')).includes(OLD)
+    );
   // 注意：filter 后是数组——`if ([])` 恒真，必须显式判长度
   // （v2.5.45 bump 实战暴露：零残留也报 FAIL）
   if (grep.length > 0) {

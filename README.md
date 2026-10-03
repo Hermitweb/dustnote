@@ -302,26 +302,26 @@ pnpm clean      # 清理构建产物
 
 每条门禁都对应一次真实踩坑，不是预防性装饰。
 
-| 命令                         | 拦的是什么                                                            | 由来                                                                  |
-| ---------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `pnpm typecheck`             | 跨包类型漂移（shared 改一处，五端都要重算）                           | —                                                                     |
-| `pnpm lint` / `format:check` | 风格与危险写法                                                        | prettier 与生成器互打的表已进 `.prettierignore`，避免「格式化即漂移」 |
-| `pnpm lint:scripts`          | 门禁脚本自己写错                                                      | 守卫没人守卫，就得自己可 lint                                         |
-| `pnpm test`                  | 582 条单测（七包）                                                    | 覆盖率阈值 CI 强制                                                    |
-| `pnpm test:monitoring`       | 告警桥、拨测、nginx 守卫、action 钉版守卫的自测                       | 监控系统自己也得被监控                                                |
-| `pnpm docker:check`          | Dockerfile `COPY` 白名单漏文件                                        | v2.5.47 升级现场连挂两次：CI 全绿、本地全绿，服务器构建必炸           |
-| `pnpm tokens:check`          | 小程序令牌与 `shared` 设计令牌漂移                                    | 小程序曾自己抄一份色值，改主题只改一半                                |
-| `pnpm security:headers`      | nginx `add_header` 不继承导致整套安全头静默消失                       | 线上实测 `/api/`、`/metrics` 丢了 CSP                                 |
-| `pnpm action:pins`           | 钉了不存在 / 与注释版本不符的 action SHA                              | nightly 拨测因假 SHA 静默失效，6 次排期全没跑                         |
-| `pnpm docs:check`            | 文档死链、锚点无落点、孤儿文档                                        | 首跑揪出 67 处，其中 18 条指向早已删除的 `.trae/documents/`           |
-| `pnpm env:check`             | 部署清单与代码读取的变量双向不一致                                    | 少一个变量的表现不是构建失败，而是「照文档装完，某功能静默走默认值」  |
-| `pnpm workflows:check`       | workflow 文件结构（缺 runs-on / needs 拼错 / 无超时）                 | GitHub 对 workflow 是整份拒绝，本地没有任何命令会因此变红             |
-| `pnpm api:check`             | `docs/api.md` 与真实路由表漂移                                        | 清单由 `api:gen` 从 `app.ts` 挂载顺序生成，不手抄                     |
-| `pnpm i18n:check`            | 三端词典键不齐、文案里混进 emoji 图标                                 | 图标一律走 `docs/ui-icon-map.md` + SVG                                |
-| `pnpm sw:check`              | Service Worker 缓存版本没跟着发布走                                   | 老 SW 兜住新页面是典型的「用户看不到更新」                            |
-| `pnpm readme:check`          | README 徽章版本与实际版本不符                                         | 版本号靠 `bump-version.mjs` 多点同步，漏一处即拦                      |
-| `pnpm build:site`            | 官网构建 + 内容守卫（版本、平台表、安全结论、零第三方请求、配色同源） | 官网写歪比没有官网更糟                                                |
-| nginx -t（仅 CI）            | 部署配置语法                                                          | 本机无 docker 时跑不到，容器是一体化的，写错就是下次升级起不来        |
+| 命令                         | 拦的是什么                                                            | 由来                                                                                                                   |
+| ---------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `pnpm typecheck`             | 跨包类型漂移（shared 改一处，五端都要重算）                           | —                                                                                                                      |
+| `pnpm lint` / `format:check` | 风格与危险写法                                                        | prettier 与生成器互打的表已进 `.prettierignore`，避免「格式化即漂移」                                                  |
+| `pnpm lint:scripts`          | 门禁脚本自己写错                                                      | 守卫没人守卫，就得自己可 lint                                                                                          |
+| `pnpm test`                  | 582 条单测（七包）                                                    | 覆盖率阈值 CI 强制                                                                                                     |
+| `pnpm test:monitoring`       | 告警桥、拨测、nginx 守卫、action 钉版守卫的自测                       | 监控系统自己也得被监控                                                                                                 |
+| `pnpm docker:check`          | Dockerfile `COPY` 白名单漏文件；compose 端口重复/互斥绑定             | 前者：升级现场连挂两次，CI 全绿、本地全绿，服务器构建必炸。后者：v2.5.47 包内 8080 双绑，容器起不来、线上中断 2.5 分钟 |
+| `pnpm tokens:check`          | 小程序令牌与 `shared` 设计令牌漂移                                    | 小程序曾自己抄一份色值，改主题只改一半                                                                                 |
+| `pnpm security:headers`      | nginx `add_header` 不继承导致整套安全头静默消失                       | 线上实测 `/api/`、`/metrics` 丢了 CSP                                                                                  |
+| `pnpm action:pins`           | 钉了不存在 / 与注释版本不符的 action SHA                              | nightly 拨测因假 SHA 静默失效，6 次排期全没跑                                                                          |
+| `pnpm docs:check`            | 文档死链、锚点无落点、孤儿文档                                        | 首跑揪出 67 处，其中 18 条指向早已删除的 `.trae/documents/`                                                            |
+| `pnpm env:check`             | 部署清单与代码读取的变量双向不一致                                    | 少一个变量的表现不是构建失败，而是「照文档装完，某功能静默走默认值」                                                   |
+| `pnpm workflows:check`       | workflow 文件结构（缺 runs-on / needs 拼错 / 无超时）                 | GitHub 对 workflow 是整份拒绝，本地没有任何命令会因此变红                                                              |
+| `pnpm api:check`             | `docs/api.md` 与真实路由表漂移                                        | 清单由 `api:gen` 从 `app.ts` 挂载顺序生成，不手抄                                                                      |
+| `pnpm i18n:check`            | 三端词典键不齐、文案里混进 emoji 图标                                 | 图标一律走 `docs/ui-icon-map.md` + SVG                                                                                 |
+| `pnpm sw:check`              | Service Worker 缓存版本没跟着发布走                                   | 老 SW 兜住新页面是典型的「用户看不到更新」                                                                             |
+| `pnpm readme:check`          | README 徽章版本与实际版本不符                                         | 版本号靠 `bump-version.mjs` 多点同步，漏一处即拦                                                                       |
+| `pnpm build:site`            | 官网构建 + 内容守卫（版本、平台表、安全结论、零第三方请求、配色同源） | 官网写歪比没有官网更糟                                                                                                 |
+| nginx -t（仅 CI）            | 部署配置语法                                                          | 本机无 docker 时跑不到，容器是一体化的，写错就是下次升级起不来                                                         |
 
 ## 贡献
 

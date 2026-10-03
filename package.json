@@ -34,7 +34,7 @@
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "pin-digests": "node scripts/pin-base-image-digests.mjs",
-    "docker:check": "node scripts/check-docker-context.mjs",
+    "docker:check": "node scripts/check-docker-context.mjs && node scripts/check-compose-ports.mjs",
     "security:headers": "node scripts/check-security-headers.mjs",
     "action:pins": "node scripts/check-action-pins.mjs",
     "lint": "turbo run lint",
