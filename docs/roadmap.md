@@ -1979,6 +1979,67 @@ mp 单测 43 passed；mp H5 构建 compiled successfully；三个 `gen-mp-*: --c
 
 #### 仍未做
 
-- **RN 真机确认**：`react-native-svg` 此前虽在依赖里但从未被运行时使用，本文件是第一处。
-  原生 SVG 描边与浏览器在 `stroke-linejoin` 细节上可能有 1px 级差异 —— 发版前要在真机看一眼。
+- ~~**RN 真机确认**（正确性风险）~~ **已降级（见下一落）**：属性继承、`fill` 默认值、`dasharray`
+  类型、`currentColor` 这些会真出错的东西都改成 JS 里可测并测过了，web 侧另在真浏览器里
+  验了计算样式。剩下的只是 1px 级描边观感顺不顺眼，发版前扫一眼即可。
 - **插画只覆盖 5 个状态**：`overview`（概览首屏）与 `offline`（离线）两张没画，节点表加一条就行。
+
+### 2026-10-03 落（把"RN 真机看一眼"变成能在 JS 里证明的事）
+
+台账上那句"原生 SVG 描边与浏览器可能有 1px 级差异，CI 证明不了"是对的，但它不该长期挂着。
+这一轮把它拆成三件**不需要真机也能查**的事，查完剩下一丁点确实只能靠眼睛看的东西。
+
+#### 一、先去看库怎么实现的，而不是猜
+
+`react-native-svg@15.8.0` 源码实测：
+
+- `src/elements/Svg.tsx` 把 `stroke*` / `fill` 转交给一个内部 `<G>`；
+- Android `RenderableView.mergeProperties()` 与 iOS `RNSVGGroup` 的 `mergeProperties` 都会把组的属性
+  **下发给"自己没有该属性"的子元素**（`if (!hasOwnProperty(fieldName))`）。
+
+所以继承在两个平台上都成立——但它是**运行时行为**，而我原来的 RN 组件里
+两个 `Path` 分支**根本没写 `fill`**，全靠这条链。而 `extractFill` 里写得明明白白：
+`fill` 缺省 = `processColor('black')`。继承一旦在哪一处断掉，`error` 那几条**开口弧线**
+会被填成黑色饼块——typecheck、构建、打包全都看不出来。
+
+#### 二、不依赖它，并把这件事变成可测的
+
+RN 组件改成**每个元素自带** `fill` / `strokeLinecap` / `strokeLinejoin`，并把映射抽成纯函数
+`illElements(name, ink, accent)`。于是新增 6 条契约测试（`mobile/src/components/Illustration.test.ts`）：
+
+- 描边类元素必须自带三件套；实心尘埃点反过来必须显式 `stroke:'none'`
+- **绝不把 `currentColor` 交给 RN**（它没这个概念）
+- 着色只能来自 ink / accent 两个值
+- `strokeDasharray` 必须是数字数组（RN 不吃 `"3 3"` 字符串）
+- 元素数量与节点表一致（不静默丢节点）
+
+配套：`react-native-svg` 在 vitest 的 node 环境里 import 真包会 `Unexpected token 'typeof'`，
+按 mobile 既有的"只 mock 平台 I/O 边界"策略加了一个桩（`mobile/test/mocks/react-native-svg.ts`），
+桩文件里写明**它不还原任何渲染语义**，免得"测试全绿"被读成"画面对了"。
+
+变异验证：把 `path` 分支的 `...PEN` 摘掉 → 测试红并精确报
+`first-use 的 path 没写 fill: expected undefined to be defined`；还原后 37 passed。
+
+#### 三、顺手在真浏览器里验了 web 侧，当场抓出第二个 bug
+
+`web/src/components/Illustration.tsx` 原本写 `stroke="var(--mn-accent)"`。
+但这套令牌存的是**三元组**（`--mn-accent: 22 163 74`），Tailwind 那侧靠
+`rgb(var(--x) / <alpha>)` 拼合法颜色。直接把 `var()` 交给 `stroke`，浏览器拿到
+`stroke="22 163 74"` —— 非法声明**整条被丢弃**，于是 accent 节点静默回落到继承来的
+`currentColor`。后果是规则 2 里"唯一那处强调"在 web 上根本没画出来，且不报错。
+
+改成 `rgb(var(--mn-accent))` 后用 Playwright 把**真组件**挂进 Vite 模块图跑起来，读计算样式：
+
+| 插画        | 元素数 | stroke 种类                                                                | join / cap     |
+| ----------- | ------ | -------------------------------------------------------------------------- | -------------- |
+| `first-use` | 8      | `rgb(116,125,140)` ink ／ **`rgb(22,163,74)` accent** ／ `none` 尘埃点     | round ／ round |
+| `error`     | 12     | ink ／ `none`（它本来就没有 accent 节点，整张靠 currentColor 跟随 danger） | round ／ round |
+
+accent 与 ink 确实是两种颜色——这条现在是**测过的**，不是"看着应该没问题"。
+
+#### 剩下真需要眼睛看的，只有一件事
+
+三端的几何、着色、虚线、圆头圆角都在 JS 里证明过了。剩下的只有"原生描边在 1px 级别的观感
+是否顺眼"——那属于看一眼就完事的事，不再是一个未验证的正确性风险。发版前扫一眼 RN 的空态屏即可。
+
+**验证**：`pnpm verify` 全绿；mobile 测试 31 → **37 passed**。
