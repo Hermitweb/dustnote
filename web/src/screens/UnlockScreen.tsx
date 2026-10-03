@@ -148,7 +148,7 @@ export function UnlockScreen() {
             <button
               type="submit"
               disabled={!password || submitting}
-              className="w-full rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
+              className="w-full rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-accent-strong-on transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
             >
               {submitting ? '...' : t('auth.unlock_btn')}
             </button>
@@ -203,7 +203,7 @@ export function UnlockScreen() {
             <button
               type="submit"
               disabled={!isValidRecoveryCode(recoveryCode) || newPassword.length < 6 || submitting}
-              className="w-full rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
+              className="w-full rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-accent-strong-on transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
             >
               {submitting ? '...' : t('auth.recover_btn')}
             </button>

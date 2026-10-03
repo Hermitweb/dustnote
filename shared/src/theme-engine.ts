@@ -214,6 +214,16 @@ function solidState(base: Rgb): { bg: Rgb; on: Rgb; hover: Rgb } {
     : { bg: lightBg, on: BLACK, hover: mix(lightBg, WHITE, 0.14) };
 }
 
+/**
+ * 给定底色，取它合法的文字前景：白或墨，取对比度高的那条，并要求 ≥ 4.5。
+ * 与 solidState 的选择口径一致，只是不产出底色本身——底色已由种子决定时用它。
+ */
+function pickOn(bg: Rgb): Rgb {
+  const w = contrastRatio(WHITE, bg);
+  const k = contrastRatio(BLACK, bg);
+  return w >= k ? WHITE : BLACK;
+}
+
 export interface DerivedTokens {
   /* 层级 */
   'surface-0': RgbString;
@@ -236,6 +246,8 @@ export interface DerivedTokens {
   'accent-strong': RgbString;
   /** 主按钮 hover：只往更深走一档，白字对比度只会升不会降 */
   'accent-strong-hover': RgbString;
+  /** 压在 accent-strong 上的文字色：主按钮那一档的合法前景（见下方审计） */
+  'on-accent-strong': RgbString;
   /**
    * 强调色**当文字用**时的版本：保证在页面底 / 卡片 / 内嵌底上都达 AA。
    * 品牌蓝 #3B82F6 在白底只有 3.68:1 —— 直接拿 accent 当链接色/标签色会成片不达标，
@@ -364,6 +376,7 @@ export function deriveTokens(seed: ThemeSeed, mode: Mode): DerivedTokens {
     'on-accent': fmtRgb(onAccent),
     'accent-strong': fmtRgb(accentStrong),
     'accent-strong-hover': fmtRgb(mix(accentStrong, BLACK, 0.16)),
+    'on-accent-strong': fmtRgb(pickOn(accentStrong)),
     'accent-text': fmtRgb(ensureContrast(accent, surfaces, 4.5)),
     success: s.strong,
     'success-soft': s.soft,
@@ -409,7 +422,17 @@ export function buildThemeTokens(def: ThemeDef, mode: Mode): Record<string, stri
   // 主题自带主按钮色（如液态玻璃的 --mn-glass-button）时，以它为基准重算 accent-strong，
   // 但仍由引擎保证白字 AA —— 主题可以决定"用哪个蓝"，不能决定"对比度不够"。
   const own = extra?.['--mn-glass-button'];
-  if (own) out['--mn-accent-strong'] = fmtRgb(walkToward(parseRgb(own), BLACK, [WHITE], 4.5));
+  let strong = out['--mn-accent-strong'];
+  if (own) {
+    strong = fmtRgb(walkToward(parseRgb(own), BLACK, [WHITE], 4.5));
+    out['--mn-accent-strong'] = strong;
+  }
+  /*
+   * on-accent-strong 必须在 accent-strong 定稿之后再算：上面那条重算分支会换掉底色，
+   * 沿用 deriveTokens 里那份就会配错——本轮实测到的正是这种错配（见 docs/roadmap.md 台账：
+   * 深色档 on-accent(#535353) 压在 accent-strong(#2461e5) 上只有 1.43:1）。
+   */
+  if (strong) out['--mn-on-accent-strong'] = fmtRgb(pickOn(parseRgb(strong)));
   return out;
 }
 
@@ -539,14 +562,21 @@ export function auditContrast(
       });
   }
 
-  // 主按钮底必须容得下白字
-  const strongWhite = contrastRatio(WHITE, parseRgb(t['accent-strong']));
-  if (strongWhite < 4.5) {
+  /*
+   * 主按钮那一档：以前只验"白字压得住 accent-strong"，于是组件里出现
+   * bg-accent-strong + text-accent-on（on-accent 是对 accent 算的，不是对 accent-strong）
+   * 时审计照样通过——深色档实测 1.43:1。改成验"压得住它自己声明的前景"，
+   * （我一度加过"两档前景同值即报错"的推断，实测三套主题浅色档本来就同值 ——
+   *   那是正确的，规则被删掉了：审计不能靠猜。）
+   */
+  const strongOn = contrastRatio(parseRgb(t['on-accent-strong']), parseRgb(t['accent-strong']));
+  if (strongOn < 4.5) {
     bad.push({
-      key: 'accent-strong(white text)',
-      ratio: Math.round(strongWhite * 100) / 100,
+      key: 'accent-strong(on-accent-strong text)',
+      ratio: Math.round(strongOn * 100) / 100,
       need: 4.5,
     });
   }
+
   return bad;
 }

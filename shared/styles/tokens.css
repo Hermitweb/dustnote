@@ -32,6 +32,8 @@
   --mn-accent-strong: var(--mn-accent);
   --mn-accent-text: var(--mn-accent);
   --mn-on-accent: 255 255 255;
+  /* 主按钮那一档（accent-strong）的合法前景：引擎按底色重算，这里只是 JS 跑起来前的兜底 */
+  --mn-on-accent-strong: 255 255 255;
   --mn-border-strong: var(--mn-border);
   --mn-overlay: var(--mn-card);
   --mn-focus: var(--mn-accent);

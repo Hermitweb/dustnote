@@ -127,7 +127,7 @@ export function Overview() {
             onClick={() => fire(a.event)}
             className={
               a.primary
-                ? 'inline-flex items-center gap-1.5 rounded-lg bg-accent-strong px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-strong-hover'
+                ? 'inline-flex items-center gap-1.5 rounded-lg bg-accent-strong px-3 py-1.5 text-sm font-medium text-accent-strong-on transition-colors hover:bg-accent-strong-hover'
                 : 'inline-flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 py-1.5 text-sm font-medium transition-colors hover:bg-surface-bg'
             }
           >

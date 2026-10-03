@@ -1756,3 +1756,99 @@ RN 回收站把回程箭头当图标用。三处修正：补范围、改逐字�
 - **小程序两处硬写背景色**（`ThemeVars.tsx` / `app.tsx` 的 `#0a1128` 等三处）绕过令牌引擎。
 - **图标轨浮层**只解决"鼠标能读到名字"；键盘聚焦时的名字播报仍是靠 `aria-label`，
   视觉上还没有常驻的标签态。
+
+### 2026-10-03 落（清理 + 一处已上线的对比度缺陷）
+
+"你决定，直接处理"。先收清理项，再在处理小程序"第二套尺子"时撞出一个**已发布版本里的真缺陷**。
+
+#### 清理
+
+| 项                                                                    | 结果                                                                                                                                                                                                  |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_apk-audit/`（32.8 MB，2.3.5 时代 APK 审计遗留）                     | 已删；全仓无引用（只有 .gitignore 记了它一行）                                                                                                                                                        |
+| 已合并分支                                                            | 本地 `codex/r1-alert-chain`、`fix/status-page-actually-updates` 与远端 `codex/r1-alert-chain` 已删；`ui-polish-density-focus`、`ui-polish-round-2` 是**已失效的远端跟踪引用**（远端早没了），prune 掉 |
+| 上一轮我报告里点名的 `fix/audit-2026-09-19`、`docs/post-merge-ledger` | **早已合并删除**：roadmap 第 4 行与 1229 行都写对了，是**我的报告抄了旧话没核**。台账无错，我的口径错了                                                                                               |
+| `origin/v0.1.0-alpha`                                                 | **保留**：它指向 91380c5（PR #1 的合并点），是仓库最早的里程碑指针，且没有同名 tag；删掉就没人记得那一格在哪                                                                                          |
+
+#### 撞出来的缺陷：主按钮的白字被换成了"算给另一档底色"的前景
+
+改小程序 `app.scss` 里 6 处 `color: #fff` 时，为了确认"白字压主按钮底"到底合不合规，
+把引擎的派生值全量算了一遍（7 主题 × 2 模式）：
+
+| 配对                               | 实测对比度      | 判定                                                  |
+| ---------------------------------- | --------------- | ----------------------------------------------------- |
+| `#fff` on `accent-strong`          | 4.60 – 5.36     | ✅ 合法（引擎里"主按钮底必须容得下白字"就是这条契约） |
+| `on-accent` on `accent`            | 4.61 – 4.97     | ✅ 合法                                               |
+| **`on-accent` on `accent-strong`** | **1.43 – 3.85** | ❌ 深色档 1.43:1，等于看不见                          |
+
+而 web 里有 2 处正是第三种配对 —— `EmptyState` 与 `StatePlate` 的主按钮写的是
+`bg-accent-strong` + `text-accent-on`。这是**上一轮"把 text-white 换成语义令牌"时换错了档**：
+`on-accent` 是对 `accent` 算的，主按钮的底是 `accent-strong`，两档不同。
+随 #25 已合入 main 并进了 2.5.46 的产物。
+
+修法不是把它改回 `text-white`（那还是字面量），而是**补上缺的那一档令牌**：
+
+- `shared/src/theme-engine.ts`：新增 `on-accent-strong`，并在 `buildThemeTokens` 里
+  **等于 accent-strong 定稿之后**再算（主题自带按钮色 `--mn-glass-button` 时底色会被重算，
+  先算就配错）；
+- `shared/tailwind-colors.mjs`：`accent.strong-on` → 类名 `text-accent-strong-on`；
+- web + desktop：**38 处** `text-white` 全部换成该令牌，`text-white` 归零；
+- PWA 安装按钮原本 `bg-accent` + `hover:bg-accent-strong`：没有任何一种前景能同时压住
+  这两档（白字 3.68、on-accent 3.85），统一成其余主按钮的 strong 配方；
+- 审计升级：原来只验"accent-strong 容得下白字"，现在验"容得下它自己声明的前景"。
+
+顺带把小程序的同类问题一起收了：
+
+| 位置                               | 问题                                                                                                                                        | 处理                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `.folder-chip-active`              | 白字压 `--primary`，深色档 **1.67:1**                                                                                                       | `var(--primary-on)`                                          |
+| `.device-item-kick`                | 白字压 `--danger`，深色档 **1.31:1**                                                                                                        | `--danger-solid` + `--on-danger-solid`（4.65/6.75）          |
+| `.btn` 等 4 处                     | 白字压 `--primary-strong`（本来合规，但是字面量）                                                                                           | `var(--primary-strong-on)`                                   |
+| `ThemeVars.tsx` / `app.tsx`        | 页面底色手抄出**三个互不相同的值**（`#EAEFF8` / `#eaeff8` / `#FAFCF9`），而令牌 `--bg` 其实是 `#e4ebf8`；深色同理（`#0a1128` vs `#091128`） | 新增 `miniprogram/src/lib/theme-chrome.ts`，从同一份种子派生 |
+| `ConflictDialog.tsx`               | 自带 9 色平行调色板，`primary: '#3aa675'` 是**品牌改蓝之前的薄荷绿**                                                                        | 全部改派生令牌，主按钮统一 accent-strong                     |
+| `confirmColor: '#E07B6C'` × **15** | 同一版遗留珊瑚色，且不跟明暗                                                                                                                | `confirmDangerColor()` 按当前模式派生                        |
+
+小程序源码里的硬写 hex：改前 26 处 → 改后 **2 处**（`navFront` 的 `#ffffff`/`#000000`，
+weapp API 只接受这两个值，属约束不是债务）。
+
+#### 新增门禁 2 条 + 变异验证
+
+- `ink`：web/desktop 源码里 `text/bg/border-white|black` 字面量上限 0；`bg-black/55` 遮罩**不误伤**
+  （正则显式排除带 alpha 的写法，并留了注释说明等 scrim 令牌可用后再收）。
+- `mp-theme`：`theme-chrome.ts` 的 `MP_THEME_ID` 必须等于 `gen-mp-tokens.mjs` 的 `THEME_ID`
+  —— 两处各写一份、没人比对，就是"CSS 一套种子、原生外壳另一套"的成因。
+- 变异验证：往 `ConfirmDialog.tsx` 同一个类名字符串塞 `text-white`（旁边就有 `bg-black/55`）
+  → 只报 1 处、exit 1；把 `MP_THEME_ID` 改成 `mist-blue` → 报"两套种子"；两处还原后均字节一致。
+- 门禁测试 16 → 18 条；shared 测试 125 条全过（含"派生变量 46 个"这条数量断言，
+  它在我加令牌后立刻变红，说明它在管事）。
+
+#### 一次自我纠错（记下来，因为它是"聪明反被聪明误"的那种）
+
+我第一版审计里加了条推断：「`on-accent` 与 `on-accent-strong` 同值 ⇒ 推导塌了」。
+跑全主题时 3 组报红 —— 那三套主题的浅色档**两档底色本来就都需要同一个前景**，同值是对的。
+规则删了，没去调阈值：审计里不许有猜出来的规则。
+
+#### 仍未做
+
+- `bg-black/55` 遮罩 17 处：引擎其实有 `scrim` 令牌（浅色 `15 23 42 / .42`、深色 `0 0 0 / .62`），
+  但它带 alpha，`rgb(var(--x) / <alpha>)` 这套 Tailwind 接法吃不下，所以从没被暴露过、也 0 处使用。
+  要用得先加一个 `.scrim` 工具类（plain CSS），并会改变所有弹窗遮罩的观感 —— **本轮没做**，
+  因为它需要一次能看效果的确认。
+- 通用"源码禁止 hex"门禁：web/src 的 11 处命中全在 `lib/`（URL 片段、占位串），不是颜色，
+  naive 扫描会误报，需要先做"只在样式上下文里计数"的判定。
+
+#### 附带：CI 里红掉的 Security Audit 是两条**新发布的上游公告**，不是本次改动
+
+`http-cache-semantics`(GHSA-ch52-4w7c-c8xp / CVE-2026-93748) 与
+`braces`(GHSA-vfj7-8cjw-p6xm / CVE-2026-93687)，均 high。
+
+加白名单前先查过"能不能不豁免"，结论是**不能**：`npm view` 实测两个包的
+**当前最新版就是受影响版**（braces 3.0.3、http-cache-semantics 4.2.0），
+公告 `first_patched=NONE` —— 没有可抬的版本，也没有可用的 override。
+这与 vm2（有 3.11.7 修复版、当时用 overrides 根治）不是一类，与 node-forge 是一类。
+两条都在 dev 链路（`@typescript-eslint > globby > fast-glob > micromatch`；
+`@dustnote/miniprogram` 的 Taro 构建链），不进任何产物。
+
+豁免注释里写明了依据；并做了正反双向验证：只喂这两条 → 绿；掺一条未豁免的 → 红并点名。
+（本地 `pnpm audit` 用不了：npmmirror 没有 audit 端点，所以是把 workflow 里那段内联 JS
+抽出来喂假 audit.json 验的 —— 顺带证明那段内联 JS 语法没问题。）

@@ -13,9 +13,7 @@ import { PageMeta } from '@tarojs/components';
 import { useEffect } from 'react';
 import Taro from '@tarojs/taro';
 import { useThemeStore, currentEffectiveTheme, rootClassOf } from '../state/theme';
-
-const BG = { light: '#EAEFF8', dark: '#0a1128' } as const;
-const FG = { light: '#1F2D26', dark: '#e8edf4' } as const;
+import { pageBg, pageFg, navFront } from '../lib/theme-chrome';
 
 let sysListenerBound = false;
 
@@ -78,8 +76,8 @@ export function ThemeVars() {
   useEffect(() => {
     const apply = () => {
       const opts = {
-        frontColor: effective === 'dark' ? '#ffffff' : '#000000',
-        backgroundColor: effective === 'dark' ? '#0a1128' : '#FAFCF9',
+        frontColor: navFront(effective),
+        backgroundColor: pageBg(effective),
         fail: () => undefined,
       };
       try {
@@ -107,5 +105,7 @@ export function ThemeVars() {
   }, [effective, systemDark]);
 
   // 页面根字面量背景/前景(自定义变量不级联,见文件头)
-  return <PageMeta pageStyle={`background-color:${BG[effective]};color:${FG[effective]}`} />;
+  return (
+    <PageMeta pageStyle={`background-color:${pageBg(effective)};color:${pageFg(effective)}`} />
+  );
 }

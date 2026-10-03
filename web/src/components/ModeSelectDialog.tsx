@@ -192,7 +192,7 @@ export function ModeSelectDialog({ onClose }: ModeSelectDialogProps) {
           <button
             onClick={handleContinue}
             disabled={!canContinue}
-            className="flex-1 rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
+            className="flex-1 rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-accent-strong-on transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
           >
             {selectedMode === 'standalone'
               ? t('mode_select.continue_standalone')

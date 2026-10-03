@@ -15,6 +15,7 @@ import {
   formatDateTimeStamp,
 } from '@dustnote/shared';
 import { getRepo } from '../../lib/get-repo';
+import { confirmDangerColor } from '../../lib/confirm-color';
 import { getCachedPlain, putCachedPlain } from '../../lib/plain-cache';
 import { useModeStore } from '../../lib/mode-store';
 import { t, useLanguage } from '../../lib/i18n';
@@ -169,7 +170,7 @@ export default function Shares() {
       title: t('share_mgr.revoke_title'),
       content: t('share_mgr.revoke_content', { count: ids.length }),
       confirmText: t('share_mgr.revoke'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!r.confirm) return;
     setBatchBusy(true);

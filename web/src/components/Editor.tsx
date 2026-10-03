@@ -573,7 +573,7 @@ export function Editor() {
                 title={v.tip}
                 className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
                   on
-                    ? 'bg-accent-strong font-semibold text-white'
+                    ? 'bg-accent-strong font-semibold text-accent-strong-on'
                     : 'text-surface-muted hover:bg-surface-bg hover:text-surface-fg'
                 } ${off ? 'cursor-not-allowed opacity-40' : ''}`}
               >
@@ -1191,7 +1191,7 @@ function ShareDialog({
               <button
                 onClick={() => void create()}
                 disabled={submitting}
-                className="flex-1 rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong-hover disabled:opacity-50"
+                className="flex-1 rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-accent-strong-on hover:bg-accent-strong-hover disabled:opacity-50"
               >
                 {t('editor.share_btn')}
               </button>
@@ -1212,7 +1212,7 @@ function ShareDialog({
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }}
-                className="rounded-lg bg-accent-strong px-3 py-2 text-xs text-white"
+                className="rounded-lg bg-accent-strong px-3 py-2 text-xs text-accent-strong-on"
               >
                 {copied ? (
                   <IconText k="editor.copied" label={t('editor.copied')} />

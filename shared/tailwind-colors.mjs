@@ -40,6 +40,8 @@ export const SEMANTIC_COLORS = {
     soft: rgb('accent-soft'),
     strong: rgb('accent-strong'),
     'strong-hover': rgb('accent-strong-hover'),
+    /** 压在 accent-strong 上的文字：主按钮唯一合法前景（`text-accent-strong-on`） */
+    'strong-on': rgb('on-accent-strong'),
     text: rgb('accent-text'),
     on: rgb('on-accent'),
   },

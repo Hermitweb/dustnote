@@ -11,6 +11,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import { useThemeStore } from '../state/theme';
+import { chromeToken } from '../lib/theme-chrome';
 import { useConflictStore, type PendingConflict } from '../state/conflict-store';
 import { t, useLanguage } from '../lib/i18n';
 
@@ -42,18 +43,23 @@ function formatValue(field: string, value: unknown): string {
   return s.length > 200 ? `${s.slice(0, 200)}…` : s || t('conflict.value_none');
 }
 
+/**
+ * 弹窗自己的颜色。以前这是一套**与主题引擎无关的手抄色板**（9 个 hex），
+ * 而且 `primary` 是 #3aa675 —— 品牌改蓝之前的薄荷绿，于是全局唯一一处绿色按钮
+ * 留在了冲突弹窗上。现在每个值都从同一份种子派生，与 app.scss 用的令牌同名同源。
+ */
 function palette(effective: 'light' | 'dark') {
-  const dark = effective === 'dark';
   return {
     overlay: 'rgba(0,0,0,0.45)',
-    cardBg: dark ? '#1c1f26' : '#ffffff',
-    cardBorder: dark ? '#2c313c' : '#e6e8ee',
-    fg: dark ? '#f2f4f8' : '#1b1f27',
-    muted: dark ? '#9aa3b2' : '#6b7280',
-    boxBg: dark ? '#15181e' : '#f4f6fa',
-    primary: '#3aa675',
-    secondaryBg: dark ? '#2c313c' : '#eceef3',
-    secondaryFg: dark ? '#f2f4f8' : '#1b1f27',
+    cardBg: chromeToken(effective, 'glass-2'),
+    cardBorder: chromeToken(effective, 'glass-line'),
+    fg: chromeToken(effective, 'text-primary'),
+    muted: chromeToken(effective, 'text-secondary'),
+    boxBg: chromeToken(effective, 'surface-3'),
+    primary: chromeToken(effective, 'accent-strong'),
+    primaryFg: chromeToken(effective, 'on-accent-strong'),
+    secondaryBg: chromeToken(effective, 'surface-2'),
+    secondaryFg: chromeToken(effective, 'text-primary'),
   };
 }
 
@@ -179,7 +185,7 @@ export default function ConflictDialog(): React.JSX.Element | null {
               void onChoose('local');
             }}
           >
-            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600' }}>
+            <Text style={{ color: c.primaryFg, fontSize: 14, fontWeight: '600' }}>
               {resolving === 'local' ? t('conflict.processing') : t('conflict.keep_local')}
             </Text>
           </View>
@@ -199,7 +205,7 @@ export default function ConflictDialog(): React.JSX.Element | null {
               void onChoose('merged');
             }}
           >
-            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600' }}>
+            <Text style={{ color: c.primaryFg, fontSize: 14, fontWeight: '600' }}>
               {resolving === 'merged' ? t('conflict.processing') : t('conflict.use_merged')}
             </Text>
           </View>

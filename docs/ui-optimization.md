@@ -447,6 +447,33 @@ web 的表比名字表少 11 条（TS 拦住了编译，但没人会去数）。
 
 ---
 
+### 3.6.5 主按钮前景：`text-accent-strong-on`（本轮补的一档令牌）
+
+按钮那一档的合法配对，此前**只有一档令牌、两档底色**：
+
+| 底色令牌                           | 正确前景                                     | 实测对比度（7 主题 × 2 模式） |
+| ---------------------------------- | -------------------------------------------- | ----------------------------- |
+| `accent`                           | `on-accent` → `text-accent-on`               | 4.61 – 4.97 ✅                |
+| `accent-strong`（主按钮）          | `on-accent-strong` → `text-accent-strong-on` | 4.60 – 5.36 ✅（`#fff`）      |
+| `accent-strong` + `text-accent-on` | ——                                           | **1.43 – 3.85 ❌**            |
+
+第三行就是上一轮"把 `text-white` 换成语义令牌"时踩的坑：`on-accent` 是对 `accent`
+算的，主按钮的底却是 `accent-strong`。语义令牌的名字相似，让一个错配对看起来像做对了。
+
+约定写在这里，也钉在门禁里：
+
+- **主按钮一律 `bg-accent-strong` + `hover:bg-accent-strong-hover` + `text-accent-strong-on`**；
+- `on-accent-strong` 必须在 `buildThemeTokens` 里、`accent-strong` 定稿**之后**再算
+  （主题自带 `--mn-glass-button` 时底色会被重算，先算就配错）；
+- `text-white` / `bg-white` / `text-black` 在 web、desktop 源码里上限 0（`ui:check` 的 `ink` 规则）；
+- 审计从"accent-strong 容得下白字"升级为"accent-strong 容得下它自己声明的前景"。
+
+> 小程序同一批问题更直观：`.folder-chip-active` 白字压浅蓝 `--primary` 只有 **1.67:1**、
+> `.device-item-kick` 白字压浅红 `--danger` 只有 **1.31:1** —— 深色档下那两处基本看不见。
+> 现在分别吃 `--primary-on` 与 `--on-danger-solid`。
+
+---
+
 --- |
 | 3.3 动效 token | ✅ **三端同源** | 新增 `shared/src/motion.ts`（120/180/240 + `cubic-bezier(.2,0,0,1)`）。web/桌面读 `--mn-duration-*`；小程序由生成器发出 `--duration-*`/`--ease`，`app.scss` 那套自定的 160/240/340ms 与两条曲线已删；RN 直接 import 常量。`pnpm ui:check` 断言三处逐字相等 |
 | 3.4 三态一致 | ✅ | 按压反馈（web 全局 inset 阴影 / RN `pressed` 样式）；焦点环双层描边 + 最小特异性提升；13 处静默抹环的 `outline-none` 与 11 处暗色下不可见的淡色环已统一 |

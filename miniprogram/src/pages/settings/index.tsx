@@ -21,6 +21,7 @@ import {
 } from '../../state/auth';
 import { noteAad, formatDateTimeStamp } from '@dustnote/shared';
 import { randomUuid } from '../../lib/uuid';
+import { confirmDangerColor } from '../../lib/confirm-color';
 import { useThemeStore, type Theme, type Material } from '../../state/theme';
 import { useModeStore } from '../../lib/mode-store';
 import { getRepo, resetRepoCache } from '../../lib/get-repo';
@@ -146,7 +147,7 @@ export default function Settings() {
       title: t('settings.clear_cache_title'),
       content: t('settings.clear_cache_content'),
       confirmText: t('settings.clear_btn'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!confirm.confirm) return;
     try {
@@ -194,7 +195,7 @@ export default function Settings() {
       title: t('settings.kick_title'),
       content: t('settings.kick_content', { name: device.name }),
       confirmText: t('settings.kick'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!confirm.confirm) return;
     try {
@@ -212,14 +213,14 @@ export default function Settings() {
       title: t('settings.delete_account_title'),
       content: t('settings.delete_account_content'),
       confirmText: t('settings.continue_btn'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!step1.confirm) return;
     const step2 = await Taro.showModal({
       title: t('settings.final_title'),
       content: t('settings.final_content'),
       confirmText: t('settings.confirm_delete'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!step2.confirm) return;
     try {
@@ -423,7 +424,7 @@ export default function Settings() {
       title: t('settings.import_confirm_title'),
       content: t('settings.import_backup_content', { count: data.notes.length }),
       confirmText: t('common.confirm'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!confirm.confirm) return;
     Taro.showLoading({ title: t('settings.importing') });
@@ -606,7 +607,7 @@ export default function Settings() {
       title: t('settings.switch_title'),
       content: t('settings.switch_content'),
       confirmText: t('common.confirm'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!confirm.confirm) return;
     // 1. 导出备份 + 暂存旧 masterKey + 持久化迁移槽（全部失败可回滚，不切换）
@@ -735,7 +736,7 @@ export default function Settings() {
           content: t('settings.totp_disable_hint'),
           placeholderText: t('unlock.totp_placeholder'),
           confirmText: t('common.confirm'),
-          confirmColor: '#E07B6C',
+          confirmColor: confirmDangerColor(),
         });
         if (!modal.confirm) return;
         const code = (modal.content ?? '').trim();

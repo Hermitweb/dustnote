@@ -13,6 +13,8 @@ import {
   scanMotionSync,
   scanEmoji,
   scanDeadDarkVariant,
+  scanHardcodedInk,
+  scanMpThemeId,
   emojiHits,
   OUTLINE_NONE_ALLOWLIST,
 } from './check-ui-scale.mjs';
@@ -235,4 +237,28 @@ test('dark: 变体是死代码，出现即报', () => {
   assert.equal(got.length, 1, '两处 dark: 合成一条，指明文件与数量');
   assert.equal(got[0].rule, 'dark-variant');
   assert.match(got[0].msg, /有 2 处/);
+});
+
+test('主按钮字面量白/黑：出现即报，遮罩的 bg-black/55 不误伤', () => {
+  assert.deepEqual(
+    scanHardcodedInk('web/src/A.tsx', 'const a = "fixed inset-0 bg-black/55 p-4";').findings,
+    []
+  );
+  const got = scanHardcodedInk(
+    'web/src/A.tsx',
+    'const a = "bg-accent-strong text-white";\nconst b = "bg-white";'
+  );
+  assert.equal(got.n, 2, 'text-white 与 bg-white 各一处');
+  assert.match(got.findings[0].msg, /text-accent-strong-on/);
+});
+
+test('小程序原生外壳与 CSS 变量必须吃同一份主题种子', () => {
+  const chrome = (id) => `const MP_THEME_ID = '${id}';`;
+  const gen = (id) => `const THEME_ID = '${id}';`;
+  assert.deepEqual(scanMpThemeId(chrome('liquid-glass'), gen('liquid-glass')), []);
+  const got = scanMpThemeId(chrome('liquid-glass'), gen('mist-blue'));
+  assert.equal(got.length, 1);
+  assert.match(got[0].msg, /两套种子/);
+  // 解析不出来也要报，不能静默通过
+  assert.equal(scanMpThemeId('没有常量', '也没有').length, 1);
 });
