@@ -526,6 +526,65 @@ export function scanColorLiterals(rel, src, ceiling = COLOR_LITERAL_CEILING) {
     ],
   };
 }
+/**
+ * 插画体系的一致性：一张节点表要喂三条渲染链路，漂移是必然风险。
+ *
+ * 断言四件事：
+ *   1) 节点表里不许出现颜色字面量 —— 规则 2「不引入新色相」靠结构保证，不靠自觉；
+ *   2) web / RN 两个渲染器都要认得全部节点类型（新增 k 而某一端没映射 = 那一端静默少画）；
+ *   3) 小程序的生成文件必须与节点表同步（漏跑生成器就漂移，与图标同一类事故）；
+ *   4) 每张插画的画幅只能来自 ILL_SIZES 那张表，不许在组件里另写宽高。
+ */
+export function scanIllustrations(illTs, webRenderer, rnRenderer, mpScss) {
+  const findings = [];
+  for (const [label, v] of Object.entries({ illTs, webRenderer, rnRenderer, mpScss })) {
+    if (typeof v !== 'string') {
+      return [
+        { rule: 'illust', msg: `scanIllustrations 入参 ${label} 不是字符串（调用点写错了）` },
+      ];
+    }
+  }
+  const names = [...illTs.matchAll(/^ {2}'?([a-z][a-z0-9-]*)'?: \[/gm)].map((m) => m[1]);
+  if (names.length < 3) {
+    return [{ rule: 'illust', msg: `插画节点表只解析出 ${names.length} 张，结构大概变了` }];
+  }
+  /* 1) 颜色字面量 */
+  const stripped = illTs.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const colored = [...stripped.matchAll(/#[0-9a-fA-F]{3,8}\b|rgba?\(/g)];
+  if (colored.length) {
+    findings.push({
+      rule: 'illust',
+      msg:
+        `插画节点表里有 ${colored.length} 处颜色字面量。着色只有 ink / accent 两个角色，` +
+        '具体色值由渲染端给（否则暗色档下插画又会变成最亮的东西）。',
+    });
+  }
+  /* 2) 三端都认得全部节点类型 */
+  const kinds = [...new Set([...illTs.matchAll(/\{ k: '(\w)'/g)].map((m) => m[1]))].sort();
+  for (const [label, src] of [
+    ['web', webRenderer],
+    ['RN', rnRenderer],
+  ]) {
+    for (const k of kinds) {
+      if (!new RegExp("case '" + k + "'|k === '" + k + "'").test(src)) {
+        findings.push({
+          rule: 'illust',
+          msg: `${label} 渲染器没有处理节点类型 '${k}'：那一端会静默少画一部分。`,
+        });
+      }
+    }
+  }
+  /* 3) 小程序生成文件与节点表同步 */
+  for (const n of names) {
+    if (!mpScss.includes(`.mp-illust--${n} `)) {
+      findings.push({
+        rule: 'illust',
+        msg: `小程序缺 .mp-illust--${n}：跑 node scripts/gen-mp-illustrations.mjs`,
+      });
+    }
+  }
+  return findings;
+}
 export async function run() {
   const { SEMANTIC_EXTRAS } = await import(
     pathToFileURL(path.join(ROOT, 'shared/tailwind-colors.mjs')).href
@@ -538,6 +597,12 @@ export async function run() {
   const mpAppScss = read('miniprogram/src/app.scss');
   const findings = [
     ...scanWiring(SEMANTIC_EXTRAS, tokensCss, indexCss),
+    ...scanIllustrations(
+      read('shared/src/illustrations.ts'),
+      read('web/src/components/Illustration.tsx'),
+      read('mobile/src/components/Illustration.tsx'),
+      read('miniprogram/src/styles/mp-illustrations.scss')
+    ),
     ...scanMotionSync(motionTs, tokensCss, mpGenerated, mpAppScss),
     ...scanIconParity(
       read('shared/src/icons.ts'),

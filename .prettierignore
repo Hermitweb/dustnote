@@ -22,6 +22,11 @@ out/
 # （api.md 由 scripts/gen-api-inventory.mjs 生成；status.md 由 status-probe 生成）
 docs/api.md
 docs/status.md
+# 小程序这三份由 scripts/gen-mp-*.mjs 生成，且生成器用 --check 做**逐字节**比对
+# （漂移就红）。prettier 一旦重排它们，门禁就会指着干净的产物说它坏了。
+miniprogram/src/styles/theme-tokens.scss
+miniprogram/src/styles/mp-icons.scss
+miniprogram/src/styles/mp-illustrations.scss
 coverage/
 *.tsbuildinfo
 src-tauri/target/

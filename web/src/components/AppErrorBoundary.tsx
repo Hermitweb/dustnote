@@ -77,7 +77,7 @@ export class AppErrorBoundary extends Component<Props, State> {
         <div className="w-full max-w-lg rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
           <StatePlate
             size="card"
-            icon="warning"
+            illust="error"
             tone="danger"
             title={i18n.t('error_boundary.title')}
             hint={i18n.t('error_boundary.description')}

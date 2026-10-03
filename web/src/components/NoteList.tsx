@@ -211,7 +211,6 @@ export function NoteList() {
                   ? t('sidebar.empty_scope_title')
                   : t('sidebar.notes_empty')
           }
-          icon={isTrash ? 'trash' : selectedTag ? 'tag' : undefined}
           query={normalizedQuery}
           onNew={() => window.dispatchEvent(new Event('app:new-note'))}
           onImport={() => window.dispatchEvent(new Event('app:import-export'))}

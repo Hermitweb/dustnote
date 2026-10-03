@@ -122,7 +122,7 @@ export default function Share() {
   };
 
   if (!token) {
-    return <StatePlate size="card" icon="warning" tone="danger" title={t('share.invalid_link')} />;
+    return <StatePlate size="card" illust="error" tone="danger" title={t('share.invalid_link')} />;
   }
 
   if (needsPassword) {
@@ -144,7 +144,7 @@ export default function Share() {
   }
 
   if (error) {
-    return <StatePlate size="card" icon="warning" tone="danger" title={error} />;
+    return <StatePlate size="card" illust="error" tone="danger" title={error} />;
   }
 
   if (!title || !content) {

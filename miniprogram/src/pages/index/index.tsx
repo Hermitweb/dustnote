@@ -968,7 +968,7 @@ function IndexBody() {
           {loading && <View className="loading">{t('common.loading')}</View>}
           {!loading && loadError && (
             <StatePlate
-              icon="warning"
+              illust="error"
               tone="danger"
               title={t('common.load_failed')}
               actions={
@@ -980,7 +980,7 @@ function IndexBody() {
           )}
           {!loading && !loadError && visibleNotes.length === 0 && (
             <StatePlate
-              icon={viewMode === 'trash' ? 'trash' : viewMode === 'favorite' ? 'star' : 'note'}
+              illust="plain"
               title={
                 viewMode === 'trash'
                   ? t('index.empty_trash')

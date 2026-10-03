@@ -168,7 +168,7 @@ export default function Trash() {
           onRefresherRefresh={() => void load()}
         >
           {loading && <View className="loading">{t('common.loading')}</View>}
-          {!loading && notes.length === 0 && <StatePlate icon="trash" title={t('trash.empty')} />}
+          {!loading && notes.length === 0 && <StatePlate illust="plain" title={t('trash.empty')} />}
           {notes.map((n) => (
             <View key={n.id} className="note-row">
               <View className="note-row-head">

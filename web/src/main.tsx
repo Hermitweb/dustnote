@@ -69,7 +69,7 @@ createRoot(root).render(
           <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
             <StatePlate
               size="card"
-              icon="warning"
+              illust="error"
               tone="danger"
               title="应用遇到了问题"
               hint={

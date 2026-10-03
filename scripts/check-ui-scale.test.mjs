@@ -15,6 +15,7 @@ import {
   scanDeadDarkVariant,
   scanHardcodedInk,
   scanMpThemeId,
+  scanIllustrations,
   scanColorLiterals,
   emojiHits,
   OUTLINE_NONE_ALLOWLIST,
@@ -291,4 +292,47 @@ test('颜色字面量只在样式上下文计数：lib 里的 # 片段不误报�
     '  border-color: rgba(96, 165, 250, 0.3);'
   );
   assert.equal(same.findings.length, 1, '豁免按文件生效，不是全局放行');
+});
+
+test('插画体系：颜色字面量、缺渲染分支、生成文件漂移都要报', () => {
+  const ill = [
+    "  'first-use': [",
+    "    { k: 'p', d: 'M1 1L2 2' },",
+    "    { k: 'c', cx: 1, cy: 1, r: 1, f: true },",
+    "    { k: 'r', x: 1, y: 1, w: 2, h: 2 },",
+    "    { k: 'l', x1: 1, y1: 1, x2: 2, y2: 2 },",
+    '  ],',
+    "  plain: [{ k: 'p', d: 'M3 3L4 4' }],",
+    "  error: [{ k: 'p', d: 'M5 5L6 6', c: 'accent' }],",
+  ].join('\n');
+  const all = ['p', 'c', 'r', 'l'];
+  const renderer = (kinds) => kinds.map((k) => "case '" + k + "':").join('\n');
+  const mp = [
+    '.mp-illust--first-use .mp-illust-layer--ink {',
+    '.mp-illust--first-use .mp-illust-layer--accent {',
+    '.mp-illust--plain .mp-illust-layer--ink {',
+    '.mp-illust--error .mp-illust-layer--ink {',
+  ].join('\n');
+
+  assert.deepEqual(scanIllustrations(ill, renderer(all), renderer(all), mp), [], '齐平时不该报');
+
+  const colored = scanIllustrations(ill + "\nx: '#ffffff',", renderer(all), renderer(all), mp);
+  assert.ok(
+    colored.some((f) => /颜色字面量/.test(f.msg)),
+    '节点表里出现 hex 要报（着色只有 ink / accent 两个角色）'
+  );
+
+  const half = scanIllustrations(ill, renderer(all), renderer(['p', 'c']), mp);
+  assert.ok(
+    half.some((f) => /RN 渲染器没有处理节点类型/.test(f.msg)),
+    '某一端漏了节点类型要报——否则那一端静默少画'
+  );
+
+  const drift = scanIllustrations(ill, renderer(all), renderer(all), '');
+  assert.ok(
+    drift.some((f) => /gen-mp-illustrations/.test(f.msg)),
+    '小程序生成文件漂移要报'
+  );
+
+  assert.equal(scanIllustrations('空文件', '', '', '').length, 1, '解析不出来必须报，不能静默通过');
 });

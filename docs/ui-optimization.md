@@ -425,11 +425,21 @@ web 的表比名字表少 11 条（TS 拦住了编译，但没人会去数）。
 `main.tsx` 崩溃兜底、`App.tsx` 连接失败、`AppErrorBoundary`、`ForceUpdateOverlay`；
 小程序 `.state-plate`（6 处 `.empty-state` 全部替换）、RN `StatePlate`（5 处空/错误屏）。
 
-> **插画语言：提案已出，等确认再落地。** 2026-10-03 补了一份**可渲染的**效果图：
-> `docs/mockups/illustration-language.html`（跑 `node scripts/shoot-mockups.mjs` 重生成 PNG，
-> 产物不入库）。八条规则 + 六个状态的几何都在里面，颜色全部来自令牌、SVG 里零硬写色值。
-> 唯一影响版面密度的决定是**画幅**：图版要从 44×44 / 56×56 的方框扩到 88×64 / 120×88 ——
-> 插画塞进 44px 就退化成一个图标，等于白做。
+> **插画语言：已落地（2026-10-03）。** 几何只有一份，在 `shared/src/illustrations.ts`；
+> 三端各自映射到自己会的原语：web `components/Illustration.tsx`、RN 同名组件
+> （react-native-svg）、小程序由 `scripts/gen-mp-illustrations.mjs` 生成**两层 mask**
+> （单色遮罩表达不了"整张中性 + 一处强调"，只能分两层）。
+> 画幅按提案扩到 plate 88×64 / card 120×88，`StatePlate` 新增 `illust` 槽（给了就取代 `icon`）。
+>
+> 落地 **5 张**（`first-use` / `empty-scope` / `no-results` / `plain` / `error`）。提案里的第 6 张
+> `loading` 撤了：静态插画当不了忙指示器，而三端本来就共用一个 spinner；要让弧线真转起来
+> 得 web 上 transform-box、小程序换掉 mask、RN 加 Animated —— 一套装饰换三端各一份动画代码，
+> 不值。理由写在节点表末尾，想加回来时那段注释就是起点。
+>
+> 效果图留着，但**改成由节点表生成**（`node scripts/render-illustrations.mjs`）：
+> 手画的 mock 与落地的几何是两份东西，一旦分叉，"看效果图批准"就变成了批准一份不存在的设计。
+> 这不是假设——生成之后第一版样张就暴露了 `guide` 档把整张插画染成强调色，违反规则 2；
+> 手画的那版恰好用了中性色，把这个 bug 盖住了。
 
 ### 3.6.4 一批「写了但从不生效」的清理
 

@@ -21,12 +21,28 @@
  * 三端各自实现（web 组件 / 小程序 .state-plate / RN StyleSheet），规格以本文件为准。
  */
 import type { ReactNode } from 'react';
+import { ILL_SIZES, type IllName } from '@dustnote/shared';
 import { Icon, type IconName } from './Icon';
+import { Illustration } from './Illustration';
 
 export type StateTone = 'info' | 'guide' | 'danger';
 export type StatePlateSize = 'plate' | 'card';
 
 /** 图标色由 tone 决定；文字色一律走语义令牌，不写死 */
+/**
+ * 插画的墨色另开一张表，不复用 TONE_ICON。
+ * 图标整体染成强调色是对的（它只有一个笔画体量）；插画染整张就直接违反规则 2
+ * ——「accent 只点一处，那个你现在能做的动作」。这条不是猜的：由共享几何生成的
+ * 样张里，first-use 整本书都是蓝的，而手画的 mock 恰好用了中性色，把它盖住了。
+ */
+const ILL_INK: Record<StateTone, string> = {
+  info: 'text-text-tertiary',
+  /** guide 的强调只落在插画自己标了 accent 的那一处，不染整张 */
+  guide: 'text-text-tertiary',
+  /** danger 例外：出错这件事要整张都读得出来，不靠局部 */
+  danger: 'text-danger',
+};
+
 const TONE_ICON: Record<StateTone, string> = {
   /** 次级灰：单纯"这里还没有东西" */
   info: 'text-text-tertiary',
@@ -53,7 +69,13 @@ export const CARD_BTN_SECONDARY =
   'min-w-[7rem] flex-1 rounded-lg border border-surface-border px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-surface-bg';
 
 export interface StatePlateProps {
-  icon: IconName;
+  /**
+   * 图形槽：icon（44/56 方框里一枚 lucide）或 illust（88x64 / 120x88 画幅）。
+   * 两个都传时 illust 优先 —— 一块状态版面里既画图又画图标只会互相抢注意力。
+   * 两个都不传就没有图形槽，标题直接顶上（少数极紧凑的卡里是想要的效果）。
+   */
+  icon?: IconName;
+  illust?: IllName;
   tone?: StateTone;
   /** plate=舞台级（默认），card=阻断式错误屏 */
   size?: StatePlateSize;
@@ -68,6 +90,7 @@ export interface StatePlateProps {
 
 export function StatePlate({
   icon,
+  illust,
   tone = 'info',
   size = 'plate',
   title,
@@ -79,14 +102,23 @@ export function StatePlate({
   const t = TILE[size];
   return (
     <div className={`flex flex-1 flex-col items-center justify-center gap-3 ${t.pad} text-center`}>
-      <div className={`flex ${t.box} items-center justify-center`}>
+      {/*
+       * 外框尺寸由"当前是哪一档状态"决定，且 busy 与非 busy 必须同尺寸 ——
+       * 插画态忙起来若缩回 44 方框，标题就会跳一下，那是本节开头明令禁止的事。
+       */}
+      <div
+        className="flex items-center justify-center"
+        style={illust ? { width: ILL_SIZES[size].w, height: ILL_SIZES[size].h } : undefined}
+      >
         {busy ? (
           <span className="state-plate-spinner" aria-hidden="true" />
+        ) : illust ? (
+          <Illustration name={illust} size={size} className={ILL_INK[tone]} />
         ) : (
           <span
             className={`glass-2 flex ${t.box} items-center justify-center rounded-lg border border-surface-border bg-surface-card ${TONE_ICON[tone]}`}
           >
-            <Icon name={icon} size={t.icon} />
+            {icon ? <Icon name={icon} size={t.icon} /> : null}
           </span>
         )}
       </div>

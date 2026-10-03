@@ -305,7 +305,9 @@ export function FoldersScreen() {
         })}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} />}
-        ListEmptyComponent={<StatePlate icon="folder" tone="guide" title={t('folders.empty')} />}
+        ListEmptyComponent={
+          <StatePlate illust="empty-scope" tone="guide" title={t('folders.empty')} />
+        }
         renderItem={({ item }) => {
           const hasChildren = folders.some((f) => f.parentId === item.id);
           const isExpanded = expanded.has(item.id);

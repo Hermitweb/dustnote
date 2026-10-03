@@ -12,7 +12,8 @@
 import { Text, View } from '@tarojs/components';
 import type { FC, ReactNode } from 'react';
 import { Icon } from './Icon';
-import type { IconName } from '@dustnote/shared';
+import { Illustration } from './Illustration';
+import type { IconName, IllName } from '@dustnote/shared';
 
 export type StateTone = 'info' | 'guide' | 'danger';
 export type StatePlateSize = 'plate' | 'card';
@@ -21,7 +22,9 @@ export type StatePlateSize = 'plate' | 'card';
 const ICON_SIZE: Record<StatePlateSize, number> = { plate: 20, card: 28 };
 
 export interface StatePlateProps {
-  icon: IconName;
+  /** 图形槽：icon（方框里一枚）或 illust（88x64 / 120x88 画幅），两个都给时 illust 优先 */
+  icon?: IconName;
+  illust?: IllName;
   title: string;
   tone?: StateTone;
   size?: StatePlateSize;
@@ -36,6 +39,7 @@ export interface StatePlateProps {
 
 export const StatePlate: FC<StatePlateProps> = ({
   icon,
+  illust,
   title,
   tone = 'info',
   size = 'plate',
@@ -49,11 +53,16 @@ export const StatePlate: FC<StatePlateProps> = ({
       <View className="state-plate-tile">
         <View className="state-plate-spinner" />
       </View>
-    ) : (
+    ) : illust ? (
+      /* 插画不套方框：它自带画幅，再包一层卡会把"唯一那处强调"淹掉 */
+      <View className={`state-plate-illust state-plate-illust--${tone}`}>
+        <Illustration name={illust} size={size} />
+      </View>
+    ) : icon ? (
       <View className={`state-plate-tile state-plate-tile--${tone}`}>
         <Icon name={icon} size={ICON_SIZE[size]} />
       </View>
-    )}
+    ) : null}
     <Text className="state-plate-title">{title}</Text>
     {hint ? (
       <View className="state-plate-hint">

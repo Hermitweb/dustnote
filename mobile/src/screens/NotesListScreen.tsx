@@ -516,7 +516,7 @@ export function NotesListScreen() {
         ListEmptyComponent={
           error ? (
             <StatePlate
-              icon="warning"
+              illust="error"
               tone="danger"
               title={error}
               actions={
@@ -527,13 +527,13 @@ export function NotesListScreen() {
             />
           ) : folderFilter === 'all' && tab === 'all' ? (
             <StatePlate
-              icon="folder"
+              illust="empty-scope"
               title={t('notes.empty_folder_view_text')}
               hint={t('notes.empty_folder_view_hint')}
             />
           ) : (
             <StatePlate
-              icon="note"
+              illust="plain"
               title={t('notes.empty_folder_text')}
               hint={t('notes.empty_hint')}
             />

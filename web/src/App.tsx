@@ -344,7 +344,7 @@ function App() {
         <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 text-center shadow-xl">
           <StatePlate
             size="card"
-            icon="warning"
+            illust="error"
             tone="danger"
             title={t('app.connect_failed_title')}
             hint={t('app.connect_failed_hint')}

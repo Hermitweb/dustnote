@@ -337,7 +337,7 @@ export default function Folders() {
             >
               {loading && <View className="loading">{t('common.loading')}</View>}
               {!loading && folders.length === 0 && (
-                <StatePlate icon="folder" tone="guide" title={t('folders.empty')} />
+                <StatePlate illust="empty-scope" tone="guide" title={t('folders.empty')} />
               )}
               {/* 目录树：顶层 + 已展开层的子文件夹；行内 加/改/移入子目录/删 四个动作图标（对齐安卓端） */}
               {treeRows.map((f) => {
