@@ -270,6 +270,23 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: 17
+          # 缓存 ~/.gradle（含 wrapper 分发包与依赖），缺它每次发版都要重下 gradle 分发包
+          cache: 'gradle'
+      # 只在 CI 内把 gradle 发行包换成 GitHub 自己托管的地址（runner 到 GitHub 是同网）。
+      #
+      # 2026-10-03 v2.5.48 发版实录：仓库里的 wrapper 指向国内镜像（对本地开发者快），
+      # 但 runner 跨境拉 212MB 的 gradle-8.4-all.zip 时快时慢——好的一次 17 分钟，
+      # 坏的一次 44 分钟还没下完，被 job 的 45 分钟上限砍掉，连带整份 Release 不发布
+      # （"任一平台构建失败即不发布"是既定策略，方向对，但让一次网络抖动=发版失败）。
+      # 所以：**仓库文件不动**（本地开发者的镜像策略不因 CI 需求被改），只在 CI 覆盖。
+      # 附带收益：镜像内容不受上游校验（wrapper 里 validateDistributionUrl=false，
+      # 也没有 distributionSha256Sum），CI 回到官方源等于把"产物由哪份 Gradle 构建"
+      # 这件事收回到了可追溯的一侧。
+      - name: Repoint gradle distribution to a runner-fast mirror（CI 专用）
+        run: |
+          sed -i 's|^distributionUrl=.*|distributionUrl=https://services.gradle.org/distributions/gradle-8.4-all.zip|' \
+            mobile/android/gradle/wrapper/gradle-wrapper.properties
+          grep '^distributionUrl' mobile/android/gradle/wrapper/gradle-wrapper.properties
       - name: Install Android SDK & NDK
         uses: android-actions/setup-android@v3
         with:
