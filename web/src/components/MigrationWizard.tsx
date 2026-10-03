@@ -123,7 +123,7 @@ export function MigrationWizard({ onClose }: { onClose: () => void }) {
           <span className="text-xs font-medium text-surface-fg">{t('migration.export_title')}</span>
           <button
             onClick={handleExport}
-            className="rounded bg-accent-strong px-3 py-1 text-xs font-semibold text-white hover:bg-accent-strong-hover"
+            className="rounded bg-accent-strong px-3 py-1 text-xs font-semibold text-accent-strong-on hover:bg-accent-strong-hover"
           >
             <IconText k="migration.export_btn" label={t('migration.export_btn')} />
           </button>

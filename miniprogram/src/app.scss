@@ -214,7 +214,7 @@ page {
   align-items: center;
   justify-content: center;
   background: var(--primary-strong);
-  color: #fff;
+  color: var(--primary-strong-on);
   border-radius: var(--radius-sm);
   padding: 20rpx 36rpx;
   font-size: 28rpx;
@@ -401,10 +401,10 @@ page {
   box-shadow: 0 0 0 4rpx var(--primary-glow);
 }
 
-/* hero 内按钮：主色底白字 + 大圆角 + 阴影 */
+/* hero 内按钮：主色底 + 引擎算出的前景色 + 大圆角 + 阴影 */
 .hero .btn-block {
   background: var(--primary-strong);
-  color: #fff;
+  color: var(--primary-strong-on);
   font-weight: 700;
   font-size: 30rpx;
   padding: 24rpx;
@@ -612,7 +612,7 @@ page {
   border-color: var(--primary-strong);
 }
 .checkbox-mark {
-  color: #fff;
+  color: var(--primary-strong-on);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1;
@@ -680,8 +680,9 @@ page {
   width: 100rpx;
   height: 100rpx;
   border-radius: 50%;
+  /* 渐变两端里较亮的一端是 --primary，但面积上 strong 占多数，取 strong 那一档前景 */
   background: linear-gradient(135deg, var(--primary), var(--primary-strong));
-  color: #fff;
+  color: var(--primary-strong-on);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -833,7 +834,8 @@ page {
 .folder-chip-active {
   background: var(--primary);
   border-color: var(--primary);
-  color: #fff;
+  /* 底是 --primary（深色档是浅蓝），白字压上去只有 1.67:1 —— 换成引擎按 accent 算的前景 */
+  color: var(--primary-on);
 }
 .tag-row {
   padding: 24rpx 32rpx;
@@ -1425,8 +1427,10 @@ page {
 }
 .device-item-kick {
   padding: 8rpx 24rpx;
-  background: var(--danger);
-  color: #fff;
+  /* --danger 是"作为文字色达 AA"那一档，深色下偏亮，白字压上去 1.31:1；
+     实心底要用 danger-solid，前景由引擎一起给 */
+  background: var(--danger-solid);
+  color: var(--on-danger-solid);
   border-radius: var(--radius-sm);
   font-size: 24rpx;
 }

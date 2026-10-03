@@ -39,12 +39,12 @@ describe('theme-engine · 向后兼容（阶段 1 要求视觉几乎不变）', 
     }
   });
 
-  it('派生 token 数量充足：7 个种子 → 每模式 44 个派生变量', () => {
+  it('派生 token 数量充足：7 个种子 → 每模式 46 个派生变量', () => {
     const tokens = buildThemeTokens(THEME_SEEDS['mint-dawn'], 'light');
     // 7 遗留 + 30 派生 7 遗留 + 32 派生 − 3 个同名别名（accent / accent-soft / border 既是种子也是语义名，值相同）
     expect(Object.keys(tokens).length).toBeGreaterThanOrEqual(36);
     const derived = deriveTokens(THEME_SEEDS['mint-dawn'].light, 'light');
-    expect(Object.keys(derived)).toHaveLength(45);
+    expect(Object.keys(derived)).toHaveLength(46);
   });
 });
 
@@ -150,6 +150,7 @@ describe('theme-engine · 语义命名齐全（供 index.css / Tailwind 直接�
     'accent-strong',
     'accent-text',
     'accent-strong-hover',
+    'on-accent-strong',
     'success',
     'success-soft',
     'warning',

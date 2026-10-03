@@ -108,7 +108,9 @@ export function StatePlate({
             alignSelf: 'stretch',
             padding: 10,
             borderRadius: 8,
-            backgroundColor: c.bg,
+            /* 详情槽要比所在容器更亮/更暗一档才读得出是一块。
+               以前写 c.bg：崩溃屏本身就是 c.bg，整块隐形。 */
+            backgroundColor: c.card,
           }}
         >
           {detail}

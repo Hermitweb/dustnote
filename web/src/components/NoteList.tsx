@@ -257,7 +257,7 @@ export function NoteList() {
                       aria-pressed={checked}
                       className={`mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded border text-2xs font-bold transition-colors ${
                         checked
-                          ? 'border-accent-strong bg-accent-strong text-white'
+                          ? 'border-accent-strong bg-accent-strong text-accent-strong-on'
                           : 'border-surface-border text-transparent hover:border-accent'
                       }`}
                     >
@@ -450,7 +450,7 @@ export function NoteList() {
               </button>
               <button
                 onClick={() => void confirmRename()}
-                className="flex-1 rounded-lg bg-accent-strong px-3 py-2 text-sm font-semibold text-white hover:bg-accent-strong-hover"
+                className="flex-1 rounded-lg bg-accent-strong px-3 py-2 text-sm font-semibold text-accent-strong-on hover:bg-accent-strong-hover"
               >
                 {t('common.confirm')}
               </button>

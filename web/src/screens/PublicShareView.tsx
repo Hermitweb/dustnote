@@ -177,7 +177,7 @@ export function PublicShareView({ token }: { token: string }) {
           <button
             onClick={() => void fetchShare(password)}
             disabled={!password || submitting}
-            className="w-full rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong-hover disabled:opacity-50"
+            className="w-full rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-accent-strong-on hover:bg-accent-strong-hover disabled:opacity-50"
           >
             {submitting ? t('public_share.verifying') : t('public_share.unlock')}
           </button>

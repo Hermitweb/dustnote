@@ -286,7 +286,7 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
                       {selecting && (
                         <button
                           onClick={() => toggleSelect(s.id)}
-                          className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${checked ? 'border-accent-strong bg-accent-strong text-white' : 'border-surface-border hover:border-accent'}`}
+                          className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${checked ? 'border-accent-strong bg-accent-strong text-accent-strong-on' : 'border-surface-border hover:border-accent'}`}
                           aria-pressed={checked}
                           aria-label={t('shares.select_all')}
                         >

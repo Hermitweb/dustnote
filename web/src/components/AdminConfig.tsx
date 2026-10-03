@@ -164,7 +164,7 @@ export function AdminConfig({ onClose }: { onClose: () => void }) {
 
               <button
                 onClick={handleSave}
-                className="w-full rounded-lg bg-accent-strong px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover"
+                className="w-full rounded-lg bg-accent-strong px-4 py-2.5 text-sm font-semibold text-accent-strong-on transition-colors hover:bg-accent-strong-hover"
               >
                 {saved ? (
                   t('admin.saved')

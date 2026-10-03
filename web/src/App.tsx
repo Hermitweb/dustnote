@@ -403,7 +403,7 @@ function App() {
       {/* 跳过导航链接（屏幕阅读器/键盘用户） */}
       <a
         href="#main-content"
-        className="sr-only sr-only-focusable fixed left-2 top-2 z-system rounded-lg bg-accent-strong px-4 py-2 text-sm font-medium text-white shadow-lg focus:not-sr-only"
+        className="sr-only sr-only-focusable fixed left-2 top-2 z-system rounded-lg bg-accent-strong px-4 py-2 text-sm font-medium text-accent-strong-on shadow-lg focus:not-sr-only"
       >
         {t('app.skip_to_content') || '跳转到主要内容'}
       </a>

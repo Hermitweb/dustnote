@@ -29,6 +29,7 @@ import {
   type NotePlaintext,
 } from '../../state/auth';
 import { useModeStore } from '../../lib/mode-store';
+import { confirmDangerColor } from '../../lib/confirm-color';
 import { getRepo } from '../../lib/get-repo';
 import { enqueueOffline, isNetworkError } from '../../lib/offline-queue';
 import { ensureDefaultContent } from '../../lib/default-content';
@@ -456,7 +457,7 @@ function IndexBody() {
       title: t('index.delete_confirm_title'),
       content: t('index.delete_confirm_content', { count: ids.length }),
       confirmText: t('common.delete'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!r.confirm) return;
     const repo = getRepo();
@@ -511,7 +512,7 @@ function IndexBody() {
       title: t('common.perm_delete'),
       content: t('index.perm_delete_count_content', { count: ids.length }),
       confirmText: t('common.perm_delete'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!r.confirm) return;
     const repo = getRepo();
@@ -590,7 +591,7 @@ function IndexBody() {
       title: t('common.perm_delete'),
       content: t('common.perm_delete_content'),
       confirmText: t('common.perm_delete'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!r.confirm) return;
     try {

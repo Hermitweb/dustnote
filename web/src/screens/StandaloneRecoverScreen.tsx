@@ -128,7 +128,7 @@ export function StandaloneRecoverScreen({ onBack }: Props) {
               newPassword.length < 6 ||
               newPassword !== confirm
             }
-            className="w-full rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
+            className="w-full rounded-lg bg-accent-strong px-6 py-3 text-sm font-semibold text-accent-strong-on transition-colors hover:bg-accent-strong-hover disabled:opacity-50"
           >
             {submitting ? '...' : t('auth.recover_btn')}
           </button>

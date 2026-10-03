@@ -405,6 +405,62 @@ export function scanDeadDarkVariant(rel, src) {
   ];
 }
 
+/**
+ * 主按钮那一档不许再写死白字。
+ *
+ * 本轮实测到的正是这个：引擎给 accent 算了 on-accent，但主按钮的底是 accent-strong
+ * （另一档底色），组件写 text-accent-on 压上去，深色档实测只有 1.43:1。
+ * 现在 accent-strong 有自己合法的前景（text-accent-strong-on），所以
+ * text-white / bg-white / text-black 这三类字面量在 web/desktop 源码里应当为 0。
+ * 遮罩的 bg-black/55 不在此列：那是"压暗一层"的语义，等 scrim 令牌可用后再收。
+ */
+export const WHITEBLACK_CEILING = 0;
+const WHITEBLACK_RE = /\b(?:text|bg|border)-(?:white|black)\b(?!\/)/g;
+export function scanHardcodedInk(rel, src, ceiling = WHITEBLACK_CEILING) {
+  const stripped = src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+  let n = 0;
+  for (const l of stripped.split('\n')) n += (l.match(WHITEBLACK_RE) || []).length;
+  if (n <= ceiling) return { findings: [], n };
+  return {
+    n,
+    findings: [
+      {
+        rule: 'ink',
+        msg:
+          `${rel} 有 ${n} 处 text/bg/border-white|black 字面量（上限 ${ceiling}）。` +
+          '主按钮请用 text-accent-strong-on，其它底色用对应语义令牌。',
+      },
+    ],
+  };
+}
+
+/**
+ * 小程序的原生外壳（导航栏 / pageStyle / confirmColor）只能吃字面量 hex，
+ * 所以它必须与 CSS 变量吃**同一份种子**。两处主题 id 各写一份、没人比对，
+ * 就是"CSS 用一套种子、原生外壳用另一套"的成因 —— 本轮实测到的三份页面底色
+ * （#EAEFF8 / #eaeff8 / #FAFCF9，而令牌其实是 #e4ebf8）正是这么漂出来的。
+ */
+export function scanMpThemeId(chromeTs, genMjs) {
+  const a = /MP_THEME_ID = '([a-z-]+)'/.exec(chromeTs);
+  const b = /const THEME_ID = '([a-z-]+)'/.exec(genMjs);
+  if (!a || !b) {
+    return [{ rule: 'mp-theme', msg: '小程序主题 id 解析不出来（结构变了？两处常量各查一处）' }];
+  }
+  return a[1] === b[1]
+    ? []
+    : [
+        {
+          rule: 'mp-theme',
+          msg:
+            `原生外壳吃 ${a[1]}、CSS 变量吃 ${b[1]}：两套种子。` +
+            '请统一（theme-chrome.ts 的 MP_THEME_ID 与 gen-mp-tokens.mjs 的 THEME_ID）。',
+        },
+      ];
+}
+
 export async function run() {
   const { SEMANTIC_EXTRAS } = await import(
     pathToFileURL(path.join(ROOT, 'shared/tailwind-colors.mjs')).href
@@ -424,6 +480,10 @@ export async function run() {
       read('mobile/src/components/Icon.tsx'),
       read('miniprogram/src/styles/mp-icons.scss')
     ),
+    ...scanMpThemeId(
+      read('miniprogram/src/lib/theme-chrome.ts'),
+      read('scripts/gen-mp-tokens.mjs')
+    ),
   ];
   for (const dir of ['web/src', 'desktop/src']) {
     for (const f of walk(path.join(ROOT, dir))) {
@@ -431,6 +491,7 @@ export async function run() {
       const src = fs.readFileSync(f, 'utf8');
       findings.push(...scanClassDiscipline(rel, src));
       findings.push(...scanDeadDarkVariant(rel, src));
+      findings.push(...scanHardcodedInk(rel, src).findings);
     }
   }
   const emojiSources = [];

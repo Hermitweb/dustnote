@@ -16,6 +16,7 @@ import { FInput, FTextarea } from '../../components/FInput';
 import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { startVoice, stopVoice } from '../../lib/voice';
+import { confirmDangerColor } from '../../lib/confirm-color';
 import {
   encryptString,
   randomBytes,
@@ -521,7 +522,7 @@ ${text}`
       title: t('editor.delete_title'),
       content: t('editor.delete_content'),
       confirmText: t('common.delete'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!confirm.confirm) return;
     try {

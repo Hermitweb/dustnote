@@ -16,6 +16,7 @@ import { FInput } from '../../components/FInput';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { getRepo } from '../../lib/get-repo';
+import { confirmDangerColor } from '../../lib/confirm-color';
 import { t, useLanguage } from '../../lib/i18n';
 import { Icon } from '../../components/Icon';
 import { StatePlate } from '../../components/StatePlate';
@@ -182,7 +183,7 @@ export default function Folders() {
       title: t('folders.delete_title'),
       content: t('folders.delete_content', { name: folder.name }),
       confirmText: t('common.delete'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!r.confirm) return;
     try {

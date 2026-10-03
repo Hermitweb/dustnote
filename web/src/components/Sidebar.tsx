@@ -376,7 +376,7 @@ export function Sidebar() {
                 const target = selectedFolderId === UNFILED_ID ? null : selectedFolderId;
                 void createNote(target).catch((err: unknown) => toast.error(errorText(err)));
               }}
-              className="rail-center flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-strong px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover"
+              className="rail-center flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-strong px-3 py-2 text-sm font-semibold text-accent-strong-on transition-colors hover:bg-accent-strong-hover"
               aria-label={t('app_bar.new_note')}
               data-rail-label={t('app_bar.new_note')}
             >
@@ -474,7 +474,7 @@ export function Sidebar() {
                   />
                   <button
                     onClick={() => void doCreateFolder(null)}
-                    className="rounded bg-accent-strong px-2 py-1 text-xs font-medium text-white hover:bg-accent-strong-hover"
+                    className="rounded bg-accent-strong px-2 py-1 text-xs font-medium text-accent-strong-on hover:bg-accent-strong-hover"
                   >
                     <Icon name="check" size={14} />
                   </button>
@@ -581,7 +581,7 @@ export function Sidebar() {
                         />
                         <button
                           onClick={() => void doCreateFolder(f.id)}
-                          className="rounded bg-accent-strong px-2 py-1 text-xs font-medium text-white hover:bg-accent-strong-hover"
+                          className="rounded bg-accent-strong px-2 py-1 text-xs font-medium text-accent-strong-on hover:bg-accent-strong-hover"
                         >
                           <Icon name="check" size={14} />
                         </button>
@@ -1079,7 +1079,7 @@ export function Sidebar() {
             <div className="mt-3 flex gap-2">
               <button
                 onClick={() => void confirmRename()}
-                className="flex-1 rounded-lg bg-accent-strong px-3 py-2 text-sm font-semibold text-white hover:bg-accent-strong-hover"
+                className="flex-1 rounded-lg bg-accent-strong px-3 py-2 text-sm font-semibold text-accent-strong-on hover:bg-accent-strong-hover"
               >
                 {t('common.confirm')}
               </button>

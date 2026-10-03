@@ -74,7 +74,7 @@ export function ThemeCard({
       </span>
       {/* 选中态：右上角 Check 徽标（§2.5），不靠"整块变色"表达选中 */}
       {selected && (
-        <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent-strong text-white">
+        <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent-strong text-accent-strong-on">
           <Icon name="check" size={14} />
         </span>
       )}

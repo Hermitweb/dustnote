@@ -128,7 +128,7 @@ export function AboutDialog({ onClose }: Props) {
 
       <button
         onClick={onClose}
-        className="mt-3 w-full rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-strong-hover"
+        className="mt-3 w-full rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-accent-strong-on transition-colors hover:bg-accent-strong-hover"
       >
         {t('common.close')}
       </button>

@@ -12,6 +12,7 @@ import Taro from '@tarojs/taro';
 import { useLaunch } from '@tarojs/taro';
 import { AuthProvider } from './state/auth';
 import { useThemeStore, applyTheme, systemTheme } from './state/theme';
+import { auroraBase } from './lib/theme-chrome';
 import ConflictDialog from './components/ConflictDialog';
 import { useModeStore } from './lib/mode-store';
 import { useAuthStore } from './state/auth';
@@ -32,7 +33,7 @@ function App({ children }: { children?: ReactNode }) {
     bottom: '-20%',
     zIndex: 0,
     pointerEvents: 'none',
-    backgroundColor: isDark ? '#0a1128' : '#eaeff8',
+    backgroundColor: auroraBase(isDark ? 'dark' : 'light'),
     backgroundImage: isDark
       ? 'radial-gradient(120% 80% at 10% -12%, rgba(56,189,248,0.78), transparent 60%),' +
         'radial-gradient(110% 70% at 112% 6%, rgba(99,102,241,0.7), transparent 55%),' +

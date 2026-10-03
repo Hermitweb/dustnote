@@ -10,6 +10,7 @@ import Taro, { useDidShow } from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore, decryptNote, parseEnvelope } from '../../state/auth';
 import { getRepo } from '../../lib/get-repo';
+import { confirmDangerColor } from '../../lib/confirm-color';
 import { noteAad, formatNoteStamp } from '@dustnote/shared';
 import { t, useLanguage } from '../../lib/i18n';
 import { Icon } from '../../components/Icon';
@@ -99,7 +100,7 @@ export default function Trash() {
       title: t('common.perm_delete'),
       content: t('common.perm_delete_content'),
       confirmText: t('common.perm_delete'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!r.confirm) return;
     try {
@@ -117,7 +118,7 @@ export default function Trash() {
       title: t('trash.clear_title'),
       content: t('trash.clear_content', { count: notes.length }),
       confirmText: t('trash.empty_btn'),
-      confirmColor: '#E07B6C',
+      confirmColor: confirmDangerColor(),
     });
     if (!r.confirm) return;
     try {

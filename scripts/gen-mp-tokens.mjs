@@ -56,6 +56,16 @@ const VAR_MAP = {
   '--primary-soft': 'accent-soft',
   /** 强调色当文字用：已保证在各层底色上达 AA（旧值 #3b82f6 在白底只有 3.68:1） */
   '--primary-text': 'accent-text',
+  /**
+   * 压在按钮底色上的那一档文字色。以前 app.scss 里 6 处硬写 #fff：
+   * 其中 5 处底是 --primary-strong（白字确实达 AA），但有 2 处的底是 --primary / --danger，
+   * 深色档下白字压浅蓝只有 1.67:1、压浅红只有 1.31:1 —— 等于看不见。
+   * 现在按底色分档，值由引擎算，不再手抄。
+   */
+  '--primary-on': 'on-accent',
+  '--primary-strong-on': 'on-accent-strong',
+  '--danger-solid': 'danger-solid',
+  '--on-danger-solid': 'on-danger-solid',
   '--success': 'success',
   '--warning': 'warning',
   '--danger': 'danger',
