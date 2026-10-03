@@ -1,7 +1,8 @@
 /**
  * mobile 单元测试基建（审计 TEST-004 补课，2026-09-25）
  *
- * 策略：**只 mock 平台 I/O 边界**（react-native / AsyncStorage / Keychain / i18n），
+ * 策略：**只 mock 平台 I/O 边界**（react-native / AsyncStorage / Keychain / i18n /
+ * react-native-svg），
  * 其余全部真实运行——@dustnote/shared 的 ApiClient/deriveSecrets、zustand store、
  * 拦截器逻辑都跑真身；网络层通过桩 global.fetch 驱动（api.ts 的 ApiClient 每次
  * 请求新建并落到 defaultFetch=global fetch）。
@@ -29,6 +30,8 @@ export default defineConfig({
       { find: /^react-native$/, replacement: m('react-native.ts') },
       { find: /^@react-native-async-storage\/async-storage$/, replacement: m('async-storage.ts') },
       { find: /^react-native-keychain$/, replacement: m('keychain.ts') },
+      // react-native-svg 是原生模块，node 环境里 import 真包会解析失败
+      { find: /^react-native-svg$/, replacement: m('react-native-svg.ts') },
       // i18n 相对导入的两种形态（auth.ts: '../lib/i18n'；error-text.ts: './i18n'）
       // ——i18next 真实初始化在测试里是噪音，桩成 t(key)=>key
       { find: /^\.\.\/lib\/i18n$/, replacement: m('i18n.ts') },

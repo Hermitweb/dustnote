@@ -18,8 +18,17 @@ import {
   type IllNode,
 } from '@dustnote/shared';
 
-/** 两个角色 -> 两个 CSS 颜色表达式；其余一律不存在 */
-const PAINT = { ink: 'currentColor', accent: 'var(--mn-accent)' } as const;
+/**
+ * 两个角色 -> 两个 CSS 颜色表达式；其余一律不存在。
+ *
+ * accent 必须写成 rgb(var(--mn-accent))，不能写 var(--mn-accent)：
+ * 这些令牌存的是**三元组**（"22 163 74"），Tailwind 那侧靠
+ * rgb(var(--mn-x) / <alpha>) 拼成合法颜色。直接把 var 交给 stroke，
+ * 得到的是 stroke="22 163 74" —— 非法声明会被浏览器**整条丢掉**，
+ * 于是 accent 节点静默回落到继承来的 currentColor：规则 2 里"唯一那处强调"
+ * 就这样在 web 上消失了，而且不报错、不影响构建。
+ */
+const PAINT = { ink: 'currentColor', accent: 'rgb(var(--mn-accent))' } as const;
 
 function renderNode(n: IllNode, i: number) {
   const stroke = PAINT[n.c ?? 'ink'];
