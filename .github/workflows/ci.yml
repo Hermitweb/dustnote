@@ -233,6 +233,17 @@ jobs:
               'GHSA-w2rr-34g9-rvrj', 'GHSA-4w3w-2rp5-g8jm', 'GHSA-c7q8-3ch8-vqpv',
               'GHSA-27p8-2357-5qqv', 'GHSA-8344-3jmq-59r6', 'GHSA-965w-775f-mr7g',
               'GHSA-93r5-fhx6-vmg9',
+              // 2026-10-03 两条新公告。加白名单前先查过"能不能不豁免"，结论是不能：
+              // 两个包的**当前最新版就是受影响的版本**（braces 最新 3.0.3、
+              // http-cache-semantics 最新 4.2.0，npm view 实测），公告 first_patched=NONE，
+              // 所以既没有可抬的版本、也没有可用的 override —— 与 vm2（有 3.11.7 修复版，
+              // 当时用 overrides 解决）不是一类。仅构建期使用、不进任何产物。
+              'GHSA-vfj7-8cjw-p6xm', // braces high (CVE-2026-93687)：深层嵌套模式栈耗尽 DoS。
+              // 链路：@typescript-eslint > globby > fast-glob > micromatch@4.0.8(要求 ^3.0.3)。
+              // 只在 lint 时解析 glob 模式，模式来自仓库自己的配置，不接受外部输入。
+              'GHSA-ch52-4w7c-c8xp', // http-cache-semantics high (CVE-2026-93748)：max-stale
+              // 处理可泄露跨用户缓存响应。链路：@dustnote/miniprogram 的 devDependencies
+              // （Taro 构建链）。小程序运行时没有 Node http，该包不可能进产物。
             ]);
             const bad = Object.values(audit.advisories || {})
               .filter(a => (a.severity === 'high' || a.severity === 'critical') && !ignored.has(a.github_advisory_id));

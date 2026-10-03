@@ -1836,3 +1836,19 @@ weapp API 只接受这两个值，属约束不是债务）。
   因为它需要一次能看效果的确认。
 - 通用"源码禁止 hex"门禁：web/src 的 11 处命中全在 `lib/`（URL 片段、占位串），不是颜色，
   naive 扫描会误报，需要先做"只在样式上下文里计数"的判定。
+
+#### 附带：CI 里红掉的 Security Audit 是两条**新发布的上游公告**，不是本次改动
+
+`http-cache-semantics`(GHSA-ch52-4w7c-c8xp / CVE-2026-93748) 与
+`braces`(GHSA-vfj7-8cjw-p6xm / CVE-2026-93687)，均 high。
+
+加白名单前先查过"能不能不豁免"，结论是**不能**：`npm view` 实测两个包的
+**当前最新版就是受影响版**（braces 3.0.3、http-cache-semantics 4.2.0），
+公告 `first_patched=NONE` —— 没有可抬的版本，也没有可用的 override。
+这与 vm2（有 3.11.7 修复版、当时用 overrides 根治）不是一类，与 node-forge 是一类。
+两条都在 dev 链路（`@typescript-eslint > globby > fast-glob > micromatch`；
+`@dustnote/miniprogram` 的 Taro 构建链），不进任何产物。
+
+豁免注释里写明了依据；并做了正反双向验证：只喂这两条 → 绿；掺一条未豁免的 → 红并点名。
+（本地 `pnpm audit` 用不了：npmmirror 没有 audit 端点，所以是把 workflow 里那段内联 JS
+抽出来喂假 audit.json 验的 —— 顺带证明那段内联 JS 语法没问题。）
