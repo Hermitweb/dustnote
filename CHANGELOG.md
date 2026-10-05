@@ -2,6 +2,20 @@
 
 本项目所有显著变更记录于此。格式基于 [Keep a Changelog](https://keepachangelog.com/)，版本遵循 [Semantic Versioning](https://semver.org/)。
 
+## [未发布]
+
+### 修复
+
+- **小程序自 2.5.47 起无法通过微信上传编译**（2.5.48 首次实际上传时发现）：
+  降低动效档（`.motion-flat`）用了通配选择器 `*`，微信服务端的 WXSS 编译直接报
+  `app.wxss(1:105650): unexpected token '*'` 拒收整包。本地 Taro 构建、CI、开发者工具预览
+  都不报——上传编译只在微信服务端做，属于"只有真上传才现形"的缺陷。
+  修复：动效时长已全部收敛在 `--duration-*` 令牌，平面档改为把三档令牌清零（等价于
+  全树动效归零）；9 处硬编码时长并入令牌（`0.12s`→fast 为精确相等，`0.2s`→med、
+  `0.3s`→slow 各差 20/60ms）；转圈与极光漂移两个无限动画补显式 `animation: none`。
+  新增 `miniprogram/src/wxss-compat.test.ts`：判定器对四种事故形态判红、对注释星号与
+  `calc()` 乘法不误伤，并扫描全部 scss 源文件（46 例全绿含新 3 例）。
+
 ## [2.5.48] - 2026-10-03
 
 ### 修复

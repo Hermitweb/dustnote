@@ -283,7 +283,7 @@ page {
   border: 1rpx solid var(--border);
   box-shadow: var(--shadow-sm);
   transition:
-    box-shadow 0.2s,
+    box-shadow var(--duration-med),
     transform var(--duration-fast);
 }
 .card:active {
@@ -310,8 +310,8 @@ page {
   box-sizing: border-box;
   color: var(--fg);
   transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
+    border-color var(--duration-med),
+    box-shadow var(--duration-med);
   caret-color: var(--primary-strong);
 }
 .input:focus {
@@ -670,7 +670,7 @@ page {
   color: var(--fg-secondary);
   white-space: nowrap;
   font-weight: 500;
-  transition: background 0.12s;
+  transition: background var(--duration-fast);
 }
 .batch-btn:active {
   background: var(--border);
@@ -703,8 +703,8 @@ page {
   line-height: 1;
   z-index: 20;
   transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+    transform var(--duration-med) ease,
+    box-shadow var(--duration-med) ease;
 }
 .fab:active {
   background: linear-gradient(135deg, var(--primary-strong), var(--primary-deep));
@@ -738,7 +738,7 @@ page {
   padding: 28rpx 32rpx;
   font-size: 28rpx;
   color: var(--fg);
-  transition: background 0.12s;
+  transition: background var(--duration-fast);
 }
 .settings-row:not(:last-child) {
   border-bottom: 1rpx solid var(--border);
@@ -887,8 +887,8 @@ page {
   height: 100%;
   border-radius: 3rpx;
   transition:
-    width 0.3s ease,
-    background 0.3s ease;
+    width var(--duration-slow) ease,
+    background var(--duration-slow) ease;
 }
 .strength-bar-fill.weak {
   background: var(--danger);
@@ -1011,7 +1011,7 @@ page {
   color: var(--fg-muted);
   font-weight: 500;
   position: relative;
-  transition: color 0.2s;
+  transition: color var(--duration-med);
 }
 .view-tab-active {
   color: var(--primary-strong);
@@ -1027,7 +1027,7 @@ page {
   height: 4rpx;
   background: var(--primary-strong);
   border-radius: 2rpx 2rpx 0 0;
-  transition: width 0.2s;
+  transition: width var(--duration-med);
 }
 
 /* ========== 文件夹筛选条 ========== */
@@ -1657,13 +1657,23 @@ page {
  * 降低动效（A11Y-R05）。weapp 不吃 @media (prefers-reduced-motion)——媒体查询按容器
  * 能力判定、不跟随系统无障碍设置，所以对动效敏感的用户在小程序里没有退路。
  * 这里只让动效归零：不改布局、不改颜色，开关切上切下元素位置必须完全一致。
+ *
+ * 实现说明：WXSS 不支持通配选择器 `*`（上传编译直接报 unexpected token `*`，
+ * 2.5.48 首次上传实锤——本规则 2.5.47 引入后，小程序就再没通过过上传编译）。
+ * 动效时长已全部收敛到 --duration-* 三档令牌（gen-mp-tokens 从 shared/motion.ts 生成），
+ * 平面档把三档清零即等价于"全树动效归零"；不归令牌的两个无限动画
+ * （转圈见上方 spinner 规则、极光漂移见下）用显式 none 兜底。
+ * 根元素自身的动效也在这里显式归零（原来 wildcard 块的第一个选择器）。
  */
-.motion-flat,
-.motion-flat *,
-.motion-flat *::before,
-.motion-flat *::after {
+.motion-flat {
+  --duration-fast: 0s;
+  --duration-med: 0s;
+  --duration-slow: 0s;
   animation: none !important;
   transition: none !important;
+}
+.motion-flat .glass-aurora {
+  animation: none;
 }
 
 .material-flat .glass-aurora {
