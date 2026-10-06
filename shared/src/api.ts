@@ -152,10 +152,16 @@ export class ApiClient {
 
     if (!res.ok) {
       const errObj = (data ?? {}) as { error?: string; message?: string };
+      // 顺序：服务端 message → HTTP statusText → 服务端 error code。
+      // RN 的 fetch **不填 statusText**（浏览器填），若只依赖前两者，
+      // 服务端 `{error:'not_found'}` 这种不带 message 的裸 404 会让 raw=''，
+      // 于是 errorReason 的中文分支 `raw || translate(bucket)` 塌到"目标不存在或
+      // 已被删除"——把"路由打错了/服务不可达"伪装成"资源不存在"。
+      // 兜到 `errObj.error` 至少让 raw 携带错误码而不是空。
       throw new ApiException({
         status: res.status,
         code: errObj.error ?? 'unknown',
-        message: errObj.message ?? res.statusText,
+        message: errObj.message ?? res.statusText ?? errObj.error ?? '',
         data: data ?? undefined,
       });
     }

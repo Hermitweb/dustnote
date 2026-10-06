@@ -120,6 +120,19 @@ function IndexBody() {
   const darkClass = useThemeDarkClass();
   const [serverTemplates, setServerTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
+  /**
+   * Bug 修（列表下滚后再上滚加载卡死、回不去顶）：
+   * ScrollView 的 `refresherTriggered` 以前绑到全局 `loading`——而 `loading` 会被
+   * useDidShow / dustnote:data-changed (WS 广播) / 收藏、置顶、批量 操作触发
+   * 的 load() 一起翻起来。weapp 里 `refresherTriggered=true` 会把下拉刷新头
+   * 强制打开、把 scroll-view 一把拽回顶部；用户在列表中部时任何后台 load()
+   * 都会"啪"地把视图顶回去、spinner 亮着且因重入交错留在那儿不动。
+   * 把 refreshing 单独抽出来——只由用户主动 `onRefresherRefresh` 翻转，
+   * 其它 load() 不再牵连它。
+   */
+  const [refreshing, setRefreshing] = useState(false);
+  /** load() 重入锁：防止并发 loadAll() 把 loading/refreshing 状态撕成不一致 */
+  const loadInFlightRef = useRef(false);
   const [loadError, setLoadError] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -207,6 +220,10 @@ function IndexBody() {
   });
 
   const load = async () => {
+    // Bug 修：并发 load() 会把 loading 撕成"一个 finally 关掉、另一个还开着"的
+    // 错位状态；重入直接跳过，等下一次事件即可（list 视图最终一致性，跳一次不丢数据）。
+    if (loadInFlightRef.current) return;
+    loadInFlightRef.current = true;
     setLoading(true);
     try {
       const repo = getRepo();
@@ -269,6 +286,20 @@ function IndexBody() {
       setLoadError(true);
     } finally {
       setLoading(false);
+      loadInFlightRef.current = false;
+    }
+  };
+
+  /**
+   * 下拉刷新专用 handler：只在这里翻 refreshing——`refresherTriggered` 绑的是这个
+   * 而不是全局 loading，WS/data-changed 触发的 load() 就不会把用户从列表中部拽回顶。
+   */
+  const onPullRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -962,8 +993,8 @@ function IndexBody() {
           scrollY
           className="flex-1"
           refresherEnabled
-          refresherTriggered={loading}
-          onRefresherRefresh={() => void load()}
+          refresherTriggered={refreshing}
+          onRefresherRefresh={() => void onPullRefresh()}
         >
           {loading && <View className="loading">{t('common.loading')}</View>}
           {!loading && loadError && (

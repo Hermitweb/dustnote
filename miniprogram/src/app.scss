@@ -6,6 +6,15 @@
 /* 颜色令牌由 shared 主题种子派生，勿在此手改：见 scripts/gen-mp-tokens.mjs */
 @import './styles/theme-tokens.scss';
 @import './styles/mp-icons.scss';
+
+/* Bug 修（按钮/菜单项里图标与文字错位）：mp-icons.scss 生成的 .mp-icon 是
+ * `display:inline-block; line-height:0;` —— 在非 flex 的块/行内流容器里
+ * （.menu-item / .backlink-item / .view-tab-action 等），baseline 会退到底边,
+ * 图标相对文字基线整条下沉或上浮。以下三处已改 flex 摆正；这条 .mp-icon
+ * 全局兜底，避免以后新增行内混排时又踩同坑。特异性同 .mp-icon，源序在后即胜出。*/
+.mp-icon {
+  vertical-align: middle;
+}
 @import './styles/mp-illustrations.scss';
 
 /* ========== 设计令牌（CSS 变量） ========== */
@@ -44,7 +53,16 @@ page {
 
 /* ========== 页面容器 ========== */
 .page {
+  /* Bug 修（搜索框/文件夹栏/切换栏随列表滚走）：weapp 里 scroll-view 只有拿到
+   * **确定高度**才会自己滚；`.page` 以前只有 min-height:100vh，长列表把 ScrollView
+   * 撑破视口，页面 body 反成了真正的滚动区，`.topbar` 的 position:sticky 在嵌套
+   * View 里不可靠、search-box/folder-tabs/view-tabs 又没有 sticky，就跟着一起滚。
+   * 给 `.page`  definite height + overflow:hidden 让 ScrollView 的 flex:1 收敛成
+   * "视口减去 header"；.page-solid 与主题背景都在 .page 之外或透明，不影响极光层。*/
   min-height: 100vh;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow: hidden;
   background: transparent;
   display: flex;
   flex-direction: column;
@@ -84,6 +102,9 @@ page {
 .flex-1 {
   flex: 1;
   min-width: 0;
+  /* flex 子项想真的收缩到父剩余高度，必须显式 min-height:0（默认 auto 会被内部
+   * 内容顶开，等于上面 .page 的白做）*/
+  min-height: 0;
 }
 .mt-s {
   margin-top: 8rpx;
@@ -711,13 +732,16 @@ page {
   transform: scale(0.92);
   box-shadow: 0 4rpx 12rpx rgba(59, 130, 246, 0.25);
 }
-/* 模板新建入口：FAB 上方的小圆钮 */
+/* 模板新建入口：FAB 上方的小圆钮（图标 + 文字混排 → flex 对齐） */
 .view-tab-action {
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
   padding: 22rpx 20rpx;
   font-size: 24rpx;
   color: var(--fg-secondary);
-  text-align: center;
   transition: color var(--duration-fast) var(--ease);
 }
 .view-tab-action:active {
@@ -1371,7 +1395,10 @@ page {
   margin-bottom: 8rpx;
 }
 .backlink-item {
-  display: block;
+  /* Bug 修：icon + text 混排从 display:block 改为 flex，让图标和文字垂直居中对齐 */
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
   font-size: 26rpx;
   color: var(--primary-text);
   padding: 8rpx 0;
@@ -1490,7 +1517,10 @@ page {
 }
 
 .menu-item {
-  display: block;
+  /* Bug 修：菜单项图标 + 文案，从 display:block 改 flex 让 icon 与 label 垂直居中 */
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
   padding: 22rpx 16rpx;
   font-size: 30rpx;
   color: var(--fg);

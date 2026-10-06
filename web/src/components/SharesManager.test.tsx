@@ -18,7 +18,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor, cleanup, createElement } from '../test/render';
 
 // ---- 用 vi.hoisted 声明 mock 变量，确保 vi.mock 工厂可引用 ----
-const { storeState, useStoreMock, toastCalls } = vi.hoisted(() => {
+const { storeState, useStoreMock, toastCalls, modeStoreState } = vi.hoisted(() => {
   const TEST_TOKEN = ['test', 'token'].join('-');
   const storeState = {
     notesPlain: new Map<string, { title: string }>(),
@@ -30,7 +30,9 @@ const { storeState, useStoreMock, toastCalls } = vi.hoisted(() => {
   );
   (useStoreMock as unknown as { getState: () => typeof storeState }).getState = () => storeState;
   const toastCalls: Array<{ kind: string; message: string }> = [];
-  return { storeState, useStoreMock, toastCalls };
+  // 抽出来一份可变 mode-store 快照，方便用例（尤其 Bug #4 回归）临时把 serverUrl 置空
+  const modeStoreState: { serverUrl: string | null } = { serverUrl: 'http://localhost:3210' };
+  return { storeState, useStoreMock, toastCalls, modeStoreState };
 });
 
 vi.mock('react-i18next', () => {
@@ -53,10 +55,12 @@ vi.mock('react-i18next', () => {
 
 vi.mock('../lib/store', () => ({ useStore: useStoreMock }));
 vi.mock('../lib/mode-store', () => ({
-  // loadShares 在 Tauri 桌面端会校验 serverUrl：未配置时提前返回 error_no_server。
-  // 测试环境提供绝对地址，让 fetch 走到 stub，覆盖 loading/empty/active 等正常路径。
+  // Bug #4 修后：serverUrl 守卫已限定 `!serverUrl && isTauri()`（Tauri 桌面才拦），
+  // jsdom 没有 __TAURI_INTERNALS__ 故 isTauri()=false，同源也是合法路径。
+  // 默认给一个绝对 serverUrl 让 fetch 打到稳定 URL；
+  // "Bug #4 回归"用例会临时把 modeStoreState.serverUrl 置 null，证明同源能通。
   useModeStore: {
-    getState: () => ({ serverUrl: 'http://localhost:3210' }),
+    getState: () => modeStoreState,
   },
 }));
 vi.mock('../lib/device', () => ({ getDeviceId: () => 'test-device-id' }));
@@ -119,6 +123,8 @@ describe('SharesManager', () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     cleanup();
+    // Bug #4 回归用例会把 serverUrl 置 null，防止状态泄漏到后续用例
+    modeStoreState.serverUrl = 'http://localhost:3210';
   });
 
   it('渲染加载中状态', () => {
@@ -277,5 +283,21 @@ describe('SharesManager', () => {
     const dialog = getByRole('dialog');
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(dialog).toHaveAttribute('aria-labelledby', 'shares-mgr-title');
+  });
+
+  it('Bug #4 回归：serverUrl=null 且非 Tauri 时走同源 /api/v1/shares 并成功加载', async () => {
+    // 旧行为（bug）：!serverUrl 无条件早退 → shares 永远空白 + "未配置服务器地址…"
+    // 新行为：仅 Tauri 才拦；jsdom 里 isTauri()=false，同源 fetch 应正常发出并渲染列表
+    modeStoreState.serverUrl = null;
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      fetchOk({ shares: [makeShare({ id: 's-web-online' })] })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { getByText } = render(createElement(SharesManager, { onClose: () => {} }));
+    await waitFor(() => expect(getByText('shares.status_active')).toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalled();
+    const url = String(fetchMock.mock.calls[0]?.[0] ?? '');
+    expect(url).toMatch(/\/api\/v1\/shares(\?|$)/);
+    expect(document.body.textContent).not.toMatch(/shares\.error_no_server/);
   });
 });

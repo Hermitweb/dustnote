@@ -19,8 +19,6 @@ export function StageHead() {
   const selectedTag = useStore((s) => s.selectedTag);
   const stageOrder = useStore((s) => s.stageOrder);
   const selectNote = useStore((s) => s.selectNote);
-  const selectFolder = useStore((s) => s.selectFolder);
-  const setSelectedTag = useStore((s) => s.setSelectedTag);
 
   const pos = stagePosition(stageOrder, selectedNoteId);
 
@@ -41,11 +39,15 @@ export function StageHead() {
     return chain.length > 0 ? chain.join(' / ') : t('sidebar.all');
   }
 
-  /** 从概览的最近编辑点进来时，返回就是回概览；其余回本视图的根列表 */
+  /**
+   * 从概览的最近编辑点进来时，返回就是回概览；其余回本视图的根列表。
+   * StageHead 只在 detail 态渲染（见 web/src/lib/stage.ts: `if (selectedNoteId) return 'detail'`），
+   * 所以「返回」就是把详情关掉——与 Esc 走 `nextOnEscape → 'close-detail' → selectNote(null)` 同口径。
+   * 旧代码里 `else selectFolder(null)` 不碰 selectedNoteId，resolveStage 仍返回 detail，
+   * 用户看到的是"点了没反应，只有按 Esc 才生效"——那是 Bug #3。
+   */
   const back = () => {
-    if (selectedTag) setSelectedTag(null);
-    else if (destination === 'overview') selectNote(null);
-    else selectFolder(null);
+    selectNote(null);
   };
 
   const step = (delta: 1 | -1) => {

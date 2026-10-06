@@ -2,7 +2,7 @@
 
 本项目所有显著变更记录于此。格式基于 [Keep a Changelog](https://keepachangelog.com/)，版本遵循 [Semantic Versioning](https://semver.org/)。
 
-## [未发布]
+## [2.5.49] - 2026-10-06
 
 ### 修复
 
@@ -15,6 +15,88 @@
   `0.3s`→slow 各差 20/60ms）；转圈与极光漂移两个无限动画补显式 `animation: none`。
   新增 `miniprogram/src/wxss-compat.test.ts`：判定器对四种事故形态判红、对注释星号与
   `calc()` 乘法不误伤，并扫描全部 scss 源文件（46 例全绿含新 3 例）。
+
+#### Web
+
+- **左侧栏点文件夹的展开箭头之后没内容**：`Sidebar.tsx` 的 chevron 只 `toggleExpand` 不调
+  `selectFolder`；"展开块"按两栏改造的设计意图（L315 注释「树只放导航、笔记列表在舞台」）
+  本就不渲染笔记叶子——对"有笔记、无子文件夹"的文件夹，点箭头 → 舞台纹丝不动，看起来
+  "展开是空的"。L508-515（一级）与 L609-616（二级）：chevron 与名称按钮同口径，两个动作一起做。
+- **顶栏左上角"返回全部笔记"点了没反应（Esc 有效）**：`StageHead` 只在 detail 态渲染
+  （`web/src/lib/stage.ts` 里 `selectedNoteId` 非空即 detail），旧 `back()` 的 `else` 支只
+  `selectFolder(null)` 不碰 `selectedNoteId`，`resolveStage` 仍返回 detail——视觉"点了没反应"。
+  Esc 走 `nextOnEscape → 'close-detail' → selectNote(null)`；把 back 也对齐成 `selectNote(null)`，
+  顺手删掉不再引用的 `selectFolder/setSelectedTag` selector（防 unused-var 挂 CI）。
+- **联机模式"分享列表：地址加载失败"、页面空白**：`SharesManager.tsx` 里 `!serverUrl` 无条件
+  早退本是 Tauri 桌面专属防御（webview origin 是 `tauri://localhost`，相对 `/api/v1` 会命中
+  资源服务器返回 HTML）；web 部署下的联机模式同源就是合法形态，`apiBase()` 已回退 `/api/v1`。
+  改成 `!serverUrl && isTauri()`；补一条回归用例锁死这个语义（serverUrl=null + 非 Tauri → 走
+  同源 fetch 并渲染列表）。
+- **页面图标渲染成"黑灰椭圆色块"**：v2.5.47 三端同源插画落地时留下的一处未收敛——
+  `web/src/components/Illustration.tsx` 里 `common.strokeWidth = n.w ?? ILL_STROKE` 对 `p/l/c`
+  语义是笔宽，对 `r` 语义却是 rect 的**宽度**（`shared/src/illustrations.ts` 里节点表就是
+  如此）；一个 `w:26` 的卡片被 26px 粗的居中外扩描边糊死，`rx` 让它圆润、dash 在超粗描边
+  下不可见，就成"椭圆色块"。RN 渲染器（`mobile/src/components/Illustration.tsx` L78-79）
+  与样张生成器（`scripts/render-illustrations.mjs`）早就把 rect 钉回 `ILL_STROKE`；给 web 补
+  同款。**小程序生成器 `scripts/gen-mp-illustrations.mjs` 有同 bug**（`stroke-width="${w}"`），
+  已一并修并重生成 `miniprogram/src/styles/mp-illustrations.scss`——线上 2.5.48 小程序遮罩
+  里所有 rect 的描边从 24/26 → 1.5。
+- **右侧笔记内容区左右空白过大**：`shared/styles/tokens.css` 的 `--mn-paper-pad: 88px`
+  是"正文铺满纸面"时代遗留；改成居中 68ch 纸张后它和 `margin-inline: auto` 的外侧余量
+  **双份计费**——1440 屏单侧 ≈ 240px。不动 shared（会牵连桌面观感、桌面用户没提这个），
+  只在 `web/src/index.css` 对 `.paper-sheet` 局部覆写为 `clamp(20px, 3vw, 40px)`；
+  分屏 44px 与窄屏 20px 的局部覆写继续生效。
+- **Web 解锁屏 logo 保持原样**（用户约束、非 bug）：解锁屏图形是 lucide
+  `Icon name="unlock"` 瓷片、自 `2e5879d` 起未变；`web/public/logo.png`（尘心笔记.webp）
+  完好，两枚解锁屏（`UnlockScreen.tsx` / `StandaloneUnlockScreen.tsx`）本次**一行未改**。
+
+#### 小程序
+
+- **搜索框 / 文件夹栏 / 切换栏随列表一起滚走**：`.page` 只写了 `min-height:100vh`、
+  `.flex-1` 没设 `min-height:0`——weapp 里 `scroll-view` 需要**确定高度**才会自己滚；无限高
+  flex 父级把长列表撑破视口、页面 body 反成真正滚动区，`.topbar` 的 `position:sticky` 在
+  嵌套 View 里不可靠、其它头块根本没设 sticky 就一起滚走。`.page` 补
+  `height:100vh; box-sizing:border-box; overflow:hidden`；`.flex-1` 补 `min-height:0`。
+  极光层在 `app.tsx` 内联根 View、位于 `.page` 之外，`overflow:hidden` 不影响它。
+- **列表下滚之后再上滚加载卡死、回不去顶**：`ScrollView` 的 `refresherTriggered` 绑到了全局
+  `loading`——`loading` 会被 `useDidShow`、`dustnote:data-changed`（WS 广播）、收藏 / 置顶 /
+  批量的 load 一起翻起来；weapp 里 `refresherTriggered=true` 会强制打开下拉刷新头、一把把
+  scroll-view 拽回顶部；用户在列表中部时任何后台 load 都会 snap 视图回顶、spinner 亮着、
+  因重入交错留在那儿不动。拆出专用 `refreshing`（只由 `onRefresherRefresh` 触发），
+  `load()` 加 `loadInFlightRef` 重入锁防并发把 flag 撕成"一个 finally 关掉、另一个还开着"。
+- **按钮图标与文字错位**：`mp-icons.scss` 生成的 `.mp-icon` 是 `display:inline-block;
+line-height:0`；`.menu-item / .backlink-item / .view-tab-action` 三个是 `display:block`，
+  图标基线退到底边、整条下沉。三处改 `display:flex; align-items:center; gap`；`.mp-icon`
+  补 `vertical-align: middle` 兜底（写在 `app.scss` 里，位于 `mp-icons.scss` 之后源序胜出）。
+- **每次保存都要下拉列表才生效**：编辑器 `useUnload` 的 `void save()` 与列表页 `useDidShow`
+  的 `load()` 在赛跑——PATCH 还没落、列表 `loadAll()` GET 先跑完，看到的是旧 title/content；
+  save 本身从不广播，用户只能靠手动下拉才看到自己刚改的。`save()` 三个成功分支（正常 PATCH、
+  409 自愈重放、离线入队）各触发一次 `dustnote:data-changed`——列表已监听此事件会自动重刷，
+  PATCH 落地时数据就会正确显示。
+
+#### 手机端
+
+- **解锁失败弹"目标不存在或已被删除"**（把路由/服务器配置问题伪装成"资源不存在"）：
+  `mobile/src/state/auth.ts` L372 的 `/auth/status` 未包 try，打到 Express 兜底 404
+  （`server/src/app.ts` L341 `{error:'not_found'}` 无 message）；RN 的 `fetch` 又**不填
+  statusText**（浏览器填），于是 `shared/src/api.ts` L158 `message ?? statusText` 塌成空串，
+  中文 UI 分支 `errorReason = raw || translate(bucket)` 落进 `errors.not_found` 桶。三处合修：
+  `shared/api.ts` 兜到 `?? errObj.error` 让 raw 至少带错误码；`UnlockScreen.tsx` 特判解锁路径
+  的 404 / `*_not_found` 直接归 `errors.server_unreachable`；`auth.ts` 里 `unwrapKey` 失败
+  （AEAD 抛英文 `decryption failed`）改写为 `auth.wrong_password`（"主密码错误"），
+  与 `unlockStandalone` 分支既有语义对齐。
+
+### 影响面 & 边界
+
+- 手机端 UnlockScreen 的 404 特判**只覆盖解锁动作**；其它页面若真拿到 `user_not_found`
+  仍走通用 `errorText`，行为不变。
+- Web 分享列表守卫放宽到"仅 Tauri 且无 serverUrl"；Tauri 桌面用户若没配 serverUrl 依旧
+  按 `shares.error_no_server` 报错，与原语义一致。
+- `--mn-paper-pad` 只在 web 局部覆写；`shared/styles/tokens.css` 里的值未变，桌面端观感
+  保持不变。
+- `.mp-icon { vertical-align: middle }` 是行内混排场景的兜底；已被 flex 摆正的三处不受影响。
+- `web/src/components/Sidebar.tsx` L597-662 的"展开块不渲染笔记叶子"是**设计意图**（树只放
+  导航、笔记在舞台），不是漏改——本次不动这块结构，只让 chevron 也执行"选中该文件夹"。
 
 ## [2.5.48] - 2026-10-03
 

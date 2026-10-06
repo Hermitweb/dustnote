@@ -13,6 +13,7 @@ import { getDeviceId } from '../lib/device';
 import { errorText } from '../lib/error-text';
 import { copyText } from '../lib/clipboard';
 import { toast } from '../lib/toast';
+import { isTauri } from '../lib/platform';
 import { ConfirmDialog } from './ConfirmDialog';
 import { authedFetch, shareBase } from '../lib/store-helpers';
 
@@ -86,10 +87,13 @@ export function SharesManager({ onClose }: { onClose: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      // 检查 serverUrl 是否已配置（Tauri 桌面端必须配置绝对地址，
-      // 否则 fetch 会命中 webview 资源返回 HTML 导致 JSON 解析失败）
+      // 检查 serverUrl 是否已配置——这是 **Tauri 桌面端专属** 防御：
+      // Tauri webview 的 origin 是 tauri://localhost，相对路径 /api/v1 会命中 webview
+      // 资源服务器返回 HTML 导致 JSON 解析失败。而 web 部署下的联机模式，同源
+      // 就是合法形态（apiBase() 会自动回退到 /api/v1），此前无条件的 `!serverUrl`
+      // 拦截会让 web 联机模式下的分享列表永远报"未配置服务器地址"、内容空白。
       const { serverUrl } = useModeStore.getState();
-      if (!serverUrl) {
+      if (!serverUrl && isTauri()) {
         setError(t('shares.error_no_server'));
         return;
       }

@@ -334,6 +334,21 @@ ${text}`
       setSaveStatus('error');
       return;
     }
+    /**
+     * Bug 修（每次保存都要下拉列表才生效）：
+     * 编辑器 useUnload 里的 `void save()` 与列表页 useDidShow 的 `load()` 在赛跑
+     * ——PATCH 还没落，列表的 GET 就先跑完，看到的是旧 title/content；且 save 本身
+     * 从不广播，用户只能手动下拉才看到自己刚改的。save 成功后触发
+     * `dustnote:data-changed`——列表已监听此事件、会再 load() 一次，PATCH 落地时
+     * 数据就会正确刷新。
+     */
+    const notifyDataChanged = () => {
+      try {
+        Taro.eventCenter.trigger('dustnote:data-changed', { source: 'editor-save' });
+      } catch {
+        /* eventCenter 不阻断保存路径 */
+      }
+    };
     setSaveStatus('saving');
     const aad = noteAad(cur.id, useAuthStore.getState().userId ?? '');
     try {
@@ -349,6 +364,7 @@ ${text}`
       setNote((prev) => (prev ? { ...prev, version: newVersion } : prev));
       basePlainRef.current = { title, content, tags };
       setSaveStatus('saved');
+      notifyDataChanged();
       // 网络恢复：顺手重放离线队列中的未同步修改（失败静默，队列仍在）
       if (mode === 'online') void flushOfflineQueue().catch(() => undefined);
     } catch (err: any) {
@@ -385,6 +401,7 @@ ${text}`
               setNote((prev) => (prev ? { ...prev, version: newVersion } : prev));
               basePlainRef.current = { title, content, tags };
               setSaveStatus('saved');
+              notifyDataChanged();
               return;
             }
           }
@@ -426,6 +443,7 @@ ${text}`
             { noteId: cur.id, ...(conflictCtx ? { conflictCtx } : {}) }
           );
           setSaveStatus('saved');
+          notifyDataChanged();
         } catch {
           Taro.showToast({ title: t('editor.save_failed'), icon: 'none', duration: 3000 });
           setSaveStatus('error');

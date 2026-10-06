@@ -44,6 +44,21 @@ body {
 .prose h3 {
   font-size: 1.25rem;
 }
+
+/*
+ * 纸张内边距（Bug：右侧笔记内容区左右空白过大）
+ *
+ * shared/styles/tokens.css 的 `--mn-paper-pad: 88px` 是"正文铺满纸面"时代的参数；
+ * 在居中纸张（68ch）模式下它和 `margin-inline: auto` 的外侧余量**双份计费**——
+ * 1440 屏上单侧空白 ≈ (舞台宽 − (68ch + 176px)) / 2 + 88px ≈ 240px，视觉上像
+ * 一整列都是留白。web 端把 token 就地压小；不动 shared，避免牵连桌面端
+ * （桌面用户没提这个；且 desktop 舞台更宽，88px 观感差别没这么刺眼）。
+ * 分屏态（.paper-sheet--split = 44px）与窄屏媒体查询（20px）都在同一层局部覆写，
+ * 保留原样。
+ */
+.paper-sheet {
+  --mn-paper-pad: clamp(20px, 3vw, 40px);
+}
 .prose p {
   margin: 0.5em 0;
 }

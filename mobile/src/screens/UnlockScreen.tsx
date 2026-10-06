@@ -55,9 +55,28 @@ export function UnlockScreen() {
       // 或中文文案——服务端改文案即静默失效）；未知码仍回退文案匹配以兼容
       // 老服务端
       const code = apiErrorCode(err);
+      // Bug 修（解锁失败提示"目标不存在或已被删除"）：
+      // unlock 的 404 与 *_not_found 桶几乎全部来自——`/auth/status`（auth.ts
+      // L372 未包 try）或 `/auth/unlock` 打到了 Express 兜底 404（server/src/app.ts
+      // L341 `{error:'not_found'}` 无 message），错误码经 errorReason 中文分支
+      // `raw || translate(bucket)` 塌到 "目标不存在或已被删除"，把「路由打错了/
+      // serverUrl 指错/反代没转发」伪装成「资源不存在」。真·账号被删的合法情形
+      // 走 `user_not_found` + 服务端 message，raw 非空、errorText 会带文案出来。
+      const status = (err as { err?: { status?: number } })?.err?.status;
+      const isNotFoundish =
+        code === 'not_found' ||
+        code === 'user_not_found' ||
+        code === 'device_not_found' ||
+        code === 'version_not_found' ||
+        status === 404;
       if (code === 'totp_required' || msg.includes('两步验证码')) {
         setShowTotp(true);
         Alert.alert(t('auth.totp_required_title'), t('auth.totp_required_detail'));
+      } else if (isNotFoundish) {
+        // 404 或 *_not_found：几乎必然是路由/服务器配置问题（serverUrl 指错、
+        // 反代没转发到 /auth/*），不是"资源不存在"。真被删的 user_not_found 服务端
+        // 会带 message，raw 非空时仍走 errorText 保留服务端原文；这里统一提示服务不可达
+        Alert.alert(t('auth.unlock_failed'), t('errors.server_unreachable'));
       } else {
         // 弹窗走 errorText：无码网络错误归 server_unreachable 桶，
         // 不再把 AbortError/Network request failed 英文原文直出（真机审计 2026-09-24）

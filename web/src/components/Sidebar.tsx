@@ -507,7 +507,10 @@ export function Sidebar() {
                     >
                       {hasContent && (
                         <button
-                          onClick={() => toggleExpand(f.id)}
+                          onClick={() => {
+                            selectFolder(f.id);
+                            toggleExpand(f.id);
+                          }}
                           className="flex h-7 w-6 flex-shrink-0 items-center justify-center text-surface-muted hover:text-surface-fg"
                         >
                           <Chevron expanded={expanded} />
@@ -608,7 +611,10 @@ export function Sidebar() {
                               >
                                 {subNotes.length > 0 && (
                                   <button
-                                    onClick={() => toggleExpand(c.id)}
+                                    onClick={() => {
+                                      selectFolder(c.id);
+                                      toggleExpand(c.id);
+                                    }}
                                     className="flex h-7 w-6 flex-shrink-0 items-center justify-center text-surface-muted hover:text-surface-fg"
                                   >
                                     <Chevron expanded={subExpanded} />

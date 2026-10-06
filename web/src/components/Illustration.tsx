@@ -45,7 +45,25 @@ function renderNode(n: IllNode, i: number) {
     case 'l':
       return <line key={i} x1={n.x1} y1={n.y1} x2={n.x2} y2={n.y2} {...common} />;
     case 'r':
-      return <rect key={i} x={n.x} y={n.y} width={n.w} height={n.h} rx={n.rx ?? 0} {...common} />;
+      // Bug #5：common.strokeWidth 走的是 `n.w ?? ILL_STROKE`——对 p/l/c 语义是笔宽，
+      // 对 r 语义却是 rect 的**宽度**（shared/src/illustrations.ts 里的 schema 就是如此）。
+      // 若照原样 spread，一个 w:26 的 rect 会被描上一条 26px 粗的居中外扩描边，
+      // 结果就是一坨"灰椭圆色块"（rx 让它圆润，dash 在超粗描边下不可见）。
+      // RN 渲染器（mobile/src/components/Illustration.tsx）与样张生成器
+      // （scripts/render-illustrations.mjs）早就各自把 rect 钉回 ILL_STROKE 了，
+      // 这里是三端同源几何里最后没跟上的一处。
+      return (
+        <rect
+          key={i}
+          x={n.x}
+          y={n.y}
+          width={n.w}
+          height={n.h}
+          rx={n.rx ?? 0}
+          {...common}
+          strokeWidth={ILL_STROKE}
+        />
+      );
     case 'c':
       // 尘埃点是实心的：它没有内部结构，描一圈反而糊
       if (n.f)

@@ -2,7 +2,7 @@
 
 > 🌿 极简 · 清新 · 跨端 · 安全——一款 E2EE 端到端加密的个人笔记系统
 
-![Status](https://img.shields.io/badge/status-v2.5.48-blue)
+![Status](https://img.shields.io/badge/status-v2.5.49-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Node](https://img.shields.io/badge/node-20%2B-blue)
 ![E2EE](https://img.shields.io/badge/encryption-AES--256--GCM-purple)
@@ -309,7 +309,7 @@ pnpm clean      # 清理构建产物
 | `pnpm lint:scripts`          | 门禁脚本自己写错                                                      | 守卫没人守卫，就得自己可 lint                                                                                          |
 | `pnpm test`                  | 582 条单测（七包）                                                    | 覆盖率阈值 CI 强制                                                                                                     |
 | `pnpm test:monitoring`       | 告警桥、拨测、nginx 守卫、action 钉版守卫的自测                       | 监控系统自己也得被监控                                                                                                 |
-| `pnpm docker:check`          | Dockerfile `COPY` 白名单漏文件；compose 端口重复/互斥绑定             | 前者：升级现场连挂两次，CI 全绿、本地全绿，服务器构建必炸。后者：v2.5.48 包内 8080 双绑，容器起不来、线上中断 2.5 分钟 |
+| `pnpm docker:check`          | Dockerfile `COPY` 白名单漏文件；compose 端口重复/互斥绑定             | 前者：升级现场连挂两次，CI 全绿、本地全绿，服务器构建必炸。后者：v2.5.49 包内 8080 双绑，容器起不来、线上中断 2.5 分钟 |
 | `pnpm tokens:check`          | 小程序令牌与 `shared` 设计令牌漂移                                    | 小程序曾自己抄一份色值，改主题只改一半                                                                                 |
 | `pnpm security:headers`      | nginx `add_header` 不继承导致整套安全头静默消失                       | 线上实测 `/api/`、`/metrics` 丢了 CSP                                                                                  |
 | `pnpm action:pins`           | 钉了不存在 / 与注释版本不符的 action SHA                              | nightly 拨测因假 SHA 静默失效，6 次排期全没跑                                                                          |

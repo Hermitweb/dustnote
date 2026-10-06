@@ -424,7 +424,17 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     }>('/auth/unlock', body);
 
     // masterKey 只能在本地解封出来，服务端无从得知
-    const masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
+    // 若 AEAD 解封失败——keK 派生自错误密码 / wrapped 结构损坏——
+    // 底层 shared/src/crypto.ts 会抛英文 'decryption failed'，中文 UI 直接
+    // 透传会让用户看到一句技术黑话。统一改写成 auth.wrong_password（"主密码错误"），
+    // 与 unlockStandalone 分支的既有语义对齐（auth.ts L562）。原始错误进 console 留档。
+    let masterKey: Uint8Array;
+    try {
+      masterKey = await unwrapKey(pw.kek, r.wrappedMasterKey);
+    } catch (err) {
+      console.warn('[unlock] unwrapKey failed:', (err as Error)?.message ?? err);
+      throw new Error(i18n.t('auth.wrong_password'));
+    }
 
     // 密码解锁成功后，刷新 keychain 中的 masterKey 缓存
     await cacheMasterKeyForBiometric(masterKey);

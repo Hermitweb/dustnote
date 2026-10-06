@@ -251,6 +251,13 @@ const RESIDUAL_ALLOW = [
   'scripts/compose-ports.mjs', // 端口冲突判定的由来 = 2.5.47 双绑
   'scripts/compose-ports.test.mjs', // 同上（测试名里写着那次事故）
   'scripts/check-compose-ports.mjs', // 同上（门禁注释）
+  /*
+   * 2026-10-03（2.5.48 首次上传实锤 WXSS 通配 `*` 被微信服务端拒收）新增，
+   * 与上面同源：注释与测试名里的 v2.5.48 讲的是"那次事故"、不是在声明当前版本。
+   */
+  '.github/workflows/release.yml', // 注释：v2.5.48 发版 CI 里 gradle 发行包改走官方源
+  'miniprogram/src/app.scss', // .motion-flat 令牌清零的动机 = 2.5.48 上传实锤
+  'miniprogram/src/wxss-compat.test.ts', // 测试名里写着"2.5.48 上传实录的四种事故形态"
 ];
 if (!dryRun) {
   // execFileSync + 参数数组：命令内容不再经过 shell，OLD 也就无从"越狱"

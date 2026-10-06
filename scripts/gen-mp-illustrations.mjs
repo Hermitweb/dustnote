@@ -36,7 +36,10 @@ function el(n) {
     case 'l':
       return `<line x1="${n.x1}" y1="${n.y1}" x2="${n.x2}" y2="${n.y2}" stroke="#000" stroke-opacity="${o}" stroke-width="${w}"${dash}/>`;
     case 'r':
-      return `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="${n.rx ?? 0}" stroke="#000" stroke-opacity="${o}" stroke-width="${w}"${dash}/>`;
+      // Bug 修（同 web Bug #5：灰椭圆色块）：rect 的 n.w 是**宽度**、不是笔宽；
+      // 上面 `const w = n.w ?? ILL_STROKE` 只在 p/l/c 语义正确。若沿用，一个
+      // w:26 的卡片会被 26px 粗的描边糊死，遮罩展开就是纯色块。给 rect 钉回固定笔宽。
+      return `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="${n.rx ?? 0}" stroke="#000" stroke-opacity="${o}" stroke-width="${ILL_STROKE}"${dash}/>`;
     case 'c':
       return n.f
         ? `<circle cx="${n.cx}" cy="${n.cy}" r="${n.r}" fill="#000" fill-opacity="${o}"/>`
