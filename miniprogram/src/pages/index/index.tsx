@@ -114,6 +114,12 @@ function IndexBody() {
     Record<string, { title: string; content: string; tags?: string[] }>
   >({});
   const [searchQuery, setSearchQuery] = useState('');
+  /** 清除按钮递增：重挂载原生 Input——聚焦态下 weapp 对受控 value 置空的回显不可靠 */
+  const [clearEpoch, setClearEpoch] = useState(0);
+  const clearSearch = () => {
+    setSearchQuery('');
+    setClearEpoch((e) => e + 1);
+  };
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const searchIndexRef = useRef(new SearchIndex());
   const [pickSheet, setPickSheet] = useState<Parameters<typeof PickSheet>[0] | null>(null);
@@ -817,17 +823,20 @@ function IndexBody() {
 
         {!selecting && (
           <View className="search-box">
-            <FInput
-              className="search-input"
-              placeholder={t('index.search_placeholder')}
-              value={searchQuery}
-              onInput={(e) => setSearchQuery((e.detail as { value: string }).value)}
-            />
-            {searchQuery ? (
-              <Text className="search-clear" onClick={() => setSearchQuery('')}>
-                <Icon name="close" size={16} />
-              </Text>
-            ) : null}
+            <View className="search-field">
+              <FInput
+                key={clearEpoch}
+                className="search-input"
+                placeholder={t('index.search_placeholder')}
+                value={searchQuery}
+                onInput={(e) => setSearchQuery((e.detail as { value: string }).value)}
+              />
+              {searchQuery ? (
+                <Text className="search-clear" onClick={clearSearch}>
+                  <Icon name="close" size={16} />
+                </Text>
+              ) : null}
+            </View>
           </View>
         )}
 

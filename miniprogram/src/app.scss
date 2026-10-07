@@ -1209,25 +1209,33 @@ page {
   display: flex;
   align-items: center;
 }
-.search-input {
+/* 胶囊外壳+flex 兄弟节点的清除按钮：× 绝不能绝对定位压在原生 Input 上——
+   输入聚焦态原生层会吃掉重叠区域的点击，用户点 × 没反应（2026-10-07 实锤） */
+.search-field {
   flex: 1;
+  display: flex;
+  align-items: center;
   background: var(--bg-sunken);
   border: 1rpx solid var(--border);
   border-radius: var(--radius-pill);
+  padding: 0 12rpx 0 28rpx;
+}
+.search-input {
+  flex: 1;
   /* 固定高度 + 同值行高：小程序原生 Input 不设高度时文字会垂直错位（与 .input 同款）。
      高度/字号对齐安卓端搜索框（NotesListScreen searchInput：padding 10dp ≈ 76rpx 总高） */
   height: 76rpx;
   line-height: 76rpx;
-  padding: 0 28rpx;
+  padding: 0;
   font-size: 28rpx;
   color: var(--fg);
-  box-sizing: border-box;
+  background: transparent;
+  border: none;
   caret-color: var(--primary-strong);
 }
 .search-clear {
-  position: absolute;
-  right: 40rpx;
-  padding: 8rpx;
+  flex-shrink: 0;
+  padding: 12rpx;
   color: var(--fg-muted);
   font-size: 24rpx;
 }
