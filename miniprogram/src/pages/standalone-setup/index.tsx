@@ -22,6 +22,7 @@ import Taro from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
+import { errorText } from '../../lib/error-text';
 
 type Strength = { label: string; level: 'weak' | 'medium' | 'strong'; width: number };
 
@@ -75,7 +76,7 @@ export default function StandaloneSetup() {
       });
     } catch (err) {
       Taro.hideLoading();
-      const msg = err instanceof Error ? err.message : t('standalone_setup.failed');
+      const msg = errorText(err);
       Taro.showToast({ title: msg, icon: 'none' });
     } finally {
       setSubmitting(false);

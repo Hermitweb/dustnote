@@ -50,6 +50,8 @@ export function UnlockScreen() {
     try {
       await unlock(password, showTotp ? totpCode : undefined);
     } catch (err) {
+      // error-text-scope: classifier  // 原始文案仅用于「两步验证码」老服务端兜底判定，
+      // 展示走 errorText（见下方弹窗）
       const msg = (err as Error).message;
       // 技术债清理：改用服务端错误码判定（此前字符串硬匹配 'totp_required'
       // 或中文文案——服务端改文案即静默失效）；未知码仍回退文案匹配以兼容

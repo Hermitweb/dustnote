@@ -42,6 +42,7 @@ export async function startVoice(h: VoiceHandlers): Promise<boolean> {
       error?: { code?: string; message?: string };
     }) => {
       active = false;
+      // error-text-scope: payload  // RN 语音库错误原文（network/permission 枚举类），非服务端异常
       handlers?.onError(e?.message || e?.error?.message || e?.error?.code || '语音识别失败');
       // 错误路径不保证再发 END:确保监听态复位(审计 M3)
       handlers?.onEnd();

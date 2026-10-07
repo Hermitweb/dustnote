@@ -59,6 +59,7 @@ import {
 import { VoiceInputButton } from './VoiceInputButton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { authedFetch, shareBase } from '../lib/store-helpers';
+import { errorText } from '../lib/error-text';
 
 /** 构造绝对 API 基址（Tauri 桌面端必须用绝对地址，详见 store.ts 注释） */
 function shareApiBase(): string {
@@ -198,7 +199,7 @@ export function Editor() {
     if (!name) return;
     saveAsTemplate(name, { title: plain.title, content: plain.content, tags: plain.tags })
       .then(() => toast.success(t('templates.save_success')))
-      .catch((err: Error) => toast.error(t('templates.save_fail', { reason: err.message })));
+      .catch((err: Error) => toast.error(t('templates.save_fail', { reason: errorText(err) })));
   }, [plain, saveAsTemplate, t]);
 
   // F6：记录「本地 title/content 属于哪条笔记」——用于区分「切笔记」（必须
@@ -258,7 +259,7 @@ export function Editor() {
               textarea.selectionEnd = selectionEnd;
             });
           } catch (err) {
-            toast.error(t('editor.image_insert_fail', { reason: (err as Error).message }));
+            toast.error(t('editor.image_insert_fail', { reason: errorText(err) }));
           }
         }
         return true;
@@ -1120,9 +1121,7 @@ function ShareDialog({
     } catch (err) {
       // 网络异常要有提示（Q2）：try/finally 无 catch 时 void create() 的
       // rejection 成为 unhandledrejection,用户点了按钮毫无反馈
-      toast.error(
-        t('editor.share_fail', { reason: err instanceof Error ? err.message : String(err) })
-      );
+      toast.error(t('editor.share_fail', { reason: errorText(err) }));
     } finally {
       setSubmitting(false);
     }

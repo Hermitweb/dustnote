@@ -261,6 +261,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       // 解锁提交失败自有「无法连接到服务器」弹窗兜底（真机审计 2026-09-24）
       console.warn('[auth] /auth/status failed', e);
       // OBS-R03：网络失败采样进诊断队列（弱网/宕机/证书问题的自动信号源）
+      // error-text-scope: payload  // 诊断信号原文入库，非用户界面直出
       recordNetworkSignal(
         `/auth/status failed: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`
       );

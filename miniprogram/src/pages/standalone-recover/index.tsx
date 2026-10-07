@@ -24,6 +24,7 @@ import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { isValidRecoveryCode } from '@dustnote/shared';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
+import { errorText } from '../../lib/error-text';
 import { Icon } from '../../components/Icon';
 
 type Strength = { label: string; level: 'weak' | 'medium' | 'strong'; width: number };
@@ -80,7 +81,7 @@ export default function StandaloneRecover() {
       });
     } catch (err) {
       Taro.hideLoading();
-      const msg = err instanceof Error ? err.message : t('recover.failed');
+      const msg = errorText(err);
       Taro.showToast({ title: msg, icon: 'none' });
     } finally {
       setSubmitting(false);

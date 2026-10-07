@@ -15,6 +15,7 @@ import { marked } from 'marked';
 import { decryptString, fromBase64Url, isCiphertext } from '@dustnote/shared';
 import { sanitizeHtml } from '../lib/sanitize-html';
 import { replaceMissingImageRefs } from '../lib/image-store';
+import { errorText } from '../lib/error-text';
 import { useModeStore } from '../lib/mode-store';
 
 interface SharePayload {
@@ -131,7 +132,7 @@ export function PublicShareView({ token }: { token: string }) {
           expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : null,
         });
       } catch (err) {
-        setState({ kind: 'error', message: (err as Error).message });
+        setState({ kind: 'error', message: errorText(err) });
       } finally {
         setSubmitting(false);
       }

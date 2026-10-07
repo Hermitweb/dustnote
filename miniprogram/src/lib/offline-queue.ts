@@ -70,6 +70,7 @@ export function isNetworkError(err: unknown): boolean {
   const e = err as { name?: string; status?: number; message?: string };
   if (e.name === 'TypeError') return true;
   if (typeof e.status === 'number' && e.status === 0) return true;
+  // error-text-scope: classifier  // 网络错误关键词判定，决定入队与否；不展示文案
   if (
     typeof e.message === 'string' &&
     /network request failed|network error|fetch failed/i.test(e.message)

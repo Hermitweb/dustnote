@@ -18,6 +18,7 @@ import { getDeviceId } from '../lib/device';
 import { useModeStore } from '../lib/mode-store';
 import type { AppMode } from '@dustnote/shared';
 import { authedFetch } from '../lib/store-helpers';
+import { errorText } from '../lib/error-text';
 import {
   getDiagnosticsEnabled,
   setDiagnosticsEnabled,
@@ -212,7 +213,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       const data = (await r.json()) as { devices: DeviceItem[] };
       setDevices(data.devices);
     } catch (err) {
-      setDevicesError((err as Error).message);
+      setDevicesError(errorText(err));
     } finally {
       setDevicesLoading(false);
     }
@@ -239,7 +240,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       setDevices((prev) => prev.filter((d) => d.id !== id));
       toast.success(t('settings.device_kicked'));
     } catch (err) {
-      toast.error(t('settings.device_kick_fail', { reason: (err as Error).message }));
+      toast.error(t('settings.device_kick_fail', { reason: errorText(err) }));
     }
   };
 
@@ -267,7 +268,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       useStore.getState().lock();
       void useStore.getState().checkStatus();
     } catch (err) {
-      toast.error(t('settings.delete_account_fail', { reason: (err as Error).message }));
+      toast.error(t('settings.delete_account_fail', { reason: errorText(err) }));
     } finally {
       setDeleteBusy(false);
       setDeleteConfirmStep(null);
@@ -295,7 +296,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     } catch (err) {
       setPwMsg({
         ok: false,
-        text: t('settings.password_change_fail', { reason: (err as Error).message }),
+        text: t('settings.password_change_fail', { reason: errorText(err) }),
       });
     } finally {
       setPwBusy(false);
@@ -327,7 +328,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         toast.success(t('settings.mode_switch_success'));
       }
     } catch (err) {
-      setSwitchError((err as Error).message);
+      setSwitchError(errorText(err));
     } finally {
       setSwitchBusy(false);
     }
@@ -388,15 +389,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       setTargetVer(r.targetVersion);
       setUpdateState(r.updateAvailable ? 'available' : 'uptodate');
     } catch (e) {
+      // Tauri 更新插件自报文案（RateLimited/网络类）：非服务端异常，errorText
+      // 无从分桶；展示位是更新面板状态行而非通用错误弹窗——下方两行按 payload 豁免
       const err = e as { kind?: string; message?: string };
       if (err?.kind === 'RateLimited') {
         // GitHub 更新源限流：提示性信息而非错误态（Rust 侧已用缓存回退，
         // 走到这里说明连缓存都没有，属首次安装后的短时间内）
-        setUpdateErr(err?.message ?? String(e));
+        setUpdateErr(err?.message ?? String(e)); // error-text-scope: payload
         setUpdateState('uptodate');
         return;
       }
-      setUpdateErr(err?.message ?? String(e));
+      setUpdateErr(err?.message ?? String(e)); // error-text-scope: payload
       setUpdateState('error');
     }
   }

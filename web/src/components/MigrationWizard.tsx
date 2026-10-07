@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { IconText } from './Icon';
 import { useStore } from '../lib/store';
 import { useModeStore } from '../lib/mode-store';
+import { errorText } from '../lib/error-text';
 import { toast } from '../lib/toast';
 import type { Preferences } from '../lib/store';
 
@@ -105,7 +106,7 @@ export function MigrationWizard({ onClose }: { onClose: () => void }) {
       // 偏好中的主题/语言需要刷新才能完全生效
       setTimeout(() => location.reload(), 800);
     } catch (err) {
-      toast.error(t('migration.import_fail', { reason: (err as Error).message }));
+      toast.error(t('migration.import_fail', { reason: errorText(err) }));
     } finally {
       setImporting(false);
     }

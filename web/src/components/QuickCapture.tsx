@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../lib/store';
 import { toast } from '../lib/toast';
+import { errorText } from '../lib/error-text';
 
 export function QuickCapture({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -60,7 +61,7 @@ export function QuickCapture({ onClose }: { onClose: () => void }) {
       toast.success(t('quick_capture.saved'));
       onClose();
     } catch (err) {
-      toast.error(t('quick_capture.save_fail', { reason: (err as Error).message }));
+      toast.error(t('quick_capture.save_fail', { reason: errorText(err) }));
     } finally {
       setSaving(false);
     }

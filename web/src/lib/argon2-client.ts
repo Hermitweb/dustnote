@@ -35,6 +35,7 @@ function getWorker(): Worker | null {
     };
     worker.onerror = (e) => {
       // Worker 加载失败：清空引用，后续调用走 fallback
+      // error-text-scope: payload  // console 诊断输出，非用户界面
       console.warn('[argon2-worker] Worker error, falling back to main thread:', e.message);
       worker = null;
       // reject 所有 pending

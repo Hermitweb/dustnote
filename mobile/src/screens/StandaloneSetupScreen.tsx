@@ -29,6 +29,7 @@ import logoImage from '../assets/logo.png';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/auth';
 import { useColors } from '../theme';
+import { errorText } from '../lib/error-text';
 import { Icon } from '../components/Icon';
 
 export function StandaloneSetupScreen() {
@@ -88,7 +89,7 @@ export function StandaloneSetupScreen() {
       setRecoveryCode(code);
     } catch (err) {
       console.error('[DustNote] setupStandalone failed:', err);
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = errorText(err);
       Alert.alert(t('auth.setup_failed'), msg);
     } finally {
       setSubmitting(false);

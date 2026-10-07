@@ -16,6 +16,7 @@ import { IconText } from './Icon';
 import JSZip from 'jszip';
 import { useStore } from '../lib/store';
 import { isTauri } from '../lib/platform';
+import { errorText } from '../lib/error-text';
 import { restoreNoteImages } from '../lib/image-store';
 import {
   parseNoteFile,
@@ -107,7 +108,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
           included: true,
         });
       } catch (err) {
-        setError(t('import_export.import_fail', { name: f.name, reason: (err as Error).message }));
+        setError(t('import_export.import_fail', { name: f.name, reason: errorText(err) }));
       }
     }
     setPreview((prev) => [...prev, ...added]);
@@ -171,9 +172,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         await state.updateNote(id, { title: item.title, content: item.content, tags: item.tags });
         ok++;
       } catch (err) {
-        setError(
-          t('import_export.import_fail', { name: item.name, reason: (err as Error).message })
-        );
+        setError(t('import_export.import_fail', { name: item.name, reason: errorText(err) }));
         fail++;
       }
     }
@@ -235,7 +234,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         await printNote(plain.title, exportContent);
         setStatus(t('import_export.print_opened'));
       } catch (err) {
-        setError(t('import_export.print_fail', { reason: (err as Error).message }));
+        setError(t('import_export.print_fail', { reason: errorText(err) }));
         setMode('main');
         return;
       }
@@ -302,7 +301,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         );
       }
     } catch (err) {
-      setError(t('import_export.backup_fail', { reason: (err as Error).message }));
+      setError(t('import_export.backup_fail', { reason: errorText(err) }));
     } finally {
       setMode('main');
     }
@@ -363,7 +362,7 @@ export function ImportExportDialog({ onClose }: { onClose: () => void }) {
         );
       }
     } catch (err) {
-      setError(t('import_export.zip_fail', { reason: (err as Error).message }));
+      setError(t('import_export.zip_fail', { reason: errorText(err) }));
     } finally {
       setMode('main');
     }

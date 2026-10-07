@@ -735,6 +735,7 @@ function IndexBody() {
       try {
         await unlock(unlockPwd, showTotp ? totpCode : undefined);
       } catch (err) {
+        // error-text-scope: classifier  // 原始文案仅用于「两步验证码」老服务端兜底判定，展示走 errorText
         const msg = err instanceof Error ? err.message : '';
         // 开启了两步验证的账号：解锁页追加 6 位验证码输入
         // 技术债清理：错误码优先（不再硬匹配中文文案）

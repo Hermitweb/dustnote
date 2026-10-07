@@ -77,6 +77,7 @@ export function startVoice(cbs: VoiceCallbacks): boolean {
     m.start({ duration: 60_000, lang: 'zh_CN' });
     return true;
   } catch (e) {
+    // error-text-scope: payload  // 本地抛错（环境不支持语音插件），中文原文即用户可见文案
     cbs.onError?.(e instanceof Error ? e.message : '语音插件未就绪');
     return false;
   }
