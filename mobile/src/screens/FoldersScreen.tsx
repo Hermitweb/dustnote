@@ -32,6 +32,7 @@ import { FTextInput } from '../components/FTextInput';
 import { useTranslation } from 'react-i18next';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
+import { errorText } from '../lib/error-text';
 import { useColors } from '../theme';
 import { Icon } from '../components/Icon';
 import type { IconName } from '@dustnote/shared';
@@ -159,7 +160,7 @@ export function FoldersScreen() {
       ]);
       setNewName('');
     } catch (err) {
-      Alert.alert(t('folders.create_failed'), err instanceof Error ? err.message : String(err));
+      Alert.alert(t('folders.create_failed'), errorText(err));
     }
   };
 
@@ -174,7 +175,7 @@ export function FoldersScreen() {
             await repo.deleteFolder(folder.id);
             setFolders((prev) => prev.filter((f) => f.id !== folder.id));
           } catch (err) {
-            Alert.alert(t('folders.delete'), err instanceof Error ? err.message : String(err));
+            Alert.alert(t('folders.delete_failed'), errorText(err));
           }
         },
       },
@@ -207,7 +208,7 @@ export function FoldersScreen() {
       setCreateModal(null);
       setCreateName('');
     } catch (err) {
-      Alert.alert(t('folders.create_failed'), err instanceof Error ? err.message : String(err));
+      Alert.alert(t('folders.create_failed'), errorText(err));
     }
   };
 
@@ -220,7 +221,7 @@ export function FoldersScreen() {
       setFolders((prev) => prev.map((f) => (f.id === renaming.id ? { ...f, name } : f)));
       setRenaming(null);
     } catch (err) {
-      Alert.alert(t('folders.rename_failed'), err instanceof Error ? err.message : String(err));
+      Alert.alert(t('folders.rename_failed'), errorText(err));
     }
   };
 
@@ -247,7 +248,7 @@ export function FoldersScreen() {
       );
       setMoving(null);
     } catch (err) {
-      Alert.alert(t('folders.move_failed'), err instanceof Error ? err.message : String(err));
+      Alert.alert(t('folders.move_failed'), errorText(err));
     }
   };
 
