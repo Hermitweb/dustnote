@@ -1214,8 +1214,12 @@ page {
   background: var(--bg-sunken);
   border: 1rpx solid var(--border);
   border-radius: var(--radius-pill);
-  padding: 14rpx 28rpx;
-  font-size: 26rpx;
+  /* 固定高度 + 同值行高：小程序原生 Input 不设高度时文字会垂直错位（与 .input 同款）。
+     高度/字号对齐安卓端搜索框（NotesListScreen searchInput：padding 10dp ≈ 76rpx 总高） */
+  height: 76rpx;
+  line-height: 76rpx;
+  padding: 0 28rpx;
+  font-size: 28rpx;
   color: var(--fg);
   box-sizing: border-box;
   caret-color: var(--primary-strong);
