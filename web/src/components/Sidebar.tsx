@@ -134,6 +134,34 @@ export function Sidebar() {
     Array.from(notes.values())
       .filter((n) => !n.deletedAt && n.folderId === folderId)
       .sort((a, b) => b.serverUpdatedAt.localeCompare(a.serverUpdatedAt));
+  // 树内笔记叶子：展开文件夹时直接平铺该夹笔记——两栏改造一度把笔记只留在
+  // 右侧列表，用户明确要求恢复"展开即见笔记"（2026-10-07）
+  const selectedNoteId = useStore((s) => s.selectedNoteId);
+  const renderNoteLeaf = (n: { id: string; isPinned?: boolean }, indent: string) => {
+    const plain = notesPlain.get(n.id);
+    const active = selectedNoteId === n.id;
+    return (
+      <button
+        key={n.id}
+        onClick={() => selectNote(n.id)}
+        aria-label={plain?.title}
+        data-rail-label={plain?.title}
+        className={`flex h-7 min-w-0 items-center gap-1.5 rounded text-left text-sm transition-colors ${indent} ${
+          active
+            ? 'bg-accent-soft/40 font-medium text-accent-text '
+            : 'text-surface-fg hover:bg-surface-bg'
+        }`}
+      >
+        <Icon name="note" size={14} className="flex-none text-text-tertiary" />
+        <span className="rail-label truncate">
+          {plain ? plain.title || t('shares.no_title') : '...'}
+        </span>
+        {n.isPinned && (
+          <Icon name="pin" size={14} className="ml-auto flex-none text-text-tertiary" />
+        )}
+      </button>
+    );
+  };
   // 顶层文件夹（用户自建，无预设分支）
   const topFolders = folders.filter((f) => !f.parentId);
   // 右键菜单
@@ -600,6 +628,7 @@ export function Sidebar() {
                     {/* 展开：直接笔记（平铺）+ 二级子文件夹 */}
                     {expanded && (
                       <>
+                        {fNotes.map((n) => renderNoteLeaf(n, 'ml-1 pl-[26px]'))}
                         {children.map((c) => {
                           const subNotes = directNotes(c.id);
                           const subExpanded = folderExpanded.has(c.id);
@@ -661,6 +690,9 @@ export function Sidebar() {
                                   )}
                                 </button>
                               </div>
+                              {/* 子文件夹展开：同样平铺其直接笔记（二级为最深层，无三层） */}
+                              {subExpanded &&
+                                subNotes.map((n) => renderNoteLeaf(n, 'ml-1 pl-[38px]'))}
                             </div>
                           );
                         })}
