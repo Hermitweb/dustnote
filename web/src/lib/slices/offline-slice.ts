@@ -70,6 +70,7 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
 
       let hadConflict = false;
       let rateLimited = false;
+      let authHalt = false;
       for (const op of ops) {
         try {
           await replayOp(op);
@@ -88,11 +89,14 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
               await remove(op.id);
               hadConflict = true;
             } else if (status >= 400 && status < 500) {
-              // 401/403 = 鉴权问题(刷新失败/被踢):保留待解锁后重放,不丢数据
+              // C-H（2026-10 审计）：401/403 是**账号级**状态而非 op 级缺陷。
+              // 此前 bumpRetries 每轮 flush 烧一次重试预算，到 MAX_RETRIES 后
+              // op 被静默删除——与注释「保留待解锁后重放,不丢数据」自相矛盾。
+              // 对齐 M3(429) 的正确模式：不消耗重试预算,中止本轮,队列完整保留,
+              // 解锁/重新登录后的下一次 flush 自然重放。
               if (status === 401 || status === 403) {
-                await bumpRetries(op.id);
-                const delayMs = await getRetryDelayForOp(op.id);
-                await new Promise((resolve) => setTimeout(resolve, delayMs));
+                authHalt = true;
+                break;
               } else if (status === 429) {
                 // M3：写限流不消耗重试预算,直接中止本轮——队列完整保留。
                 // 此前 bumpRetries 到阈值后 op 被静默删除(C1 同类问题只是被
@@ -101,10 +105,17 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
                 rateLimited = true;
                 break;
               } else {
+                // 其余 4xx（400/404/422…）：视为 op 级永久失败（目标不存在/
+                // 请求体坏）。保留 bumpRetries 的有界放弃路径,但不再无日志
+                // 静默删除：告警后移除,避免坏 op 卡死整个队列。
+                console.warn('[offline] dropping op on client error', op.path, op.method, status);
                 await remove(op.id);
                 hadConflict = true;
               }
             } else {
+              // 5xx：服务端瞬时故障,按重试预算退避;达上限后 bumpRetries 移除
+              // 并留日志（与 4xx 静默删除区分——5xx 达限说明确实救不回来）。
+              console.warn('[offline] server error on op', op.path, op.method, status);
               await bumpRetries(op.id);
               const delayMs = await getRetryDelayForOp(op.id);
               await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -112,16 +123,22 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
           } else if (err instanceof TypeError) {
             break;
           } else {
-            await remove(op.id);
+            // 非 ApiException 的未知错误：不再静默 remove（丢数据风险）。
+            // 走与 5xx 相同的有界重试路径——最坏 MAX_RETRIES 轮后放弃,且有日志可查。
+            console.warn('[offline] unknown error replaying op', op.path, op.method, err);
+            await bumpRetries(op.id);
+            const delayMs = await getRetryDelayForOp(op.id);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
         }
       }
 
       await get().refreshPendingCount();
 
-      // 限流中止时不做 loadAll：队列原样保留、无状态需要对账,而此时整体
-      // 替换 notesPlain 反而会覆盖编辑器防抖窗口内的未保存输入(F6)
-      if (rateLimited) {
+      // 限流/鉴权中止时不做 loadAll：队列原样保留、无状态需要对账,而此时整体
+      // 替换 notesPlain 反而会覆盖编辑器防抖窗口内的未保存输入(F6)。
+      // authHalt 同样保留队列:解锁后下一次 flush 自然重放,不丢数据。
+      if (rateLimited || authHalt) {
         set({ isOnline: false } as Partial<StoreState>);
         return;
       }
