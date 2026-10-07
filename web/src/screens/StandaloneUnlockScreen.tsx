@@ -68,8 +68,9 @@ export function StandaloneUnlockScreen({ onRecover }: Props) {
     <div className="flex h-full items-center justify-center bg-surface-bg p-6">
       <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent-soft/60 text-3xl">
-            <Icon name="unlock" size={40} className="mx-auto mb-4 text-accent-text" />
+          {/* 品牌位 🔓 是用户明确要求保留的原版识别符（2026-10-07），emoji 门禁对该文件豁免 */}
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft/60 text-3xl">
+            🔓
           </div>
           <h1 className="text-2xl font-bold text-surface-fg">{t('auth.unlock_title')}</h1>
           <p className="mt-2 text-sm text-surface-muted">{t('auth.unlock_subtitle')}</p>

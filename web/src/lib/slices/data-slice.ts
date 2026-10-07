@@ -781,7 +781,16 @@ export const createDataSlice: StateCreator<StoreState, [], [], DataSlice> = (set
     else set({ searchQuery: q } as Partial<StoreState>);
   },
   selectFolder(id: string | null): void {
-    set({ selectedFolderId: id, viewMode: 'all', selectedTag: null } as Partial<StoreState>);
+    // 切文件夹 = 导航到该文件夹的列表：必须同时关掉详情。
+    // 不清 selectedNoteId 时 resolveStage 仍解析为 detail——用户点文件夹后看到的
+    // 还是上一条笔记的编辑器（甚至不在该文件夹里），文件夹的列表永远出不来
+    // （2026-10-07 用户实录）。与 setViewMode 清 selectedNoteId 同口径。
+    set({
+      selectedFolderId: id,
+      viewMode: 'all',
+      selectedTag: null,
+      selectedNoteId: null,
+    } as Partial<StoreState>);
   },
   setViewMode(mode: ViewMode): void {
     set({
