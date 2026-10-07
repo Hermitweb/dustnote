@@ -53,7 +53,7 @@ export default function Folders() {
   /**
    * Bug 修（返回本页/后台事件触发 load 时列表被拽回顶、刷新圈卡死不收——weapp 的
    * refresherTriggered=true 会强制撑开下拉头，绑在共享 loading 上时任何后台 load
-   * 一翻就触发；与首页 v2.5.49 同源同修）。refreshing 只由用户主动下拉翻转；
+   * 一翻就触发；与首页同源同修（2026-10-07 批次））。refreshing 只由用户主动下拉翻转；
    * load 加尾随补跑锁：并发时记一笔、前一次跑完补跑一次，操作后的重载
    * 不会被并发窗口吞掉。
    */
