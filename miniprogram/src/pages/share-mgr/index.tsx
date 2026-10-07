@@ -2,7 +2,7 @@
  * 分享管理页 — 支持多选批量吊销
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
@@ -72,7 +72,22 @@ export default function Shares() {
     Taro.setNavigationBarTitle({ title: t('app.name') });
   }, [lang]);
 
+  /**
+   * Bug 修（返回本页/后台事件触发 load 时列表被拽回顶、刷新圈卡死不收——weapp 的
+   * refresherTriggered=true 会强制撑开下拉头，绑在共享 loading 上时任何后台 load
+   * 一翻就触发；与首页 v2.5.49 同源同修）。refreshing 只由用户主动下拉翻转；
+   * load 加尾随补跑锁：并发时记一笔、前一次跑完补跑一次，操作后的重载
+   * 不会被并发窗口吞掉。
+   */
+  const [refreshing, setRefreshing] = useState(false);
+  const loadInFlightRef = useRef(false);
+  const loadQueuedRef = useRef(false);
   const load = useCallback(async () => {
+    if (loadInFlightRef.current) {
+      loadQueuedRef.current = true;
+      return;
+    }
+    loadInFlightRef.current = true;
     setLoading(true);
     try {
       const r = await getApi().get<{ shares: ShareItem[] }>('/shares');
@@ -122,9 +137,22 @@ export default function Shares() {
         duration: 3000,
       });
     } finally {
+      loadInFlightRef.current = false;
       setLoading(false);
+      if (loadQueuedRef.current) {
+        loadQueuedRef.current = false;
+        void load();
+      }
     }
   }, []);
+  const onPullRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -225,8 +253,8 @@ export default function Shares() {
           scrollY
           className="flex-1"
           refresherEnabled
-          refresherTriggered={loading}
-          onRefresherRefresh={() => void load()}
+          refresherTriggered={refreshing}
+          onRefresherRefresh={() => void onPullRefresh()}
         >
           {loading && <View className="loading">{t('common.loading')}</View>}
           {!loading && shares.length === 0 && (

@@ -4,7 +4,7 @@
  * 功能：列出已软删笔记 / 恢复 / 永久删除 / 清空回收站
  * 复用 index 页 note-row 样式
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
@@ -39,7 +39,22 @@ export default function Trash() {
     Taro.setNavigationBarTitle({ title: t('app.name') });
   }, [lang]);
 
+  /**
+   * Bug 修（返回本页/后台事件触发 load 时列表被拽回顶、刷新圈卡死不收——weapp 的
+   * refresherTriggered=true 会强制撑开下拉头，绑在共享 loading 上时任何后台 load
+   * 一翻就触发；与首页 v2.5.49 同源同修）。refreshing 只由用户主动下拉翻转；
+   * load 加尾随补跑锁：并发时记一笔、前一次跑完补跑一次——恢复/删除/清空
+   * 都靠 await load() 看到结果，不能被并发窗口吞掉。
+   */
+  const [refreshing, setRefreshing] = useState(false);
+  const loadInFlightRef = useRef(false);
+  const loadQueuedRef = useRef(false);
   const load = async () => {
+    if (loadInFlightRef.current) {
+      loadQueuedRef.current = true;
+      return;
+    }
+    loadInFlightRef.current = true;
     setLoading(true);
     try {
       const snapshot = await getRepo().loadAll();
@@ -63,7 +78,20 @@ export default function Trash() {
     } catch {
       Taro.showToast({ title: t('common.load_failed'), icon: 'none' });
     } finally {
+      loadInFlightRef.current = false;
       setLoading(false);
+      if (loadQueuedRef.current) {
+        loadQueuedRef.current = false;
+        void load();
+      }
+    }
+  };
+  const onPullRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -164,8 +192,8 @@ export default function Trash() {
           scrollY
           className="flex-1"
           refresherEnabled
-          refresherTriggered={loading}
-          onRefresherRefresh={() => void load()}
+          refresherTriggered={refreshing}
+          onRefresherRefresh={() => void onPullRefresh()}
         >
           {loading && <View className="loading">{t('common.loading')}</View>}
           {!loading && notes.length === 0 && <StatePlate illust="plain" title={t('trash.empty')} />}

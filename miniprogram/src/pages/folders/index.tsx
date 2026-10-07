@@ -10,7 +10,7 @@
  * 范式规范见 docs/note-system-folder-structure-spec.md
  * 复用 settings 页 topbar + settings-row 样式
  */
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, Input, ScrollView } from '@tarojs/components';
 import { FInput } from '../../components/FInput';
 import Taro, { useDidShow } from '@tarojs/taro';
@@ -50,7 +50,22 @@ export default function Folders() {
   const [renameTarget, setRenameTarget] = useState<Folder | null>(null);
   const [renameText, setRenameText] = useState('');
 
+  /**
+   * Bug 修（返回本页/后台事件触发 load 时列表被拽回顶、刷新圈卡死不收——weapp 的
+   * refresherTriggered=true 会强制撑开下拉头，绑在共享 loading 上时任何后台 load
+   * 一翻就触发；与首页 v2.5.49 同源同修）。refreshing 只由用户主动下拉翻转；
+   * load 加尾随补跑锁：并发时记一笔、前一次跑完补跑一次，操作后的重载
+   * 不会被并发窗口吞掉。
+   */
+  const [refreshing, setRefreshing] = useState(false);
+  const loadInFlightRef = useRef(false);
+  const loadQueuedRef = useRef(false);
   const load = async () => {
+    if (loadInFlightRef.current) {
+      loadQueuedRef.current = true;
+      return;
+    }
+    loadInFlightRef.current = true;
     setLoading(true);
     try {
       const snapshot = await getRepo().loadAll();
@@ -58,12 +73,27 @@ export default function Folders() {
     } catch {
       Taro.showToast({ title: t('common.load_failed'), icon: 'none' });
     } finally {
+      loadInFlightRef.current = false;
       setLoading(false);
+      if (loadQueuedRef.current) {
+        loadQueuedRef.current = false;
+        void load();
+      }
+    }
+  };
+  const onPullRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
     }
   };
 
   React.useEffect(() => {
     void load();
+    // load 是每次渲染的新函数，进依赖会无限重拉（与 trash 页同款处理）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // 离线队列重放成功后立即校正
   React.useEffect(() => {
@@ -332,8 +362,8 @@ export default function Folders() {
               scrollY
               className="flex-1"
               refresherEnabled
-              refresherTriggered={loading}
-              onRefresherRefresh={() => void load()}
+              refresherTriggered={refreshing}
+              onRefresherRefresh={() => void onPullRefresh()}
             >
               {loading && <View className="loading">{t('common.loading')}</View>}
               {!loading && folders.length === 0 && (

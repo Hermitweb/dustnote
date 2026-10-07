@@ -133,6 +133,7 @@ function IndexBody() {
   const [refreshing, setRefreshing] = useState(false);
   /** load() 重入锁：防止并发 loadAll() 把 loading/refreshing 状态撕成不一致 */
   const loadInFlightRef = useRef(false);
+  const loadQueuedRef = useRef(false);
   const [loadError, setLoadError] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -221,8 +222,12 @@ function IndexBody() {
 
   const load = async () => {
     // Bug 修：并发 load() 会把 loading 撕成"一个 finally 关掉、另一个还开着"的
-    // 错位状态；重入直接跳过，等下一次事件即可（list 视图最终一致性，跳一次不丢数据）。
-    if (loadInFlightRef.current) return;
+    // 错位状态。尾随补跑锁：并发时记一笔、前一次跑完补跑——操作后的
+    // await load()（收藏/置顶/批量刷新）不会被并发窗口吞掉而看不到刚做的修改。
+    if (loadInFlightRef.current) {
+      loadQueuedRef.current = true;
+      return;
+    }
     loadInFlightRef.current = true;
     setLoading(true);
     try {
@@ -285,8 +290,12 @@ function IndexBody() {
       Taro.showToast({ title: t('common.load_failed'), icon: 'none' });
       setLoadError(true);
     } finally {
-      setLoading(false);
       loadInFlightRef.current = false;
+      setLoading(false);
+      if (loadQueuedRef.current) {
+        loadQueuedRef.current = false;
+        void load();
+      }
     }
   };
 
