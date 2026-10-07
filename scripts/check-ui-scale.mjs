@@ -188,14 +188,6 @@ export const EMOJI_CEILING = 0;
 export const CONTENT_ALLOWLIST = [
   { file: 'web/src/lib/slices/data-slice.ts', reason: '欢迎笔记正文（教程文字，用户可编辑）' },
   { file: 'shared/src/templates.ts', reason: '预置模板的正文内容（如书评模板的评分星）' },
-  {
-    file: 'web/src/screens/UnlockScreen.tsx',
-    reason: '解锁屏品牌位 🔓：用户明确保留的原版识别符（2026-10-07），非功能图标',
-  },
-  {
-    file: 'web/src/screens/StandaloneUnlockScreen.tsx',
-    reason: '单机解锁屏同一品牌位，与 UnlockScreen 保持一致',
-  },
 ];
 
 /*

@@ -6,6 +6,7 @@ import { isTauri } from '../lib/platform';
 import { graceRemainingSec } from '../lib/grace-unlock';
 import { errorText } from '../lib/error-text';
 import { Icon } from '../components/Icon';
+import { Logo } from '../components/Logo';
 
 export function UnlockScreen() {
   const { t } = useTranslation();
@@ -78,9 +79,9 @@ export function UnlockScreen() {
     <div className="flex h-full items-center justify-center bg-surface-bg p-6">
       <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-8 shadow-xl">
         <div className="mb-6 text-center">
-          {/* 品牌位 🔓 是用户明确要求保留的原版识别符（2026-10-07），emoji 门禁对该文件豁免 */}
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft/60 text-3xl">
-            🔓
+          {/* 品牌位放 DustNote logo（logo.png，失败自动回退图标）——用户要求解锁界面用 logo */}
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft/60">
+            <Logo className="h-9 w-9" />
           </div>
           {mode === 'unlock' ? (
             <>

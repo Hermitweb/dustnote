@@ -59,6 +59,35 @@ body {
 .paper-sheet {
   --mn-paper-pad: clamp(20px, 3vw, 40px);
 }
+/*
+ * 正文行长随显示器放宽（用户反馈：宽屏内容区左右空白过大＝没做显示器适配）。
+ * 两条线分开处理：
+ * ① 分屏态 (.paper-sheet--split) = 默认视图，两栏共享宽度、每栏只有一半，天然
+ *    不会一行太长——所以让它按屏幕百分比铺满 (88%)，两侧各留 6% 窄边即可，
+ *    显示器越大纸张越大，彻底消除"没适配"。tokens.css 里它的 max-width 是写死的
+ *    calc(92ch+…)、不吃 measure，必须在此直接覆写百分比。
+ * ② 单栏态 (编辑/预览) 正文是整幅的，行长仍受可读性上限约束，只能温和抬高
+ *    --mn-measure（每屏 +约 16ch），再宽就成「一行 130 字＝扫描不是阅读」。
+ * 只动 web：窄屏 (≤1023px) 由 tokens.css 铺满规则接管。
+ */
+@media (min-width: 1440px) {
+  :root {
+    --mn-measure: 96ch;
+  }
+  .paper-sheet--split {
+    max-width: 88%;
+  }
+}
+@media (min-width: 1920px) {
+  :root {
+    --mn-measure: 112ch;
+  }
+}
+@media (min-width: 2560px) {
+  :root {
+    --mn-measure: 128ch;
+  }
+}
 .prose p {
   margin: 0.5em 0;
 }

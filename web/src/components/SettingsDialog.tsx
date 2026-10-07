@@ -434,7 +434,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         aria-labelledby="settings-dialog-title"
       >
         <div
-          className="w-full max-w-md rounded-xl bg-surface-card p-6 shadow-2xl"
+          className="w-full max-w-md rounded-xl bg-surface-card p-6 shadow-2xl md:max-w-lg lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mb-4 flex items-center justify-between">
