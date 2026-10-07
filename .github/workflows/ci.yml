@@ -50,6 +50,10 @@ jobs:
         # 这些 .mjs 不属于任何 workspace 包，turbo 的 lint 从来看不到它们：
         # execSync/execFileSync 这类未定义引用因此潜伏到发版当天才炸（2026-09-27 实测复现）
         run: pnpm lint:scripts
+      - name: Format check (same gate as local pnpm verify)
+        # CONTRIBUTING 承诺「verify 与 CI lint job 是同一套命令」，此前缺这一步：
+        # 格式漂移能过 CI 却在本地 verify 变红（2026-10-08 工程化整合补齐）
+        run: pnpm format:check
       - name: Verify miniprogram theme tokens match shared seeds
         run: pnpm --filter @dustnote/shared build && node scripts/gen-mp-tokens.mjs --check
       - name: Test alerting bridge (P0-2 last hop)

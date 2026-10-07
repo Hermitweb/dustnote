@@ -7,6 +7,10 @@ yarn.lock
 node_modules/
 .pnpm-store/
 
+# Agent 本地工件（workflow 草稿/运行产物，不入库也不该被格式门禁扫到——
+# prettier 扫的是文件系统而非 git，见 .gitignore 的 Agent tool artifacts 块）
+.zcode/
+
 # Build outputs
 dist/
 build/
