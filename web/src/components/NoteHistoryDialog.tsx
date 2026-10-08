@@ -20,6 +20,7 @@ import { sanitizeHtml } from '../lib/sanitize-html';
 import { restoreNoteImages, replaceMissingImageRefs } from '../lib/image-store';
 import { ConfirmDialog } from './ConfirmDialog';
 import { authedFetch } from '../lib/store-helpers';
+import { errorText } from '../lib/error-text';
 
 /** 拼接绝对 API 地址（桌面端 webview origin 非服务器，必须用 serverUrl） */
 function apiBase(): string {
@@ -90,7 +91,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
       }
       setVersions(data.versions ?? []);
     } catch (err) {
-      setError(t('history.load_fail', { reason: (err as Error).message }));
+      setError(t('history.load_fail', { reason: errorText(err) }));
     } finally {
       setLoadingList(false);
     }
@@ -148,7 +149,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
         setPreview({ title: plaintext.title, content: displayContent });
       } catch (err) {
         if (seq === requestSeqRef.current) {
-          setError(t('history.load_fail', { reason: (err as Error).message }));
+          setError(t('history.load_fail', { reason: errorText(err) }));
         }
       } finally {
         if (seq === requestSeqRef.current) {
@@ -189,7 +190,7 @@ export function NoteHistoryDialog({ noteId, currentVersion, onClose }: NoteHisto
       // 刷新版本列表（恢复操作本身也会产生一个新快照）
       refreshTimerRef.current = setTimeout(() => void fetchVersions(), 500);
     } catch (err) {
-      setError(t('history.restore_fail', { reason: (err as Error).message }));
+      setError(t('history.restore_fail', { reason: errorText(err) }));
     } finally {
       setRestoring(false);
     }

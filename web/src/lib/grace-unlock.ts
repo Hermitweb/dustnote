@@ -91,6 +91,18 @@ export function graceRemainingSec(): number {
 }
 
 /**
+ * 只读宽限期缓存（不消费）：供「失败需可重试」的流程使用。
+ * 调用方确认后续动作可成功（或决定永久放弃）时再 consumeGraceUnlock()。
+ */
+export function peekGraceUnlockData(): {
+  masterKey: Uint8Array;
+  wrappedMasterKey: Ciphertext | null;
+} | null {
+  if (!peekGraceUnlock()) return null;
+  return { masterKey: cache!.masterKey, wrappedMasterKey: cache!.wrappedMasterKey };
+}
+
+/**
  * 消费宽限期缓存：成功返回 masterKey 副本，失败返回 null
  * 注意：调用后即清空，确保一次性使用
  */

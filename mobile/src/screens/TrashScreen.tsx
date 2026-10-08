@@ -16,7 +16,7 @@
  * 解密复用 NotesListScreen 的 envelope 解析逻辑
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -32,6 +32,7 @@ import { useAuthStore } from '../state/auth';
 import { useModeStore } from '../lib/mode-store';
 import { createRepository } from '../lib/repository';
 import { decryptNote } from '../lib/envelope';
+import { errorText } from '../lib/error-text';
 import { useColors } from '../theme';
 import { Icon } from '../components/Icon';
 import { StatePlate } from '../components/StatePlate';
@@ -50,6 +51,14 @@ export function TrashScreen() {
   const modeInitialized = useModeStore((s) => s.initialized);
   const [notes, setNotes] = useState<Array<NoteRow & { plain: NotePlaintext | null }>>([]);
   const [refreshing, setRefreshing] = useState(false);
+  // F10 同款（NotesListScreen）：解密循环的世代号——锁屏/卸载/新一轮 load
+  // 顶掉它,循环据此提前退出,避免用已清零的 masterKey 空转、以及对已卸载实例 setState
+  const loadGenRef = useRef(0);
+  useEffect(() => {
+    return () => {
+      loadGenRef.current += 1; // 卸载即让在途循环失效
+    };
+  }, []);
 
   // 创建 Repository（按当前模式分流）
   const repo = useMemo(
@@ -69,9 +78,16 @@ export function TrashScreen() {
     try {
       const snapshot = await repo.loadAll();
       const deleted = snapshot.notes.filter((n) => n.deletedAt);
+      // 本轮的世代号：期间发生锁屏/卸载/新一次 load 则整个循环作废（F10）
+      const gen = ++loadGenRef.current;
+      let stale = false;
       const withPlain: Array<NoteRow & { plain: NotePlaintext | null }> = [];
       let sinceYield = 0;
       for (const n of deleted) {
+        if (loadGenRef.current !== gen) {
+          stale = true;
+          break;
+        }
         let plain: NotePlaintext | null = null;
         if (masterKey) {
           try {
@@ -89,8 +105,15 @@ export function TrashScreen() {
         if (++sinceYield >= 50) {
           sinceYield = 0;
           await new Promise((resolve) => setTimeout(resolve, 0));
+          if (loadGenRef.current !== gen) {
+            stale = true;
+            break;
+          }
         }
       }
+      // 被顶掉的世代：丢弃本轮结果（可能用了已清零的 masterKey 解密,
+      // 或实例已卸载）,由新一轮 load / 卸载清理负责收尾
+      if (stale) return;
       // 按删除时间倒序（serverUpdatedAt 作为近似）
       withPlain.sort((a, b) => b.serverUpdatedAt.localeCompare(a.serverUpdatedAt));
       setNotes(withPlain);
@@ -110,7 +133,7 @@ export function TrashScreen() {
       await repo.restoreNote(id);
       setNotes((prev) => prev.filter((n) => n.id !== id));
     } catch (err) {
-      Alert.alert(t('trash.restore_failed'), err instanceof Error ? err.message : String(err));
+      Alert.alert(t('trash.restore_failed'), errorText(err));
     }
   };
 
@@ -125,7 +148,7 @@ export function TrashScreen() {
             await repo.permanentDeleteNote(id);
             setNotes((prev) => prev.filter((n) => n.id !== id));
           } catch (err) {
-            Alert.alert(t('trash.delete_failed'), err instanceof Error ? err.message : String(err));
+            Alert.alert(t('trash.delete_failed'), errorText(err));
           }
         },
       },
@@ -145,7 +168,7 @@ export function TrashScreen() {
             await repo.emptyTrash();
             setNotes([]);
           } catch (err) {
-            Alert.alert(t('trash.empty_failed'), err instanceof Error ? err.message : String(err));
+            Alert.alert(t('trash.empty_failed'), errorText(err));
             void load();
           }
         },

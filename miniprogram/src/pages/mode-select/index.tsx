@@ -29,6 +29,7 @@ import { ApiClient } from '@dustnote/shared';
 import { taroFetch } from '../../lib/taro-fetch';
 import { APP_VERSION, useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
+import { errorText } from '../../lib/error-text';
 import { isPrivateHost } from '../../lib/net-utils';
 import { Icon } from '../../components/Icon';
 
@@ -90,6 +91,7 @@ async function testServerConnection(serverUrl: string): Promise<{ ok: boolean; m
       message: r.initialized ? t('mode_select.ok_initialized') : t('mode_select.ok_uninitialized'),
     };
   } catch (err) {
+    // error-text-scope: classifier  // 原始文案只用于 timeout/network 关键词归桶，展示走下方 t() 桶文案
     const msg = err instanceof Error ? err.message : t('mode_select.err_connect');
     if (msg?.includes('abort') || msg?.includes('timeout')) {
       return { ok: false, message: t('mode_select.err_timeout') };
@@ -97,7 +99,7 @@ async function testServerConnection(serverUrl: string): Promise<{ ok: boolean; m
     if (msg?.includes('fetch') || msg?.includes('network') || msg?.includes('Network')) {
       return { ok: false, message: t('mode_select.err_network') };
     }
-    return { ok: false, message: msg };
+    return { ok: false, message: errorText(err) };
   }
 }
 

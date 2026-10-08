@@ -81,6 +81,7 @@ describe('RN 插画映射 · 不依赖继承', () => {
   it('viewBox 与两档画幅都拼得出来（比例差走 preserveAspectRatio 的留白，不是拉伸）', () => {
     const [vw, vh] = ILL_VIEW_BOX.split(' ').slice(2).map(Number);
     expect(vw).toBeGreaterThan(0);
+    expect(vh).toBeGreaterThan(0);
     for (const d of Object.values(ILL_SIZES)) {
       expect(d.w).toBeGreaterThan(0);
       expect(d.h).toBeGreaterThan(0);

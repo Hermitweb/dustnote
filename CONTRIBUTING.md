@@ -18,6 +18,10 @@ pnpm verify     # 本地跑完 CI 的全部门禁，提交前必须绿
 `pnpm verify` 与 CI 的 lint job 是同一套命令，不是「本地宽松、CI 严格」。
 若你发现某条门禁只在 CI 里跑、本地没有，那是漏洞：补进 `verify`，并写进下面的门禁表。
 
+E2E 用根脚本跑：`pnpm test:e2e`（默认配置，CI 同款）；本机浏览器走
+`pnpm test:e2e:local`（`playwright.local.config.ts` 已被 gitignore，不进 CI）。
+发版升版本用 `pnpm bump`（= `node scripts/bump-version.mjs`，同步 26 处版本位点并自检残留）。
+
 ## 门禁总表（以及它们各自的那次事故）
 
 | 命令                    | 拦的是什么                                                            | 由来                                                                                                                                                      |
@@ -39,6 +43,7 @@ pnpm verify     # 本地跑完 CI 的全部门禁，提交前必须绿
 | `pnpm i18n:check`       | 三端词典键不齐、文案里混进 emoji 图标                                 | 见下方「图标规矩」                                                                                                                                        |
 | `pnpm sw:check`         | Service Worker 缓存版本没跟着发布走                                   | 老 SW 兜住新页面 = 用户收不到更新                                                                                                                         |
 | `pnpm readme:check`     | README 徽章版本与实际版本不符                                         | 版本号由 `scripts/bump-version.mjs` 多点同步，漏一处即拦                                                                                                  |
+| `pnpm errtext:check`    | 三端把 `err.message` 裸直出用户界面（绕过 errorText 分桶）            | 同一类「英文技术黑话甩给用户」的回归在真机审计 2026-09-24、网页审计 2026-10-07 各复发一次，见下方「错误展示纪律」                                         |
 | `pnpm build:site`       | 官网构建 + 内容守卫测试                                               | 官网写歪比没有官网更糟                                                                                                                                    |
 | `nginx -t`（仅 CI）     | 部署配置语法                                                          | 容器是一体化的，配置写错就是下次升级起不来                                                                                                                |
 
@@ -100,6 +105,22 @@ CSS 注释不嵌套，一个漏掉的闭合符能把紧随的整段声明吞进�
 加密参数（KDF 迭代次数、AAD 绑定方式、HKDF 分叉）的改动必须在 [docs/adr/](./docs/adr/) 追加一条决策记录，写清兼容与迁移路径——
 这类改动一旦上线就无法回退（老客户端还在用旧参数解密），所以「为什么这么选」必须留下。
 安全问题请走 [SECURITY.md](./SECURITY.md)，**不要**开公开 Issue。
+
+## 错误展示纪律（errorText）
+
+用户可见的错误文案**一律经 `errorText(err)`**（web / mobile / miniprogram 各有
+`src/lib/error-text.ts` 胶水，策略本体在 `@dustnote/shared` 的 `errorReason`）：
+服务端错误码归语义桶取词典文案，无码异常透传原文，网络层错误归
+「无法连接到服务器」——把 `err.message` 裸塞进 toast/弹窗，等于把
+`signal is aborted without reason` 这类技术黑话甩给用户。展示点写 `errorText(err)`，
+不要自己拼 `instanceof Error ? .message`。
+
+两类豁免，各配一种标注（由 `pnpm errtext:check` 强制，见 scripts/check-error-text.mjs）：
+
+- **分桶判定 / 诊断载荷**：`err.message` 只用于关键词归桶或进诊断队列，不直出 UI——
+  在该行行尾或紧邻上一行写 `error-text-scope: classifier|payload`。
+- **整文件性质使然**：崩溃兜底屏（展示 raw 是设计本身，且有 PROD/**DEV** 护栏）、
+  上报载荷序列化——进脚本里的 ALLOWLIST，逐条附理由。撤豁免前先读理由。
 
 ## 文档
 

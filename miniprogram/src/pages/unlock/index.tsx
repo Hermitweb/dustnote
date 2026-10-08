@@ -11,6 +11,7 @@ import { ThemeVars, useThemeDarkClass } from '../../components/ThemeVars';
 import { useAuthStore } from '../../state/auth';
 import { apiErrorCode } from '@dustnote/shared';
 import { t, useLanguage } from '../../lib/i18n';
+import { errorText } from '../../lib/error-text';
 import { isBiometricEnabled, isBiometricSupported, promptBiometric } from '../../lib/biometric';
 
 export default function Unlock() {
@@ -61,6 +62,7 @@ export default function Unlock() {
       await unlock(password, showTotp ? totpCode : undefined);
       Taro.reLaunch({ url: '/pages/index/index' });
     } catch (err) {
+      // error-text-scope: classifier  // 原始文案仅用于「两步验证码」老服务端兜底判定，展示走 errorText
       const msg = err instanceof Error ? err.message : t('common.unlock_failed');
       // 技术债清理：改用服务端错误码判定（此前硬匹配 'totp_required'/中文文案,
       // 服务端改文案即静默失效）；未知码回退文案匹配以兼容老服务端
@@ -68,7 +70,7 @@ export default function Unlock() {
         setShowTotp(true);
         Taro.showToast({ title: t('unlock.err_totp'), icon: 'none' });
       } else {
-        Taro.showToast({ title: msg, icon: 'none' });
+        Taro.showToast({ title: errorText(err), icon: 'none' });
       }
     } finally {
       setSubmitting(false);

@@ -44,7 +44,10 @@
     "test:coverage": "turbo run test:coverage",
     "format": "prettier --write \"**/*.{ts,tsx,mts,mjs,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,mts,mjs,js,jsx,json,md,yml,yaml}\"",
-    "verify": "pnpm typecheck && pnpm lint && pnpm lint:scripts && pnpm format:check && pnpm test && pnpm test:monitoring && pnpm docker:check && pnpm tokens:check && pnpm security:headers && pnpm action:pins && pnpm docs:check && pnpm ui:check && pnpm env:check && pnpm workflows:check && pnpm api:check && pnpm i18n:check && pnpm sw:check && pnpm readme:check && pnpm build:site",
+    "test:e2e": "playwright test",
+    "test:e2e:local": "playwright test --config=playwright.local.config.ts",
+    "bump": "node scripts/bump-version.mjs",
+    "verify": "pnpm typecheck && pnpm lint && pnpm lint:scripts && pnpm format:check && pnpm test && pnpm test:monitoring && pnpm docker:check && pnpm tokens:check && pnpm security:headers && pnpm action:pins && pnpm docs:check && pnpm ui:check && pnpm env:check && pnpm workflows:check && pnpm api:check && pnpm i18n:check && pnpm sw:check && pnpm readme:check && pnpm errtext:check && pnpm build:site",
     "clean": "pnpm -r exec rm -rf dist build .turbo node_modules/.cache",
     "audit": "pnpm audit --prod",
     "prepare": "node -e \"try{require('husky').install()}catch(_){}\"",
@@ -58,6 +61,7 @@
     "env:check": "node scripts/check-env-vars.mjs",
     "ui:check": "node scripts/check-ui-scale.mjs",
     "docs:check": "node scripts/check-docs.mjs",
+    "errtext:check": "node scripts/check-error-text.mjs",
     "api:gen": "node scripts/gen-api-inventory.mjs",
     "api:check": "node scripts/gen-api-inventory.mjs --check",
     "dev:site": "pnpm --filter @dustnote/site dev",
@@ -115,7 +119,12 @@
       "fast-xml-parser@<5.7.0": "^5.7.0",
       "uuid@<9": "^11.1.1",
       "tough-cookie@<4.1.4": "^4.1.4",
-      "xmldom": "npm:@xmldom/xmldom@^0.8.15"
+      "xmldom": "npm:@xmldom/xmldom@^0.8.15",
+      "proxy-addr@<2.0.8": "2.0.8",
+      "compression@<1.8.2": "1.8.2",
+      "source-map-js@<1.2.2": "1.2.2",
+      "shell-quote@<1.11.0": "1.11.0",
+      "tinypool@<2.1.2": "2.1.2"
     },
     "onlyBuiltDependencies": [
       "@parcel/watcher",

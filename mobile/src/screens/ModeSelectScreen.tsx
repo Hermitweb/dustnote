@@ -34,6 +34,7 @@ import { getDeviceId } from '../api';
 import { ApiClient, type AppMode, type ClientChannel, type ClientPlatform } from '@dustnote/shared';
 import { APP_VERSION } from '../lib/version';
 import { isPrivateAddress } from '../lib/net-utils';
+import { errorText } from '../lib/error-text';
 import { Icon } from '../components/Icon';
 
 export function ModeSelectScreen() {
@@ -106,6 +107,8 @@ export function ModeSelectScreen() {
         );
       } catch (err) {
         clearTimeout(timer);
+        // error-text-scope: classifier  // 原始文案只用于 timeout/network 关键词归桶，
+        // 展示一律走 t() 桶文案或 errorText
         const msg = (err as Error).message;
         if (msg?.includes('abort') || msg?.includes('timeout') || msg?.includes('AbortError')) {
           Alert.alert(t('mode_select.connection_failed'), t('mode_select.err_timeout'));
@@ -113,7 +116,7 @@ export function ModeSelectScreen() {
           // RN fetch 层失败：可能为地址错误、服务器不可达，或系统级按应用联网管控被禁
           Alert.alert(t('mode_select.connection_failed'), t('mode_select.err_unreachable'));
         } else {
-          Alert.alert(t('mode_select.connection_failed'), msg || t('errors.unknown'));
+          Alert.alert(t('mode_select.connection_failed'), errorText(err));
         }
       }
     } finally {

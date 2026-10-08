@@ -108,6 +108,7 @@ _apk-audit/
 .opencode/
 .mimosa/
 .trae/
+.zcode/
 ISSUE_*.md
 .deploy/
 miniprogram/.swc/

@@ -37,7 +37,12 @@ vi.mock('react-i18next', () => {
       key
     );
   };
-  return { useTranslation: () => ({ t }) };
+  // 组件经 errorText() 依赖真实 i18n 实例（lib/i18n.ts 加载时调用 i18n.use(initReactI18next)），
+  // mock 必须带上插件桩，否则报 "No initReactI18next export is defined"（SharesManager 先例）
+  return {
+    useTranslation: () => ({ t }),
+    initReactI18next: { type: '3rdParty', init: () => undefined },
+  };
 });
 
 vi.mock('../lib/store', () => ({ useStore: useStoreMock }));

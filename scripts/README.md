@@ -14,6 +14,7 @@
 | `check-security-headers.mjs` | `pnpm security:headers`            | nginx add_header 不继承导致安全头静默消失                  |
 | `check-docker-context.mjs`   | `pnpm docker:check`                | Dockerfile COPY 白名单漏掉跨包引用                         |
 | `check-i18n.mjs`             | `pnpm i18n:check`                  | 三端词典键不齐、文案混进 emoji 图标                        |
+| `check-error-text.mjs`       | `pnpm errtext:check`               | 三端裸 `err.message` 直出用户界面（绕过 errorText 分桶）   |
 | `check-sw-version.mjs`       | `pnpm sw:check`                    | Service Worker 缓存版本没跟发布走                          |
 | `check-readme-version.mjs`   | `pnpm readme:check`                | README 徽章版本与实际版本不符                              |
 | `gen-api-inventory.mjs`      | `pnpm api:gen` / `api:check`       | 端点清单与真实路由漂移（清单是生成的）                     |

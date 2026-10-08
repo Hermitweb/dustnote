@@ -30,6 +30,7 @@ import {
 import { loadLockoutStateSync } from '../../lib/local-auth-storage';
 import { useAuthStore } from '../../state/auth';
 import { t, useLanguage } from '../../lib/i18n';
+import { errorText } from '../../lib/error-text';
 import { isBiometricEnabled, isBiometricSupported, promptBiometric } from '../../lib/biometric';
 
 export default function StandaloneUnlock() {
@@ -112,7 +113,7 @@ export default function StandaloneUnlock() {
       // 成功：authState 已更新为 unlocked，跳转首页不会触发重定向循环
       Taro.reLaunch({ url: '/pages/index/index' });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('common.unlock_failed');
+      const msg = errorText(err);
       // action 内部已更新 store 的 lockoutState，这里同步刷新本地展示
       setLockout(loadLockoutStateSync());
       Taro.showToast({ title: msg, icon: 'none' });

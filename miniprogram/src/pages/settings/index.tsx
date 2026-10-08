@@ -439,8 +439,7 @@ export default function Settings() {
       });
     } catch (err) {
       Taro.hideLoading();
-      const msg =
-        (err as { err?: { message?: string } })?.err?.message || t('settings.parse_failed');
+      const msg = errorText(err) || t('settings.parse_failed');
       Taro.showToast({ title: msg, icon: 'none', duration: 3000 });
     }
   };
@@ -566,9 +565,7 @@ export default function Settings() {
               try {
                 await routeImportContent(String(readRes.data));
               } catch (err) {
-                const msg =
-                  (err as { err?: { message?: string } })?.err?.message ||
-                  t('settings.parse_failed');
+                const msg = errorText(err) || t('settings.parse_failed');
                 Taro.showToast({ title: msg, icon: 'none', duration: 3000 });
               }
             },

@@ -466,6 +466,7 @@ const zhCN = {
     name_placeholder: '文件夹名',
     delete_confirm: '确定删除此文件夹？文件夹内笔记会移到未分类。',
     delete: '删除',
+    delete_failed: '删除失败',
     rename: '重命名',
     move_title: '移动到文件夹',
     move_empty: '暂无文件夹，请先在文件夹页创建',

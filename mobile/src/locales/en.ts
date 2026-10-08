@@ -471,6 +471,7 @@ const en = {
     name_placeholder: 'Folder name',
     delete_confirm: 'Delete this folder? Notes inside will be moved to Unfiled.',
     delete: 'Delete',
+    delete_failed: 'Failed to delete',
     rename: 'Rename',
     move_title: 'Move to folder',
     move_empty: 'No folders yet. Create one on the Folders page first.',

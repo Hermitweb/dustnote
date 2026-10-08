@@ -38,9 +38,12 @@ import {
   enableGraceUnlock,
   consumeGraceUnlock,
   peekGraceUnlock,
+  peekGraceUnlockData,
+  clearGraceUnlock,
   isGraceUnlockEnabled,
   getGraceUnlockMin,
 } from '../grace-unlock';
+import { ApiException } from '@dustnote/shared';
 import {
   loadLocalAuthBlob,
   saveLocalAuthBlob,
@@ -469,11 +472,16 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
   },
 
   async graceUnlock(): Promise<boolean> {
-    const cached = consumeGraceUnlock();
+    // C-M（2026-10 审计）：宽限期缓存只在**确认成功**后才消费。此前第一步就
+    // consumeGraceUnlock()，若 /auth/refresh 遇到瞬时故障（断网/5xx/429），
+    // 缓存已被销毁、无法重试，解锁屏直接落到 needs_unlock——宽限期功能对
+    // "短暂离开马上回来"这个核心场景失效，且与 needs_unlock 误锁屏同类。
+    const cached = peekGraceUnlockData();
     if (!cached) return false;
     if (get().mode === 'online') {
       try {
         const r = await api().post<{ accessToken: string }>('/auth/refresh');
+        consumeGraceUnlock();
         set({
           masterKey: cached.masterKey,
           wrappedMasterKey: cached.wrappedMasterKey,
@@ -481,11 +489,20 @@ export const createAuthSlice: StateCreator<StoreState, [], [], AuthSlice> = (set
           authState: 'unlocked',
         } as Partial<StoreState>);
         return true;
-      } catch {
+      } catch (err) {
+        const terminal =
+          err instanceof ApiException && err.err.status < 500 && err.err.status !== 429;
+        if (!terminal) {
+          // 瞬时失败：保留缓存，用户可再次点击宽限期按钮重试
+          return false;
+        }
+        // 终局失败（401/403 = refresh token 确实失效）：销毁缓存，要求主密码
+        clearGraceUnlock();
         set({ authState: 'needs_unlock' } as Partial<StoreState>);
         return false;
       }
     }
+    consumeGraceUnlock();
     set({
       masterKey: cached.masterKey,
       wrappedMasterKey: cached.wrappedMasterKey,
