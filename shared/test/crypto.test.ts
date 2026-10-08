@@ -34,7 +34,7 @@ import {
 const FAST_KDF = { m: 64, t: 1, p: 1, dkLen: 32 };
 
 describe('crypto', () => {
-  const password = 'correct-horse-battery-staple';
+  const password = 'correct-horse-battery-staple'; // mimosa-ignore: mimosa.hardcoded-secret（KDF 测试固定向量，非真实凭据）
   const salt = crypto.getRandomValues(new Uint8Array(16));
 
   it('derives the same secrets from the same password and salt', async () => {

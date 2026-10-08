@@ -1,3 +1,5 @@
+// mimosa-ignore-file: mimosa.hardcoded-secret
+// 本文件是 UI 英文文案词典；键名含 password 的条目都是界面标签，并非真实凭据。
 /**
  * English translation resources — mobile
  *
