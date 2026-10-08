@@ -6,7 +6,9 @@ on:
     # 该分支上的全部 CI（lint/typecheck/test/audit/e2e）从未运行（技术债排查发现）
     # fix/** 同理补入（2026-09-25：fix/audit-2026-09-19 上的 mobile 测试基建
     # 若不在触发面内，等于又造了一个"CI 从未跑过"的暗仓）
-    branches: [main, dev, 'dev/**', 'fix/**']
+    # chore/** 同理补入（2026-10-08：chore/normalize 工程化整合分支差点重蹈同款坑——
+    # 触发面逐类枚举必然漏新前缀，收口为任意分支级通配比再加一个前缀更治本）
+    branches: [main, dev, '**']
     paths-ignore:
       - '**.md'
       - 'docs/**'
