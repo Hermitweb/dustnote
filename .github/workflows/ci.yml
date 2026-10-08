@@ -212,6 +212,14 @@ jobs:
       # 2026-10-02 新增（有补丁 → 已用 pnpm.overrides 修复，不豁免）：
       #   axios ×7      纯传递依赖（根 + @tarojs/cli），一次公示 7 条 high，全部在 1.20.0
       #                 修复 → override ^1.20.0。仓库里没有直接依赖 axios，所以抬版本零风险。
+      # 2026-10-07 新增（有补丁 → 已用 pnpm.overrides 修复，不豁免）：
+      #   proxy-addr    express（server 运行时）~2.0.7 → override 2.0.8（critical）
+      #   compression   webpack-dev-server / taro-cli（构建期）→ override 1.8.2（high）
+      #   source-map-js postcss（构建期）^1.2.1 → override 1.2.2（high）
+      #   shell-quote   launch-editor / react-devtools-core（构建期）→ override 1.11.0（critical）
+      #   tinypool ×2   vitest worker pool。补丁版 2.1.2 越过声明 ^1.1.1（跨大版本），
+      #                 仿 serialize-javascript 6→7 先例用 override 抬，并以 pnpm test
+      #                 11/11 实证兼容（vitest 全部经 tinypool 起 worker，不兼容即崩）。
       - name: Security Audit
         run: |
           set +e
