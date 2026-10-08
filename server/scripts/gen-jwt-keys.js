@@ -40,7 +40,7 @@ if (fileDir) {
   console.log(`JWT_PRIVATE_KEY=${privatePem.replace(/\n/g, '\\n')}`);
   console.log(`JWT_PUBLIC_KEY=${publicPem.replace(/\n/g, '\\n')}`);
 } else if (asEnv) {
-  console.log('JWT_PRIVATE_KEY=' + privatePem.replace(/\n/g, '\\n'));
+  console.log('JWT_PRIVATE_KEY=' + privatePem.replace(/\n/g, '\\n')); // mimosa-ignore: mimosa.hardcoded-secret（输出前缀标签，私钥是运行时生成、非硬编码）
   console.log('JWT_PUBLIC_KEY=' + publicPem.replace(/\n/g, '\\n'));
 } else {
   console.log('=== JWT EdDSA (Ed25519) 密钥对 ===\n');

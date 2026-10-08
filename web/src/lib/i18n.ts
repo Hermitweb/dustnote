@@ -1,3 +1,6 @@
+// mimosa-ignore-file: mimosa.hardcoded-secret
+// 本文件是 UI 文案词典；键名含 password 的条目都是界面标签（如「主密码」输入框
+// 占位），并非真实凭据。整文件的硬编码凭据规则对词典属误报，故文件级抑制。
 /**
  * i18n 轻量封装（基于 react-i18next）
  */

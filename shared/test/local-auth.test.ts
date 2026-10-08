@@ -17,7 +17,7 @@ import {
 } from '../src/local-auth';
 import type { LocalAuthBlob } from '../src/types';
 
-const GOOD_PASSWORD = 'correct-horse-battery-staple';
+const GOOD_PASSWORD = 'correct-horse-battery-staple'; // mimosa-ignore: mimosa.hardcoded-secret（测试固定口令，非真实凭据）
 /** 弱 KDF 参数，加速测试（协议逻辑与 KDF 强度无关） */
 const FAST_KDF = { m: 64, t: 1, p: 1, dkLen: 32 };
 /** v2 恢复码格式：10 位 Crockford Base32，XXXXX-XXXXX 分组 */
