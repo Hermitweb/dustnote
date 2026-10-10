@@ -17,12 +17,24 @@ export interface AppConfig {
 
 const STORAGE_KEY = 'dustnote_app_config';
 
-const DEFAULTS: AppConfig = {
+/** 出厂默认值。导出给部署管理「恢复默认」用——重置必须与首装行为完全一致，
+ *  在调用方手抄一份 DEFAULTS 迟早漂移。 */
+export const CONFIG_DEFAULTS: AppConfig = {
   apiBase: '/api/v1',
   appName: 'DustNote',
   miniprogramAppId: '',
   customized: false,
 };
+
+/** 清除 localStorage 配置覆盖（恢复出厂）。loadConfig 需重新拉取才会生效。 */
+export function resetConfigStorage(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+  cached = null;
+}
 
 let cached: AppConfig | null = null;
 
@@ -51,18 +63,18 @@ export async function loadConfig(): Promise<AppConfig> {
     /* ignore */
   }
 
-  cached = { ...DEFAULTS, ...remote, ...local };
+  cached = { ...CONFIG_DEFAULTS, ...remote, ...local };
   return cached;
 }
 
 /** 同步读取（需先调用 loadConfig） */
 export function getConfig(): AppConfig {
-  return cached ?? DEFAULTS;
+  return cached ?? CONFIG_DEFAULTS;
 }
 
 /** 更新并持久化配置 */
 export function saveConfig(patch: Partial<AppConfig>): AppConfig {
-  cached = { ...(cached ?? DEFAULTS), ...patch, customized: true };
+  cached = { ...(cached ?? CONFIG_DEFAULTS), ...patch, customized: true };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
   } catch {

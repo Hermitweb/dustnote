@@ -8,6 +8,7 @@ import { AURORA_LEVELS, useEffectStore } from '../lib/effect';
 import { ImportExportDialog } from './ImportExportDialog';
 import { SharesManager } from './SharesManager';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
+import { ProjectInfoPanel } from './ProjectInfoPanel';
 import { MigrationWizard } from './MigrationWizard';
 import { getConfig, saveConfig, loadConfig } from '../lib/config';
 import i18n from '../lib/i18n';
@@ -1080,13 +1081,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
             {/* 关于 */}
             <DiagnosticsPanel />
+            <ProjectInfoPanel />
             <div className="rounded-lg border border-surface-border p-3">
               <MigrationWizard onClose={() => {}} />
             </div>
             <div className="rounded-lg border border-surface-border p-3 text-xs text-surface-muted">
-              <div>
-                {t('settings.about')}: {t('settings.about_line')}
-              </div>
               <div className="font-mono">
                 {t('settings.version')}: {__APP_VERSION__}
               </div>
