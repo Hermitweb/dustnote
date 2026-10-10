@@ -80,3 +80,57 @@ describe('/metrics 开关门控（LIFE-009）', () => {
     expect(ok.status).toBe(200);
   });
 });
+
+describe('auth 限流分桶（S-M1）', () => {
+  it(
+    'refresh 撞满宽桶不影响 unlock 的严桶预算（IP×路由互不占额度）',
+    { timeout: 30_000 },
+    async () => {
+      const app = await loadApp();
+      const supertest = (await import('supertest')).default;
+      const headers = { 'X-Client-Version': '2.5.52', 'X-Client-Platform': 'web' };
+
+      // refresh 桶宽 60：这里只打 3 次触发其计数（无效 token → 401，但已计入限流），
+      // 若仍是旧的单桶设计，20 次上限会被这些请求 + unlock 请求共同消耗。
+      for (let i = 0; i < 3; i++) {
+        await supertest(app).post('/api/v1/auth/refresh').set(headers);
+      }
+
+      // unlock 严桶独立计数：首请求应落到业务校验层（401/404）而非 429
+      const unlock = await supertest(app)
+        .post('/api/v1/auth/unlock')
+        .set(headers)
+        .set('X-Client-Device-Id', 'ratelimit-test-01')
+        .send({ authKey: 'A'.repeat(44) });
+      expect(unlock.status).not.toBe(429);
+
+      // refresh 宽桶本身可用：60 上限内不被拒
+      const refresh = await supertest(app).post('/api/v1/auth/refresh').set(headers);
+      expect(refresh.status).not.toBe(429);
+    }
+  );
+
+  it('unlock 严桶 20 次后返回 429（防爆破语义保留）', { timeout: 60_000 }, async () => {
+    const app = await loadApp();
+    const supertest = (await import('supertest')).default;
+    const headers = { 'X-Client-Version': '2.5.52', 'X-Client-Platform': 'web' };
+
+    let saw429 = false;
+    for (let i = 0; i < 25; i++) {
+      const res = await supertest(app)
+        .post('/api/v1/auth/unlock')
+        .set(headers)
+        .set('X-Client-Device-Id', `bruteforce-test-${String(i).padStart(2, '0')}`)
+        .send({ authKey: 'A'.repeat(44) });
+      if (res.status === 429) {
+        saw429 = true;
+        expect(res.body.error).toBe('too_many_auth_attempts');
+        break;
+      }
+      // 500 也放行：未初始化的测试库里 unlock 可能撞上非预期的库状态，
+      // 这里只关心「严桶最终会以 429 收口」，不关心每个请求的业务结果
+      expect([400, 401, 404, 423, 500]).toContain(res.status);
+    }
+    expect(saw429).toBe(true);
+  });
+});

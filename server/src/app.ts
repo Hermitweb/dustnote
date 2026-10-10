@@ -263,25 +263,43 @@ export function createApp(): Application {
   // 路由
   app.use('/api/v1', updateManifestRouter);
 
-  // 认证相关：对 unlock / recover / setup / refresh 做严格限流，防爆破
-  // 注意：在 authMiddleware 之后挂载，所以 refresh 路由能正确处理
+  // 认证相关限流（审计 S-M1 分桶整改，2026-10-11）：
+  // 不再六个端点共用一个 IP 桶——refresh 是 15 分钟一次的例行续签流量，
+  // 与 unlock/recover 的爆破防护混在一桶，共享 NAT 的家庭网络里一人正常解锁
+  // 会挤占他人预算，例行 refresh 还会自己把自己撞死（客户端 refresh 失败 =
+  // 被迫重新输主密码）。按「IP × 路由」分桶：
+  //   · unlock / recover / recovery-params / setup：防爆破严桶，20 次/15min
+  //     （账号级锁定仍由 lockout.ts 的 6 次锁 15 分钟兜底，两层互不替代）
+  //   · refresh / rewrap：例行流量宽桶，60 次/15min——足够单用户多设备轮换
+  //     + 离线恢复后的补签，仍能拦脚本化刷新洪泛
+  // keyGenerator 拼 `${ip}:${routeKind}`，同 IP 不同端点互不占额度；
+  //  trust proxy 已在上方设置，req.ip 是真实客户端地址。
+  const authBruteForceLimiter = rateLimit({
+    windowMs: 15 * 60_000,
+    limit: 20,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => `${req.ip}:bruteforce`,
+    message: { error: 'too_many_auth_attempts', message: '尝试次数过多，请 15 分钟后再试' },
+  });
+  const authRoutineLimiter = rateLimit({
+    windowMs: 15 * 60_000,
+    limit: 60,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => `${req.ip}:routine`,
+    message: { error: 'too_many_auth_attempts', message: '请求过于频繁，请稍后再试' },
+  });
   app.use(
     [
       '/api/v1/auth/unlock',
       '/api/v1/auth/recover',
       '/api/v1/auth/recovery-params',
       '/api/v1/auth/setup',
-      '/api/v1/auth/refresh',
-      '/api/v1/auth/rewrap',
     ],
-    rateLimit({
-      windowMs: 15 * 60_000, // 15 分钟窗口
-      limit: 20, // 每个 IP 最多 20 次
-      standardHeaders: 'draft-7',
-      legacyHeaders: false,
-      message: { error: 'too_many_auth_attempts', message: '尝试次数过多，请 15 分钟后再试' },
-    })
+    authBruteForceLimiter
   );
+  app.use(['/api/v1/auth/refresh', '/api/v1/auth/rewrap'], authRoutineLimiter);
   // 敏感响应禁止缓存(审计 L7):auth 会话/公开分享内容/导出数据不允许
   // 落入任何中间层或浏览器磁盘缓存
   app.use('/api/v1', (req, res, next) => {
