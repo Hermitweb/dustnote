@@ -33,16 +33,30 @@ body {
 .prose h3,
 .prose h4 {
   font-weight: 700;
-  margin: 1em 0 0.5em;
+  /* 标题的呼吸感：上间距要明显大于下间距（下间距只负责贴住自己的正文）。
+     此前 1em/0.5em 在 h2 连排时几乎贴住上一节正文，分屏预览挤成一团 */
+  margin: 1.6em 0 0.6em;
 }
 .prose h1 {
   font-size: 1.875rem;
+  /* 文首第一个标题不需要顶部的大间距 */
+  margin-top: 0.4em;
 }
 .prose h2 {
   font-size: 1.5rem;
 }
 .prose h3 {
   font-size: 1.25rem;
+}
+/* 标题后紧跟的内容不需要额外的段前距（标题的 margin-bottom 已接管） */
+.prose h1 + p,
+.prose h2 + p,
+.prose h3 + p,
+.prose h2 + ul,
+.prose h2 + table,
+.prose h3 + ul,
+.prose h3 + table {
+  margin-top: 0;
 }
 
 /*
@@ -124,6 +138,47 @@ body {
   padding-left: 1em;
   color: rgb(var(--mn-fg-muted));
   margin: 0.75em 0;
+}
+
+/* ========== 表格（GFM） ==========
+ * 此前 .prose 完全没有 table/th/td 规则：表格渲染出来但无边框、无内边距、
+ * 无行间距——「项目计划」模板的空表格在分屏预览里塌成一行挤在一起的平文本
+ * （用户截图实录：『里程碑截止日期状态』连成一串，看起来像表格没被渲染）。
+ */
+.prose table {
+  /* 带 border-collapse 才能让 th/td 的边框连成网格而不是双线 */
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75em 0;
+  display: block;
+  overflow-x: auto; /* 列多时横向滚动，不撑破 68ch 阅读宽度 */
+  white-space: nowrap; /* 配合横向滚动：单元格内容不换行挤压 */
+}
+.prose th,
+.prose td {
+  border: 1px solid rgb(var(--mn-border) / 0.8);
+  padding: 0.375em 0.75em;
+  text-align: left;
+}
+.prose th {
+  font-weight: 600;
+  background: rgb(var(--mn-border) / 0.25);
+}
+/* 表格内的空单元格也要有最小可点击/可见高度，全空表不至于完全塌陷 */
+.prose td:empty::after,
+.prose th:empty::after {
+  content: '\00a0'; /* &nbsp; 撑起空单元格高度 */
+}
+.prose thead {
+  border-bottom: 2px solid rgb(var(--mn-border));
+}
+
+/* 分屏预览的行距与节奏：split 态面板只有半屏宽，1.7 的全局行高在窄栏里
+   偏松、标题 1.6em 的段前距又偏紧，单独微调（不改单栏/全屏预览） */
+@media (min-width: 1024px) {
+  .paper-sheet--split .prose {
+    line-height: 1.65;
+  }
 }
 
 /* 搜索高亮：客户端全文搜索 v2 命中 token 的 <mark> 标签 */

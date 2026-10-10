@@ -58,6 +58,7 @@ import {
 } from '../lib/image-paste';
 import { VoiceInputButton } from './VoiceInputButton';
 import { ConfirmDialog } from './ConfirmDialog';
+import { InputDialog } from './InputDialog';
 import { authedFetch, shareBase } from '../lib/store-helpers';
 import { errorText } from '../lib/error-text';
 
@@ -192,15 +193,20 @@ export function Editor() {
   const renderedNoteIdRef = useRef<string | null>(null);
   renderedNoteIdRef.current = note?.id ?? null;
 
-  // 把当前笔记另存为自定义模板（仅联机模式可用）
-  const handleSaveAsTemplate = useCallback(() => {
-    if (!plain) return;
-    const name = prompt(t('templates.save_as_prompt'), plain.title);
-    if (!name) return;
-    saveAsTemplate(name, { title: plain.title, content: plain.content, tags: plain.tags })
-      .then(() => toast.success(t('templates.save_success')))
-      .catch((err: Error) => toast.error(t('templates.save_fail', { reason: errorText(err) })));
-  }, [plain, saveAsTemplate, t]);
+  // 把当前笔记另存为自定义模板（仅联机模式可用）。
+  // 输入走 InputDialog：原生 prompt() 在 Tauri 桌面端会阻塞主线程卡死界面
+  // （AboutDialog/ConfirmDialog 头注释记录的同款事故），此处是最后一个漏网点。
+  const [templateNameDialog, setTemplateNameDialog] = useState(false);
+  const handleSaveAsTemplate = useCallback(
+    (name: string) => {
+      if (!plain) return;
+      setTemplateNameDialog(false);
+      saveAsTemplate(name, { title: plain.title, content: plain.content, tags: plain.tags })
+        .then(() => toast.success(t('templates.save_success')))
+        .catch((err: Error) => toast.error(t('templates.save_fail', { reason: errorText(err) })));
+    },
+    [plain, saveAsTemplate, t]
+  );
 
   // F6：记录「本地 title/content 属于哪条笔记」——用于区分「切笔记」（必须
   // 用服务端快照覆盖）与「同一笔记的 loadAll/WS 广播刷新」（notesPlain 的
@@ -719,7 +725,7 @@ export function Editor() {
                   <MenuItem k="history.open" onClick={() => setShowHistory(true)} />
                 )}
                 {appMode === 'online' && (
-                  <MenuItem k="templates.save_as" onClick={() => void handleSaveAsTemplate()} />
+                  <MenuItem k="templates.save_as" onClick={() => setTemplateNameDialog(true)} />
                 )}
                 <MenuItem k="editor.insert_clipboard" onClick={() => void insertFromClipboard()} />
                 <div className="my-1 border-t border-surface-border" />
@@ -898,6 +904,17 @@ export function Editor() {
           title={title}
           content={content}
           onClose={() => setShowShare(false)}
+        />
+      )}
+
+      {/* 另存为模板：输入模板名（替代原生 prompt，防 Tauri 主线程卡死） */}
+      {templateNameDialog && (
+        <InputDialog
+          title={t('templates.save_as_prompt')}
+          initialValue={title}
+          confirmLabel={t('templates.save_as')}
+          onConfirm={(name) => handleSaveAsTemplate(name)}
+          onCancel={() => setTemplateNameDialog(false)}
         />
       )}
 

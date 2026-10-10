@@ -38,11 +38,16 @@ function HighlightedTitle({
   matchedTokens: Set<string> | undefined;
 }) {
   if (!matchedTokens || matchedTokens.size === 0) {
-    return <span className="truncate">{title}</span>;
+    return (
+      <span className="truncate" title={title}>
+        {title}
+      </span>
+    );
   }
   return (
     <span
       className="truncate"
+      title={title}
       dangerouslySetInnerHTML={{ __html: highlightMatches(title, matchedTokens) }}
     />
   );
@@ -284,7 +289,10 @@ export function NoteList() {
                       )}
                     </span>
                     {plain?.content && (
-                      <span className="mt-1 block truncate text-xs leading-relaxed text-surface-muted">
+                      <span
+                        className="mt-1 block truncate text-xs leading-relaxed text-surface-muted"
+                        title={plain.content.replace(/[#*>`\n-]/g, ' ').slice(0, 160)}
+                      >
                         {plain.content.replace(/[#*>`\n-]/g, ' ').slice(0, 160)}
                       </span>
                     )}

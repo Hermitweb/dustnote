@@ -153,7 +153,10 @@ export function Sidebar() {
         }`}
       >
         <Icon name="note" size={14} className="flex-none text-text-tertiary" />
-        <span className="rail-label truncate">
+        <span
+          className="rail-label truncate"
+          title={plain ? plain.title || t('shares.no_title') : ''}
+        >
           {plain ? plain.title || t('shares.no_title') : '...'}
         </span>
         {n.isPinned && (
@@ -571,7 +574,9 @@ export function Sidebar() {
                         ) : (
                           <Icon name="folder" size={14} className="flex-none text-text-tertiary" />
                         )}
-                        <span className="rail-label truncate">{f.name}</span>
+                        <span className="rail-label truncate" title={f.name}>
+                          {f.name}
+                        </span>
                         {/* 计数右对齐 tabular-nums；hover 这一行时让位给行内操作，一行不同时塞三样 */}
                         {fNotes.length > 0 && (
                           <span className="ml-auto flex-none pl-1 text-xs tabular-nums text-text-secondary group-hover/row:hidden">
@@ -682,7 +687,9 @@ export function Sidebar() {
                                       className="flex-none text-text-tertiary"
                                     />
                                   )}
-                                  <span className="rail-label truncate">{c.name}</span>
+                                  <span className="rail-label truncate" title={c.name}>
+                                    {c.name}
+                                  </span>
                                   {subNotes.length > 0 && (
                                     <span className="ml-auto flex-none pl-1 text-xs tabular-nums text-text-secondary group-hover/row:hidden">
                                       {subNotes.length}
