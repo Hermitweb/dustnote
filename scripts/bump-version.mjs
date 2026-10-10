@@ -258,6 +258,14 @@ const RESIDUAL_ALLOW = [
   '.github/workflows/release.yml', // 注释：v2.5.48 发版 CI 里 gradle 发行包改走官方源
   'miniprogram/src/app.scss', // .motion-flat 令牌清零的动机 = 2.5.48 上传实锤
   'miniprogram/src/wxss-compat.test.ts', // 测试名里写着"2.5.48 上传实录的四种事故形态"
+  /*
+   * 2026-10-11（v2.5.53 bump 实战）新增，同源：审计报告与测试头注释里的版本号
+   * 是在讲"那次审计/测试时的基线"，不是声明当前版本；app.test.ts 的
+   * X-Client-Version 夹具按惯例应与仓库版本解耦（见下方修复），但已写入的
+   * 2.5.52 作为测试常量合法——与 api.test 的 2.99.0 先例同理。
+   */
+  'docs/audit-report-2026-10-07.md', // 审计基线叙事（标题即版本）
+  'server/src/app.test.ts', // X-Client-Version 测试常量
 ];
 if (!dryRun) {
   // execFileSync + 参数数组：命令内容不再经过 shell，OLD 也就无从"越狱"

@@ -2,6 +2,27 @@
 
 本项目所有显著变更记录于此。格式基于 [Keep a Changelog](https://keepachangelog.com/)，版本遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.5.53] - 2026-10-11
+
+### 变更
+
+- **S-M1：auth 限流按「IP × 路由」分桶**（2026-10-07 审计挂账，部署后建议观察一个窗口）。
+  此前 unlock/recover/recovery-params/setup/refresh/rewrap 六端点共用每 IP 20 次/15min
+  单桶：共享 NAT 的家庭网络里一人正常解锁会挤占他人预算，refresh 这类 15 分钟一次的
+  例行续签还会自己撞死自己（refresh 失败 = 被迫重输主密码）。现拆两桶：防爆破严桶
+  （unlock/recover/recovery-params/setup，20/15min，账号级 lockout 6 次锁 15 分钟不变）
+  - 例行宽桶（refresh/rewrap，60/15min）。新增 2 条限流分桶回归测试。
+- **server 覆盖率阈值上提**：S-M1 批次后实测 lines/stmts 39.51% / funcs 65.11% /
+  branches 72.55%，阈值从 34/55/70 提到 36/60/68（按实测留 ~4% 余量防抖动）。
+- **工程文档补缺**：新增 `docs/update-signing-runbook.md`（minisign 验签 +
+  Windows/macOS 代码签名的完整实施手册，R1 遗留的可落地部分）与
+  `docs/handover.md`（维护者交接手册：发版全流程、资产清单、backup maintainer
+  移交清单——回应 roadmap §8「能独立发版人数 = 1」）。
+- 复检审计报告归档：`docs/audit-report-2026-10-10.md`（10-07 修复项全部在位，
+  基线全绿；W-L1~8 核实已于 10-08 commit 93bdc0c 修复）。
+- `bump-version.mjs`：RESIDUAL_ALLOW 按惯例补两条（审计报告的基线叙事、
+  app.test 的版本夹具），v2.5.53 bump 实战抓出。
+
 ## [2.5.52] - 2026-10-07
 
 ### 变更
