@@ -105,7 +105,7 @@ export const PRESET_TEMPLATES: Template[] = [
     category: 'project',
     icon: 'rocket',
     content:
-      '# 项目名称\n\n## 背景与目标\n\n\n## 范围\n- **包含**：\n- **不包含**：\n\n## 里程碑\n| 里程碑 | 截止日期 | 状态 |\n| ------ | -------- | ---- |\n|        |          |      |\n\n## 风险\n- \n',
+      '# 项目名称\n\n## 背景与目标\n\n\n## 范围\n- **包含**：\n- **不包含**：\n\n## 里程碑\n\n| 里程碑 | 截止日期 | 状态 |\n| ------ | -------- | ---- |\n|        |          |      |\n\n## 风险\n- \n',
     isPreset: true,
     sortOrder: 6,
     createdAt: '2026-07-29T00:00:00.000Z',
