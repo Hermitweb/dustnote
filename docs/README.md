@@ -28,9 +28,12 @@
 | 工程   | [发展路线图](roadmap.md)                                | 阶段目标、度量口径、明确不做清单             |
 | 工程   | [UI 优化方案](ui-optimization.md)                       | 设计系统地基、两栏舞台、可量化验收           |
 | 工程   | [决策记录（ADR）](adr/README.md)                        | 重要技术决策的背景与后果                     |
+| 工程   | [更新签名实施手册](update-signing-runbook.md)           | minisign 验签与 Windows/macOS 签名的执行路径 |
+| 工程   | [维护者交接手册](handover.md)                           | 发版全流程、资产清单、backup maintainer 移交 |
 | 归档   | [安全审计整改（9-19）](audit-fixes-2026-09-19.md)       | 逐条 finding 与整改结果                      |
 | 归档   | [安全审计整改（9-21）](audit-fixes-2026-09-21.md)       | 第二轮复核与遗留项                           |
 | 归档   | [全端审计（10-07）](audit-report-2026-10-07.md)         | 探针式全端审计 + 页面截屏核对，修复台账      |
+| 归档   | [复检审计（10-10）](audit-report-2026-10-10.md)         | 10-07 修复项在位验证 + 全基线实跑复检        |
 | 归档   | [生产就绪度审计](archive/production-readiness-audit.md) | 早期全量审计，保留作历史参照                 |
 
 ## 三份部署文档怎么分工
