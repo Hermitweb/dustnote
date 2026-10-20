@@ -5,7 +5,7 @@
 # server/Dockerfile 为「仅 API」镜像，仅在需要拆分部署时使用。
 
 # ─── Stage 1: 全量构建 ───
-FROM node:22-alpine AS builder
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS builder
 # 镜像源（中国网络通过 --cn 传入 Aliyun/npmmirror，国外保持官方源）
 ARG APK_MIRROR=dl-cdn.alpinelinux.org
 ARG NPM_REGISTRY=
@@ -49,7 +49,7 @@ RUN pnpm --filter @dustnote/server deploy --prod /prod-server
 # ─── Stage 2: 运行（全容器非 root，审计 SEC-008）───
 # 基础镜像 digest 固定：运行 `pnpm pin-digests`（需本机 docker）把 FROM 行
 # 改写为 node:22-alpine@sha256:...，防上游 tag 被重指带来的供应链漂移
-FROM node:22-alpine
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
 RUN apk add --no-cache nginx supervisor tini curl
 
 # Server（pnpm deploy 已含 @dustnote/shared 依赖 + 编译产物）

@@ -55,3 +55,10 @@ if (typeof Blob !== 'undefined' && typeof Blob.prototype.arrayBuffer !== 'functi
     });
   };
 }
+
+// jsdom 21.x 未实现 scrollIntoView
+if (typeof Element !== 'undefined' && typeof Element.prototype.scrollIntoView !== 'function') {
+  Element.prototype.scrollIntoView = function (): void {
+    /* noop */
+  };
+}

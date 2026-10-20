@@ -51,24 +51,20 @@ mkdir -p ~/dustnote && cd ~/dustnote
 mkdir -p data/attachments backups
 ```
 
-### 3.3 docker-compose.yml
+### 3.3 docker-compose.yml（仓库自带）
+
+仓库根目录的 `docker-compose.yml` 走**一体化构建**——web 静态文件编译进镜像，与 server 同容器、同源、同一 3210 端口，无需独立 nginx；自带 `healthcheck`（构建产物内置 `/health` 探测端点）：
 
 ```yaml
-version: '3.9'
-
 services:
   dustnote:
-    image: ghcr.io/Hermitweb/dustnote:latest
+    build: . # 从源码构建一体化镜像（web + server）
+    image: dustnote/server
     container_name: dustnote
     restart: unless-stopped
     ports:
-      - '3210:3210'
-    environment:
-      - NODE_ENV=production
-      - PORT=3210
-      - JWT_SECRET=${JWT_SECRET}
-      - DB_PATH=/data/dustnote.db
-      - WEB_ORIGIN=https://note.example.com
+      - '8080:3210' # 宿主 8080 → 容器内 3210（web + API 同源）
+    env_file: .env
     volumes:
       - ./data:/data
     read_only: false
@@ -86,20 +82,10 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-
-  nginx:
-    image: nginx:alpine
-    container_name: dustnote-nginx
-    restart: unless-stopped
-    ports:
-      - '443:443'
-      - '80:80'
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certs:/etc/nginx/certs:ro
-    depends_on:
-      - dustnote
 ```
+
+> 启动：`docker compose up -d --build`，浏览器开 `http://<host>:8080/` 即见登录页；验证 `curl -fsS http://localhost:8080/api/v1/health`。
+> 构建前先跑 digest pin（§8）。
 
 ### 3.4 .env
 
@@ -107,11 +93,13 @@ services:
 # 必填：JWT 签名密钥，至少 32 字符
 JWT_SECRET=$(openssl rand -base64 48)
 
-# 公网域名
+# 公网域名（同源部署时即你反代/暴露的 URL）
 WEB_ORIGIN=https://note.example.com
 ```
 
-### 3.5 nginx.conf
+### 3.5 可选：nginx 反代 + HTTPS（同源场景）
+
+一体化部署后 web 与 API 已在同一容器内同源，**免跨域**。如需 HTTPS 终结与域名安全头，在容器前加一层 nginx 反代即可（`deploy/nginx.conf` 与 `deploy/Caddyfile` 提供两套示例）。最小 nginx 段（完整 CSP 版见 `deploy/nginx.conf`）：
 
 ```nginx
 events {
@@ -281,6 +269,11 @@ curl https://note.example.com/api/v1/health
 - 频率：1 分钟
 - 告警：邮件 / Webhook
 
+### 6.3 库增长与 VACUUM（LIFE-022）
+
+server 进程内置自动维护（`backup-scheduler.ts`）：WAL 每次备份前 `checkpoint(TRUNCATE)`、VACUUM 每约 7 日一次，
+删除大量笔记后主库会**物理变小**，无需手动 VACUUM。紧急回收可 `docker exec dustnote node -e "require('better-sqlite3')('/app/server/data/dustnote.db').exec('VACUUM')"`。库体积增长主要由附件（`data/uploads/`）驱动，监控栈有 db size 曲线（`deploy/monitoring/`，建议 1GB 阈值告警）。详见 `DEPLOY.md` §9.3.1。
+
 ## 7. 安全加固
 
 - [ ] 启用防火墙（仅开放 22/80/443）
@@ -313,6 +306,52 @@ curl https://note.example.com/api/v1/health
 2. 创建主密码
 3. 设置 → 数据 → 导入（v1.1+ 功能）
 4. 或手动恢复 SQLite + attachments
+
+### 9.3 卸载与数据清除（三路部署形态）
+
+> 数据在 SQLite（`dustnote.db`）+ 附件（`uploads/`）+ 命名卷（`dustnote_data` / `dustnote_uploads`）。
+> **清除数据前务必先做最后一次备份**（§6 / §9.1），误删不可逆。
+
+**① Docker 容器部署**
+
+```bash
+# 停服务
+docker compose down
+# 清数据（命名卷）——先备份，再执行
+docker volume inspect dustnote_data dustnote_uploads   # 确认识别
+docker volume rm dustnote_data dustnote_uploads         # 删除卷（含 db + 附件）
+# 若 compose 用 bind mount 到 ./data，则改为：
+#   rm -rf ./data   （先 cp -r data data-backup 留底）
+```
+
+**② systemd 裸机部署**
+
+```bash
+sudo systemctl stop dustnote
+sudo systemctl disable dustnote
+# 清数据（数据目录，见 /opt/dustnote/.env 的 DATABASE_FILE 与 uploads 路径）
+rm -rf /opt/dustnote/data /opt/dustnote/uploads   # 先留底
+# 移除服务单元
+sudo rm /etc/systemd/system/dustnote.service && sudo systemctl daemon-reload
+# 移除代码目录（可选，保留 .env 以便重装复用密钥）
+rm -rf /opt/dustnote
+```
+
+**③ 本地开发（pnpm dev）**
+
+```bash
+# 停 dev server（Ctrl+C 或 pkill）
+# 清 dev 数据（client 本地 IndexedDB 与 server dev 目录）
+rm -rf .tmp/dustnote/*.db*   # dev 用的 SQLite 与 WAL
+# 浏览器端 IndexedDB 需在各浏览器 DevTools → Application → IndexedDB 手动清
+```
+
+**通用核对清单**：
+
+- [ ] 卸载前已做最后一次完整备份（§9.1 导出或 `cp -r data data-backup`）？
+- [ ] 数据卷 / 目录 / 文件已确认路径再删？
+- [ ] 清数据后启动容器/服务验证「全新初始化」是否成功？
+- [ ] `.env` 是否保留（JWT_SECRET 等）以便快速重装，还是同步删除（彻底清理）？
 
 ## 10. 高级
 

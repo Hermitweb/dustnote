@@ -65,6 +65,10 @@ jobs:
         # tokens.css / tailwind-colors.mjs，而 CI 的 docker build 是 main-only，
         # 缺口一路活到现场构建。此静态守卫在所有分支的 lint job 即拦
         run: pnpm docker:check
+      - name: Verify Docker base images are digest-pinned (format gate, no docker needed)
+        # pin-base-image-digests.mjs 生成 digest pin（需 docker 或可解析的 registry）；
+        # 本门禁不依赖 docker，拦「手改回浮动 tag / 提交前忘跑 pin-digests」的回归
+        run: pnpm docker:pins
       - name: Verify nginx security headers survive add_header inheritance
         # nginx 的 add_header 不继承：某 location 一旦自己写过任意 add_header
         # （哪怕只是 Cache-Control），父级整套安全头就静默消失。线上实测到 /api/
@@ -117,6 +121,17 @@ jobs:
         run: pnpm sw:check
       - name: Verify README badge version matches package.json
         run: pnpm readme:check
+      - name: Check error-text library (ERR-004 gate)
+        # 2026-10-17 补：verify 有 19 条门禁，CI lint 此前只映射 17 条，
+        # 缺 errtext:check（client-core 文案库漂移）与 build:site（官网构建烟雾测试）。
+        # 文案库漂移与官网构建失败此前只在本地 verify 才响。
+        run: pnpm errtext:check
+      - name: Build site (smoke test — build only, no publish)
+        # 官网 vite build 不经过 turbo 的包级 build 门禁：构建失败（资源缺失、
+        # 死链、依赖损坏）此前在本地 verify 才暴露。构建到 site/dist 并断言 index.html 存在。
+        run: |
+          pnpm build:site
+          test -f site/dist/index.html || { echo "site/dist/index.html 缺失"; exit 1; }
 
   typecheck:
     name: TypeScript Type Check

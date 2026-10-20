@@ -256,7 +256,7 @@ export const createOfflineSlice: StateCreator<StoreState, [], [], OfflineSlice> 
  * 3. 无冲突：自动 re-PATCH 合并结果（用 server version）
  * 4. 有冲突：应用 merged 作为暂存态 + 推到 pendingConflicts
  */
-async function handleNoteConflict(
+export async function handleNoteConflict(
   op: import('../offline-queue').QueuedOp,
   err: ApiException
 ): Promise<void> {

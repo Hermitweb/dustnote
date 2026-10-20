@@ -8,7 +8,7 @@
  * - deleteFolder：级联删除后代，避免 parent_id 悬空，笔记 folder_id 置空
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import type { Database as DatabaseType } from 'better-sqlite3';
 
@@ -80,8 +80,19 @@ afterAll(() => {
   testDb.close();
 });
 
+beforeEach(() => {
+  testDb.exec('DELETE FROM notes');
+  testDb.exec('DELETE FROM folders');
+});
+
 // 必须在 vi.mock 之后导入，才能拿到 mock 后的 getDb
-import { resolveFolderMeta, createFolder, deleteFolder, collectDescendantIds } from './folders.js';
+import {
+  resolveFolderMeta,
+  createFolder,
+  deleteFolder,
+  updateFolder,
+  collectDescendantIds,
+} from './folders.js';
 
 describe('resolveFolderMeta（纯逻辑）', () => {
   it('顶层缺省分支为 null（无预设分支，由用户自由创建）', () => {
@@ -176,5 +187,103 @@ describe('collectDescendantIds', () => {
     seedFolder('Z', 'Y', 3, 'work');
     const ids = collectDescendantIds(testDb, 'X', 'user-1');
     expect(ids.sort()).toEqual(['Y', 'Z']);
+  });
+});
+
+describe('updateFolder', () => {
+  const U1 = 'aaaaaaaa-0000-4000-8000-000000000001';
+  const U2 = 'aaaaaaaa-0000-4000-8000-000000000002';
+  const U3 = 'aaaaaaaa-0000-4000-8000-000000000003';
+  const UP = 'aaaaaaaa-0000-4000-8000-000000000004';
+
+  it('改 name + icon → 200 + 行更新', () => {
+    seedFolder(U1, null, 1, null);
+    const res = mockRes();
+    updateFolder(mockReq({ name: 'new-name', icon: 'star' }, { id: U1 }), res as never);
+    expect(res.statusCode).toBe(200);
+    const row = testDb.prepare('SELECT name, icon FROM folders WHERE id=?').get(U1) as any;
+    expect(row.name).toBe('new-name');
+    expect(row.icon).toBe('star');
+  });
+
+  it('改 parentId（合法）→ 继承 depth/branch', () => {
+    seedFolder(UP, null, 1, 'work');
+    seedFolder(U2, null, 1, 'work');
+    const res = mockRes();
+    updateFolder(mockReq({ parentId: UP }, { id: U2 }), res as never);
+    expect(res.statusCode).toBe(200);
+    const row = testDb
+      .prepare('SELECT parent_id, depth, branch FROM folders WHERE id=?')
+      .get(U2) as any;
+    expect(row.parent_id).toBe(UP);
+    expect(row.depth).toBe(2);
+    expect(row.branch).toBe('work');
+  });
+
+  it('parentId=self → 400 parent_is_self', () => {
+    seedFolder(U3, null, 1, null);
+    const res = mockRes();
+    updateFolder(mockReq({ parentId: U3 }, { id: U3 }), res as never);
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toMatchObject({ error: 'parent_is_self' });
+  });
+
+  it('parentId=descendant → 400 parent_is_descendant', () => {
+    seedFolder(U1, null, 1, null);
+    seedFolder(U2, U1, 2, null);
+    const res = mockRes();
+    updateFolder(mockReq({ parentId: U2 }, { id: U1 }), res as never);
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toMatchObject({ error: 'parent_is_descendant' });
+  });
+
+  it('depth 超限 → 400 folder_depth_exceeded', () => {
+    seedFolder(U1, null, 1, 'b');
+    seedFolder(U2, U1, 2, 'b');
+    seedFolder(U3, U2, 2, 'b'); // parent=U2(depth2) → newDepth=3 超限
+    const res = mockRes();
+    updateFolder(mockReq({ parentId: U2 }, { id: U3 }), res as never);
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toMatchObject({ error: 'folder_depth_exceeded' });
+  });
+
+  it('顶层改 branch（parent_id=null）→ 更新 branch', () => {
+    seedFolder(U1, null, 1, null);
+    const res = mockRes();
+    updateFolder(mockReq({ branch: 'personal' }, { id: U1 }), res as never);
+    expect(res.statusCode).toBe(200);
+    const row = testDb.prepare('SELECT branch FROM folders WHERE id=?').get(U1) as any;
+    expect(row.branch).toBe('personal');
+  });
+
+  it('目标不存在 → 404 not_found', () => {
+    const res = mockRes();
+    updateFolder(mockReq({ name: 'x' }, { id: U2 }), res as never);
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toMatchObject({ error: 'not_found' });
+  });
+
+  it('缺 id → 400 missing_id', () => {
+    const res = mockRes();
+    updateFolder(mockReq({ name: 'x' }, {}), res as never);
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toMatchObject({ error: 'missing_id' });
+  });
+});
+
+describe('deleteFolder 边界', () => {
+  const UD = 'aaaaaaaa-0000-4000-8000-000000000005';
+  it('目标不存在 → 404', () => {
+    const res = mockRes();
+    deleteFolder(mockReq({}, { id: UD }), res as never);
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toMatchObject({ error: 'not_found' });
+  });
+
+  it('缺 id → 400 missing_id', () => {
+    const res = mockRes();
+    deleteFolder(mockReq({}, {}), res as never);
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toMatchObject({ error: 'missing_id' });
   });
 });

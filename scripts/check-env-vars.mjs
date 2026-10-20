@@ -58,6 +58,16 @@ export const RUNTIME_VARS = {
   STATUS_PROBE_PLAINTEXT_URLS:
     '拨测明文收口的目标端口覆盖；只在非 80/8080 的前置代理部署或回归测试里指路',
   TZ: '容器时区，compose 里已设',
+  DUSTNOTE_NODE22: '开发/测试期变量：覆盖 node-compat 探针回退的 Node 22 路径，部署机不用',
+  APPDATA: '操作系统提供（仅 Windows）；node-compat 探针用它定位 hermes 内置 runtime',
+  NVM_HOME: '操作系统/版本管理器提供；node-compat 探针的 Node 22 候选来源之一',
+  NVM_DIR: '操作系统/版本管理器提供；node-compat 探针的 Node 22 候选来源之一',
+  FNM_DIR: '操作系统/版本管理器提供；node-compat 探针的 Node 22 候选来源之一',
+  DUSTNOTE_DOCKER_REGISTRY:
+    '开发/构建期变量：覆盖 digest 解析用的 registry 基址（国内镜像源），部署机不用',
+  DUSTNOTE_DOCKER_TOKEN_URL:
+    '开发/构建期变量：覆盖 digest 解析用的 token 端点（镜像源各有各的），部署机不用',
+  DUSTNOTE_DOCKER_SERVICE: '开发/构建期变量：覆盖 digest 解析用的 token service 参数，部署机不用',
 };
 
 /**
@@ -157,7 +167,11 @@ export function collect() {
     const files = [];
     for (const d of sc.dirs || []) walk(d, files);
     for (const f of sc.files || []) files.push(f);
-    const picked = sc.fileFilter ? files.filter(sc.fileFilter) : files;
+    // 测试文件里的 env 名（如 config.test.ts 的 KEY_ALREADY 夹具）是测试代码，
+    // 不是运行时 env 依赖，豁免；避免假阳性把测试夹具报成「代码读了但清单没登记」。
+    const picked = files
+      .filter((f) => !/\.test\.[cmjs]*[jt]s$/.test(f))
+      .filter((f) => (sc.fileFilter ? sc.fileFilter(f) : true));
     const used = new Map();
     for (const f of picked) {
       let text;

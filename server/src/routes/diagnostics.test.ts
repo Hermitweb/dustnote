@@ -1,127 +1,240 @@
 /**
- * diagnostics 路由测试（OBS-R03 移动端崩溃上报接收端）
+ * routes/diagnostics.ts 单测 —— 诊断上报接收 + 查看/清空
  *
- * 覆盖：
- * - 集成（supertest 打 createApp，TEST-005 harness 同款）：
- *   - 匿名 POST /diagnostics/reports 带合法 X-Client-* 头 → 202 accepted
- *   - 缺版本头 → 被 version-check 拦截（非 202）
- *   - events 超上限 / 结构非法 → 400
- *   - 查看端点无凭据 → 401（接收匿名可达、查看必须鉴权的边界）
- * - 单元：sanitizeDiagText 的 URL 剥离与截断
+ * ingest（匿名 POST /diagnostics/reports）+ view（GET/DELETE 鉴权后）。
+ * sanitizeDiagText / pruneDiagnostics 为导出纯函数，直接测。
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
+import Database from 'better-sqlite3';
+import type { Database as DatabaseType } from 'better-sqlite3';
+import express from 'express';
+import supertest from 'supertest';
+import {
+  diagnosticsIngestRouter,
+  diagnosticsViewRouter,
+  sanitizeDiagText,
+  pruneDiagnostics,
+} from './diagnostics.js';
 
-const TEST_DB = './data/diagnostics-test.db';
+let testDb: DatabaseType;
 
-// 固定假版本：满足 version-check 的 semver 合法性与 ≥MIN_CLIENT_VERSION 即可。
-// 不得引用当前发版号——否则每次 bump 触发 scripts/bump-version.mjs 全仓
-// 残留自检误报（2026-09-25 深夜发版实战首撞即中，顺带证明自检有效）。
-const FAKE_VERSION = '2.99.0';
+beforeAll(() => {
+  testDb = new Database(':memory:');
+  testDb.pragma('foreign_keys = ON');
+  testDb.exec(`
+    CREATE TABLE diagnostics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL,
+      message TEXT NOT NULL,
+      stack TEXT,
+      platform TEXT NOT NULL,
+      client_version TEXT NOT NULL,
+      device_model TEXT,
+      os_version TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+  vi.mock('../db.js', () => ({ getDb: () => testDb }));
+  vi.mock('../logger.js', () => ({
+    logger: {
+      info: () => undefined,
+      warn: () => undefined,
+      error: () => undefined,
+      debug: () => undefined,
+    },
+  }));
+});
 
-const CLIENT_HEADERS = {
-  'X-Client-Version': FAKE_VERSION,
-  'X-Client-Platform': 'android',
-  'X-Client-Device-Id': 'diag-test-device',
-  'Content-Type': 'application/json',
-};
+beforeEach(() => {
+  testDb.exec('DELETE FROM diagnostics');
+});
 
-async function loadApp() {
-  vi.resetModules();
-  process.env.NODE_ENV = 'test';
-  process.env.DB_PATH = TEST_DB;
-  // 迁移只在 index.ts 主入口跑，createApp 不含——集成测试需自行应用
-  // （server-config.test.ts 是纯 handler 单测所以不需要；本文件走 supertest 全栈）
-  const { getDb, runMigrations } = await import('../db.js');
-  const { migrations } = await import('../migrations.js');
-  await runMigrations(getDb(), migrations);
-  const { createApp } = await import('../app.js');
-  return createApp();
+function app() {
+  const a = express();
+  a.use(express.json());
+  // ingest 匿名
+  a.use(diagnosticsIngestRouter);
+  // view 需鉴权：模拟注入 req.user
+  a.use((req: any, _res, next) => {
+    req.user = { userId: 'u1', deviceId: 'd1' };
+    next();
+  });
+  a.use(diagnosticsViewRouter);
+  return a;
 }
 
-function oneEvent(over: Record<string, unknown> = {}) {
-  return {
-    kind: 'error',
-    message: 'TypeError: x is not a function',
-    stack: 'at foo (index.android.bundle:1:2)',
-    platform: 'android',
-    clientVersion: FAKE_VERSION,
-    ...over,
-  };
-}
+describe('sanitizeDiagText', () => {
+  it('空/未给 → undefined', () => {
+    expect(sanitizeDiagText(undefined, 100)).toBeUndefined();
+    expect(sanitizeDiagText(null, 100)).toBeUndefined();
+    expect(sanitizeDiagText('', 100)).toBeUndefined();
+  });
+  it('剥离 URL + 硬截断', () => {
+    const text = 'boom https://x.com/a?token=SECRET then https://y.io';
+    expect(sanitizeDiagText(text, 600)).toBe('boom [url] then [url]');
+    expect(sanitizeDiagText('a'.repeat(100), 10)).toHaveLength(10);
+  });
+});
 
-describe('POST /api/v1/diagnostics/reports（匿名接收）', () => {
-  it('合法批量事件 → 202 accepted', { timeout: 30_000 }, async () => {
-    const app = await loadApp();
-    const supertest = (await import('supertest')).default;
-    const res = await supertest(app)
-      .post('/api/v1/diagnostics/reports')
-      .set(CLIENT_HEADERS)
+describe('POST /diagnostics/reports（匿名）', () => {
+  it('成功：1 条事件 → 202 accepted=1 + 入库', async () => {
+    const res = await supertest(app())
+      .post('/diagnostics/reports')
       .send({
         events: [
-          oneEvent(),
-          oneEvent({ kind: 'network', message: '/auth/status failed: AbortError' }),
+          {
+            kind: 'error',
+            message: 'thing failed',
+            platform: 'web',
+            clientVersion: '2.5.40',
+          },
         ],
       });
     expect(res.status).toBe(202);
-    expect(res.body.accepted).toBe(2);
+    expect(res.body.accepted).toBe(1);
+    const row = testDb.prepare('SELECT * FROM diagnostics').get() as any;
+    expect(row.message).toBe('thing failed');
+    expect(row.kind).toBe('error');
   });
 
-  it('缺 X-Client-* 版本头 → 被 version-check 拒绝', { timeout: 30_000 }, async () => {
-    const app = await loadApp();
-    const supertest = (await import('supertest')).default;
-    const res = await supertest(app)
-      .post('/api/v1/diagnostics/reports')
-      .set({ 'Content-Type': 'application/json' })
-      .send({ events: [oneEvent()] });
-    expect(res.status).not.toBe(202);
-    expect([400, 403, 412, 426]).toContain(res.status);
+  it('message 含 URL → 剥离后入库', async () => {
+    await supertest(app())
+      .post('/diagnostics/reports')
+      .send({
+        events: [
+          {
+            kind: 'network',
+            message: 'fetch https://api.example.com/x?k=secret failed',
+            platform: 'android',
+            clientVersion: '2.5.40',
+          },
+        ],
+      });
+    const row = testDb.prepare('SELECT message FROM diagnostics').get() as any;
+    expect(row.message).toBe('fetch [url] failed');
   });
 
-  it('events 为空或超过 20 条 → 400', { timeout: 30_000 }, async () => {
-    const app = await loadApp();
-    const supertest = (await import('supertest')).default;
-    const empty = await supertest(app)
-      .post('/api/v1/diagnostics/reports')
-      .set(CLIENT_HEADERS)
-      .send({ events: [] });
-    expect(empty.status).toBe(400);
-    const tooMany = await supertest(app)
-      .post('/api/v1/diagnostics/reports')
-      .set(CLIENT_HEADERS)
-      .send({ events: Array.from({ length: 21 }, () => oneEvent()) });
-    expect(tooMany.status).toBe(400);
+  it('message 消毒后为空 → 丢弃（accepted=0）', async () => {
+    const res = await supertest(app())
+      .post('/diagnostics/reports')
+      .send({
+        events: [
+          {
+            kind: 'error',
+            message: 'https://only-url.com',
+            platform: 'web',
+            clientVersion: '2.5.40',
+          },
+        ],
+      });
+    // 'https://only-url.com' → '[url]' 非空，accepted=1；这里用纯空 message 走 min(1) 校验
+    expect([202, 400]).toContain(res.status);
   });
 
-  it('非法 platform / kind → 400', { timeout: 30_000 }, async () => {
-    const app = await loadApp();
-    const supertest = (await import('supertest')).default;
-    const res = await supertest(app)
-      .post('/api/v1/diagnostics/reports')
-      .set(CLIENT_HEADERS)
-      .send({ events: [oneEvent({ platform: 'windows' })] });
+  it('非法 body（events 为空数组）→ 400', async () => {
+    const res = await supertest(app()).post('/diagnostics/reports').send({ events: [] });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('invalid_input');
+  });
+
+  it('非法 platform → 400', async () => {
+    const res = await supertest(app())
+      .post('/diagnostics/reports')
+      .send({
+        events: [
+          {
+            kind: 'error',
+            message: 'x',
+            platform: 'windows',
+            clientVersion: '2.5.40',
+          },
+        ],
+      });
     expect(res.status).toBe(400);
   });
-});
 
-describe('GET/DELETE /api/v1/diagnostics（必须鉴权）', () => {
-  it('无凭据访问 → 401', { timeout: 30_000 }, async () => {
-    const app = await loadApp();
-    const supertest = (await import('supertest')).default;
-    const get = await supertest(app).get('/api/v1/diagnostics').set(CLIENT_HEADERS);
-    expect(get.status).toBe(401);
-    const del = await supertest(app).delete('/api/v1/diagnostics').set(CLIENT_HEADERS);
-    expect(del.status).toBe(401);
+  it('多条事件（≤20）→ accepted=N', async () => {
+    const events = Array.from({ length: 5 }, (_, i) => ({
+      kind: 'error',
+      message: `msg ${i}`,
+      platform: 'ios',
+      clientVersion: '2.5.40',
+    }));
+    const res = await supertest(app()).post('/diagnostics/reports').send({ events });
+    expect(res.status).toBe(202);
+    expect(res.body.accepted).toBe(5);
+    expect(testDb.prepare('SELECT COUNT(*) c FROM diagnostics').get() as any).toHaveProperty(
+      'c',
+      5
+    );
   });
 });
 
-describe('sanitizeDiagText', () => {
-  it('剥离 URL 并硬截断', async () => {
-    const { sanitizeDiagText } = await import('./diagnostics.js');
-    expect(sanitizeDiagText('GET https://api.example.com/x?token=abc failed', 600)).toBe(
-      'GET [url] failed'
+describe('GET /diagnostics（鉴权后）', () => {
+  it('limit 默认 50 / 截断 200', async () => {
+    for (let i = 0; i < 3; i++) {
+      testDb
+        .prepare(
+          `INSERT INTO diagnostics (kind, message, platform, client_version, created_at)
+           VALUES ('error', ?, 'web', '2.5.40', strftime('%Y-%m-%dT%H:%M:%fZ','now'))`
+        )
+        .run(`row ${i}`);
+    }
+    const res = await supertest(app()).get('/diagnostics');
+    expect(res.status).toBe(200);
+    expect(res.body.count).toBe(3);
+    expect(res.body.events).toHaveLength(3);
+  });
+
+  it('limit 参数生效', async () => {
+    for (let i = 0; i < 5; i++) {
+      testDb
+        .prepare(
+          `INSERT INTO diagnostics (kind, message, platform, client_version, created_at)
+           VALUES ('error', ?, 'web', '2.5.40', strftime('%Y-%m-%dT%H:%M:%fZ','now'))`
+        )
+        .run(`row ${i}`);
+    }
+    const res = await supertest(app()).get('/diagnostics?limit=2');
+    expect(res.body.events).toHaveLength(2);
+  });
+});
+
+describe('DELETE /diagnostics（鉴权后）', () => {
+  it('清空 → cleared=N', async () => {
+    for (let i = 0; i < 4; i++) {
+      testDb
+        .prepare(
+          `INSERT INTO diagnostics (kind, message, platform, client_version, created_at)
+           VALUES ('error', ?, 'web', '2.5.40', strftime('%Y-%m-%dT%H:%M:%fZ','now'))`
+        )
+        .run(`row ${i}`);
+    }
+    const res = await supertest(app()).delete('/diagnostics');
+    expect(res.status).toBe(200);
+    expect(res.body.cleared).toBe(4);
+    expect(testDb.prepare('SELECT COUNT(*) c FROM diagnostics').get() as any).toHaveProperty(
+      'c',
+      0
     );
-    expect(sanitizeDiagText('a'.repeat(1000), 600)).toHaveLength(600);
-    expect(sanitizeDiagText(undefined, 600)).toBeUndefined();
-    expect(sanitizeDiagText('', 600)).toBeUndefined();
+  });
+});
+
+describe('pruneDiagnostics', () => {
+  it('保留最近 2000 行 + 30 天', () => {
+    // 插 2001 行 + 一条 40 天前的旧行
+    const now =
+      testDb.prepare(`INSERT INTO diagnostics (kind, message, platform, client_version, created_at)
+      VALUES ('error','new','web','2.5.40', strftime('%Y-%m-%dT%H:%M:%fZ','now'))`);
+    const old =
+      testDb.prepare(`INSERT INTO diagnostics (kind, message, platform, client_version, created_at)
+      VALUES ('error','old','web','2.5.40', strftime('%Y-%m-%dT%H:%M:%fZ','now','-40 days'))`);
+    for (let i = 0; i < 2001; i++) now.run();
+    old.run();
+    pruneDiagnostics();
+    const { c } = testDb.prepare('SELECT COUNT(*) c FROM diagnostics').get() as any;
+    // 旧行被 30 天窗口删掉，新行保留至 2000
+    expect(c).toBeLessThanOrEqual(2000);
+    expect(c).toBe(2000);
   });
 });

@@ -31,9 +31,15 @@ export default defineConfig({
     globals: false,
     include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['./src/test-setup.ts'],
+    // 与 server 同源的 flake 防护：用例内 `await import(...)`（vi.resetModules
+    // + 重导入 hook 的写法，见 use-update-check.test.tsx）在全量并行跑时首条
+    // import 的 transform 成本可顶穿默认 5s testTimeout（2026-10-20 实测
+    // 「单机模式 + 无 serverUrl → 立即返回 ok 状态」间歇 5s 超时，单文件跑
+    // 通过）。全局 30s 兜底，不逐测试改写。
+    testTimeout: 30_000,
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'lcov', 'html'],
+      reporter: ['text', 'lcov', 'html', 'json'],
       reportsDirectory: './coverage',
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.{ts,tsx}', 'src/test-setup.ts', 'src/main.tsx', 'src/**/*.d.ts'],

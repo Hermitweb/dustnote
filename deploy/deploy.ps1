@@ -78,7 +78,9 @@ if (Test-Path ".env") {
     Info "检测到已存在 .env，跳过生成（如需重置请删除后重跑）"
 } else {
     Info "生成 .env 配置…"
-    $Version = "2.5.34"
+    # 兜底值：优先读部署包根的 package.json（下方动态获取），失败才用此兜底。
+    # 修复历史：此前硬编码 2.5.34 已陈旧，包内无 package.json 时会静默落陈旧兜底。
+    $Version = "2.5.54"
     if (Test-Path "package.json") {
         try {
             $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json

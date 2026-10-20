@@ -109,8 +109,24 @@
    - 磁盘满 → 清理旧备份（调度自带 30 份滚动保留）
    - 数据卷迁移后忘改权限 → 见 DEPLOY.md 跨版本升级流程
 4. 修复后核对 backups 目录出现当日 `db-*.sqlite`
-5. **恢复演练（建议每季度一次）**：取最近一份备份,在隔离环境启动容器指向该
-   文件,验证 unlock + 笔记列表可正常返回
+5. **异地备份（推荐，防单机全损）**：本机备份卷与 server 同盘，主机硬件全损会连备份一起丢。
+   启用 `deploy/monitoring/backup-cloud.mjs` 的定时任务，把每日备份推到 GCP 桶
+   （service account 最小权限，见 `key-management-runbook.md` §4）：
+   ```bash
+   BACKUP_SERVICE_ACCOUNT_FILE=/etc/dustnote/backup-sa.json \
+   GCS_BUCKET=gs://your-bucket/backups \
+   node scripts/backup-cloud.mjs
+   ```
+   恢复：从 GCS 拉回最近一份 `db-*.sqlite` 放回 `data/`，走本章节 1-4 步。
+6. **恢复演练（建议每季度一次）+ 记录**：取最近一份备份（含异地副本），在隔离环境
+   启动容器指向该文件，验证 unlock + 笔记列表可正常返回。演练结果记入下方台账。
+
+| 演练日期     | 备份来源 | 耗时 | 通过项 | 异常与处置 | 记录人 |
+| ------------ | -------- | ---- | ------ | ---------- | ------ |
+| （首次填写） |          |      |        |            |        |
+
+> 演练台账是本章节的「可问责证据」：没有记录过的恢复 = 没验证过的恢复。
+> 异地副本与本机副本**必须各演练一次**（不同失败域）。
 
 ### 4.4 同步大面积失败
 
@@ -199,6 +215,10 @@ staging 环境（独立域名）跑：
 | 带宽       | 10Mbps     | 20Mbps     | 50Mbps      | > 70% 升级 |
 | 数据库大小 | 50MB       | 200MB      | 500MB       | > 1GB 评估 |
 
+> **数据库大小备注（LIFE-022）**：server 内置 `backup-scheduler` 自动维护——WAL 每次备份前 checkpoint、
+> VACUUM 每约 7 日一次，故大量删除后主库会物理变小，无需手动 VACUUM。库增长主要由附件驱动。
+> 紧急回收：`docker exec dustnote node -e "require('better-sqlite3')('/app/server/data/dustnote.db').exec('VACUUM')"`。
+
 ## 9. 安全事件响应
 
 详见 [security-model.md](./security-model.md)
@@ -218,6 +238,23 @@ staging 环境（独立域名）跑：
 宿主:
 └── /opt/dustnote-downloads/       # 发版产物(exe/apk),update-manifest 动态算 sha256
 ```
+
+### 10.1 监控栈（已落地，未在本手册部署说明）
+
+`deploy/monitoring/` 提供 Grafana + Prometheus + Alertmanager 栈（主仓 compose 只带 `dustnote` 服务）。
+启用方式（与主 server 同机部署）：
+
+```bash
+cd deploy/monitoring
+# 1) 改 monitoring.env（默认 Grafana admin 是占位，必须换强口令）
+# 2) 启动监控栈（仅监控，不动主 server）
+docker compose -f docker-compose.monitoring.yml up -d
+# 3) 验证：http://<host>:9090（Prometheus）/ :3000（Grafana）/ :9093（Alertmanager）
+# 4) 告警路由到飞书 webhook（alertmanager.yml 已预配置）
+```
+
+> 监控栈的 Prometheus 抓 `dustnote:3210/metrics`（server 已暴露 Prometheus 端点）。
+> 详细部署与变量见 `deploy/monitoring/README.md`。
 
 **备份一致性提取**（容器内无 sqlite3 CLI,直接 cp 主库文件只有 4KB——数据在 WAL）：
 

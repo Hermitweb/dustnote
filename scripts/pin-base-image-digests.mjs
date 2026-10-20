@@ -4,8 +4,17 @@
  *
  * 把 Dockerfile / docker-compose.yml 里的浮动 tag（node:22-alpine、caddy:2-alpine）
  * 改写为 `tag@sha256:<manifest-list 摘要>`，锁死上游镜像内容——tag 被重指时
- * 构建结果不会静默漂移。需要本机有 docker（脚本用 docker buildx imagetools
- * 解析多架构 manifest list 摘要）。
+ * 构建结果不会静默漂移。
+ *
+ * 解析 digest 有两条路，按序尝试：
+ *   1. docker buildx imagetools inspect（需本机 docker）
+ *   2. Registry HTTP API（纯 HTTP，无需 docker）——CI 镜像与无 docker 的开发机都能用
+ *
+ * 第 2 条走标准 Docker Hub token 流程；若目标在镜像源（如国内 daocloud 等），
+ * 用环境变量覆盖端点：
+ *   DUSTNOTE_DOCKER_REGISTRY   registry 基址，如 https://registry-1.docker.io
+ *   DUSTNOTE_DOCKER_TOKEN_URL  token 端点，如 https://auth.docker.io/token
+ *   DUSTNOTE_DOCKER_SERVICE    token service 参数，默认 registry.docker.io
  *
  * 用法：
  *   pnpm pin-digests            # 解析并写回
@@ -19,6 +28,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
+const REGISTRY = process.env.DUSTNOTE_DOCKER_REGISTRY ?? 'https://registry-1.docker.io';
+const TOKEN_URL = process.env.DUSTNOTE_DOCKER_TOKEN_URL ?? 'https://auth.docker.io/token';
+const SERVICE = process.env.DUSTNOTE_DOCKER_SERVICE ?? 'registry.docker.io';
+
 /** 目标：文件 → 需要固定的镜像引用（同一 tag 在所有文件里写成同一 digest） */
 const TARGETS = [
   { file: 'Dockerfile', kind: 'dockerfile' },
@@ -29,7 +42,10 @@ const TARGETS = [
 /** 需要固定的镜像（tag 形式，不含 digest） */
 const IMAGES = ['node:22-alpine', 'caddy:2-alpine'];
 
-function resolveDigest(image) {
+const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
+
+/** 走 docker 的两条命令。 */
+function resolveDigestViaDocker(image) {
   const attempts = [
     ['buildx', ['buildx', 'imagetools', 'inspect', image, '--format', '{{.Manifest.Digest}}']],
     ['manifest', ['manifest', 'inspect', '--verbose', image]],
@@ -42,30 +58,101 @@ function resolveDigest(image) {
       })
         .trim()
         .split('\n')[0];
-      if (/^sha256:[0-9a-f]{64}$/.test(out)) return out;
+      if (DIGEST_RE.test(out)) return out;
       if (name === 'manifest') {
         // manifest inspect --verbose 输出 JSON，取顶层 Descriptor.digest
         const parsed = JSON.parse(out);
         const digest = Array.isArray(parsed)
           ? parsed[0]?.Descriptor?.digest
           : parsed?.Descriptor?.digest;
-        if (typeof digest === 'string' && /^sha256:[0-9a-f]{64}$/.test(digest)) return digest;
+        if (typeof digest === 'string' && DIGEST_RE.test(digest)) return digest;
       }
     } catch {
       /* 尝试下一种方式 */
     }
   }
-  throw new Error(
-    `无法解析 ${image} 的 digest。请确认本机已安装 docker 且能访问镜像仓库（docker login / 代理），` +
-      '或临时保留浮动 tag（不安全但可用）。'
-  );
+  return null;
+}
+
+/** 把 `node:22-alpine` 拆成 registry 路径（Docker Hub 的官方镜像带 library/ 前缀）。 */
+function splitImage(image) {
+  const at = image.indexOf('@');
+  const withoutDigest = at >= 0 ? image.slice(0, at) : image;
+  const colon = withoutDigest.lastIndexOf(':');
+  const name = colon >= 0 ? withoutDigest.slice(0, colon) : withoutDigest;
+  const tag = colon >= 0 ? withoutDigest.slice(colon + 1) : 'latest';
+  const repo = name.includes('/') ? name : `library/${name}`;
+  return { repo, tag };
+}
+
+/**
+ * 走 Registry HTTP API 解析 digest（无需 docker）。
+ *
+ * 关键点：必须带 index/manifest list 的 Accept 头，否则 registry 会回退到
+ * schema v1 单架构 manifest——那是**另一个** digest，pin 上去与 docker buildx
+ * 解析出的结果不一致。
+ */
+async function resolveDigestViaRegistry(image) {
+  const { repo, tag } = splitImage(image);
+  const scope = `repository:${repo}:pull`;
+
+  const tokenUrl = `${TOKEN_URL}?service=${encodeURIComponent(SERVICE)}&scope=${encodeURIComponent(scope)}`;
+  const tokenRes = await fetch(tokenUrl, { signal: AbortSignal.timeout(30_000) });
+  if (!tokenRes.ok) {
+    throw new Error(`token 端点返回 ${tokenRes.status}：${tokenUrl}`);
+  }
+  const tokenJson = await tokenRes.json();
+  const token = tokenJson.token ?? tokenJson.access_token;
+  if (!token) throw new Error(`token 端点未返回 token：${tokenUrl}`);
+
+  const manifestUrl = `${REGISTRY.replace(/\/$/, '')}/v2/${repo}/manifests/${tag}`;
+  const manifestRes = await fetch(manifestUrl, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: [
+        'application/vnd.oci.image.index.v1+json',
+        'application/vnd.docker.distribution.manifest.list.v2+json',
+        'application/vnd.oci.image.manifest.v1+json',
+        'application/vnd.docker.distribution.manifest.v2+json',
+      ].join(','),
+    },
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!manifestRes.ok) {
+    throw new Error(`manifest 请求返回 ${manifestRes.status}：${manifestUrl}`);
+  }
+  const digest = manifestRes.headers.get('docker-content-digest');
+  if (!digest || !DIGEST_RE.test(digest)) {
+    throw new Error(`响应头缺 Docker-Content-Digest：${manifestUrl}`);
+  }
+  return digest;
+}
+
+/** 先 docker，后 Registry API。 */
+async function resolveDigest(image) {
+  const viaDocker = resolveDigestViaDocker(image);
+  if (viaDocker) return { digest: viaDocker, via: 'docker' };
+
+  const viaRegistry = await resolveDigestViaRegistry(image);
+  return { digest: viaRegistry, via: 'registry-api' };
 }
 
 const digests = new Map();
 for (const image of IMAGES) {
-  const digest = resolveDigest(image);
-  digests.set(image, digest);
-  console.log(`✓ ${image} → ${digest}`);
+  let resolved;
+  try {
+    resolved = await resolveDigest(image);
+  } catch (err) {
+    throw new Error(
+      `无法解析 ${image} 的 digest（${err.message}）。\n` +
+        '  · 有 docker 时：确认 docker 可用且能访问镜像仓库（docker login / 代理）\n' +
+        '  · 无 docker 时：确认能访问 registry（国内网络可设 DUSTNOTE_DOCKER_REGISTRY / ' +
+        'DUSTNOTE_DOCKER_TOKEN_URL 指向镜像源）\n' +
+        '  · 或临时保留浮动 tag（不安全但可用）。'
+    );
+  }
+  digests.set(image, resolved.digest);
+  console.log(`✓ ${image} → ${resolved.digest}  [${resolved.via}]`);
 }
 
 if (DRY_RUN) {

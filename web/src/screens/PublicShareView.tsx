@@ -37,7 +37,7 @@ type State =
     };
 
 /** 从 URL fragment 取出 shareKey；链接被截断（少了 `#…`）时返回 null */
-function readShareKey(): Uint8Array | null {
+export function readShareKey(): Uint8Array | null {
   const raw = location.hash.replace(/^#/, '').trim();
   if (!raw) return null;
   try {

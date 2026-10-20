@@ -50,6 +50,31 @@ export interface QueuedOp {
 export const MAX_RETRIES = 8;
 
 /**
+ * 队列容量上限（v2.5.54 新增，P0-5）：长期断网 + 持续操作会无界入队，
+ * 撑爆 IndexedDB 配额后 save() 抛 QuotaExceededError 不可逆。
+ * 条数上限约束内存，字节上限约束持久化体积。
+ */
+export const MAX_QUEUE_OPS = 500;
+export const MAX_QUEUE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+/** 入队超容量错误：调用方应 catch 并提示用户「本地待同步队列已满」，降级为仅在线或丢弃最旧。 */
+export class OfflineQueueFullError extends Error {
+  constructor(limit: number, current: number) {
+    super(`Offline queue full: ${current} >= cap ${limit}`);
+    this.name = 'OfflineQueueFullError';
+  }
+}
+
+/** 估算单条 op 的持久化体积（JSON 化字节数，含 id/createdAt 元数据） */
+function opByteSize(op: QueuedOp): number {
+  try {
+    return JSON.stringify(op).length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * 指数退避延迟：delay = min(30s, 1s * 2^attempt) + 随机抖动（0~500ms）
  */
 export function getRetryDelay(attempt: number): number {
@@ -184,6 +209,14 @@ export class OfflineQueue {
   /** 入队 */
   async enqueue(op: Omit<QueuedOp, 'id' | 'createdAt' | 'retries'>): Promise<QueuedOp> {
     const queue = await this.ensureLoaded();
+    // P0-5 容量上限：条数或字节超限即拒绝入队，避免无界撑爆 IndexedDB 配额。
+    if (queue.length >= MAX_QUEUE_OPS) {
+      throw new OfflineQueueFullError(MAX_QUEUE_OPS, queue.length);
+    }
+    const totalBytes = queue.reduce((s, o) => s + opByteSize(o), 0);
+    if (totalBytes + opByteSize(op as QueuedOp) > MAX_QUEUE_BYTES) {
+      throw new OfflineQueueFullError(MAX_QUEUE_BYTES, totalBytes);
+    }
     const full: QueuedOp = {
       ...op,
       id: genId(),

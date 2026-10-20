@@ -1,7 +1,7 @@
 # DustNote 兼容性矩阵
 
 > 适用版本：v2.5.x
-> 更新日期：2026-09-19
+> 更新日期：2026-10-17 · 对齐当前发版形态（版本戳示例用占位符，不随发版改写）
 
 ## 0. 双模式架构（v2.0.0 新增）
 
@@ -63,7 +63,8 @@ DustNote v2.0.0 引入**单机/联机双模式架构**。两种模式对各端�
 | Fedora   | 38+          | ⚠️ 待硬件 | .AppImage / .rpm                              |
 | Arch     | 最新         | ⚠️ 待硬件 | .AppImage / AUR                               |
 
-> macOS / Linux 桌面构建需对应硬件，CI 已配置 `continue-on-error: true`，待后续发布。
+> macOS / Linux 桌面构建需对应硬件 runner（Tauri 交叉编译限制），CI 已配置 `continue-on-error: true`。
+> 源码侧全端代码已就绪（`pnpm -r` 五端共享），仅构建产物随硬件 runner 可用性发布。
 
 ## 3. 移动端
 

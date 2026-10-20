@@ -117,10 +117,13 @@ templatesRouter.patch('/templates/:id', (req, res) => {
     return;
   }
   const db = getDb();
-  // 确认是当前用户的自定义模板（非预设）
+  // 既能匹配自己的私有模板，也能匹配预设模板（user_id IS NULL）
+  // ——之前只匹配 user_id = ? 时，预设模板总是被误判 404。
   const existing = db
-    .prepare('SELECT is_preset FROM templates WHERE id = ? AND user_id = ?')
-    .get(id, user.userId) as { is_preset: number } | undefined;
+    .prepare(
+      'SELECT is_preset, user_id FROM templates WHERE id = ? AND (user_id = ? OR is_preset = 1)'
+    )
+    .get(id, user.userId) as { is_preset: number; user_id: string | null } | undefined;
   if (!existing) {
     res.status(404).json({ error: 'not_found' });
     return;
@@ -170,8 +173,10 @@ templatesRouter.delete('/templates/:id', (req, res) => {
   }
   const db = getDb();
   const existing = db
-    .prepare('SELECT is_preset FROM templates WHERE id = ? AND user_id = ?')
-    .get(id, user.userId) as { is_preset: number } | undefined;
+    .prepare(
+      'SELECT is_preset, user_id FROM templates WHERE id = ? AND (user_id = ? OR is_preset = 1)'
+    )
+    .get(id, user.userId) as { is_preset: number; user_id: string | null } | undefined;
   if (!existing) {
     res.status(404).json({ error: 'not_found' });
     return;

@@ -177,16 +177,38 @@ export const fireEvent = {
       el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     });
   },
-  change(el: HTMLInputElement, value: string): void {
+  /**
+   * input 赋值：走原生 setter 触发 React onChange。
+   * React 18 受控 input 内部依赖 input value 的 getter/setter tracker，
+   * 直接 el.value = x 不会触发我们的 onChange callback——必须用原型链 setter。
+   *
+   * 第二参必须是**纯字符串**。历史上有些用例误传 `{ target: { value } }`
+   * （testing-library 风格），setter 会把整个对象写进 el.value，
+   * 控件实际拿到 "[object Object]"——断言照样能过，但行为完全没被测到。
+   * select 同样走原型链 setter，故签名里一并接受 HTMLSelectElement。
+   */
+  change(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string): void {
     act(() => {
-      el.value = value;
+      const proto = Object.getPrototypeOf(el);
+      const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+      if (setter) setter.call(el, value);
+      else el.value = value;
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
     });
   },
-  keyDown(el: HTMLElement | Window, key: string): void {
+  keyDown(el: HTMLElement | Window, key: string, opts?: KeyboardEventInit): void {
     act(() => {
-      el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, ...opts }));
+    });
+  },
+  /**
+   * form 提交：默认 requestSubmit() 在 jsdom 里可能未实现；这里直接派 submit 事件，
+   * 让 React 18 的 onSubmit 合成事件触发。
+   */
+  submit(form: HTMLFormElement): void {
+    act(() => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     });
   },
   async clickAsync(el: HTMLElement): Promise<void> {

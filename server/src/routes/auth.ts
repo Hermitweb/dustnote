@@ -149,15 +149,32 @@ interface UserRow {
   kdf_params: string;
 }
 
+/**
+ * 加载当前唯一用户。优雅处理「库未迁移 / 库空」两种情况——返回 undefined，
+ * 上层据此返回 404 not_initialized，而不是抛 SqliteError: no such table → 500。
+ *
+ * 注意：所有路径上的 SQL 都假定迁移已执行（生产由 index.ts 启动时保证）；
+ * 这里只是给「测试夹具 / 备份还原中途 / 数据库被替换」一类边界场景兜底，
+ * 让 auth 公开端点不会因为元数据缺失变成 5xx。
+ */
 function loadUser(): UserRow | undefined {
-  return getDb()
-    .prepare(
-      `SELECT id, pw_salt, rc_salt, auth_hash, recovery_auth_hash,
-              wrapped_master_key_pw, wrapped_master_key_rc,
-              failed_attempts, locked_until, totp_secret, totp_enabled, totp_last_counter, kdf_params
-       FROM users WHERE auth_hash IS NOT NULL ORDER BY id LIMIT 1`
-    )
-    .get() as UserRow | undefined;
+  try {
+    return getDb()
+      .prepare(
+        `SELECT id, pw_salt, rc_salt, auth_hash, recovery_auth_hash,
+                wrapped_master_key_pw, wrapped_master_key_rc,
+                failed_attempts, locked_until, totp_secret, totp_enabled, totp_last_counter, kdf_params
+         FROM users WHERE auth_hash IS NOT NULL ORDER BY id LIMIT 1`
+      )
+      .get() as UserRow | undefined;
+  } catch (err) {
+    if (err instanceof Error && /no such table/i.test(err.message)) {
+      // 库未初始化 / 表缺失 → 当作「系统未初始化」
+      logger.warn({ err: err.message }, 'auth 公开端点遇到未初始化库，按未注册处理');
+      return undefined;
+    }
+    throw err;
+  }
 }
 
 /** 注册设备或刷新其活跃时间 */

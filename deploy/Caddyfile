@@ -2,6 +2,11 @@
 # 将 {$DOMAIN} 替换为你的域名（通过环境变量 DOMAIN 传入）
 # Caddy 仅负责 TLS 终结 + 反代到 dustnote:8080（一体化 nginx；
 # 审计 SEC-008 后容器内 nginx 用非特权端口 8080，容器内不再有 root 进程）
+#
+# 选型说明（Caddy vs deploy/nginx.conf）：
+#   - 想用 Caddy 自动 HTTPS（Let's Encrypt 零配置）→ 用本文件；
+#   - 想手工管证书 / 需要复杂 nginx 特性（限流、多 location）→ 用 deploy/nginx.conf。
+#   两者等价二选一，不要同时挂（都占 :443）。
 
 {$DOMAIN} {
 	# 一体化容器内 nginx 已处理 web 静态（SPA fallback）+ /api/ 反代 + 安全头

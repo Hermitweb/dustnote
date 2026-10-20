@@ -2,6 +2,13 @@
 
 > 本文档记录**有意保留**的安全取舍与信任边界，供自托管者评估与后续维护者参考。
 > 漏洞报告流程见仓库根 `SECURITY.md`；部署运维见 `DEPLOY.md` 与 `operations-runbook.md`。
+>
+> **修订记录（2026-10-17 同步）**：
+>
+> - 更新链路信任根（manifest）的最终硬化路径 → [`update-signing-runbook.md`](./update-signing-runbook.md)
+>   （minisign 验签 + Windows/macOS 代码签名，消除「服务器被攻破即投毒」短板）。
+> - 运行期密钥（JWT_SECRET / argon2 pepper / 数据库加密 KEK / GCP 备份账号）的保管、轮换、
+>   失窃应急 → [`key-management-runbook.md`](./key-management-runbook.md)。
 
 ## 1. 信任边界总览
 

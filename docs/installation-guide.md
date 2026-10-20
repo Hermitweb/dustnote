@@ -1,6 +1,7 @@
 # DustNote 安装与卸载指南
 
-> 版本：v2.5.40 | 更新日期：2026-09-19
+> 本文档中安装包文件名、版本号均使用 `<版本>` 占位符（实际构建产物名见 GitHub Releases / 自托管服务器 `/downloads/` 目录）。
+> 更新日期：2026-10-17（桌面端自 v2.5.26 起走自建更新清单 + 自托管下载链）
 
 本文档详细说明 DustNote 在各平台的安装、卸载和自动更新流程。
 
@@ -51,10 +52,10 @@ NSIS 安装包支持标准静默参数：
 
 ```powershell
 # 完全静默安装（默认当前用户模式）
-.\DustNote_2.5.40_x64-setup.exe /S
+.\DustNote_<版本>_x64-setup.exe /S
 
 # 静默安装到自定义目录（注意：/D= 必须是最后一个参数，路径不加引号）
-.\DustNote_2.5.40_x64-setup.exe /S /D=D:\Apps\DustNote
+.\DustNote_<版本>_x64-setup.exe /S /D=D:\Apps\DustNote
 ```
 
 > 常用参数：`/S` 静默；`/D=<目录>` 自定义路径（必须放在最后）；全机安装需以管理员身份运行。
@@ -274,7 +275,13 @@ Chrome → 设置 → 隐私和安全 → 清除浏览数据 → 缓存的图片
 docker-compose up -d
 ```
 
-服务端默认运行在 `http://localhost:3210`。
+容器内 server 监听 3210，宿主侧默认映射到 `http://localhost:8080`（由 `docker-compose.yml` 的 `PORT` 变量控制，`127.0.0.1:8080` 起步，可配 8080/443）。
+
+> **`-Cn` 行为差异（deploy.ps1 vs deploy.sh）**：
+>
+> - `deploy.ps1 -Cn`（Windows）：仅**打印** Docker 镜像加速建议（`registry-mirrors`），不自动改 `daemon.json`；npm 国内源切换需手动。
+> - `deploy.sh -Cn`（Linux）：会写 Docker `daemon.json` + 切 npm/apk 源（路径更激进）。
+>   国内 Windows 用户若 npm install 慢，请手动把 `deploy/deploy.ps1` 内 npm 源切到 `npmmirror.com`。
 
 ---
 
@@ -302,10 +309,6 @@ Service Worker 自动管理缓存更新：
 1. 发布新版本后，SW_VERSION 变更触发缓存更新
 2. 用户下次访问时自动加载新版本
 3. 前端检测到 SW 更新后提示用户刷新
-
-### Android
-
-Android 端通过设置 → 检查更新功能检查 GitHub Releases 上的新版本 APK。
 
 ---
 

@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import type { Database as DatabaseType } from 'better-sqlite3';
+import type { Response } from 'express';
 
 // vi.mock 工厂会被提升到文件顶部,引用的变量必须经 vi.hoisted 创建
 const { envState } = vi.hoisted(() => ({
@@ -17,8 +18,12 @@ const { envState } = vi.hoisted(() => ({
 
 let testDb: DatabaseType;
 
-function mockRes() {
-  return {
+/** 假 Response：生产函数要的是完整 express Response，这里用交叉类型
+ *  既满足 express 签名，又保留测试断言用的 statusCode / body 字段。 */
+type MockResponse = Response & { statusCode: number; body: unknown };
+
+function mockRes(): MockResponse {
+  const res = {
     statusCode: 200,
     body: undefined as unknown,
     status(code: number) {
@@ -30,6 +35,7 @@ function mockRes() {
       return this;
     },
   };
+  return res as unknown as MockResponse;
 }
 
 beforeAll(() => {

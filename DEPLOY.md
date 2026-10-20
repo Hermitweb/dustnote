@@ -676,6 +676,20 @@ docker cp ./dustnote-backup-2026-07-26.db dustnote:/app/server/data/dustnote.db
 docker compose start dustnote
 ```
 
+#### 9.3.1 库增长与 VACUUM 说明（LIFE-022）
+
+server 进程内置 `backup-scheduler` 会**自动维护 SQLite**（`server/src/services/backup-scheduler.ts`）：
+
+- **WAL checkpoint**：每次备份前执行 `PRAGMA wal_checkpoint(TRUNCATE)`，把 WAL 收缩回主库，防止 `.db-wal` 无界增长；
+- **VACUUM**：每 7 次备份（约 7 日）执行一次 `VACUUM`，物理回收软删 / 已删记录占用的页空间，使 `dustnote.db` 在删除大量笔记后**真正变小**而非只标空闲页；
+- 维护失败仅告警，不影响服务运行。
+
+**容量规划影响**：
+
+- 大量删除后若磁盘占用未降，是 VACUUM 还没到周期所致，无需手动干预；紧急回收可 `docker exec dustnote node -e "require('better-sqlite3')('/app/server/data/dustnote.db').exec('VACUUM')"`；
+- 库体积长期增长以「附件」（`data/uploads/`）为主，SQLite 主库增长受 VACUUM 约束；
+- 监控见 `deploy/monitoring/`（Grafana 看板有 db size 曲线，建议设 1GB 阈值告警）。
+
 **从内置加密备份（`.enc`）恢复**（默认产物是加密的，需先解密）：
 
 ```bash

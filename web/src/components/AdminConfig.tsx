@@ -22,7 +22,7 @@ import {
 
 /** apiBase 形状校验：允许相对路径（同源部署）或 http(s) 绝对地址。
  *  返回错误 key（i18n），null = 合法。 */
-function validateApiBase(v: string): string | null {
+export function validateApiBase(v: string): string | null {
   const s = v.trim();
   if (!s) return 'admin.validate_empty';
   if (s.endsWith('/')) return 'admin.validate_trailing_slash';

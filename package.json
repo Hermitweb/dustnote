@@ -1,6 +1,6 @@
 {
   "name": "dustnote",
-  "version": "2.5.53",
+  "version": "2.5.54",
   "private": true,
   "description": "DustNote · 尘渊笔记 - 极简跨端个人笔记系统",
   "license": "MIT",
@@ -34,6 +34,7 @@
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "pin-digests": "node scripts/pin-base-image-digests.mjs",
+    "docker:pins": "node scripts/check-docker-pins.mjs",
     "docker:check": "node scripts/check-docker-context.mjs && node scripts/check-compose-ports.mjs",
     "security:headers": "node scripts/check-security-headers.mjs",
     "action:pins": "node scripts/check-action-pins.mjs",
@@ -47,7 +48,7 @@
     "test:e2e": "playwright test",
     "test:e2e:local": "playwright test --config=playwright.local.config.ts",
     "bump": "node scripts/bump-version.mjs",
-    "verify": "pnpm typecheck && pnpm lint && pnpm lint:scripts && pnpm format:check && pnpm test && pnpm test:monitoring && pnpm docker:check && pnpm tokens:check && pnpm security:headers && pnpm action:pins && pnpm docs:check && pnpm ui:check && pnpm env:check && pnpm workflows:check && pnpm api:check && pnpm i18n:check && pnpm sw:check && pnpm readme:check && pnpm errtext:check && pnpm build:site",
+    "verify": "pnpm typecheck && pnpm lint && pnpm lint:scripts && pnpm format:check && pnpm test && pnpm test:monitoring && pnpm docker:check && pnpm tokens:check && pnpm security:headers && pnpm action:pins && pnpm docs:check && pnpm ui:check && pnpm env:check && pnpm workflows:check && pnpm api:check && pnpm i18n:check && pnpm sw:check && pnpm readme:check && pnpm errtext:check && pnpm build:site && pnpm docker:pins",
     "clean": "pnpm -r exec rm -rf dist build .turbo node_modules/.cache",
     "audit": "pnpm audit --prod",
     "prepare": "node -e \"try{require('husky').install()}catch(_){}\"",
@@ -124,7 +125,8 @@
       "compression@<1.8.2": "1.8.2",
       "source-map-js@<1.2.2": "1.2.2",
       "shell-quote@<1.11.0": "1.11.0",
-      "tinypool@<2.1.2": "2.1.2"
+      "tinypool@<2.1.2": "2.1.2",
+      "rollup": "^4.64.8"
     },
     "onlyBuiltDependencies": [
       "@parcel/watcher",

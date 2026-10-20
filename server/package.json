@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/server",
-  "version": "2.5.53",
+  "version": "2.5.54",
   "private": true,
   "description": "DustNote 后端服务",
   "type": "module",
@@ -9,7 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "lint": "eslint src --ext .ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

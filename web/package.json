@@ -1,6 +1,6 @@
 {
   "name": "@dustnote/web",
-  "version": "2.5.53",
+  "version": "2.5.54",
   "private": true,
   "description": "DustNote Web 客户端",
   "type": "module",
@@ -19,7 +19,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview --port 4173",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b --noEmit && tsc -p tsconfig.test.json --noEmit",
     "lint": "eslint src --ext .ts,.tsx",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
@@ -62,6 +62,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "@vitest/coverage-v8": "^3.2.6",
     "autoprefixer": "^10.4.19",
+    "fake-indexeddb": "^6.2.5",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.4.0",

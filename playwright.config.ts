@@ -1,4 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import { join } from 'node:path';
+import { findRepoRoot, resolveCli, resolveNodeBin } from './e2e/node-resolver';
+
+const ROOT = findRepoRoot();
+const NODE = resolveNodeBin(ROOT);
+const TSX_CLI = resolveCli(ROOT, 'server', 'tsx/dist/cli.mjs');
+const VITE_CLI = resolveCli(ROOT, 'web', 'vite/bin/vite.js');
 
 export default defineConfig({
   testDir: './e2e',
@@ -21,13 +28,14 @@ export default defineConfig({
   webServer: [
     // 后端（联机流程用例需要真实 API；健康检查用例也据此从 skip 变 pass）
     // 用独立临时库,避免污染开发库。注意 env 必须**合并 process.env**——
-    // Playwright 的 env 是整体替换,直接传对象会丢 PATH 导致 pnpm 起不来。
-    // 也不用 tsx watch（e2e 不需要热重载,且 watch 在无 TTY 下行为不稳）
+    // Playwright 的 env 是整体替换,直接传对象会丢 PATH。
+    // 路径一律用 join 拼，避免 Windows 反斜杠在 Linux 上变成路径里的普通字符。
     {
-      command: 'pnpm --filter @dustnote/server exec tsx src/index.ts',
+      command: `"${NODE}" "${TSX_CLI}" "${join(ROOT, 'server', 'src', 'index.ts')}"`,
       url: 'http://localhost:3210/api/v1/health',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
+      cwd: join(ROOT, 'server'),
       env: {
         ...process.env,
         NODE_ENV: 'development',
@@ -38,10 +46,11 @@ export default defineConfig({
       },
     },
     {
-      command: 'pnpm --filter @dustnote/web dev',
+      command: `"${NODE}" "${VITE_CLI}" --port 5173`,
       url: 'http://localhost:5173',
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
+      cwd: join(ROOT, 'web'),
     },
   ],
 });

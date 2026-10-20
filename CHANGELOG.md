@@ -2,6 +2,69 @@
 
 本项目所有显著变更记录于此。格式基于 [Keep a Changelog](https://keepachangelog.com/)，版本遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.5.54] - 2026-10-20
+
+### 变更
+
+- **离线队列容量上限（P0-5）**：`client-core` 的 `OfflineQueue.enqueue` 新增
+  条数上限（500 条）与字节上限（5 MB）双闸——长期断网 + 持续编辑会无界入队，
+  最终撑爆 IndexedDB 配额后 `save()` 抛 `QuotaExceededError` 且不可逆。
+  超限抛 `OfflineQueueFullError`，调用方 catch 后提示「本地待同步队列已满」。
+  新增 `client-core/src/offline-queue.test.ts`（入队 / 超限 / 冲突路径）。
+- **测试基建全面下沉**：web 新增 `src/test/polyfills.ts`（fake-indexeddb +
+  Web Crypto + Worker 兜底，slice 写路径测试不再崩 jsdom），server / web 测试
+  目录补 `tsconfig.test.json`，`pnpm typecheck` 显式覆盖测试代码。
+  单测文件从 ~30 扩到 150+（server 497 / web 950 全绿），新增 fake-indexeddb
+  devDep、`fake-indexeddb` 与 `rollup` override 入根 lockfile。
+- **E2E Node 兼容探针**：`scripts/node-compat.mjs`（.sh 包装）自检当前 node
+  能否同时加载 rollup（Node 24 NAPI 崩溃）与 better-sqlite3（ABI 不匹配
+  `ERR_DLOPEN_FAILED`），不能则回退可用的 Node 22；`e2e/node-resolver.ts` 让
+  Playwright webServer 用解析出的 node bin 直起 tsx / vite（替换 `pnpm
+exec`，跨平台路径正确），新增 `e2e/notelist.spec.ts`（列表 / 搜索 / 批量删除）。
+- **CI 门禁补 2 条**：verify 共 19 条但 CI lint 只映射 17 条——补
+  `errtext:check`（文案库漂移）与 `build:site`（官网构建烟雾，断言
+  `site/dist/index.html`）。
+- **Docker digest pin 双轨**：`pin-base-image-digests.mjs` 新增 Registry HTTP
+  API 解析路径（无 docker 的 CI / 国内镜像源可跑，`DUSTNOTE_DOCKER_*` 三个
+  环境变量覆盖端点）；新增 `check-docker-pins.mjs` 门禁（不依赖 docker 的
+  pin 形式校验）并挂进 `pnpm verify` 与 CI lint job。本次经 daocloud 镜像
+  实际把 `Dockerfile` / `server/Dockerfile` / `docker-compose.yml` 的浮动
+  tag 钉到 digest（node:22-alpine / caddy:2-alpine，历史提交里这两处一直是
+  浮动 tag，门禁落地后首次真正 pin）。
+- **发版流水线编排**：新增 `scripts/test-orchestrate.mjs`（文档 → 静态门禁 →
+  单测 → 覆盖率门禁 → E2E → 生产冒烟，`--skip/--only/--json`），配
+  `coverage-gate.mjs`（工业级 90/90/75/80 目标）/ `prod-smoke-test.mjs`
+  （生产模式 server 起健康检查 + 端点 + 安全头）/ `check-docs-full.mjs`
+  （文档齐全性 + 版本一致性 + 链接有效性）。
+- **文档**：新增 `docs/key-management-runbook.md`（JWT / argon2 pepper /
+  DB 字段加密 KEK / GCP 备份账号的保管、轮换、失窃应急）并入 docs 索引；
+  `operations-runbook` 补异地备份（GCS）+ 恢复演练台账 + 监控栈章节；
+  `DEPLOY.md` 补库增长与 VACUUM 说明（LIFE-022）；`security-model` 修订
+  记录指向两份 runbook；安装指南改 `<版本>` 占位符 + 记录 `-Cn` 的
+  deploy.ps1/deploy.sh 行为差异；`deployment-guide` 文档对齐 v2.5.53
+  形态（一体化 compose 内置 healthcheck）。
+
+### 修复
+
+- **预设模板误判 404**：`PATCH/DELETE /templates/:id` 原先只匹配
+  `user_id = ?`，预设模板（`user_id IS NULL`）永远 404——条件改为
+  `user_id = ? OR is_preset = 1`。
+- **未初始化库时 auth 端点 5xx**：`loadUser` 遇 `no such table`（备份还原
+  中途 / 库被替换）优雅返回 undefined → 404 not_initialized，不再抛
+  `SqliteError` 500。
+- **deploy.ps1 兜底版本陈旧**：包内无 `package.json` 时静默落到 2.5.34，
+  兜底值与注释同步刷新。
+- **测试 flake 根治（全量并行跑顶穿 5s testTimeout）**：大量用例走
+  `await import(...)` 动态加载（server 的 loadModule 模式、web 的
+  vi.resetModules + 重导入），全量并行跑时首次 import 的 transform 成本
+  在本机实测可达 200s+，间歇性顶穿 vitest 默认 5s（2026-10-20 发版前
+  实测：server `update-manifest` 4/16 用例、`notes` 1 条，web
+  `use-update-check` 1 条；单文件跑均 <5s 通过）——`server/` 与 `web/`
+  的 `vitest.config.ts` 全局 `testTimeout: 30_000` 兜底，不逐测试改写。
+- **`check-env-vars.mjs` 假阳性**：测试夹具里的 env 名（如
+  `KEY_ALREADY`）被报成「代码读了但清单没登记」——collect 阶段豁免
+  `.test.*` 文件。
+
 ## [2.5.53] - 2026-10-11
 
 ### 变更

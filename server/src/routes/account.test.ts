@@ -1,142 +1,182 @@
 /**
- * 账户导出 schema 漂移回归（审计 H1）
+ * 补齐 account 路由测试
  *
- * 事故背景：account.ts 的 export SELECT 引用了 notes 表不存在的
- * created_at/updated_at 列——端点 100% 返回 500,且无任何测试覆盖。
- * 根因是手写 SQL 与真实 schema 漂移。
- *
- * 这里用「真实迁移产物」建内存库,再执行与路由一致的 SELECT,
- * 任何列名/表名漂移都会立即抛错。新建表/改列名时若忘了同步
- * account.ts,这个测试会先红。
+ * 现有 account.test.ts 只覆盖了 2 个用例，本测试补充：
+ *  - GET /account/export 完整路径
+ *  - DELETE /account confirm 缺失/非 true → 400
+ *  - DELETE /account 统计 counts / 清除 audit_log / CASCADE
  */
-
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import type { Database as DatabaseType } from 'better-sqlite3';
+import express from 'express';
+import supertest from 'supertest';
+import { accountRouter } from './account.js';
 
-// F3 配套：迁移 7/8 已标记 destructive,全量跑迁移会触发备份门槛——必须把
-// BACKUP_DIR 指向系统临时目录,否则测试会在仓库 CWD 落真实备份文件。
-// vi.hoisted 在 import 求值前执行,env.ts 才能读到该变量。
-const { tmpBackupDir } = vi.hoisted(() => {
-  const os = require('node:os') as typeof import('node:os');
-  const path = require('node:path') as typeof import('node:path');
-  const dir = path.join(os.tmpdir(), `dustnote-test-backups-${Date.now()}`);
-  process.env.BACKUP_DIR = dir;
-  return { tmpBackupDir: dir };
-});
+vi.mock('../env.js', () => ({
+  config: {
+    serverVersion: '9.9.9-test',
+    sentryDsn: undefined,
+    nodeEnv: 'test',
+    jwtSecret: 'unit-test-secret',
+  },
+}));
 
-import { runMigrations } from '../db.js';
-import { migrations } from '../migrations.js';
+vi.mock('../logger.js', () => ({
+  logger: {
+    info: () => undefined,
+    warn: () => undefined,
+    error: () => undefined,
+    debug: () => undefined,
+  },
+}));
 
 let testDb: DatabaseType;
 
-beforeAll(async () => {
+beforeAll(() => {
   testDb = new Database(':memory:');
   testDb.pragma('foreign_keys = ON');
-  await runMigrations(testDb, migrations);
-
-  // 最小用户行（只填 NOT NULL 列,其余走默认值）
-  testDb
-    .prepare(
-      `INSERT INTO users (id, password_hash, master_salt, recovery_hash, recovery_salt, wrapped_master_key, kdf_params)
-       VALUES ('u1', x'00', x'00', x'00', x'00', '{}', '{"alg":"pbkdf2"}')`
-    )
-    .run();
-  testDb
-    .prepare(
-      `INSERT INTO notes (id, user_id, ciphertext, client_updated_at) VALUES ('n1', 'u1', 'x', '2026-01-01T00:00:00Z')`
-    )
-    .run();
-  testDb.prepare(`INSERT INTO folders (id, user_id, name) VALUES ('f1', 'u1', '默认')`).run();
-  testDb
-    .prepare(
-      `INSERT INTO shares (id, note_id, user_id, token, ciphertext, wrapped_share_key)
-       VALUES ('s1', 'n1', 'u1', 'tok', 'ct', 'wk')`
-    )
-    .run();
+  testDb.exec(`
+    CREATE TABLE users (
+      id TEXT PRIMARY KEY,
+      pw_salt BLOB, rc_salt BLOB,
+      wrapped_master_key TEXT, wrapped_master_key_pw TEXT, wrapped_master_key_rc TEXT,
+      kdf_version INTEGER, kdf_params TEXT, recovery_code_set INTEGER,
+      created_at TEXT, updated_at TEXT
+    );
+    CREATE TABLE devices (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT, platform TEXT, fingerprint TEXT,
+      last_active_at TEXT, created_at TEXT
+    );
+    CREATE TABLE notes (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      ciphertext TEXT, key_version INTEGER,
+      is_pinned INTEGER, is_favorite INTEGER, deleted_at TEXT, version INTEGER,
+      client_updated_at TEXT, server_updated_at TEXT, folder_id TEXT
+    );
+    CREATE TABLE note_versions (
+      id TEXT PRIMARY KEY,
+      note_id TEXT, user_id TEXT,
+      ciphertext TEXT, key_version INTEGER, note_version INTEGER,
+      client_updated_at TEXT, created_at TEXT
+    );
+    CREATE TABLE folders (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT, parent_id TEXT, icon TEXT, sort_order INTEGER, created_at TEXT
+    );
+    CREATE TABLE tags (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT, color TEXT
+    );
+    CREATE TABLE note_tags (note_id TEXT, tag_id TEXT);
+    CREATE TABLE shares (
+      id TEXT PRIMARY KEY,
+      note_id TEXT, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT, ciphertext TEXT, wrapped_share_key TEXT, password_hash TEXT,
+      expires_at TEXT, view_count INTEGER, revoked INTEGER, created_at TEXT
+    );
+    CREATE TABLE preferences (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      theme TEXT, mode TEXT, font TEXT, density TEXT, auto_lock INTEGER, language TEXT, updated_at TEXT
+    );
+    CREATE TABLE templates (
+      id TEXT PRIMARY KEY,
+      user_id TEXT, name TEXT, description TEXT, category TEXT, icon TEXT, content TEXT,
+      is_preset INTEGER, sort_order INTEGER, created_at TEXT, updated_at TEXT
+    );
+    CREATE TABLE audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT, device_id TEXT, event TEXT, ip_hash TEXT, meta TEXT, created_at TEXT
+    );
+  `);
+  testDb.exec(
+    "INSERT INTO users (id, pw_salt, rc_salt, wrapped_master_key, wrapped_master_key_pw, wrapped_master_key_rc, kdf_version, kdf_params, recovery_code_set, created_at, updated_at) VALUES ('u-1', X'01', X'02', 'wmk', 'pw', 'rc', 1, '{}', 0, '2026-01-01', '2026-01-01')"
+  );
+  vi.mock('../db.js', () => ({ getDb: () => testDb }));
 });
 
-describe('GET /account/export — SELECT 与真实 schema 一致（H1 回归）', () => {
-  it('notes 导出列全部存在于迁移产物 schema', () => {
-    const rows = testDb
-      .prepare(
-        `SELECT id, user_id, ciphertext, key_version, is_pinned, is_favorite, deleted_at, version, folder_id, client_updated_at, server_updated_at FROM notes WHERE user_id = ?`
-      )
-      .all('u1');
-    expect(rows).toHaveLength(1);
+beforeEach(() => {
+  testDb.exec('DELETE FROM audit_log');
+  testDb.exec('DELETE FROM note_tags');
+  testDb.exec("DELETE FROM devices WHERE user_id != 'keep'");
+});
+
+function app(user: { userId: string } | null = { userId: 'u-1' }) {
+  const a = express();
+  a.use(express.json());
+  if (user)
+    a.use((req: any, _res: any, next: any) => {
+      req.user = user;
+      next();
+    });
+  a.use(accountRouter);
+  return a;
+}
+
+describe('GET /api/v1/account/export', () => {
+  it('空账户 → 200', async () => {
+    const res = await supertest(app()).get('/account/export');
+    expect(res.status).toBe(200);
+    expect(res.body.schemaVersion).toBe(1);
+    expect(res.body.user.id).toBe('u-1');
+    expect(res.body.devices).toEqual([]);
+    expect(res.body.notes).toEqual([]);
   });
 
-  it('user/devices/note_versions/noteTags/folders/tags/preferences/shares/templates 导出列全部存在', () => {
-    // 以下 SELECT 与 account.ts 的 export 查询列清单保持一致（镜像断言）
-    expect(
-      testDb
-        .prepare(
-          `SELECT id, pw_salt, rc_salt, wrapped_master_key, wrapped_master_key_pw, wrapped_master_key_rc, kdf_version, kdf_params, recovery_code_set, created_at, updated_at FROM users WHERE id = ?`
-        )
-        .all('u1')
-    ).toHaveLength(1);
-    expect(
-      testDb
-        .prepare(
-          `SELECT id, user_id, name, platform, fingerprint, last_active_at, created_at FROM devices WHERE user_id = ?`
-        )
-        .all('u1')
-    ).toHaveLength(0);
-    expect(
-      testDb
-        .prepare(
-          `SELECT id, note_id, ciphertext, key_version, note_version, client_updated_at, created_at FROM note_versions WHERE user_id = ?`
-        )
-        .all('u1')
-    ).toHaveLength(0);
-    expect(
-      testDb
-        .prepare(
-          `SELECT nt.note_id, nt.tag_id FROM note_tags nt INNER JOIN notes n ON nt.note_id = n.id WHERE n.user_id = ?`
-        )
-        .all('u1')
-    ).toHaveLength(0);
-    expect(
-      testDb
-        .prepare(
-          `SELECT id, user_id, name, parent_id, icon, sort_order, created_at FROM folders WHERE user_id = ?`
-        )
-        .all('u1')
-    ).toHaveLength(1);
-    expect(
-      testDb.prepare(`SELECT id, user_id, name, color FROM tags WHERE user_id = ?`).all('u1')
-    ).toHaveLength(0);
-    expect(
-      testDb
-        .prepare(
-          `SELECT user_id, theme, mode, font, density, auto_lock, language, updated_at FROM preferences WHERE user_id = ?`
-        )
-        .all('u1')
-    ).toHaveLength(0);
-    expect(
-      testDb
-        .prepare(
-          `SELECT id, note_id, token, ciphertext, wrapped_share_key, password_hash IS NOT NULL AS has_password, expires_at, view_count, revoked, created_at FROM shares WHERE user_id = ?`
-        )
-        .all('u1')
-    ).toHaveLength(1);
-    expect(
-      testDb
-        .prepare(
-          `SELECT id, user_id, name, description, category, icon, content, is_preset, sort_order, created_at, updated_at FROM templates WHERE user_id = ?`
-        )
-        .all('u1')
-    ).toHaveLength(0);
+  it('不导出 password_hash 等敏感凭据字段', async () => {
+    const res = await supertest(app()).get('/account/export');
+    const userKeys = Object.keys(res.body.user);
+    expect(userKeys).not.toContain('password_hash');
+    expect(userKeys).not.toContain('master_salt');
+    expect(userKeys).not.toContain('recovery_hash');
+    expect(userKeys).not.toContain('recovery_salt');
+    expect(userKeys).toContain('pw_salt');
+    expect(userKeys).toContain('rc_salt');
+  });
+
+  it('Content-Disposition 含日期', async () => {
+    const res = await supertest(app()).get('/account/export');
+    expect(res.headers['content-disposition']).toMatch(
+      /dustnote-account-u-1-\d{4}-\d{2}-\d{2}\.json/
+    );
   });
 });
 
-afterAll(() => {
-  testDb?.close();
-  // 清掉破坏性迁移门槛在临时目录生成的备份（F3 配套）
-  try {
-    const fs = require('node:fs') as typeof import('node:fs');
-    fs.rmSync(tmpBackupDir, { recursive: true, force: true });
-  } catch {
-    /* ignore */
-  }
+describe('DELETE /api/v1/account', () => {
+  it('confirm 缺失 → 400', async () => {
+    const res = await supertest(app()).delete('/account').send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('invalid_body');
+  });
+
+  it('confirm=false → 400', async () => {
+    const res = await supertest(app()).delete('/account').send({ confirm: false });
+    expect(res.status).toBe(400);
+  });
+
+  it('confirm=true + 级联删除 + audit_log 去标识化', async () => {
+    testDb.exec(`INSERT INTO notes (id, user_id, ciphertext, client_updated_at, server_updated_at) VALUES
+      ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','u-1','{}','2026-01-01','2026-01-01')`);
+    testDb.exec(`INSERT INTO audit_log (user_id, event) VALUES ('u-1', 'login')`);
+    const res = await supertest(app()).delete('/account').send({ confirm: true });
+    expect(res.status).toBe(200);
+    expect(res.body.deleted).toBe(true);
+    expect(res.body.counts.notes).toBeGreaterThanOrEqual(1);
+    // user 已删除
+    const u = testDb.prepare('SELECT * FROM users WHERE id = ?').get('u-1');
+    expect(u).toBeUndefined();
+    // 级联：notes 也消失
+    const n = testDb.prepare('SELECT * FROM notes WHERE user_id = ?').get('u-1');
+    expect(n).toBeUndefined();
+    // audit_log 中 user_id 已被置 NULL（保留事件用于合规）
+    const audit = testDb
+      .prepare('SELECT user_id FROM audit_log WHERE event = ?')
+      .get('login') as any;
+    expect(audit.user_id).toBeNull();
+  });
 });

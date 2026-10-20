@@ -60,6 +60,8 @@ const VERSION_FILES = [
   'web/public/sw.js',
   'deploy/deploy.sh',
   'deploy/install.sh',
+  'deploy/deploy.ps1', // Windows 部署脚本的兜底 $Version（2.5.53 修复时手工引入，2.5.54 收编进清单随发版刷新）
+  'docs/installation-guide.md', // 版本戳示例 <版本> 占位，随发版刷新（2.5.53 修复：防漏更）
 ];
 
 // 不变量（把 v2.5.47 那次"发版把状态页刷成假绿"固化成会响的断言）：

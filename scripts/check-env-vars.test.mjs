@@ -74,7 +74,9 @@ test('真实仓库：两个部署面都与清单双向一致', () => {
   const scopes = collect();
   assert.equal(scopes.length, 2, '应有主栈与监控栈两个面');
   for (const sc of scopes) {
-    assert.ok(sc.files.length >= 5, sc.name + ' 扫到的文件太少：' + sc.files.length);
+    // 监控栈（deploy/monitoring）豁免 .test 文件后只剩 4 个非 test 文件；
+    // 主栈文件多，仍 ≥5。统一断言 ≥4，监控栈本就该文件少。
+    assert.ok(sc.files.length >= 4, sc.name + ' 扫到的文件太少：' + sc.files.length);
     assert.ok(sc.used.size >= 3, sc.name + ' 读到的变量太少，多半是解析失效');
     assert.ok(sc.declared.size >= 3, sc.name + ' 清单太短，manifest 读到了吗');
     const missing = [...sc.used.keys()].filter(
