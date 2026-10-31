@@ -2,17 +2,17 @@
 
 <!-- status-probe:start -->
 
-> 最近拨测：2026-10-31 03:41 UTC · 🟢 全部通过 · 期望版本 v2.5.54
+> 最近拨测：2026-10-31 11:33 UTC · 🟢 全部通过 · 期望版本 v2.5.54
 
 **当前状态：🟢 正常** — 线上 **v2.5.54**（探针判定，非人工声明）
 
 | 探测项 | 结果 | 耗时 | HTTP | 说明 |
 | --- | --- | --- | --- | --- |
-| health | ✅ | 679ms | 200 |  |
-| update-manifest | ✅ | 229ms | 200 |  |
-| web | ✅ | 47ms | 200 |  |
-| csp-page | ✅ | 46ms | 200 |  |
-| share-api | ✅ | 50ms | 404 |  |
+| health | ✅ | 395ms | 200 |  |
+| update-manifest | ✅ | 457ms | 200 |  |
+| web | ✅ | 21ms | 200 |  |
+| csp-page | ✅ | 20ms | 200 |  |
+| share-api | ✅ | 31ms | 404 |  |
 | http-plaintext:80 | ✅ | 0ms | 301 | 明文已收口（status=301） |
 | http-plaintext:8080 | ✅ | 0ms | - | 明文不可达（该端口未对外发布）：fetch failed |
 
